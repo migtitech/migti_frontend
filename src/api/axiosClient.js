@@ -1,0 +1,96 @@
+import axios from 'axios'
+import { BASE_URL, API_VERSION, AUTH } from './endpoints'
+
+// Create axios instance
+const axiosClient = axios.create({
+  baseURL: `${BASE_URL}${API_VERSION}`,
+  timeout: 30000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// Token management
+const TOKEN_KEY = 'access_token'
+const REFRESH_TOKEN_KEY = 'refresh_token'
+
+export const getAccessToken = () => localStorage.getItem(TOKEN_KEY)
+export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY)
+export const setTokens = (accessToken, refreshToken) => {
+  localStorage.setItem(TOKEN_KEY, accessToken)
+  if (refreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken)
+  }
+}
+export const clearTokens = () => {
+  localStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(REFRESH_TOKEN_KEY)
+}
+
+// Request interceptor
+axiosClient.interceptors.request.use(
+  (config) => {
+    const token = getAccessToken()
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  },
+)
+
+// Response interceptor
+axiosClient.interceptors.response.use(
+  (response) => {
+    return response.data
+  },
+  async (error) => {
+    const originalRequest = error.config
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      try {
+        const refreshToken = getRefreshToken()
+        if (refreshToken) {
+          const response = await axios.post(`${BASE_URL}${API_VERSION}${AUTH.REFRESH_TOKEN}`, {
+            refreshToken,
+          })
+
+          const { accessToken, refreshToken: newRefreshToken } = response.data
+          setTokens(accessToken, newRefreshToken)
+
+          originalRequest.headers.Authorization = `Bearer ${accessToken}`
+          return axiosClient(originalRequest)
+        }
+      } catch (refreshError) {
+        clearTokens()
+        window.location.href = '/login'
+        return Promise.reject(refreshError)
+      }
+    }
+
+    // Format error response
+    const errorResponse = {
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message || 'An error occurred',
+      errors: error.response?.data?.errors || null,
+      data: error.response?.data || null,
+    }
+
+    return Promise.reject(errorResponse)
+  },
+)
+
+// HTTP methods
+export const api = {
+  get: (url, config = {}) => axiosClient.get(url, config),
+  post: (url, data, config = {}) => axiosClient.post(url, data, config),
+  put: (url, data, config = {}) => axiosClient.put(url, data, config),
+  patch: (url, data, config = {}) => axiosClient.patch(url, data, config),
+  delete: (url, config = {}) => axiosClient.delete(url, config),
+}
+
+export default axiosClient
