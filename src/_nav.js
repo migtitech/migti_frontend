@@ -16,6 +16,7 @@ import {
   cilUser,
   cilLayers,
   cilTags,
+  cilList,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -122,6 +123,13 @@ const _nav = [
     name: 'Suppliers',
     to: '/suppliers',
     icon: <CIcon icon={cilFactory} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'purchase', 'hod'],
+  },
+  {
+    component: CNavItem,
+    name: 'Rate Card',
+    to: '/rate-cards',
+    icon: <CIcon icon={cilList} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'purchase', 'hod'],
   },
   {
