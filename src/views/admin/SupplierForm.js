@@ -16,13 +16,14 @@ import {
   CFormLabel,
   CFormTextarea,
   CRow,
-  CSpinner,
   CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const supplierSchema = yup.object({
   name: yup.string().required('Name is required').min(2).max(100),
@@ -188,7 +189,7 @@ const SupplierForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading supplier..." />
       </div>
     )
   }

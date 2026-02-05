@@ -14,6 +14,8 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import rawQueryService from '../../services/rawQueryService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const RawQueryView = () => {
   const { id } = useParams()
@@ -41,7 +43,10 @@ const RawQueryView = () => {
       try {
         setLoading(true)
         setError('')
-        const response = await rawQueryService.getById(id)
+        const response = await withMinimumDelay(
+          () => rawQueryService.getById(id),
+          2000
+        )
         const payload =
           response?.data?.rawQuery ||
           response?.data?.data ||
@@ -61,7 +66,9 @@ const RawQueryView = () => {
   if (loading) {
     return (
       <CCard>
-        <CCardBody className="text-center py-5">Loading...</CCardBody>
+        <CCardBody>
+          <Loader message="Loading raw query..." />
+        </CCardBody>
       </CCard>
     )
   }

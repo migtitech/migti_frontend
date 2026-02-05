@@ -2,17 +2,19 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   CAlert,
+  CButton,
   CCard,
   CCardBody,
   CCardHeader,
   CForm,
-  CSpinner,
 } from '@coreui/react'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import EmployeePersonalInfoSection from './employees/EmployeePersonalInfoSection'
 import EmployeeCompanyInfoSection from './employees/EmployeeCompanyInfoSection'
 import EmployeeAssetsSection from './employees/EmployeeAssetsSection'
@@ -225,7 +227,10 @@ const EmployeeForm = () => {
       setLoading(true)
       setError('')
       try {
-        const response = await employeeService.getById(id)
+        const response = await withMinimumDelay(
+          () => employeeService.getById(id),
+          2000
+        )
         const payload =
           response?.data?.employee ||
           response?.data?.data ||
@@ -317,6 +322,7 @@ const EmployeeForm = () => {
       } else {
         await employeeService.create(payload)
       }
+      console.log("form data", payload)
       navigate('/employees')
     } catch (err) {
       setError(err?.message || 'Failed to save employee')
@@ -328,7 +334,7 @@ const EmployeeForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading employee..." />
       </div>
     )
   }
@@ -342,6 +348,13 @@ const EmployeeForm = () => {
       )}
 
       <CCard className="mb-4">
+        {/* <EmployeeFormActions
+        // submitting={submitting}
+        // isEdit={isEdit}
+        onCancel={() => navigate('/employees')}
+      /> */}
+      <CButton onClick={() => navigate('/employees')}>
+        Back to Employee</CButton>
         <CCardHeader>
           <strong>{isEdit ? 'Edit Employee' : 'Add Employee'}</strong>
         </CCardHeader>

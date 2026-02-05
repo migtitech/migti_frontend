@@ -10,13 +10,14 @@ import {
   CBadge,
   CListGroup,
   CListGroupItem,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPeople } from '@coreui/icons'
 import branchService from '../../services/branchService'
 import companyService from '../../services/companyService'
 import employeeService from '../../services/employeeService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const BranchView = () => {
   const { id } = useParams()
@@ -37,7 +38,10 @@ const BranchView = () => {
       setLoading(true)
       setError('')
       try {
-        const branchResponse = await branchService.getById(id)
+        const branchResponse = await withMinimumDelay(
+          () => branchService.getById(id),
+          2000
+        )
         const branchPayload =
           branchResponse?.data?.branch ||
           branchResponse?.data?.data ||
@@ -47,7 +51,9 @@ const BranchView = () => {
         setBranch(normalizedBranch)
 
         if (normalizedBranch?.companyId) {
-          const companyResponse = await companyService.getById(normalizedBranch.companyId)
+          const companyResponse = await companyService.getById(
+            normalizedBranch.companyId
+          )
           const companyPayload =
             companyResponse?.data?.company ||
             companyResponse?.data?.data ||
@@ -78,8 +84,8 @@ const BranchView = () => {
   if (loading) {
     return (
       <CCard>
-        <CCardBody className="text-center py-5">
-          <CSpinner color="primary" />
+        <CCardBody>
+          <Loader message="Loading branch..." />
         </CCardBody>
       </CCard>
     )

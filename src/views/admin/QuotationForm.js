@@ -16,11 +16,12 @@ import {
   CFormTextarea,
   CFormSelect,
   CRow,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 
 const quotationSchema = yup.object({
@@ -69,27 +70,34 @@ const QuotationForm = () => {
     defaultValues,
   })
 
- 
   useEffect(() => {
     if (!isEdit) return
 
-    const quotation = quotations?.find((q) => q.id === Number(id))
-    if (!quotation) return
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        await withMinimumDelay(() => Promise.resolve(), 2000)
+        const quotation = quotations?.find((q) => q.id === Number(id))
+        if (!quotation) return
 
-    setLoading(true)
-    reset({
-      queryId: quotation.queryId || '',
-      customerName: quotation.customerName || '',
-      customerEmail: quotation.customerEmail || '',
-      items: quotation.items || '',
-      totalAmount: quotation.totalAmount || '',
-      validUntil: quotation.validUntil
-        ? quotation.validUntil.split('T')[0]
-        : '',
-      notes: quotation.notes || '',
-      status: quotation.status || 'draft',
-    })
-    setLoading(false)
+        reset({
+          queryId: quotation.queryId || '',
+          customerName: quotation.customerName || '',
+          customerEmail: quotation.customerEmail || '',
+          items: quotation.items || '',
+          totalAmount: quotation.totalAmount || '',
+          validUntil: quotation.validUntil
+            ? quotation.validUntil.split('T')[0]
+            : '',
+          notes: quotation.notes || '',
+          status: quotation.status || 'draft',
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [id, isEdit, quotations, reset])
 
 
@@ -119,7 +127,7 @@ const QuotationForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading quotation..." />
       </div>
     )
   }

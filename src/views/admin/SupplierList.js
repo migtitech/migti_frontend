@@ -13,7 +13,6 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CSpinner,
   CAlert,
   CPagination,
   CPaginationItem,
@@ -22,6 +21,8 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
 import supplierService from '../../services/supplierService'
 import Filtered from '../../filtered/Filtered'
+import { Loader, ConfirmDialog } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const SupplierList = () => {
   const navigate = useNavigate()
@@ -31,16 +32,21 @@ const SupplierList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const fetchSuppliers = async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await supplierService.getAll({
-        pageNumber: page,
-        pageSize: 10,
-        search: searchTerm,
-      })
+      const res = await withMinimumDelay(
+        () =>
+          supplierService.getAll({
+            pageNumber: page,
+            pageSize: 10,
+            search: searchTerm,
+          }),
+        2000
+      )
       const data = res?.data || res
       setSuppliers(data?.suppliers || [])
       setPagination(data?.pagination || {})
@@ -58,8 +64,14 @@ const SupplierList = () => {
     return () => clearTimeout(timer)
   }, [searchTerm, page])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this supplier?')) return
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
     try {
       await supplierService.delete(id)
       fetchSuppliers()
@@ -87,9 +99,7 @@ const SupplierList = () => {
             )}
             <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
             {loading ? (
-              <div className="text-center p-4">
-                <CSpinner />
-              </div>
+              <Loader message="Loading suppliers..." />
             ) : (
               <>
                 <CTable hover responsive>
@@ -155,7 +165,7 @@ const SupplierList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(supplier._id)}
+                            onClick={() => handleDeleteClick(supplier._id)}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />
@@ -204,6 +214,16 @@ const SupplierList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Supplier?"
+        message="Are you sure you want to delete this supplier? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

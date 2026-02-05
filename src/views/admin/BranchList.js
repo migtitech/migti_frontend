@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import branchService from '../../services/branchService'
 import companyService from '../../services/companyService'
 import { getAccessToken } from '../../api/axiosClient'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { ConfirmDialog } from '../../components'
 import BranchHeader from './branches/BranchHeader'
 import BranchCards from './branches/BranchCards'
 import BranchFormModal from './branches/BranchFormModal'
@@ -16,6 +18,7 @@ const BranchList = () => {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingBranch, setEditingBranch] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const decodeTokenPayload = (token) => {
     if (!token) return null
@@ -59,7 +62,7 @@ const BranchList = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await branchService.getAll()
+      const response = await withMinimumDelay(() => branchService.getAll(), 2000)
       const list = response?.data?.branches || response?.data || []
       setBranches(list.map(normalizeId))
     } catch (err) {
@@ -111,18 +114,23 @@ const BranchList = () => {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this branch? All related users will also be deleted.')) {
-      setSubmitting(true)
-      setError('')
-      try {
-        await branchService.delete(id)
-        setBranches((prev) => prev.filter((branch) => branch.id !== id))
-      } catch (err) {
-        setError(err?.message || 'Failed to delete branch')
-      } finally {
-        setSubmitting(false)
-      }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await branchService.delete(id)
+      setBranches((prev) => prev.filter((branch) => branch.id !== id))
+    } catch (err) {
+      setError(err?.message || 'Failed to delete branch')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -172,7 +180,7 @@ const BranchList = () => {
         onAdd={() => handleOpenModal()}
         onView={(branchId) => navigate(`/branches/${branchId}`)}
         onEdit={handleOpenModal}
-        onDelete={handleDelete}
+        onDelete={handleDeleteClick}
         onViewUsers={handleViewUsers}
       />
       <BranchFormModal
@@ -183,6 +191,15 @@ const BranchList = () => {
         companies={companies}
         editingBranch={editingBranch}
         defaultValues={defaultValues}
+      />
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Branch?"
+        message="Are you sure you want to delete this branch? All related users will also be deleted."
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </>
   )

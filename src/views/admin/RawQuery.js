@@ -31,6 +31,8 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
 import rawQueryService from '../../services/rawQueryService'
 import Filtered from '../../filtered/Filtered'
+import { Loader, ConfirmDialog } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const RawQuery = () => {
   const navigate = useNavigate()
@@ -43,6 +45,7 @@ const RawQuery = () => {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingQuery, setEditingQuery] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const [formData, setFormData] = useState({
     title: '',
@@ -100,14 +103,19 @@ const RawQuery = () => {
     }
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this raw query?')) {
-      try {
-        await rawQueryService.delete(id)
-        await fetchRawQueries()
-      } catch (err) {
-        setError(err?.message || 'Failed to delete raw query')
-      }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
+    try {
+      await rawQueryService.delete(id)
+      await fetchRawQueries()
+    } catch (err) {
+      setError(err?.message || 'Failed to delete raw query')
     }
   }
 
@@ -129,12 +137,16 @@ const RawQuery = () => {
     try {
       setLoading(true)
       setError('')
-      const response = await rawQueryService.getAll({
-        pageNumber,
-        pageSize,
-        search: searchTerm,
-        ...options,
-      })
+      const response = await withMinimumDelay(
+        () =>
+          rawQueryService.getAll({
+            pageNumber,
+            pageSize,
+            search: searchTerm,
+            ...options,
+          }),
+        2000
+      )
       const payload = response?.data || {}
       setQueries(payload.rawQueries || [])
       setPagination(payload.pagination || null)
@@ -188,13 +200,14 @@ const RawQuery = () => {
                 </CTableHead>
 
                 <CTableBody>
-                  {loading && (
+                  {loading ? (
                     <CTableRow>
-                      <CTableDataCell colSpan={6} className="text-center">
-                        Loading...
+                      <CTableDataCell colSpan={6}>
+                        <Loader message="Loading raw queries..." />
                       </CTableDataCell>
                     </CTableRow>
-                  )}
+                  ) : (
+                    <>
                   {queries && queries?.map((query, index) => (
                     <CTableRow key={query._id || query.id}>
                       <CTableDataCell>{(pageNumber - 1) * pageSize + index + 1}</CTableDataCell>
@@ -237,12 +250,14 @@ const RawQuery = () => {
                       </CTableDataCell>
                     </CTableRow>
                   ))}
-                  {(!queries || queries.length === 0) && !loading && (
+                  {(!queries || queries.length === 0) && (
                     <CTableRow>
                       <CTableDataCell colSpan={6} className="text-center">
                         No raw queries found. Click "Add Raw Query" to create one.
                       </CTableDataCell>
                     </CTableRow>
+                  )}
+                    </>
                   )}
                 </CTableBody>
               </CTable>
@@ -351,6 +366,15 @@ const RawQuery = () => {
         </CForm>
       </CModal>
 
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Raw Query?"
+        message="Are you sure you want to delete this raw query? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }

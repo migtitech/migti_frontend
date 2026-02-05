@@ -17,6 +17,7 @@ const BranchView = React.lazy(() => import('./views/admin/BranchView'))
 
 // Categories
 const CategoryList = React.lazy(() => import('./views/admin/CategoryList'))
+const CategoryForm = React.lazy(() => import('./views/admin/CategoryForm'))
 
 // Brands
 const BrandList2 = React.lazy(() => import('./views/admin/BrandList'))
@@ -78,19 +79,21 @@ const routes = [
   { path: '/branches', name: 'Branches', element: BranchList, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/branches/:id', name: 'Branch Details', element: BranchView, allowedRoles: ['super_admin', 'admin', 'hod'] },
 
-  // Categories - accessible by super_admin, admin, hod
-  { path: '/categories', name: 'Categories', element: CategoryList, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // Categories - accessible by super_admin, admin, purchase, hod
+  { path: '/categories', name: 'Categories', element: CategoryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/categories/new', name: 'Add Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/categories/edit/:id', name: 'Edit Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
 
-  // Brands - accessible by super_admin, admin, hod
-  { path: '/brands', name: 'Brands', element: BrandList2, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/brands/new', name: 'Add Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/brands/edit/:id', name: 'Edit Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // Brands - accessible by super_admin, admin, purchase, hod
+  { path: '/brands', name: 'Brands', element: BrandList2, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/brands/new', name: 'Add Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/brands/edit/:id', name: 'Edit Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
 
 
   // Products - accessible by super_admin, admin, sales, finance, purchase, hod
   { path: '/products', name: 'Products', element: ProductList, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
-  { path: '/products/new', name: 'Add Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/products/edit/:id', name: 'Edit Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/products/new', name: 'Add Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/products/edit/:id', name: 'Edit Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
   { path: '/products/:id', name: 'Product Details', element: ProductView, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
 
   // Queries - accessible by super_admin, admin, sales, hod

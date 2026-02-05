@@ -30,6 +30,7 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import { ROLE_LABELS } from '../../context/AuthContext'
+import { ConfirmDialog } from '../../components'
 
 const BRANCH_ROLES = ['hod', 'sales', 'purchase', 'finance', 'delivery']
 
@@ -51,6 +52,7 @@ const BranchUserManagement = () => {
 
   const [showModal, setShowModal] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -101,10 +103,14 @@ const BranchUserManagement = () => {
     handleCloseModal()
   }
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      deleteBranchUser(id)
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (id != null) deleteBranchUser(id)
   }
 
   const getRoleBadgeColor = (role) => {
@@ -201,7 +207,7 @@ const BranchUserManagement = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(user.id)}
+                          onClick={() => handleDeleteClick(user.id)}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />
@@ -279,6 +285,16 @@ const BranchUserManagement = () => {
           </CModalFooter>
         </CForm>
       </CModal>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete User?"
+        message="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }

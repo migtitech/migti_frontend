@@ -14,7 +14,6 @@ import {
   CTableRow,
   CButton,
   CBadge,
-  CSpinner,
   CAlert,
   CImage,
   CFormSelect,
@@ -27,6 +26,8 @@ import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
 import Filtered from '../../filtered/Filtered'
+import { Loader, ConfirmDialog } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const ProductList = () => {
   const navigate = useNavigate()
@@ -36,6 +37,7 @@ const ProductList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const [filterCategory, setFilterCategory] = useState('')
   const [filterBrand, setFilterBrand] = useState('')
@@ -57,7 +59,7 @@ const ProductList = () => {
       if (filterBrand) params.brand = filterBrand
       if (filterStatus) params.status = filterStatus
 
-      const res = await productService.getAll(params)
+      const res = await withMinimumDelay(() => productService.getAll(params), 2000)
       const data = res?.data || res
       setProducts(data?.products || [])
       setPagination(data?.pagination || {})
@@ -94,8 +96,14 @@ const ProductList = () => {
     return () => clearTimeout(timer)
   }, [searchTerm, page, filterCategory, filterBrand, filterStatus])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    if (!id) return
+    setConfirmDelete({ visible: false, id: null })
     try {
       await productService.delete(id)
       fetchProducts()
@@ -209,9 +217,7 @@ const ProductList = () => {
             </CRow>
 
             {loading ? (
-              <div className="text-center p-4">
-                <CSpinner />
-              </div>
+              <Loader message="Loading products..." />
             ) : (
               <>
                 <CTable hover responsive>
@@ -289,7 +295,7 @@ const ProductList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(product._id)}
+                            onClick={() => handleDeleteClick(product._id)}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />
@@ -338,6 +344,16 @@ const ProductList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Product?"
+        message="Are you sure you want to delete this product? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

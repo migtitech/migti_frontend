@@ -25,16 +25,22 @@ import {
 } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import Filtered from '../../filtered/Filtered'
+import { ConfirmDialog } from '../../components'
 
 const QuotationList = () => {
   const navigate = useNavigate()
   const { quotations, deleteQuotation } = useData()
   const [searchTerm, setSearchTerm] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this quotation?')) {
-      deleteQuotation(id)
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (id != null) deleteQuotation(id)
   }
 
   const getStatusBadge = (status) => {
@@ -160,7 +166,7 @@ const QuotationList = () => {
                           variant="ghost"
                           size="sm"
                           title="Delete"
-                          onClick={() => handleDelete(quotation.id)}
+                          onClick={() => handleDeleteClick(quotation.id)}
                         >
                           <CIcon icon={cilTrash} />
                         </CButton>
@@ -179,6 +185,16 @@ const QuotationList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Quotation?"
+        message="Are you sure you want to delete this quotation? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

@@ -8,7 +8,6 @@ import {
   CRow,
   CButton,
   CBadge,
-  CSpinner,
   CAlert,
   CImage,
   CTable,
@@ -23,6 +22,8 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import productService from '../../services/productService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const ProductView = () => {
   const { id } = useParams()
@@ -33,8 +34,13 @@ const ProductView = () => {
 
   useEffect(() => {
     const fetchProduct = async () => {
+      setLoading(true)
+      setError('')
       try {
-        const res = await productService.getById(id)
+        const res = await withMinimumDelay(
+          () => productService.getById(id),
+          2000
+        )
         const data = res?.data || res
         setProduct(data)
       } catch (err) {
@@ -61,9 +67,11 @@ const ProductView = () => {
 
   if (loading) {
     return (
-      <div className="text-center p-5">
-        <CSpinner />
-      </div>
+      <CCard>
+        <CCardBody>
+          <Loader message="Loading product..." />
+        </CCardBody>
+      </CCard>
     )
   }
 

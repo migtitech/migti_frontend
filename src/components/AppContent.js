@@ -1,14 +1,15 @@
 import React, { Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import { CContainer, CSpinner } from '@coreui/react'
+import { CContainer } from '@coreui/react'
 
 import routes from '../routes'
 import ProtectedRoute from './ProtectedRoute'
+import Loader from './Loader/Loader'
 
 const AppContent = () => {
   return (
     <CContainer className="px-4" lg>
-      <Suspense fallback={<CSpinner color="primary" />}>
+      <Suspense fallback={<Loader message="Loading..." />}>
         <Routes>
           {routes.map((route, idx) => {
             return (

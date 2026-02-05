@@ -14,11 +14,11 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CSpinner,
   CAvatar,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { Loader } from '../../../components'
 
 const EmployeeTable = ({
   employees,
@@ -63,14 +63,12 @@ const EmployeeTable = ({
               </CAlert>
             )}
             {loading ? (
-              <div className="text-center py-4">
-                <CSpinner color="primary" />
-              </div>
+              <Loader message="Loading employees..." />
             ) : (
               <CTable hover responsive>
                 <CTableHead>
                   <CTableRow>
-                    <CTableHeaderCell>#</CTableHeaderCell>
+                    <CTableHeaderCell>SNo</CTableHeaderCell>
                     <CTableHeaderCell>Name</CTableHeaderCell>
                     <CTableHeaderCell>Email</CTableHeaderCell>
                     <CTableHeaderCell>Phone</CTableHeaderCell>

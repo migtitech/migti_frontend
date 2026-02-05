@@ -1,0 +1,1 @@
+export { withMinimumDelay } from './withMinimumDelay'

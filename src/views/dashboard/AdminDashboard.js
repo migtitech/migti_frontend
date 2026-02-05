@@ -35,6 +35,7 @@ import {
 import { useData } from '../../context/DataContext'
 import { useAuth } from '../../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
+import { ConfirmDialog } from '../../components'
 
 const AdminDashboard = () => {
   const navigate = useNavigate()
@@ -43,6 +44,7 @@ const AdminDashboard = () => {
 
   const [showModal, setShowModal] = useState(false)
   const [editingCompany, setEditingCompany] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -86,10 +88,14 @@ const AdminDashboard = () => {
     handleCloseModal()
   }
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this company? All branches will also be deleted.')) {
-      deleteCompany(id)
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (id != null) deleteCompany(id)
   }
 
   const handleViewBranches = (companyId) => {
@@ -275,6 +281,16 @@ const AdminDashboard = () => {
           </CModalFooter>
         </CForm>
       </CModal>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Company?"
+        message="Are you sure you want to delete this company? All branches will also be deleted."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }

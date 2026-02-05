@@ -11,11 +11,13 @@ import {
   CFormLabel,
   CFormTextarea,
   CFormSelect,
-  CSpinner,
   CAlert,
+  CSpinner,
 } from '@coreui/react'
 import { useNavigate, useParams } from 'react-router-dom'
 import brandService from '../../services/brandService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const BrandForm = () => {
   const navigate = useNavigate()
@@ -41,7 +43,7 @@ const BrandForm = () => {
     const fetchBrand = async () => {
       setLoading(true)
       try {
-        const res = await brandService.getById(id)
+        const res = await withMinimumDelay(() => brandService.getById(id), 2000)
         const brand = res?.data || res
 
         setFormData({
@@ -89,14 +91,14 @@ const BrandForm = () => {
   if (loading) {
     return (
       <div className="text-center py-5">
-        <CSpinner />
+        <Loader message="Loading brand..." />
       </div>
     )
   }
 
   return (
-    <CRow className="justify-content-center">
-      <CCol md={8} lg={6}>
+    <CRow>
+      <CCol xs={12}>
         <CCard>
           <CCardHeader>
             <strong>{isEdit ? 'Edit Brand' : 'Add Brand'}</strong>
@@ -110,65 +112,75 @@ const BrandForm = () => {
             )}
 
             <CForm onSubmit={handleSubmit}>
-              <div className="mb-3">
-                <CFormLabel>Brand Name *</CFormLabel>
-                <CFormInput
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                />
-              </div>
+              {/* Row 1: Brand Name + Website */}
+              <CRow className="mb-3">
+                <CCol md={6} className="mb-3 mb-md-0">
+                  <CFormLabel>Brand Name *</CFormLabel>
+                  <CFormInput
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
+                </CCol>
+                <CCol md={6}>
+                  <CFormLabel>Website</CFormLabel>
+                  <CFormInput
+                    name="website"
+                    value={formData.website}
+                    onChange={handleChange}
+                    placeholder="https://example.com"
+                  />
+                </CCol>
+              </CRow>
 
-              <div className="mb-3">
-                <CFormLabel>Website</CFormLabel>
-                <CFormInput
-                  name="website"
-                  value={formData.website}
-                  onChange={handleChange}
-                  placeholder="https://example.com"
-                />
-              </div>
+              {/* Row 2: Logo URL + Status */}
+              <CRow className="mb-3">
+                <CCol md={6} className="mb-3 mb-md-0">
+                  <CFormLabel>Logo URL</CFormLabel>
+                  <CFormInput
+                    name="logo"
+                    value={formData.logo}
+                    onChange={handleChange}
+                    placeholder="https://example.com/logo.png"
+                  />
+                </CCol>
+                <CCol md={6}>
+                  <CFormLabel>Status</CFormLabel>
+                  <CFormSelect
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </CFormSelect>
+                </CCol>
+              </CRow>
 
-              <div className="mb-3">
-                <CFormLabel>Logo URL</CFormLabel>
-                <CFormInput
-                  name="logo"
-                  value={formData.logo}
-                  onChange={handleChange}
-                  placeholder="https://example.com/logo.png"
-                />
-              </div>
-
-              <div className="mb-3">
-                <CFormLabel>Status</CFormLabel>
-                <CFormSelect
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </CFormSelect>
-              </div>
-
-              <div className="mb-3">
+              {/* Row 3: Description (full width) */}
+              <div className="mb-4">
                 <CFormLabel>Description</CFormLabel>
                 <CFormTextarea
                   name="description"
-                  rows={3}
+                  rows={4}
                   value={formData.description}
                   onChange={handleChange}
+                  placeholder="Enter brand description..."
                 />
               </div>
 
-              <div className="d-flex justify-content-end gap-2">
-                <CButton color="secondary" onClick={() => navigate('/brands')}>
+              {/* Row 4: Actions - button aligned right */}
+              <div className="d-flex justify-content-end gap-2 pt-2">
+                <CButton color="secondary" variant="outline" onClick={() => navigate('/brands')}>
                   Cancel
                 </CButton>
                 <CButton color="primary" type="submit" disabled={submitting}>
                   {submitting ? (
-                    <CSpinner size="sm" />
+                    <>
+                      <CSpinner size="sm" className="me-2" />
+                      Saving...
+                    </>
                   ) : isEdit ? (
                     'Update Brand'
                   ) : (

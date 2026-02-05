@@ -10,12 +10,13 @@ import {
   CBadge,
   CListGroup,
   CListGroupItem,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPencil, cilLocationPin } from '@coreui/icons'
 import companyService from '../../services/companyService'
 import branchService from '../../services/branchService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const CompanyView = () => {
   const { id } = useParams()
@@ -36,10 +37,14 @@ const CompanyView = () => {
       setLoading(true)
       setError('')
       try {
-        const [companyResponse, branchesResponse] = await Promise.all([
-          companyService.getById(id),
-          branchService.getAll({ companyId: id }),
-        ])
+        const [companyResponse, branchesResponse] = await withMinimumDelay(
+          () =>
+            Promise.all([
+              companyService.getById(id),
+              branchService.getAll({ companyId: id }),
+            ]),
+          2000
+        )
 
         const companyPayload =
           companyResponse?.data?.company ||
@@ -68,8 +73,8 @@ const CompanyView = () => {
   if (loading) {
     return (
       <CCard>
-        <CCardBody className="text-center py-5">
-          <CSpinner color="primary" />
+        <CCardBody>
+          <Loader message="Loading company..." />
         </CCardBody>
       </CCard>
     )

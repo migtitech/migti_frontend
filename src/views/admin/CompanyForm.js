@@ -13,11 +13,12 @@ import {
   CForm,
   CFormInput,
   CRow,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import companyService from '../../services/companyService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 // ✅ Schema mirrors CompanyList fields (no extra logic added)
 const companySchema = (isEdit = false) => yup.object({
@@ -76,7 +77,7 @@ console.log("edit id",isEdit)
       setLoading(true)
       setError('')
       try {
-        const res = await companyService.getById(id)
+        const res = await withMinimumDelay(() => companyService.getById(id), 2000)
         const data = res?.data?.company || res?.data || {}
         console.log("response", res)
         reset({
@@ -120,7 +121,7 @@ console.log("edit id",isEdit)
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading company..." />
       </div>
     )
   }

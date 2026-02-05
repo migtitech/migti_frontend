@@ -16,7 +16,6 @@ import {
   CFormTextarea,
   CFormSelect,
   CFormCheck,
-  CSpinner,
   CAlert,
   CTable,
   CTableBody,
@@ -31,6 +30,8 @@ import { cilPlus, cilTrash, cilArrowLeft } from '@coreui/icons'
 import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
 
 const numberField = (label, required = false) => {
   let schema = yup
@@ -185,7 +186,10 @@ const ProductForm = () => {
   const fetchProduct = async () => {
     setLoading(true)
     try {
-      const res = await productService.getById(id)
+      const res = await withMinimumDelay(
+        () => productService.getById(id),
+        2000
+      )
       const product = res?.data || res
       if (product) {
         reset({
@@ -396,7 +400,7 @@ const ProductForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading product..." />
       </div>
     )
   }
