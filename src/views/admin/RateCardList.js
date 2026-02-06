@@ -128,10 +128,15 @@ const RateCardList = () => {
     setModalSubmitting(true)
     setError('')
     try {
+      const payload = {
+        name: formData.productName,
+        description: formData.description,
+        status: formData.status,
+      }
       if (editingRateCard) {
-        await rateCardService.update(editingRateCard._id, formData)
+        await rateCardService.update(editingRateCard._id, payload)
       } else {
-        await rateCardService.create(formData)
+        await rateCardService.create(payload)
       }
       setModalVisible(false)
       fetchRateCards()
@@ -192,7 +197,7 @@ const RateCardList = () => {
                       >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
-                          <strong>{rc.productName}</strong>
+                          <strong>{rc.name || rc.productName}</strong>
                         </CTableDataCell>
                         <CTableDataCell>
                           {rc.description?.substring(0, 60) || '-'}

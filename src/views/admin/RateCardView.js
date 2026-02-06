@@ -191,7 +191,7 @@ const RateCardView = () => {
               >
                 <CIcon icon={cilArrowLeft} />
               </CButton>
-              <strong>{rateCard?.productName}</strong>
+              <strong>{rateCard?.name || rateCard?.productName}</strong>
               {rateCard?.status && (
                 <CBadge color={rateCard.status === 'active' ? 'success' : 'secondary'}>
                   {rateCard.status}
