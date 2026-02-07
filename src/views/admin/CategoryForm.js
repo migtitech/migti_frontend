@@ -103,8 +103,9 @@ const CategoryForm = () => {
     setError('')
 
     try {
+      const { categoryCode, ...rest } = formData
       const payload = {
-        ...formData,
+        ...rest,
         sortOrder: parseInt(formData.sortOrder, 10) || 0,
         parent: formData.parent || null,
       }

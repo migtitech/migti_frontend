@@ -12,11 +12,13 @@ import {
   cilDollar,
   cilPeople,
   cilFactory,
+  cilIndustry,
   cilBell,
   cilUser,
   cilLayers,
   cilTags,
   cilList,
+  cilMap,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -55,6 +57,20 @@ const _nav = [
     to: '/branches',
     icon: <CIcon icon={cilLocationPin} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'hod'],
+  },
+  {
+    component: CNavItem,
+    name: 'Areas',
+    to: '/areas',
+    icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'hod'],
+  },
+  {
+    component: CNavItem,
+    name: 'Industries',
+    to: '/industries',
+    icon: <CIcon icon={cilIndustry} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'purchase', 'hod'],
   },
   {
     component: CNavGroup,

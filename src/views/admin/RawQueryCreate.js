@@ -12,31 +12,23 @@ import {
   CFormLabel,
   CFormTextarea,
   CFormSelect,
-  CListGroup,
-  CListGroupItem,
 } from '@coreui/react'
 import { useAuth } from '../../context/AuthContext'
 import rawQueryService from '../../services/rawQueryService'
+import industryService from '../../services/industryService'
 import { toastSuccess, toastError } from '../../utils/toast'
-import supplierService from '../../services/supplierService'
 
 const RawQueryCreate = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
     title: '',
-    companyInfo: '',
     priority: 'medium',
     description: '',
   })
-  const [companySearch, setCompanySearch] = useState('')
-  const [companyMode, setCompanyMode] = useState('supplier')
-  const [manualCompanyInfo, setManualCompanyInfo] = useState('')
-  const [supplierOptions, setSupplierOptions] = useState([])
-  const [supplierLoading, setSupplierLoading] = useState(false)
-  const [supplierError, setSupplierError] = useState('')
-  const [showSupplierOptions, setShowSupplierOptions] = useState(false)
-  const [selectedSupplier, setSelectedSupplier] = useState(null)
+  const [industries, setIndustries] = useState([])
+  const [industriesLoading, setIndustriesLoading] = useState(false)
+  const [industryId, setIndustryId] = useState('')
   const [audioClips, setAudioClips] = useState([])
   const [isRecording, setIsRecording] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
@@ -55,14 +47,21 @@ const RawQueryCreate = () => {
   }, [audioClips])
 
   useEffect(() => {
-    const term = companySearch.trim()
-    const timer = setTimeout(() => {
-      if (companyMode === 'supplier') {
-        fetchSuppliers(term)
+    const fetchIndustries = async () => {
+      setIndustriesLoading(true)
+      try {
+        const response = await industryService.getAll({ pageSize: 100 })
+        const payload = response?.data || response
+        setIndustries(payload?.industries || [])
+      } catch (err) {
+        toastError(err?.message || 'Failed to load industries')
+        setIndustries([])
+      } finally {
+        setIndustriesLoading(false)
       }
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [companySearch, companyMode])
+    }
+    fetchIndustries()
+  }, [])
 
   useEffect(() => {
     return () => {
@@ -87,45 +86,6 @@ const RawQueryCreate = () => {
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  const getSupplierLabel = (supplier) => {
-    const name = supplier?.name || 'Unnamed supplier'
-    const shopname = supplier?.shopname ? ` (${supplier.shopname})` : ''
-    return `${name}${shopname}`
-  }
-
-  const fetchSuppliers = async (search = '') => {
-    setSupplierLoading(true)
-    setSupplierError('')
-    try {
-      const response = await supplierService.search({ search, limit: 5 })
-      const payload = response?.data || response
-      setSupplierOptions(payload?.suppliers || [])
-    } catch (err) {
-      setSupplierError(err?.message || 'Failed to fetch suppliers')
-      setSupplierOptions([])
-    } finally {
-      setSupplierLoading(false)
-    }
-  }
-
-  const handleSupplierSelect = (supplier) => {
-    const label = getSupplierLabel(supplier)
-    setSelectedSupplier(supplier)
-    setCompanySearch(label)
-    setFormData({ ...formData, companyInfo: label })
-    setCompanyMode('supplier')
-    setShowSupplierOptions(false)
-  }
-
-  const handleOtherSelect = () => {
-    setCompanyMode('other')
-    setSelectedSupplier(null)
-    setCompanySearch('')
-    setSupplierOptions([])
-    setShowSupplierOptions(false)
-    setFormData({ ...formData, companyInfo: manualCompanyInfo })
   }
 
   const readBlobAsDataUrl = (blob) =>
@@ -280,15 +240,19 @@ const RawQueryCreate = () => {
       toastError('Unable to determine current user. Please log in again.')
       return
     }
+    if (!industryId) {
+      toastError('Please select an industry.')
+      return
+    }
     try {
       setSubmitting(true)
       setError('')
       const files = audioClips.map((clip) => clip.dataUrl).filter(Boolean)
       await rawQueryService.create({
         ...formData,
+        industryId: industryId,
         created_by: createdBy,
         files,
-        supplierId: companyMode === 'supplier' ? selectedSupplier?._id : null,
       })
       toastSuccess('Raw query created successfully')
       navigate('/raw-query')
@@ -339,106 +303,27 @@ const RawQueryCreate = () => {
               <CRow>
                 <CCol xs={12}>
                   <div className="mb-3">
-                    <CFormLabel htmlFor="companyInfo">Company</CFormLabel>
-                    <div className="position-relative">
-                      <CFormInput
-                        id="companyInfo"
-                        value={companySearch}
-                        onChange={(e) => {
-                          setCompanySearch(e.target.value)
-                          setFormData({ ...formData, companyInfo: e.target.value })
-                          setSelectedSupplier(null)
-                          setShowSupplierOptions(true)
-                          setCompanyMode('supplier')
-                        }}
-                        onFocus={() => {
-                          setShowSupplierOptions(true)
-                          if (!supplierOptions.length && companyMode === 'supplier') {
-                            fetchSuppliers(companySearch.trim())
-                          }
-                        }}
-                        onBlur={() => {
-                          setTimeout(() => setShowSupplierOptions(false), 150)
-                        }}
-                        placeholder="Search supplier or company..."
-                        required={companyMode === 'supplier'}
-                        disabled={companyMode === 'other'}
-                      />
-                      {showSupplierOptions && (
-                        <div
-                          className="position-absolute w-100 bg-white border rounded mt-1"
-                          style={{ zIndex: 10, maxHeight: 240, overflowY: 'auto' }}
-                        >
-                          {supplierLoading && (
-                            <div className="px-3 py-2 text-muted">Searching suppliers...</div>
-                          )}
-                          {supplierError && !supplierLoading && (
-                            <div className="px-3 py-2 text-danger">{supplierError}</div>
-                          )}
-                          {!supplierLoading && !supplierError && supplierOptions.length === 0 && (
-                            <div className="px-3 py-2 text-muted">No suppliers found.</div>
-                          )}
-                          {!supplierLoading && !supplierError && supplierOptions.length > 0 && (
-                            <CListGroup flush>
-                              <CListGroupItem
-                                component="button"
-                                type="button"
-                                className="text-start fw-semibold"
-                                onMouseDown={handleOtherSelect}
-                              >
-                                Other (manual entry)
-                              </CListGroupItem>
-                              {supplierOptions.map((supplier) => (
-                                <CListGroupItem
-                                  key={supplier._id || supplier.id}
-                                  component="button"
-                                  type="button"
-                                  className="text-start"
-                                  onMouseDown={() => handleSupplierSelect(supplier)}
-                                >
-                                  <div className="fw-semibold">{getSupplierLabel(supplier)}</div>
-                                  <div className="text-muted small">
-                                    {supplier.email || supplier.phone_1 || supplier.phone_2 || ''}
-                                  </div>
-                                </CListGroupItem>
-                              ))}
-                            </CListGroup>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {selectedSupplier && (
+                    <CFormLabel htmlFor="industryId">Industry</CFormLabel>
+                    <CFormSelect
+                      id="industryId"
+                      value={industryId}
+                      onChange={(e) => setIndustryId(e.target.value)}
+                      required
+                      disabled={industriesLoading}
+                    >
+                      <option value="">
+                        {industriesLoading ? 'Loading industries...' : 'Select industry'}
+                      </option>
+                      {industries.map((industry) => (
+                        <option key={industry._id || industry.id} value={industry._id || industry.id}>
+                          {industry.name}
+                          {industry.location ? ` (${industry.location})` : ''}
+                        </option>
+                      ))}
+                    </CFormSelect>
+                    {industryId && (
                       <div className="mt-2 text-muted small">
-                        Selected: {getSupplierLabel(selectedSupplier)}
-                      </div>
-                    )}
-                    {companyMode === 'other' && (
-                      <div className="mt-3">
-                        <CFormLabel htmlFor="manualCompanyInfo">Company Info</CFormLabel>
-                        <CFormTextarea
-                          id="manualCompanyInfo"
-                          rows={2}
-                          value={manualCompanyInfo}
-                          onChange={(e) => {
-                            setManualCompanyInfo(e.target.value)
-                            setFormData({ ...formData, companyInfo: e.target.value })
-                          }}
-                          placeholder="Company name, contact details, address, etc."
-                          required
-                        />
-                        <div className="mt-2">
-                          <CButton
-                            color="link"
-                            type="button"
-                            onClick={() => {
-                              setCompanyMode('supplier')
-                              setManualCompanyInfo('')
-                              setFormData({ ...formData, companyInfo: '' })
-                            }}
-                          >
-                            Search supplier instead
-                          </CButton>
-                        </div>
+                        Selected: {industries.find((i) => (i._id || i.id) === industryId)?.name || industryId}
                       </div>
                     )}
                   </div>

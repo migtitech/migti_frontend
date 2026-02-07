@@ -10,6 +10,9 @@ import DocsLink from './DocsLink'
 import DocsExample from './DocsExample'
 import Loader from './Loader/Loader'
 import ConfirmDialog from './ConfirmDialog/ConfirmDialog'
+import SearchableDropdown from './SearchableDropdown/SearchableDropdown'
+import ErrorBoundary from './ErrorBoundary/ErrorBoundary'
+import ErrorFallback from './ErrorFallback/ErrorFallback'
 
 export {
   AppBreadcrumb,
@@ -24,4 +27,7 @@ export {
   DocsExample,
   Loader,
   ConfirmDialog,
+  SearchableDropdown,
+  ErrorBoundary,
+  ErrorFallback,
 }

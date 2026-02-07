@@ -30,6 +30,7 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
 import rawQueryService from '../../services/rawQueryService'
+import industryService from '../../services/industryService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -48,9 +49,10 @@ const RawQuery = () => {
   const [editingQuery, setEditingQuery] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
+  const [industries, setIndustries] = useState([])
   const [formData, setFormData] = useState({
     title: '',
-    companyInfo: '',
+    industryId: '',
     description: '',
     priority: 'medium',
   })
@@ -58,9 +60,12 @@ const RawQuery = () => {
   const handleOpenModal = (query = null) => {
     if (query) {
       setEditingQuery(query)
+      const industryId = query.industry_id
+        ? (typeof query.industry_id === 'object' ? query.industry_id._id || query.industry_id.id : query.industry_id)
+        : ''
       setFormData({
         title: query.title || '',
-        companyInfo: query.company_info || query.companyInfo || '',
+        industryId: industryId || '',
         description: query.description || '',
         priority: query.priority || 'medium',
       })
@@ -68,7 +73,7 @@ const RawQuery = () => {
       setEditingQuery(null)
       setFormData({
         title: '',
-        companyInfo: '',
+        industryId: '',
         description: '',
         priority: 'medium',
       })
@@ -81,7 +86,7 @@ const RawQuery = () => {
     setEditingQuery(null)
     setFormData({
       title: '',
-      companyInfo: '',
+      industryId: '',
       description: '',
       priority: 'medium',
     })
@@ -91,6 +96,7 @@ const RawQuery = () => {
     e.preventDefault()
     const data = {
       ...formData,
+      industryId: formData.industryId || null,
     }
     if (!editingQuery) {
       return
@@ -159,6 +165,19 @@ const RawQuery = () => {
   }
 
   useEffect(() => {
+    const fetchIndustries = async () => {
+      try {
+        const response = await industryService.getAll({ pageSize: 100 })
+        const payload = response?.data || response
+        setIndustries(payload?.industries || [])
+      } catch {
+        setIndustries([])
+      }
+    }
+    fetchIndustries()
+  }, [])
+
+  useEffect(() => {
     setPageNumber(1)
   }, [searchTerm])
 
@@ -193,7 +212,7 @@ const RawQuery = () => {
                   <CTableRow>
                     <CTableHeaderCell>#</CTableHeaderCell>
                     <CTableHeaderCell>Title</CTableHeaderCell>
-                    <CTableHeaderCell>Company Info</CTableHeaderCell>
+                    <CTableHeaderCell>Industry</CTableHeaderCell>
                     <CTableHeaderCell>Priority</CTableHeaderCell>
                     <CTableHeaderCell>Date</CTableHeaderCell>
                     <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -215,7 +234,11 @@ const RawQuery = () => {
                       <CTableDataCell>
                         <strong>{query.title || '-'}</strong>
                       </CTableDataCell>
-                      <CTableDataCell>{query.company_info || query.companyInfo || '-'}</CTableDataCell>
+                      <CTableDataCell>
+                        {query.industry_id && typeof query.industry_id === 'object'
+                          ? query.industry_id.name || '-'
+                          : query.company_info || query.companyInfo || '-'}
+                      </CTableDataCell>
                       <CTableDataCell>{getPriorityBadge(query.priority)}</CTableDataCell>
                       <CTableDataCell>
                         {new Date(query.createdAt || query.created_at).toLocaleDateString()}
@@ -315,14 +338,20 @@ const RawQuery = () => {
             <CRow>
               <CCol md={12}>
                 <div className="mb-3">
-                  <CFormLabel htmlFor="companyInfo">Company Info</CFormLabel>
-                  <CFormTextarea
-                    id="companyInfo"
-                    rows={2}
-                    value={formData.companyInfo}
-                    onChange={(e) => setFormData({ ...formData, companyInfo: e.target.value })}
-                    placeholder="Company name, contact details, address, etc."
-                  />
+                  <CFormLabel htmlFor="industryId">Industry</CFormLabel>
+                  <CFormSelect
+                    id="industryId"
+                    value={formData.industryId}
+                    onChange={(e) => setFormData({ ...formData, industryId: e.target.value })}
+                  >
+                    <option value="">Select industry</option>
+                    {industries.map((industry) => (
+                      <option key={industry._id || industry.id} value={industry._id || industry.id}>
+                        {industry.name}
+                        {industry.location ? ` (${industry.location})` : ''}
+                      </option>
+                    ))}
+                  </CFormSelect>
                 </div>
               </CCol>
             </CRow>

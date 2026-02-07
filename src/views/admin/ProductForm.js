@@ -35,6 +35,14 @@ import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
+const VARIANT_TYPE_OPTIONS = [
+  { value: 'Color', label: 'Color' },
+  { value: 'Size', label: 'Size' },
+  { value: 'Quantity', label: 'Quantity' },
+  { value: 'Dimension', label: 'Dimension' },
+  { value: 'Build Material', label: 'Build Material' },
+]
+
 const numberField = (label, required = false) => {
   let schema = yup
     .number()
@@ -114,6 +122,7 @@ const ProductForm = () => {
   const [variants, setVariants] = useState([])
   const [variantCombinations, setVariantCombinations] = useState([])
   const [expandedSubVariants, setExpandedSubVariants] = useState({})
+  const [customVariantInput, setCustomVariantInput] = useState({})
 
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
@@ -213,8 +222,16 @@ const ProductForm = () => {
           status: product.status || 'draft',
           unit: product.unit || 'pcs',
         })
-        setVariants(product.variants || [])
+        const loadedVariants = product.variants || []
+        setVariants(loadedVariants)
         setVariantCombinations(product.variantCombinations || [])
+        const customInputMap = {}
+        loadedVariants.forEach((v, i) => {
+          if (v.name && !VARIANT_TYPE_OPTIONS.some((o) => o.value === v.name)) {
+            customInputMap[i] = true
+          }
+        })
+        setCustomVariantInput(customInputMap)
         setExistingImages(product.images || [])
         setImagePreviews(product.images || [])
         if (product.category?._id || product.category) {
@@ -236,6 +253,24 @@ const ProductForm = () => {
   // Variant management
   const addVariant = () => {
     setVariants((prev) => [...prev, { name: '', options: [] }])
+  }
+
+  const handleVariantTypeChange = (index, value) => {
+    if (value === '__custom__') {
+      setCustomVariantInput((prev) => ({ ...prev, [index]: true }))
+      setVariants((prev) => {
+        const next = [...prev]
+        next[index] = { ...next[index], name: '' }
+        return next
+      })
+    } else {
+      setCustomVariantInput((prev) => ({ ...prev, [index]: false }))
+      setVariants((prev) => {
+        const next = [...prev]
+        next[index] = { ...next[index], name: value }
+        return next
+      })
+    }
   }
 
   const updateVariantName = (index, name) => {
@@ -730,13 +765,57 @@ const ProductForm = () => {
                 <CCardHeader className="bg-light d-flex justify-content-between align-items-center py-2">
                   <div className="d-flex align-items-center gap-2 flex-grow-1">
                     <strong className="text-nowrap">Variant:</strong>
-                    <CFormInput
-                      size="sm"
-                      value={variant.name}
-                      onChange={(e) => updateVariantName(vIndex, e.target.value)}
-                      placeholder="e.g., Color, Size, Material"
-                      style={{ maxWidth: '250px' }}
-                    />
+                    {customVariantInput[vIndex] ? (
+                      <div className="d-flex align-items-center gap-1">
+                        <CFormInput
+                          size="sm"
+                          value={variant.name}
+                          onChange={(e) => updateVariantName(vIndex, e.target.value)}
+                          placeholder="Enter custom variant name"
+                          style={{ maxWidth: '200px' }}
+                          autoFocus
+                        />
+                        <CButton
+                          color="secondary"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setCustomVariantInput((prev) => ({ ...prev, [vIndex]: false }))
+                            setVariants((prev) => {
+                              const next = [...prev]
+                              next[vIndex] = { ...next[vIndex], name: '' }
+                              return next
+                            })
+                          }}
+                          title="Back to dropdown"
+                        >
+                          &times;
+                        </CButton>
+                      </div>
+                    ) : (
+                      <CFormSelect
+                        size="sm"
+                        value={
+                          VARIANT_TYPE_OPTIONS.some((o) => o.value === variant.name)
+                            ? variant.name
+                            : variant.name
+                              ? '__custom__'
+                              : ''
+                        }
+                        onChange={(e) => handleVariantTypeChange(vIndex, e.target.value)}
+                        style={{ maxWidth: '250px' }}
+                      >
+                        <option value="" disabled>
+                          Select variant type
+                        </option>
+                        {VARIANT_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                        <option value="__custom__">+ Create New</option>
+                      </CFormSelect>
+                    )}
                   </div>
                   <div className="d-flex gap-1">
                     <CButton

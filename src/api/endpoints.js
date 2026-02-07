@@ -55,6 +55,8 @@ export const RAW_QUERIES = {
   GET_BY_ID: '/raw-queries/get-by-id',
   UPDATE: '/raw-queries/update',
   DELETE: '/raw-queries/delete',
+  ACTIVITIES: '/raw-queries/activities',
+  RECORD_ACTIVITY: '/raw-queries/record-activity',
 }
 
 // Dashboard endpoints
@@ -109,6 +111,22 @@ export const RATE_CARDS = {
   DELETE_SUPPLIER: '/rate-cards/delete-supplier',
 }
 
+export const AREAS = {
+  CREATE: '/areas/create',
+  LIST: '/areas/list',
+  GET_BY_ID: '/areas/get-by-id',
+  UPDATE: '/areas/update',
+  DELETE: '/areas/delete',
+}
+
+export const INDUSTRIES = {
+  CREATE: '/industries/create',
+  LIST: '/industries/list',
+  GET_BY_ID: '/industries/get-by-id',
+  UPDATE: '/industries/update',
+  DELETE: '/industries/delete',
+}
+
 // Export all endpoints
 export default {
   BASE_URL,
@@ -125,4 +143,6 @@ export default {
   PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
+  AREAS,
+  INDUSTRIES,
 }

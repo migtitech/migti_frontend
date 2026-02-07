@@ -63,6 +63,16 @@ const EmployeeList = React.lazy(() => import('./views/admin/EmployeeList'))
 const EmployeeView = React.lazy(() => import('./views/admin/EmployeeView'))
 const EmployeeForm = React.lazy(() => import('./views/admin/EmployeeForm'))
 
+// Areas
+const AreaList = React.lazy(() => import('./views/admin/AreaList'))
+const AreaForm = React.lazy(() => import('./views/admin/AreaForm'))
+const AreaView = React.lazy(() => import('./views/admin/AreaView'))
+
+// Industries
+const IndustryList = React.lazy(() => import('./views/admin/IndustryList'))
+const IndustryForm = React.lazy(() => import('./views/admin/IndustryForm'))
+const IndustryView = React.lazy(() => import('./views/admin/IndustryView'))
+
 // Error pages
 const Page401 = React.lazy(() => import('./views/pages/page401/Page401'))
 
@@ -142,6 +152,18 @@ const routes = [
   { path: '/employees/new', name: 'Add Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/employees/edit/:id', name: 'Edit Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+
+  // Areas - company, branch, name, city, area type
+  { path: '/areas', name: 'Areas', element: AreaList, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/areas/new', name: 'Add Area', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/areas/edit/:id', name: 'Edit Area', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/areas/:id', name: 'Area Details', element: AreaView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+
+  // Industries - accessible by super_admin, admin, purchase, hod
+  { path: '/industries', name: 'Industries', element: IndustryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/industries/new', name: 'Add Industry', element: IndustryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/industries/edit/:id', name: 'Edit Industry', element: IndustryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/industries/:id', name: 'Industry Details', element: IndustryView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
 
   // Admin routes for company/branch management (legacy)
   { path: '/admin/companies/:companyId/branches', name: 'Branches', element: BranchManagement, allowedRoles: ['super_admin', 'admin', 'hod'] },
