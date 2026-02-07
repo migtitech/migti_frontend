@@ -24,6 +24,7 @@ import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import productService from '../../services/productService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const ProductView = () => {
   const { id } = useParams()
@@ -37,14 +38,11 @@ const ProductView = () => {
       setLoading(true)
       setError('')
       try {
-        const res = await withMinimumDelay(
-          () => productService.getById(id),
-          2000
-        )
+        const res = await withMinimumDelay(() => productService.getById(id))
         const data = res?.data || res
         setProduct(data)
       } catch (err) {
-        setError(err?.message || 'Failed to fetch product')
+        toastError(err?.message || 'Failed to fetch product')
       } finally {
         setLoading(false)
       }
@@ -203,6 +201,8 @@ const ProductView = () => {
                       <CTableHeaderCell>Price</CTableHeaderCell>
                       <CTableHeaderCell>MRP</CTableHeaderCell>
                       <CTableHeaderCell>Qty</CTableHeaderCell>
+                      <CTableHeaderCell>Weight</CTableHeaderCell>
+                      <CTableHeaderCell>Dimensions (L x W x H)</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
@@ -216,6 +216,19 @@ const ProductView = () => {
                         <CTableDataCell>₹{combo.price?.toLocaleString()}</CTableDataCell>
                         <CTableDataCell>₹{combo.mrp?.toLocaleString()}</CTableDataCell>
                         <CTableDataCell>{combo.quantity}</CTableDataCell>
+                        <CTableDataCell>
+                          {combo.weight > 0
+                            ? `${combo.weight} ${combo.weightUnit || 'g'}`
+                            : '-'}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {combo.dimensions &&
+                          (combo.dimensions.length > 0 ||
+                            combo.dimensions.width > 0 ||
+                            combo.dimensions.height > 0)
+                            ? `${combo.dimensions.length} x ${combo.dimensions.width} x ${combo.dimensions.height} ${combo.dimensionUnit || 'cm'}`
+                            : '-'}
+                        </CTableDataCell>
                         <CTableDataCell>
                           {combo.isActive ? (
                             <CBadge color="success">Active</CBadge>

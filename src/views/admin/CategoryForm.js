@@ -18,6 +18,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import categoryService from '../../services/categoryService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const CategoryForm = () => {
   const navigate = useNavigate()
@@ -32,6 +33,7 @@ const CategoryForm = () => {
     parent: '',
     status: 'active',
     sortOrder: 0,
+    categoryCode: '',
   })
 
   const [rootCategories, setRootCategories] = useState([])
@@ -66,7 +68,7 @@ const CategoryForm = () => {
     const fetchCategory = async () => {
       setLoading(true)
       try {
-        const res = await withMinimumDelay(() => categoryService.getById(id), 2000)
+        const res = await withMinimumDelay(() => categoryService.getById(id))
         const category = res?.data || res
 
         setFormData({
@@ -75,6 +77,7 @@ const CategoryForm = () => {
           parent: category.parent?._id || category.parent || '',
           status: category.status || 'active',
           sortOrder: category.sortOrder ?? 0,
+          categoryCode: category.categoryCode || '',
         })
       } catch (err) {
         setError('Failed to load category details')
@@ -107,12 +110,14 @@ const CategoryForm = () => {
       }
       if (isEdit) {
         await categoryService.update(id, payload)
+        toastSuccess('Category updated successfully')
       } else {
         await categoryService.create(payload)
+        toastSuccess('Category created successfully')
       }
       navigate('/categories')
     } catch (err) {
-      setError(err?.message || 'Failed to save category')
+      toastError(err?.message || 'Failed to save category')
     } finally {
       setSubmitting(false)
     }
@@ -148,6 +153,34 @@ const CategoryForm = () => {
             )}
 
             <CForm onSubmit={handleSubmit}>
+              {/* Row 0: Category Code (read-only, auto-generated) */}
+              <CRow className="mb-3">
+                <CCol md={6}>
+                  <CFormLabel>Category Code</CFormLabel>
+                  <CFormInput
+                    name="categoryCode"
+                    value={formData.categoryCode || ''}
+                    placeholder={
+                      isEdit
+                        ? (formData.categoryCode ? '' : '—')
+                        : formData.parent
+                          ? 'Auto-generated (e.g. MIG01SUB01)'
+                          : 'Auto-generated (e.g. MIG01)'
+                    }
+                    readOnly
+                    disabled
+                    className="bg-light"
+                  />
+                  {!isEdit && (
+                    <small className="text-muted">
+                      {formData.parent
+                        ? 'Subcategory code will be e.g. MIG01SUB01, MIG01SUB02...'
+                        : 'Root category code will be e.g. MIG01, MIG02...'}
+                    </small>
+                  )}
+                </CCol>
+              </CRow>
+
               {/* Row 1: Name + Parent Category */}
               <CRow className="mb-3">
                 <CCol md={6} className="mb-3 mb-md-0">

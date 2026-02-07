@@ -18,6 +18,7 @@ import companyService from '../../services/companyService'
 import employeeService from '../../services/employeeService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const BranchView = () => {
   const { id } = useParams()
@@ -38,10 +39,7 @@ const BranchView = () => {
       setLoading(true)
       setError('')
       try {
-        const branchResponse = await withMinimumDelay(
-          () => branchService.getById(id),
-          2000
-        )
+        const branchResponse = await withMinimumDelay(() => branchService.getById(id))
         const branchPayload =
           branchResponse?.data?.branch ||
           branchResponse?.data?.data ||
@@ -72,7 +70,7 @@ const BranchView = () => {
         )
         setEmployees(filteredEmployees)
       } catch (err) {
-        setError(err?.message || 'Failed to load branch')
+        toastError(err?.message || 'Failed to load branch')
       } finally {
         setLoading(false)
       }

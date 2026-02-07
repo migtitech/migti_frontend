@@ -4,6 +4,7 @@ import branchService from '../../services/branchService'
 import companyService from '../../services/companyService'
 import { getAccessToken } from '../../api/axiosClient'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 import { ConfirmDialog } from '../../components'
 import BranchHeader from './branches/BranchHeader'
 import BranchCards from './branches/BranchCards'
@@ -62,11 +63,11 @@ const BranchList = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await withMinimumDelay(() => branchService.getAll(), 2000)
+      const response = await withMinimumDelay(() => branchService.getAll())
       const list = response?.data?.branches || response?.data || []
       setBranches(list.map(normalizeId))
     } catch (err) {
-      setError(err?.message || 'Failed to load branches')
+      toastError(err?.message || 'Failed to load branches')
     } finally {
       setLoading(false)
     }
@@ -127,8 +128,9 @@ const BranchList = () => {
     try {
       await branchService.delete(id)
       setBranches((prev) => prev.filter((branch) => branch.id !== id))
+      toastSuccess('Branch deleted successfully')
     } catch (err) {
-      setError(err?.message || 'Failed to delete branch')
+      toastError(err?.message || 'Failed to delete branch')
     } finally {
       setSubmitting(false)
     }

@@ -35,6 +35,7 @@ import rateCardService from '../../services/rateCardService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const RateCardList = () => {
   const navigate = useNavigate()
@@ -60,20 +61,18 @@ const RateCardList = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(
-        () =>
-          rateCardService.getAll({
-            pageNumber: page,
-            pageSize: 10,
-            search: searchTerm,
-          }),
-        2000,
+      const res = await withMinimumDelay(() =>
+        rateCardService.getAll({
+          pageNumber: page,
+          pageSize: 10,
+          search: searchTerm,
+        })
       )
       const data = res?.data || res
       setRateCards(data?.rateCards || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      setError(err?.message || 'Failed to fetch rate cards')
+      toastError(err?.message || 'Failed to fetch rate cards')
     } finally {
       setLoading(false)
     }
@@ -96,9 +95,10 @@ const RateCardList = () => {
     if (!id) return
     try {
       await rateCardService.delete(id)
+      toastSuccess('Rate card deleted successfully')
       fetchRateCards()
     } catch (err) {
-      setError(err?.message || 'Failed to delete rate card')
+      toastError(err?.message || 'Failed to delete rate card')
     }
   }
 
@@ -135,13 +135,15 @@ const RateCardList = () => {
       }
       if (editingRateCard) {
         await rateCardService.update(editingRateCard._id, payload)
+        toastSuccess('Rate card updated successfully')
       } else {
         await rateCardService.create(payload)
+        toastSuccess('Rate card created successfully')
       }
       setModalVisible(false)
       fetchRateCards()
     } catch (err) {
-      setError(err?.message || 'Failed to save rate card')
+      toastError(err?.message || 'Failed to save rate card')
     } finally {
       setModalSubmitting(false)
     }

@@ -23,6 +23,7 @@ import supplierService from '../../services/supplierService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const SupplierList = () => {
   const navigate = useNavigate()
@@ -38,20 +39,18 @@ const SupplierList = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(
-        () =>
-          supplierService.getAll({
-            pageNumber: page,
-            pageSize: 10,
-            search: searchTerm,
-          }),
-        2000
+      const res = await withMinimumDelay(() =>
+        supplierService.getAll({
+          pageNumber: page,
+          pageSize: 10,
+          search: searchTerm,
+        })
       )
       const data = res?.data || res
       setSuppliers(data?.suppliers || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      setError(err?.message || 'Failed to fetch suppliers')
+      toastError(err?.message || 'Failed to fetch suppliers')
     } finally {
       setLoading(false)
     }
@@ -74,9 +73,10 @@ const SupplierList = () => {
     if (!id) return
     try {
       await supplierService.delete(id)
+      toastSuccess('Supplier deleted successfully')
       fetchSuppliers()
     } catch (err) {
-      setError(err?.message || 'Failed to delete supplier')
+      toastError(err?.message || 'Failed to delete supplier')
     }
   }
 

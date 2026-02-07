@@ -21,6 +21,7 @@ import { cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 
 const querySchema = (isEdit = false) =>
@@ -81,12 +82,10 @@ const QueryForm = () => {
       setLoading(true)
       setError('')
       try {
-        const query = await withMinimumDelay(
-          () =>
-            Promise.resolve(
-              queries.find((q) => String(q._id || q.id) === String(id))
-            ),
-          2000
+        const query = await withMinimumDelay(() =>
+          Promise.resolve(
+            queries.find((q) => String(q._id || q.id) === String(id))
+          )
         )
         if (!query) throw new Error('Query not found')
 
@@ -101,7 +100,7 @@ const QueryForm = () => {
           priority: query.priority || 'normal',
         })
       } catch (err) {
-        setError(err.message)
+        toastError(err.message)
       } finally {
         setLoading(false)
       }
@@ -120,8 +119,10 @@ const QueryForm = () => {
 
     if (isEdit) {
       updateQuery(id, payload)
+      toastSuccess('Query updated successfully')
     } else {
       addQuery(payload)
+      toastSuccess('Query created successfully')
     }
 
     navigate('/queries')

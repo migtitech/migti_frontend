@@ -18,12 +18,13 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilChevronBottom, cilChevronRight } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilChevronBottom, cilChevronRight, cilInfo } from '@coreui/icons'
 import { useNavigate } from 'react-router-dom'
 import categoryService from '../../services/categoryService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const CategoryList = () => {
   const navigate = useNavigate()
@@ -42,15 +43,13 @@ const CategoryList = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(
-        () =>
-          categoryService.getAll({
-            pageNumber: page,
-            pageSize: 10,
-            search: searchTerm,
-            parent: 'null',
-          }),
-        2000
+      const res = await withMinimumDelay(() =>
+        categoryService.getAll({
+          pageNumber: page,
+          pageSize: 10,
+          search: searchTerm,
+          parent: 'null',
+        })
       )
       const data = res?.data || res
       setCategories(data?.categories || [])
@@ -68,10 +67,6 @@ const CategoryList = () => {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchTerm, page])
-
-  useEffect(() => {
-    fetchAllRootCategories()
-  }, [])
 
   const toggleExpand = async (categoryId) => {
     if (expandedCategories[categoryId]) {
@@ -102,6 +97,7 @@ const CategoryList = () => {
     if (!id) return
     try {
       await categoryService.delete(id)
+      toastSuccess('Category deleted successfully')
       fetchCategories()
       if (parentId) {
         const res = await categoryService.getAll({
@@ -113,7 +109,7 @@ const CategoryList = () => {
         setSubcategories((prev) => ({ ...prev, [parentId]: data?.categories || [] }))
       }
     } catch (err) {
-      setError(err?.message || 'Failed to delete category')
+      toastError(err?.message || 'Failed to delete category')
     }
   }
 
@@ -152,6 +148,7 @@ const CategoryList = () => {
                     <CTableRow>
                       <CTableHeaderCell style={{ width: 40 }}></CTableHeaderCell>
                       <CTableHeaderCell>S No</CTableHeaderCell>
+                      <CTableHeaderCell>Code</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell>Sort Order</CTableHeaderCell>
@@ -181,6 +178,9 @@ const CategoryList = () => {
                           </CTableDataCell>
                           <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                           <CTableDataCell>
+                            <code>{cat.categoryCode || '—'}</code>
+                          </CTableDataCell>
+                          <CTableDataCell>
                             <strong>{cat.name}</strong>
                           </CTableDataCell>
                           <CTableDataCell>
@@ -190,10 +190,19 @@ const CategoryList = () => {
                           <CTableDataCell>{getStatusBadge(cat.status)}</CTableDataCell>
                           <CTableDataCell>
                             <CButton
+                              color="info"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/categories/${cat._id}`)}
+                              title="View"
+                            >
+                              <CIcon icon={cilInfo} />
+                            </CButton>
+                            <CButton
                               color="success"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleOpenModal(null, cat._id)}
+                              onClick={() => navigate(`/categories/new?parent=${cat._id}`)}
                               title="Add Subcategory"
                             >
                               <CIcon icon={cilPlus} />
@@ -202,7 +211,7 @@ const CategoryList = () => {
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleOpenModal(cat)}
+                              onClick={() => navigate(`/categories/edit/${cat._id}`)}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -223,6 +232,9 @@ const CategoryList = () => {
                             <CTableRow key={sub._id} className="table-light">
                               <CTableDataCell></CTableDataCell>
                               <CTableDataCell></CTableDataCell>
+                              <CTableDataCell>
+                                <code>{sub.categoryCode || '—'}</code>
+                              </CTableDataCell>
                               <CTableDataCell className="ps-4">
                                 &#8627; {sub.name}
                               </CTableDataCell>
@@ -232,6 +244,15 @@ const CategoryList = () => {
                               <CTableDataCell>{sub.sortOrder}</CTableDataCell>
                               <CTableDataCell>{getStatusBadge(sub.status)}</CTableDataCell>
                               <CTableDataCell>
+                                <CButton
+                                  color="info"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => navigate(`/categories/${sub._id}`)}
+                                  title="View"
+                                >
+                                  <CIcon icon={cilInfo} />
+                                </CButton>
                                 <CButton
                                   color="warning"
                                   variant="ghost"
@@ -257,7 +278,7 @@ const CategoryList = () => {
                     ))}
                     {categories.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center">
+                        <CTableDataCell colSpan={8} className="text-center">
                           {searchTerm
                             ? `No categories found matching "${searchTerm}"`
                             : 'No categories found. Click "Add Category" to create one.'}

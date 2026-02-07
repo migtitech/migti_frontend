@@ -16,6 +16,7 @@ import { cilArrowLeft } from '@coreui/icons'
 import rawQueryService from '../../services/rawQueryService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const RawQueryView = () => {
   const { id } = useParams()
@@ -43,10 +44,7 @@ const RawQueryView = () => {
       try {
         setLoading(true)
         setError('')
-        const response = await withMinimumDelay(
-          () => rawQueryService.getById(id),
-          2000
-        )
+        const response = await withMinimumDelay(() => rawQueryService.getById(id))
         const payload =
           response?.data?.rawQuery ||
           response?.data?.data ||
@@ -55,7 +53,7 @@ const RawQueryView = () => {
           null
         setQuery(payload)
       } catch (err) {
-        setError(err?.message || 'Failed to load raw query')
+        toastError(err?.message || 'Failed to load raw query')
       } finally {
         setLoading(false)
       }

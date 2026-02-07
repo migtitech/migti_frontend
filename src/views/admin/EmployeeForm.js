@@ -15,6 +15,7 @@ import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 import EmployeePersonalInfoSection from './employees/EmployeePersonalInfoSection'
 import EmployeeCompanyInfoSection from './employees/EmployeeCompanyInfoSection'
 import EmployeeAssetsSection from './employees/EmployeeAssetsSection'
@@ -212,7 +213,7 @@ const EmployeeForm = () => {
           }))
         }
       } catch (err) {
-        setError(err?.message || 'Failed to load branches')
+        toastError(err?.message || 'Failed to load branches')
       }
     }
 
@@ -227,10 +228,7 @@ const EmployeeForm = () => {
       setLoading(true)
       setError('')
       try {
-        const response = await withMinimumDelay(
-          () => employeeService.getById(id),
-          2000
-        )
+        const response = await withMinimumDelay(() => employeeService.getById(id))
         const payload =
           response?.data?.employee ||
           response?.data?.data ||
@@ -238,7 +236,7 @@ const EmployeeForm = () => {
           null
         const employee = payload ? normalizeId(payload) : null
         if (!employee) {
-          setError('Employee not found')
+          toastError('Employee not found')
           return
         }
         reset({
@@ -300,7 +298,7 @@ const EmployeeForm = () => {
           },
         })
       } catch (err) {
-        setError(err?.message || 'Failed to load employee')
+        toastError(err?.message || 'Failed to load employee')
       } finally {
         setLoading(false)
       }
@@ -319,13 +317,14 @@ const EmployeeForm = () => {
       }
       if (isEdit) {
         await employeeService.update(id, payload)
+        toastSuccess('Employee updated successfully')
       } else {
         await employeeService.create(payload)
+        toastSuccess('Employee created successfully')
       }
-      console.log("form data", payload)
       navigate('/employees')
     } catch (err) {
-      setError(err?.message || 'Failed to save employee')
+      toastError(err?.message || 'Failed to save employee')
     } finally {
       setSubmitting(false)
     }

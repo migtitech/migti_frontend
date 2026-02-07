@@ -19,6 +19,7 @@ import { cilArrowLeft } from '@coreui/icons'
 import companyService from '../../services/companyService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 // ✅ Schema mirrors CompanyList fields (no extra logic added)
 const companySchema = (isEdit = false) => yup.object({
@@ -77,7 +78,7 @@ console.log("edit id",isEdit)
       setLoading(true)
       setError('')
       try {
-        const res = await withMinimumDelay(() => companyService.getById(id), 2000)
+        const res = await withMinimumDelay(() => companyService.getById(id))
         const data = res?.data?.company || res?.data || {}
         console.log("response", res)
         reset({
@@ -89,7 +90,7 @@ console.log("edit id",isEdit)
         })
         console.log("reset data", reset)
       } catch (err) {
-        setError(err?.message || 'Failed to fetch company')
+        toastError(err?.message || 'Failed to fetch company')
       } finally {
         setLoading(false)
       }
@@ -107,12 +108,14 @@ console.log("edit id",isEdit)
 
       if (isEdit) {
         await companyService.update(id, payload)
+        toastSuccess('Company updated successfully')
       } else {
         await companyService.create(payload)
+        toastSuccess('Company created successfully')
       }
       navigate('/companies')
     } catch (err) {
-      setError(err?.message || 'Failed to save company')
+      toastError(err?.message || 'Failed to save company')
     } finally {
       setSubmitting(false)
     }

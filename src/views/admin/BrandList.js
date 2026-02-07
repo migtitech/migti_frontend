@@ -25,6 +25,7 @@ import Filtered from '../../filtered/Filtered'
 import { useNavigate } from 'react-router-dom'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const BrandList = () => {
   const [brands, setBrands] = useState([])
@@ -41,14 +42,12 @@ const BrandList = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(
-        () =>
-          brandService.getAll({
-            pageNumber: page,
-            pageSize: 10,
-            search: searchTerm,
-          }),
-        2000
+      const res = await withMinimumDelay(() =>
+        brandService.getAll({
+          pageNumber: page,
+          pageSize: 10,
+          search: searchTerm,
+        })
       )
       const data = res?.data || res
       setBrands(data?.brands || [])
@@ -75,9 +74,10 @@ const BrandList = () => {
     if (!id) return
     try {
       await brandService.delete(id)
+      toastSuccess('Brand deleted successfully')
       fetchBrands()
     } catch (err) {
-      setError(err?.message || 'Failed to delete brand')
+      toastError(err?.message || 'Failed to delete brand')
     }
   }
 

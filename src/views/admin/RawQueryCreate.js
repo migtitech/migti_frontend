@@ -17,6 +17,7 @@ import {
 } from '@coreui/react'
 import { useAuth } from '../../context/AuthContext'
 import rawQueryService from '../../services/rawQueryService'
+import { toastSuccess, toastError } from '../../utils/toast'
 import supplierService from '../../services/supplierService'
 
 const RawQueryCreate = () => {
@@ -276,7 +277,7 @@ const RawQueryCreate = () => {
     e.preventDefault()
     const createdBy = user?.id || user?._id
     if (!createdBy) {
-      setError('Unable to determine current user. Please log in again.')
+      toastError('Unable to determine current user. Please log in again.')
       return
     }
     try {
@@ -289,9 +290,10 @@ const RawQueryCreate = () => {
         files,
         supplierId: companyMode === 'supplier' ? selectedSupplier?._id : null,
       })
+      toastSuccess('Raw query created successfully')
       navigate('/raw-query')
     } catch (err) {
-      setError(err?.message || 'Failed to create raw query')
+      toastError(err?.message || 'Failed to create raw query')
     } finally {
       setSubmitting(false)
     }

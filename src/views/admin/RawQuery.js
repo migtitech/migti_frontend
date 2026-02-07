@@ -33,6 +33,7 @@ import rawQueryService from '../../services/rawQueryService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const RawQuery = () => {
   const navigate = useNavigate()
@@ -96,10 +97,11 @@ const RawQuery = () => {
     }
     try {
       await rawQueryService.update(editingQuery._id || editingQuery.id, data)
+      toastSuccess('Raw query updated successfully')
       await fetchRawQueries()
       handleCloseModal()
     } catch (err) {
-      setError(err?.message || 'Failed to update raw query')
+      toastError(err?.message || 'Failed to update raw query')
     }
   }
 
@@ -113,9 +115,10 @@ const RawQuery = () => {
     if (!id) return
     try {
       await rawQueryService.delete(id)
+      toastSuccess('Raw query deleted successfully')
       await fetchRawQueries()
     } catch (err) {
-      setError(err?.message || 'Failed to delete raw query')
+      toastError(err?.message || 'Failed to delete raw query')
     }
   }
 
@@ -137,21 +140,19 @@ const RawQuery = () => {
     try {
       setLoading(true)
       setError('')
-      const response = await withMinimumDelay(
-        () =>
-          rawQueryService.getAll({
-            pageNumber,
-            pageSize,
-            search: searchTerm,
-            ...options,
-          }),
-        2000
+      const response = await withMinimumDelay(() =>
+        rawQueryService.getAll({
+          pageNumber,
+          pageSize,
+          search: searchTerm,
+          ...options,
+        })
       )
       const payload = response?.data || {}
       setQueries(payload.rawQueries || [])
       setPagination(payload.pagination || null)
     } catch (err) {
-      setError(err?.message || 'Failed to load raw queries')
+      toastError(err?.message || 'Failed to load raw queries')
     } finally {
       setLoading(false)
     }

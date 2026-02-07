@@ -24,6 +24,7 @@ import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const empty = (v) => v === undefined || v === null || v === ''
 const show = (v) => (empty(v) ? '-' : String(v).trim() || '-')
@@ -107,10 +108,7 @@ const EmployeeView = () => {
       setLoading(true)
       setError('')
       try {
-        const response = await withMinimumDelay(
-          () => employeeService.getById(id),
-          2000
-        )
+        const response = await withMinimumDelay(() => employeeService.getById(id))
         const employeePayload =
           response?.data?.employee ||
           response?.data?.data ||
@@ -136,7 +134,7 @@ const EmployeeView = () => {
           setBranch(null)
         }
       } catch (err) {
-        setError(err?.message || 'Failed to load employee')
+        toastError(err?.message || 'Failed to load employee')
       } finally {
         setLoading(false)
       }

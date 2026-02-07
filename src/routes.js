@@ -18,6 +18,7 @@ const BranchView = React.lazy(() => import('./views/admin/BranchView'))
 // Categories
 const CategoryList = React.lazy(() => import('./views/admin/CategoryList'))
 const CategoryForm = React.lazy(() => import('./views/admin/CategoryForm'))
+const CategoryView = React.lazy(() => import('./views/admin/CategoryView'))
 
 // Brands
 const BrandList2 = React.lazy(() => import('./views/admin/BrandList'))
@@ -87,6 +88,7 @@ const routes = [
   { path: '/categories', name: 'Categories', element: CategoryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
   { path: '/categories/new', name: 'Add Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
   { path: '/categories/edit/:id', name: 'Edit Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/categories/:id', name: 'Category Details', element: CategoryView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
 
   // Brands - accessible by super_admin, admin, purchase, hod
   { path: '/brands', name: 'Brands', element: BrandList2, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
