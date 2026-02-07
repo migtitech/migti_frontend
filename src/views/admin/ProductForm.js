@@ -24,14 +24,17 @@ import {
   CTableHeaderCell,
   CTableRow,
   CImage,
+  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilTrash, cilArrowLeft } from '@coreui/icons'
 import productService from '../../services/productService'
+import imageService from '../../services/imageService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const numberField = (label, required = false) => {
   let schema = yup
@@ -102,6 +105,7 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -115,6 +119,7 @@ const ProductForm = () => {
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
   const [existingImages, setExistingImages] = useState([])
+  const [variantImageFiles, setVariantImageFiles] = useState({})
 
   const {
     register,
@@ -328,27 +333,45 @@ const ProductForm = () => {
     }
   }
 
+  const handleVariantImageUpload = (comboIndex, e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    setVariantImageFiles((prev) => ({
+      ...prev,
+      [comboIndex]: [...(prev[comboIndex] || []), ...files],
+    }))
+  }
+
+  const removeVariantImage = (comboIndex, fileIndex) => {
+    setVariantImageFiles((prev) => {
+      const list = prev[comboIndex] || []
+      const next = list.filter((_, i) => i !== fileIndex)
+      if (next.length === 0) {
+        const { [comboIndex]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [comboIndex]: next }
+    })
+  }
+
+  const extractImageUrls = (images) => {
+    if (!images || !Array.isArray(images)) return []
+    return images.map((img) => getImageDisplayUrl(img)).filter(Boolean)
+  }
+
   const onSubmit = async (values) => {
     setSubmitting(true)
+    setUploadStatus('')
     setError('')
     setSuccess('')
 
     try {
-      let uploadedImages = [...existingImages]
+      const combosForPayload = (values.hasVariants ? variantCombinations : []).map((c, i) => ({
+        ...c,
+        sku: (c.sku || '').trim() || `${values.sku}-V${i + 1}`,
+      }))
 
-      if (imageFiles.length > 0) {
-        try {
-          const uploadRes = await productService.uploadImages(imageFiles)
-          const uploadData = uploadRes?.data || uploadRes
-          if (uploadData?.images) {
-            uploadedImages = [...uploadedImages, ...uploadData.images]
-          }
-        } catch (uploadErr) {
-          console.error('Image upload failed, continuing without images', uploadErr)
-        }
-      }
-
-      const payload = {
+      const basePayload = {
         name: values.name,
         sku: values.sku,
         description: values.description || '',
@@ -362,8 +385,7 @@ const ProductForm = () => {
         quantity: parseInt(values.quantity) || 0,
         hasVariants: values.hasVariants,
         variants: values.hasVariants ? variants : [],
-        variantCombinations: values.hasVariants ? variantCombinations : [],
-        images: uploadedImages,
+        variantCombinations: combosForPayload,
         weight: parseFloat(values.weight) || 0,
         weightUnit: values.weightUnit,
         dimensions: {
@@ -383,15 +405,117 @@ const ProductForm = () => {
       }
 
       if (isEdit) {
+        let productImages = [...existingImages]
+        if (imageFiles.length > 0) {
+          try {
+            const uploadRes = await productService.uploadImagesS3(id, imageFiles)
+            const uploaded = uploadRes?.data?.images || []
+            productImages = [...productImages, ...extractImageUrls(uploaded)]
+          } catch (uploadErr) {
+            console.error('Product image upload failed', uploadErr)
+          }
+        }
+
+        const combosWithImages = variantCombinations.map((combo, idx) => {
+          const existing = extractImageUrls(combo.images || [])
+          if (variantImageFiles[idx]?.length > 0 && combo.uniqueId) {
+            return { ...combo, _pendingVariantUpload: variantImageFiles[idx] }
+          }
+          return { ...combo, images: existing }
+        })
+
+        const pendingVariantUploads = combosWithImages
+          .map((c, i) => (c._pendingVariantUpload ? { index: i, combo: c } : null))
+          .filter(Boolean)
+
+        for (const { index, combo } of pendingVariantUploads) {
+          try {
+            const res = await imageService.uploadImages({
+              productId: id,
+              files: combo._pendingVariantUpload,
+              imageType: 'variant',
+              variantCombinationUniqueId: combo.uniqueId,
+            })
+            const urls = extractImageUrls(res?.data?.images || [])
+            combosWithImages[index] = {
+              ...combo,
+              images: [...extractImageUrls(combo.images || []), ...urls],
+              _pendingVariantUpload: undefined,
+            }
+          } catch (uploadErr) {
+            console.error('Variant image upload failed', uploadErr)
+          }
+        }
+
+        const finalCombos = combosWithImages.map(({ _pendingVariantUpload, ...c }) => c)
+        const payload = { ...basePayload, images: productImages, variantCombinations: finalCombos }
         await productService.update(id, payload)
         setSuccess('Product updated successfully')
+        setImageFiles([])
+        setVariantImageFiles({})
+        setExistingImages(productImages)
+        setImagePreviews(productImages)
       } else {
-        await productService.create(payload)
-        setSuccess('Product created successfully')
+        setUploadStatus('Creating product...')
+        const payload = { ...basePayload, images: [] }
+        const createRes = await productService.create(payload)
+        const created = createRes?.data || createRes
+        const productId = created?.id || created?._id || created?.product?.id || created?.product?._id
+        if (!productId) {
+          setUploadStatus('')
+          setSuccess('Product created successfully')
+          setTimeout(() => navigate('/products'), 1500)
+          return
+        }
+
+        let uploadError = null
+        if (imageFiles.length > 0) {
+          setUploadStatus('Uploading product images...')
+          try {
+            await productService.uploadImagesS3(productId, imageFiles)
+          } catch (uploadErr) {
+            console.error('Product image upload failed', uploadErr)
+            uploadError = uploadErr?.message || 'Image upload failed'
+          }
+        }
+
+        const combos = created?.variantCombinations || []
+        for (let idx = 0; idx < combos.length; idx++) {
+          const files = variantImageFiles[idx]
+          const combo = combos[idx]
+          if (files?.length > 0 && combo?.uniqueId && !uploadError) {
+            try {
+              await imageService.uploadImages({
+                productId,
+                files,
+                imageType: 'variant',
+                variantCombinationUniqueId: combo.uniqueId,
+              })
+            } catch (uploadErr) {
+              console.error('Variant image upload failed', uploadErr)
+              uploadError = uploadError
+                ? `${uploadError}; variant images: ${uploadErr?.message}`
+                : `Variant image upload failed: ${uploadErr?.message}`
+            }
+          }
+        }
+
+        setUploadStatus('')
+        if (uploadError) {
+          setError(`Product created but image upload failed: ${uploadError}`)
+          setSuccess('Product created. You can edit the product to add images.')
+        } else {
+          const hasImages =
+            imageFiles.length > 0 || Object.values(variantImageFiles).some((f) => f?.length)
+          setSuccess(
+            hasImages ? 'Product created and images uploaded successfully' : 'Product created successfully',
+          )
+        }
         setTimeout(() => navigate('/products'), 1500)
       }
     } catch (err) {
       setError(err?.message || 'Failed to save product')
+      setUploadStatus('')
     } finally {
       setSubmitting(false)
     }
@@ -419,6 +543,11 @@ const ProductForm = () => {
       {error && (
         <CAlert color="danger" dismissible onClose={() => setError('')}>
           {error}
+        </CAlert>
+      )}
+      {uploadStatus && (
+        <CAlert color="info" className="mb-2">
+          {uploadStatus}
         </CAlert>
       )}
       {success && (
@@ -678,6 +807,7 @@ const ProductForm = () => {
                     <CTableHeaderCell>MRP</CTableHeaderCell>
                     <CTableHeaderCell>Cost</CTableHeaderCell>
                     <CTableHeaderCell>Qty</CTableHeaderCell>
+                    <CTableHeaderCell>Images</CTableHeaderCell>
                     <CTableHeaderCell>Active</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
@@ -749,6 +879,47 @@ const ProductForm = () => {
                             )
                           }
                         />
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        <div className="d-flex flex-wrap align-items-center gap-1">
+                          {(combo.images || []).map((img, i) => (
+                            <div key={i} className="position-relative">
+                              <CImage
+                                src={getImageDisplayUrl(img)}
+                                width={40}
+                                height={40}
+                                className="object-fit-cover rounded"
+                              />
+                            </div>
+                          ))}
+                          {(variantImageFiles[idx] || []).map((file, i) => (
+                            <div key={`new-${i}`} className="position-relative">
+                              <CImage
+                                src={URL.createObjectURL(file)}
+                                width={40}
+                                height={40}
+                                className="object-fit-cover rounded"
+                              />
+                              <CButton
+                                color="danger"
+                                size="sm"
+                                className="position-absolute top-0 end-0"
+                                style={{ transform: 'translate(50%, -50%)', padding: '0 4px' }}
+                                onClick={() => removeVariantImage(idx, i)}
+                              >
+                                &times;
+                              </CButton>
+                            </div>
+                          ))}
+                          <CFormInput
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            size="sm"
+                            style={{ width: 80 }}
+                            onChange={(e) => handleVariantImageUpload(idx, e)}
+                          />
+                        </div>
                       </CTableDataCell>
                       <CTableDataCell>
                         <CFormCheck

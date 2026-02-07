@@ -28,6 +28,7 @@ import brandService from '../../services/brandService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const ProductList = () => {
   const navigate = useNavigate()
@@ -242,7 +243,7 @@ const ProductList = () => {
                         <CTableDataCell>
                           {product.images?.length > 0 ? (
                             <CImage
-                              src={product.images[0]}
+                              src={getImageDisplayUrl(product.images[0])}
                               width={50}
                               height={50}
                               className="object-fit-cover rounded"
