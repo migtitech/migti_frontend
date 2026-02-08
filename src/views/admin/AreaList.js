@@ -113,10 +113,15 @@ const AreaList = () => {
                 {error}
               </CAlert>
             )}
-            <div className="mb-3 d-flex flex-wrap gap-2 align-items-end">
-              <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-              <CFormSelect
-                style={{ maxWidth: 200 }}
+            <CRow className="mb-3 mt-3 d-flex gap-2 align-items-center ">
+              <CCol xs={12} md={5} lg={6}>
+                <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              </CCol>
+              <CCol xs={12} md={3}  
+              className="ms-lg-auto"
+              >
+                <CFormSelect
+                // style={{ maxWidth: 200 }}
                 value={filterCompanyId}
                 onChange={(e) => {
                   setFilterCompanyId(e.target.value)
@@ -130,8 +135,10 @@ const AreaList = () => {
                   </option>
                 ))}
               </CFormSelect>
-              <CFormSelect
-                style={{ maxWidth: 180 }}
+              </CCol>
+              <CCol xs={12} md="auto" >
+                <CFormSelect
+                // style={{ maxWidth: 180 }}
                 value={filterAreaType}
                 onChange={(e) => {
                   setFilterAreaType(e.target.value)
@@ -142,7 +149,8 @@ const AreaList = () => {
                 <option value="market">Market</option>
                 <option value="industry">Industry</option>
               </CFormSelect>
-            </div>
+              </CCol>
+            </CRow>
             {loading ? (
               <Loader message="Loading areas..." />
             ) : (

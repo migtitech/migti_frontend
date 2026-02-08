@@ -5,8 +5,8 @@ import { cilSearch } from '@coreui/icons'
 
 const Filtered = ({ searchTerm, setSearchTerm }) => {
   return (
-    <CRow className="mb-3">
-      <CCol md={6}>
+    // <CRow className="mb-3">
+      // <CCol md={6}>
         <CInputGroup>
           <CInputGroupText>
             <CIcon icon={cilSearch} />
@@ -18,8 +18,8 @@ const Filtered = ({ searchTerm, setSearchTerm }) => {
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </CInputGroup>
-      </CCol>
-    </CRow>
+      // </CCol>
+    // </CRow>
   )
 }
 
