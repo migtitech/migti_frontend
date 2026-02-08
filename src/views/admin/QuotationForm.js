@@ -16,11 +16,13 @@ import {
   CFormTextarea,
   CFormSelect,
   CRow,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 
 const quotationSchema = yup.object({
@@ -69,27 +71,34 @@ const QuotationForm = () => {
     defaultValues,
   })
 
- 
   useEffect(() => {
     if (!isEdit) return
 
-    const quotation = quotations?.find((q) => q.id === Number(id))
-    if (!quotation) return
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        await withMinimumDelay(() => Promise.resolve())
+        const quotation = quotations?.find((q) => q.id === Number(id))
+        if (!quotation) return
 
-    setLoading(true)
-    reset({
-      queryId: quotation.queryId || '',
-      customerName: quotation.customerName || '',
-      customerEmail: quotation.customerEmail || '',
-      items: quotation.items || '',
-      totalAmount: quotation.totalAmount || '',
-      validUntil: quotation.validUntil
-        ? quotation.validUntil.split('T')[0]
-        : '',
-      notes: quotation.notes || '',
-      status: quotation.status || 'draft',
-    })
-    setLoading(false)
+        reset({
+          queryId: quotation.queryId || '',
+          customerName: quotation.customerName || '',
+          customerEmail: quotation.customerEmail || '',
+          items: quotation.items || '',
+          totalAmount: quotation.totalAmount || '',
+          validUntil: quotation.validUntil
+            ? quotation.validUntil.split('T')[0]
+            : '',
+          notes: quotation.notes || '',
+          status: quotation.status || 'draft',
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [id, isEdit, quotations, reset])
 
 
@@ -106,20 +115,22 @@ const QuotationForm = () => {
 
       if (isEdit) {
         updateQuotation(Number(id), payload)
+        toastSuccess('Quotation updated successfully')
       } else {
         addQuotation(payload)
+        toastSuccess('Quotation created successfully')
       }
 
       navigate('/quotations')
     } catch (err) {
-      setError('Failed to save quotation')
+      toastError('Failed to save quotation')
     }
   }
 
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading quotation..." />
       </div>
     )
   }

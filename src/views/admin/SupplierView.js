@@ -7,7 +7,6 @@ import {
   CCol,
   CRow,
   CButton,
-  CSpinner,
   CAlert,
   CListGroup,
   CListGroupItem,
@@ -16,6 +15,9 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import supplierService from '../../services/supplierService'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const SupplierView = () => {
   const { id } = useParams()
@@ -26,12 +28,14 @@ const SupplierView = () => {
 
   useEffect(() => {
     const fetchSupplier = async () => {
+      setLoading(true)
+      setError('')
       try {
-        const res = await supplierService.getById(id)
+        const res = await withMinimumDelay(() => supplierService.getById(id))
         const data = res?.data || res
         setSupplier(data)
       } catch (err) {
-        setError(err?.message || 'Failed to fetch supplier')
+        toastError(err?.message || 'Failed to fetch supplier')
       } finally {
         setLoading(false)
       }
@@ -41,9 +45,11 @@ const SupplierView = () => {
 
   if (loading) {
     return (
-      <div className="text-center p-5">
-        <CSpinner />
-      </div>
+      <CCard>
+        <CCardBody>
+          <Loader message="Loading supplier..." />
+        </CCardBody>
+      </CCard>
     )
   }
 

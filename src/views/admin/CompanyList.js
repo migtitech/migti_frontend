@@ -15,13 +15,15 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom, cilLocationPin } from '@coreui/icons'
 import Filtered from '../../filtered/Filtered'
 import companyService from '../../services/companyService'
-import Badge from '../../badges/badge'
+import Badge from '../../badges/Badge'
+import { Loader, ConfirmDialog } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const CompanyList = () => {
   const navigate = useNavigate()
@@ -30,12 +32,13 @@ const CompanyList = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const fetchCompanies = async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await companyService.getAll({ search: searchTerm || '' })
+      const res = await withMinimumDelay(() => companyService.getAll({ search: searchTerm || '' }))
       const data = res?.data || res
       setCompanies(data?.companies || data || [])
     } catch (err) {
@@ -50,15 +53,20 @@ const CompanyList = () => {
     return () => clearTimeout(timer)
   }, [searchTerm])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this company? All related branches will also be deleted.')) {
-      return
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
     try {
       await companyService.delete(id)
+      toastSuccess('Company deleted successfully')
       fetchCompanies()
     } catch (err) {
-      setError(err?.message || 'Failed to delete company')
+      toastError(err?.message || 'Failed to delete company')
     }
   }
 
@@ -84,9 +92,7 @@ const CompanyList = () => {
             <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
             {loading ? (
-              <div className="text-center py-4">
-                <CSpinner color="primary" />
-              </div>
+              <Loader message="Loading companies..." />
             ) : (
               <CTable hover responsive>
                 <CTableHead>
@@ -151,7 +157,7 @@ const CompanyList = () => {
                             variant="ghost"
                             size="sm"
                             title="Delete"
-                            onClick={() => handleDelete(id)}
+                            onClick={() => handleDeleteClick(id)}
                           >
                             <CIcon icon={cilTrash} />
                           </CButton>
@@ -175,6 +181,16 @@ const CompanyList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Company?"
+        message="Are you sure you want to delete this company? All related branches will also be deleted."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

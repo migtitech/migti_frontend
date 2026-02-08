@@ -25,6 +25,7 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom, cilImage } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import Filtered from '../../filtered/Filtered'
+import { ConfirmDialog } from '../../components'
 
 const QueryList = () => {
   const navigate = useNavigate()
@@ -33,11 +34,16 @@ const QueryList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [showImageModal, setShowImageModal] = useState(false)
   const [selectedImages, setSelectedImages] = useState([])
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this query?')) {
-      deleteQuery(id)
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (id != null) deleteQuery(id)
   }
 
   const handleViewImages = (images) => {
@@ -167,7 +173,7 @@ const QueryList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(query.id)}
+                            onClick={() => handleDeleteClick(query.id)}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />
@@ -213,6 +219,16 @@ const QueryList = () => {
           </CButton>
         </CModalFooter>
       </CModal>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Query?"
+        message="Are you sure you want to delete this query? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }

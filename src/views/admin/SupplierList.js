@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -13,15 +13,21 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CSpinner,
   CAlert,
   CPagination,
   CPaginationItem,
+  CFormInput,
+  CInputGroup,
+  CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
 import supplierService from '../../services/supplierService'
-import Filtered from '../../filtered/Filtered'
+import categoryService from '../../services/categoryService'
+import areaService from '../../services/areaService'
+import { Loader, ConfirmDialog, SearchableDropdown } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const SupplierList = () => {
   const navigate = useNavigate()
@@ -31,40 +37,131 @@ const SupplierList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const fetchSuppliers = async () => {
+  const [filterCategory, setFilterCategory] = useState('')
+  const [filterSubcategory, setFilterSubcategory] = useState('')
+  const [filterArea, setFilterArea] = useState('')
+  const [categories, setCategories] = useState([])
+  const [subcategories, setSubcategories] = useState([])
+  const [areas, setAreas] = useState([])
+
+  const fetchSuppliers = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await supplierService.getAll({
+      const params = {
         pageNumber: page,
         pageSize: 10,
-        search: searchTerm,
-      })
+        search: searchTerm || undefined,
+      }
+      if (filterSubcategory) {
+        params.subcategory = filterSubcategory
+      } else if (filterCategory) {
+        params.category = filterCategory
+      }
+      if (filterArea) {
+        const areaObj = areas.find((a) => (a._id || a.id) === filterArea)
+        if (areaObj?.name) params.area = areaObj.name
+      }
+      const res = await withMinimumDelay(() => supplierService.getAll(params))
       const data = res?.data || res
       setSuppliers(data?.suppliers || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      setError(err?.message || 'Failed to fetch suppliers')
+      toastError(err?.message || 'Failed to fetch suppliers')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, searchTerm, filterCategory, filterSubcategory, filterArea, areas])
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchSuppliers()
     }, 300)
     return () => clearTimeout(timer)
-  }, [searchTerm, page])
+  }, [fetchSuppliers])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this supplier?')) return
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await categoryService.getAll({ parent: '', pageSize: 100 })
+        const data = res?.data || res
+        if (!cancelled) setCategories(data?.categories || [])
+      } catch {
+        if (!cancelled) setCategories([])
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await areaService.getAll({ pageSize: 100 })
+        const data = res?.data || res
+        if (!cancelled) setAreas(data?.areas || [])
+      } catch {
+        if (!cancelled) setAreas([])
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (!filterCategory) {
+      setSubcategories([])
+      setFilterSubcategory('')
+      return
+    }
+    let cancelled = false
+    const load = async () => {
+      try {
+        const res = await categoryService.getAll({ parent: filterCategory, pageSize: 100 })
+        const data = res?.data || res
+        if (!cancelled) setSubcategories(data?.categories || [])
+        if (!cancelled) setFilterSubcategory('')
+      } catch {
+        if (!cancelled) setSubcategories([])
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [filterCategory])
+
+  const handleFilterCategoryChange = (val) => {
+    setFilterCategory(val || '')
+    setPage(1)
+  }
+
+  const handleFilterSubcategoryChange = (val) => {
+    setFilterSubcategory(val || '')
+    setPage(1)
+  }
+
+  const handleFilterAreaChange = (val) => {
+    setFilterArea(val || '')
+    setPage(1)
+  }
+
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
     try {
       await supplierService.delete(id)
+      toastSuccess('Supplier deleted successfully')
       fetchSuppliers()
     } catch (err) {
-      setError(err?.message || 'Failed to delete supplier')
+      toastError(err?.message || 'Failed to delete supplier')
     }
   }
 
@@ -79,17 +176,70 @@ const SupplierList = () => {
               Add Supplier
             </CButton>
           </CCardHeader>
-          <CCardBody>
+          <CCardBody style={{ overflow: 'visible' }}>
             {error && (
               <CAlert color="danger" dismissible onClose={() => setError('')}>
                 {error}
               </CAlert>
             )}
-            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+            <CRow className="mb-3 align-items-end suppliers-filter-row" style={{ position: 'relative', zIndex: 10, overflow: 'visible' }}>
+              <CCol md={6} style={{ overflow: 'visible' }}>
+                <CInputGroup>
+                  <CInputGroupText>
+                    <CIcon icon={cilSearch} />
+                  </CInputGroupText>
+                  <CFormInput
+                    type="text"
+                    placeholder="Search ..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </CInputGroup>
+              </CCol>
+              <CCol md={6}>
+                <CRow className="g-2">
+                  <CCol xs={12} sm={4}>
+                    <SearchableDropdown
+                      label="Category"
+                      options={categories}
+                      value={filterCategory}
+                      onChange={handleFilterCategoryChange}
+                      placeholder="Select category"
+                      maxDisplayCount={5}
+                      getOptionLabel={(opt) => opt?.name ?? ''}
+                      getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
+                    />
+                  </CCol>
+                  <CCol xs={12} sm={4}>
+                    <SearchableDropdown
+                      label="Subcategory"
+                      options={subcategories}
+                      value={filterSubcategory}
+                      onChange={handleFilterSubcategoryChange}
+                      placeholder="Select subcategory"
+                      maxDisplayCount={5}
+                      getOptionLabel={(opt) => opt?.name ?? ''}
+                      getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
+                      disabled={!filterCategory}
+                    />
+                  </CCol>
+                  <CCol xs={12} sm={4}>
+                    <SearchableDropdown
+                      label="Area"
+                      options={areas}
+                      value={filterArea}
+                      onChange={handleFilterAreaChange}
+                      placeholder="Select area"
+                      maxDisplayCount={5}
+                      getOptionLabel={(opt) => opt?.name ?? ''}
+                      getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
+                    />
+                  </CCol>
+                </CRow>
+              </CCol>
+            </CRow>
             {loading ? (
-              <div className="text-center p-4">
-                <CSpinner />
-              </div>
+              <Loader message="Loading suppliers..." />
             ) : (
               <>
                 <CTable hover responsive>
@@ -155,7 +305,7 @@ const SupplierList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDelete(supplier._id)}
+                            onClick={() => handleDeleteClick(supplier._id)}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />
@@ -166,8 +316,8 @@ const SupplierList = () => {
                     {suppliers.length === 0 && (
                       <CTableRow>
                         <CTableDataCell colSpan={12} className="text-center">
-                          {searchTerm
-                            ? `No suppliers found matching "${searchTerm}"`
+                          {searchTerm || filterCategory || filterSubcategory || filterArea
+                            ? 'No suppliers match the current search or filters.'
                             : 'No suppliers found. Click "Add Supplier" to create one.'}
                         </CTableDataCell>
                       </CTableRow>
@@ -204,6 +354,16 @@ const SupplierList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Supplier?"
+        message="Are you sure you want to delete this supplier? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

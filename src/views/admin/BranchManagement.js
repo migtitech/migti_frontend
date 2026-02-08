@@ -34,6 +34,7 @@ import {
   cilArrowLeft,
 } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
+import { ConfirmDialog } from '../../components'
 
 const BranchManagement = () => {
   const { companyId } = useParams()
@@ -52,6 +53,7 @@ const BranchManagement = () => {
 
   const [showModal, setShowModal] = useState(false)
   const [editingBranch, setEditingBranch] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -104,10 +106,14 @@ const BranchManagement = () => {
     handleCloseModal()
   }
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this branch? All users will also be removed.')) {
-      deleteBranch(id)
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (id != null) deleteBranch(id)
   }
 
   const handleViewUsers = (branchId) => {
@@ -200,7 +206,7 @@ const BranchManagement = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(branch.id)}
+                          onClick={() => handleDeleteClick(branch.id)}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />
@@ -283,6 +289,16 @@ const BranchManagement = () => {
           </CModalFooter>
         </CForm>
       </CModal>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Branch?"
+        message="Are you sure you want to delete this branch? All users will also be removed."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }

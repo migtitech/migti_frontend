@@ -30,7 +30,11 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
 import rawQueryService from '../../services/rawQueryService'
+import industryService from '../../services/industryService'
 import Filtered from '../../filtered/Filtered'
+import { Loader, ConfirmDialog } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const RawQuery = () => {
   const navigate = useNavigate()
@@ -43,10 +47,12 @@ const RawQuery = () => {
   const [error, setError] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingQuery, setEditingQuery] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
+  const [industries, setIndustries] = useState([])
   const [formData, setFormData] = useState({
     title: '',
-    companyInfo: '',
+    industryId: '',
     description: '',
     priority: 'medium',
   })
@@ -54,9 +60,12 @@ const RawQuery = () => {
   const handleOpenModal = (query = null) => {
     if (query) {
       setEditingQuery(query)
+      const industryId = query.industry_id
+        ? (typeof query.industry_id === 'object' ? query.industry_id._id || query.industry_id.id : query.industry_id)
+        : ''
       setFormData({
         title: query.title || '',
-        companyInfo: query.company_info || query.companyInfo || '',
+        industryId: industryId || '',
         description: query.description || '',
         priority: query.priority || 'medium',
       })
@@ -64,7 +73,7 @@ const RawQuery = () => {
       setEditingQuery(null)
       setFormData({
         title: '',
-        companyInfo: '',
+        industryId: '',
         description: '',
         priority: 'medium',
       })
@@ -77,7 +86,7 @@ const RawQuery = () => {
     setEditingQuery(null)
     setFormData({
       title: '',
-      companyInfo: '',
+      industryId: '',
       description: '',
       priority: 'medium',
     })
@@ -87,27 +96,35 @@ const RawQuery = () => {
     e.preventDefault()
     const data = {
       ...formData,
+      industryId: formData.industryId || null,
     }
     if (!editingQuery) {
       return
     }
     try {
       await rawQueryService.update(editingQuery._id || editingQuery.id, data)
+      toastSuccess('Raw query updated successfully')
       await fetchRawQueries()
       handleCloseModal()
     } catch (err) {
-      setError(err?.message || 'Failed to update raw query')
+      toastError(err?.message || 'Failed to update raw query')
     }
   }
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this raw query?')) {
-      try {
-        await rawQueryService.delete(id)
-        await fetchRawQueries()
-      } catch (err) {
-        setError(err?.message || 'Failed to delete raw query')
-      }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
+    try {
+      await rawQueryService.delete(id)
+      toastSuccess('Raw query deleted successfully')
+      await fetchRawQueries()
+    } catch (err) {
+      toastError(err?.message || 'Failed to delete raw query')
     }
   }
 
@@ -129,21 +146,36 @@ const RawQuery = () => {
     try {
       setLoading(true)
       setError('')
-      const response = await rawQueryService.getAll({
-        pageNumber,
-        pageSize,
-        search: searchTerm,
-        ...options,
-      })
+      const response = await withMinimumDelay(() =>
+        rawQueryService.getAll({
+          pageNumber,
+          pageSize,
+          search: searchTerm,
+          ...options,
+        })
+      )
       const payload = response?.data || {}
       setQueries(payload.rawQueries || [])
       setPagination(payload.pagination || null)
     } catch (err) {
-      setError(err?.message || 'Failed to load raw queries')
+      toastError(err?.message || 'Failed to load raw queries')
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const fetchIndustries = async () => {
+      try {
+        const response = await industryService.getAll({ pageSize: 100 })
+        const payload = response?.data || response
+        setIndustries(payload?.industries || [])
+      } catch {
+        setIndustries([])
+      }
+    }
+    fetchIndustries()
+  }, [])
 
   useEffect(() => {
     setPageNumber(1)
@@ -180,7 +212,7 @@ const RawQuery = () => {
                   <CTableRow>
                     <CTableHeaderCell>#</CTableHeaderCell>
                     <CTableHeaderCell>Title</CTableHeaderCell>
-                    <CTableHeaderCell>Company Info</CTableHeaderCell>
+                    <CTableHeaderCell>Industry</CTableHeaderCell>
                     <CTableHeaderCell>Priority</CTableHeaderCell>
                     <CTableHeaderCell>Date</CTableHeaderCell>
                     <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -188,20 +220,25 @@ const RawQuery = () => {
                 </CTableHead>
 
                 <CTableBody>
-                  {loading && (
+                  {loading ? (
                     <CTableRow>
-                      <CTableDataCell colSpan={6} className="text-center">
-                        Loading...
+                      <CTableDataCell colSpan={6}>
+                        <Loader message="Loading raw queries..." />
                       </CTableDataCell>
                     </CTableRow>
-                  )}
+                  ) : (
+                    <>
                   {queries && queries?.map((query, index) => (
                     <CTableRow key={query._id || query.id}>
                       <CTableDataCell>{(pageNumber - 1) * pageSize + index + 1}</CTableDataCell>
                       <CTableDataCell>
                         <strong>{query.title || '-'}</strong>
                       </CTableDataCell>
-                      <CTableDataCell>{query.company_info || query.companyInfo || '-'}</CTableDataCell>
+                      <CTableDataCell>
+                        {query.industry_id && typeof query.industry_id === 'object'
+                          ? query.industry_id.name || '-'
+                          : query.company_info || query.companyInfo || '-'}
+                      </CTableDataCell>
                       <CTableDataCell>{getPriorityBadge(query.priority)}</CTableDataCell>
                       <CTableDataCell>
                         {new Date(query.createdAt || query.created_at).toLocaleDateString()}
@@ -237,12 +274,14 @@ const RawQuery = () => {
                       </CTableDataCell>
                     </CTableRow>
                   ))}
-                  {(!queries || queries.length === 0) && !loading && (
+                  {(!queries || queries.length === 0) && (
                     <CTableRow>
                       <CTableDataCell colSpan={6} className="text-center">
                         No raw queries found. Click "Add Raw Query" to create one.
                       </CTableDataCell>
                     </CTableRow>
+                  )}
+                    </>
                   )}
                 </CTableBody>
               </CTable>
@@ -299,14 +338,20 @@ const RawQuery = () => {
             <CRow>
               <CCol md={12}>
                 <div className="mb-3">
-                  <CFormLabel htmlFor="companyInfo">Company Info</CFormLabel>
-                  <CFormTextarea
-                    id="companyInfo"
-                    rows={2}
-                    value={formData.companyInfo}
-                    onChange={(e) => setFormData({ ...formData, companyInfo: e.target.value })}
-                    placeholder="Company name, contact details, address, etc."
-                  />
+                  <CFormLabel htmlFor="industryId">Industry</CFormLabel>
+                  <CFormSelect
+                    id="industryId"
+                    value={formData.industryId}
+                    onChange={(e) => setFormData({ ...formData, industryId: e.target.value })}
+                  >
+                    <option value="">Select industry</option>
+                    {industries.map((industry) => (
+                      <option key={industry._id || industry.id} value={industry._id || industry.id}>
+                        {industry.name}
+                        {industry.location ? ` (${industry.location})` : ''}
+                      </option>
+                    ))}
+                  </CFormSelect>
                 </div>
               </CCol>
             </CRow>
@@ -351,6 +396,15 @@ const RawQuery = () => {
         </CForm>
       </CModal>
 
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Raw Query?"
+        message="Are you sure you want to delete this raw query? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }

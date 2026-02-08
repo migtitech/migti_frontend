@@ -1,0 +1,14 @@
+// Ensure dropdown wrapper allows overflow so menu can overlay content below
+.searchable-dropdown {
+  overflow: visible;
+}
+
+// Dropdown menu overlays table/card (Popper may render outside wrapper)
+.searchable-dropdown-menu {
+  z-index: 1060 !important;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.searchable-dropdown-options {
+  min-height: 2rem;
+}

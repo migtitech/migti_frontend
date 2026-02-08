@@ -9,10 +9,10 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPencil, cilTrash, cilZoom, cilPeople, cilLocationPin, cilPlus } from '@coreui/icons'
+import { Loader } from '../../../components'
 
 const BranchCards = ({
   branches,
@@ -45,9 +45,7 @@ const BranchCards = ({
       )}
       {loading ? (
         <CCol xs={12}>
-          <div className="text-center py-4">
-            <CSpinner color="primary" />
-          </div>
+          <Loader message="Loading branches..." />
         </CCol>
       ) : (
         branches.map((branch) => {

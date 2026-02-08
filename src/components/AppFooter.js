@@ -8,10 +8,6 @@ const AppFooter = () => {
         <span className="fw-semibold">MigtiCRM</span>
         <span className="ms-1">&copy; {new Date().getFullYear()} Migti Industrial Private Limited</span>
       </div>
-      <div className="ms-auto">
-        <span className="me-1">Powered by</span>
-        <span className="fw-semibold">CoreUI</span>
-      </div>
     </CFooter>
   )
 }

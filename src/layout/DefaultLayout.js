@@ -1,16 +1,15 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
-import { AppContent, AppSidebar, AppFooter, AppHeader } from '../components/index'
+import { AppContent, AppSidebar, AppFooter, AppHeader, Loader } from '../components/index'
 import { useAuth } from '../context/AuthContext'
-import { CSpinner } from '@coreui/react'
 
 const DefaultLayout = () => {
   const { isAuthenticated, loading } = useAuth()
 
   if (loading) {
     return (
-      <div className="pt-3 text-center min-vh-100 d-flex align-items-center justify-content-center">
-        <CSpinner color="primary" variant="grow" />
+      <div className="pt-3 min-vh-100 d-flex align-items-center justify-content-center">
+        <Loader message="Loading..." />
       </div>
     )
   }

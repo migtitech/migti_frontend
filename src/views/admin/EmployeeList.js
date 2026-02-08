@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
+import { ConfirmDialog } from '../../components'
 import EmployeeHeader from './employees/EmployeeHeader'
 import EmployeeTable from './employees/EmployeeTable'
 
@@ -12,6 +15,7 @@ const EmployeeList = () => {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
 
   const normalizeId = (item) => ({
@@ -23,11 +27,11 @@ const EmployeeList = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await employeeService.getAll()
+      const response = await withMinimumDelay(() => employeeService.getAll())
       const list = response?.data?.employees || response?.data || []
       setEmployees(list.map(normalizeId))
     } catch (err) {
-      setError(err?.message || 'Failed to load employees')
+      toastError(err?.message || 'Failed to load employees')
     } finally {
       setLoading(false)
     }
@@ -39,7 +43,7 @@ const EmployeeList = () => {
       const list = response?.data?.branches || response?.data || []
       setBranches(list.map(normalizeId))
     } catch (err) {
-      setError(err?.message || 'Failed to load branches')
+      toastError(err?.message || 'Failed to load branches')
     }
   }
 
@@ -49,21 +53,26 @@ const EmployeeList = () => {
   }, [])
 
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      setSubmitting(true)
-      setError('')
-      try {
-        await employeeService.delete(id)
-        setEmployees((prev) => prev.filter((employee) => employee.id !== id))
-      } catch (err) {
-        setError(err?.message || 'Failed to delete employee')
-      } finally {
-        setSubmitting(false)
-      }
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
   }
 
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await employeeService.delete(id)
+      setEmployees((prev) => prev.filter((employee) => employee.id !== id))
+      toastSuccess('Employee deleted successfully')
+    } catch (err) {
+      toastError(err?.message || 'Failed to delete employee')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <>
@@ -76,7 +85,16 @@ const EmployeeList = () => {
         onClearError={() => setError('')}
         onView={(employeeId) => navigate(`/employees/${employeeId}`)}
         onEdit={(employee) => navigate(`/employees/edit/${employee.id}`)}
-        onDelete={handleDelete}
+        onDelete={handleDeleteClick}
+      />
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Employee?"
+        message="Are you sure you want to delete this employee? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
       />
     </>
   )

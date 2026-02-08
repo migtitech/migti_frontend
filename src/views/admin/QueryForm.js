@@ -15,11 +15,13 @@ import {
   CFormSelect,
   CFormTextarea,
   CRow,
-  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 
 const querySchema = (isEdit = false) =>
@@ -76,26 +78,34 @@ const QueryForm = () => {
       return
     }
 
-    setLoading(true)
-    try {
-      const query = queries.find((q) => String(q._id || q.id) === String(id))
-      if (!query) throw new Error('Query not found')
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const query = await withMinimumDelay(() =>
+          Promise.resolve(
+            queries.find((q) => String(q._id || q.id) === String(id))
+          )
+        )
+        if (!query) throw new Error('Query not found')
 
-      reset({
-        customerName: query.customerName || '',
-        customerEmail: query.customerEmail || '',
-        customerPhone: query.customerPhone || '',
-        subject: query.subject || '',
-        description: query.description || '',
-        images: query.images?.join(', ') || '',
-        status: query.status || 'new',
-        priority: query.priority || 'normal',
-      })
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
+        reset({
+          customerName: query.customerName || '',
+          customerEmail: query.customerEmail || '',
+          customerPhone: query.customerPhone || '',
+          subject: query.subject || '',
+          description: query.description || '',
+          images: query.images?.join(', ') || '',
+          status: query.status || 'new',
+          priority: query.priority || 'normal',
+        })
+      } catch (err) {
+        toastError(err.message)
+      } finally {
+        setLoading(false)
+      }
     }
+    load()
   }, [id])
 
   const onSubmit = (values) => {
@@ -109,8 +119,10 @@ const QueryForm = () => {
 
     if (isEdit) {
       updateQuery(id, payload)
+      toastSuccess('Query updated successfully')
     } else {
       addQuery(payload)
+      toastSuccess('Query created successfully')
     }
 
     navigate('/queries')
@@ -119,7 +131,7 @@ const QueryForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <CSpinner />
+        <Loader message="Loading query..." />
       </div>
     )
   }

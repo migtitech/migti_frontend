@@ -1,6 +1,6 @@
 
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4545/api'
 
 export const API_VERSION = '/v1'
 
@@ -55,6 +55,8 @@ export const RAW_QUERIES = {
   GET_BY_ID: '/raw-queries/get-by-id',
   UPDATE: '/raw-queries/update',
   DELETE: '/raw-queries/delete',
+  ACTIVITIES: '/raw-queries/activities',
+  RECORD_ACTIVITY: '/raw-queries/record-activity',
 }
 
 // Dashboard endpoints
@@ -98,6 +100,33 @@ export const SUPPLIERS = {
   DELETE: '/suppliers/delete',
 }
 
+export const RATE_CARDS = {
+  CREATE: '/rate-cards/create',
+  LIST: '/rate-cards/list',
+  GET_BY_ID: '/rate-cards/get-by-id',
+  UPDATE: '/rate-cards/update',
+  DELETE: '/rate-cards/delete',
+  ADD_SUPPLIER: '/rate-cards/add-supplier',
+  UPDATE_SUPPLIER: '/rate-cards/update-supplier',
+  DELETE_SUPPLIER: '/rate-cards/delete-supplier',
+}
+
+export const AREAS = {
+  CREATE: '/areas/create',
+  LIST: '/areas/list',
+  GET_BY_ID: '/areas/get-by-id',
+  UPDATE: '/areas/update',
+  DELETE: '/areas/delete',
+}
+
+export const INDUSTRIES = {
+  CREATE: '/industries/create',
+  LIST: '/industries/list',
+  GET_BY_ID: '/industries/get-by-id',
+  UPDATE: '/industries/update',
+  DELETE: '/industries/delete',
+}
+
 // Export all endpoints
 export default {
   BASE_URL,
@@ -113,4 +142,7 @@ export default {
   BRANDS,
   PRODUCTS,
   SUPPLIERS,
+  RATE_CARDS,
+  AREAS,
+  INDUSTRIES,
 }

@@ -13,7 +13,6 @@ import {
   CTableRow,
   CButton,
   CBadge,
-  CSpinner,
   CAlert,
   CImage,
   CPagination,
@@ -24,6 +23,9 @@ import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
 import brandService from '../../services/brandService'
 import Filtered from '../../filtered/Filtered'
 import { useNavigate } from 'react-router-dom'
+import { Loader, ConfirmDialog } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const BrandList = () => {
   const [brands, setBrands] = useState([])
@@ -32,6 +34,7 @@ const BrandList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const navigate = useNavigate()
 
@@ -39,11 +42,13 @@ const BrandList = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await brandService.getAll({
-        pageNumber: page,
-        pageSize: 10,
-        search: searchTerm,
-      })
+      const res = await withMinimumDelay(() =>
+        brandService.getAll({
+          pageNumber: page,
+          pageSize: 10,
+          search: searchTerm,
+        })
+      )
       const data = res?.data || res
       setBrands(data?.brands || [])
       setPagination(data?.pagination || {})
@@ -59,13 +64,20 @@ const BrandList = () => {
     return () => clearTimeout(timer)
   }, [searchTerm, page])
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this brand?')) return
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = async () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (!id) return
     try {
       await brandService.delete(id)
+      toastSuccess('Brand deleted successfully')
       fetchBrands()
     } catch (err) {
-      setError(err?.message || 'Failed to delete brand')
+      toastError(err?.message || 'Failed to delete brand')
     }
   }
 
@@ -98,9 +110,7 @@ const BrandList = () => {
             <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
 
             {loading ? (
-              <div className="text-center p-4">
-                <CSpinner />
-              </div>
+              <Loader message="Loading brands..." />
             ) : (
               <>
                 <CTable hover responsive>
@@ -154,7 +164,7 @@ const BrandList = () => {
                             size="sm"
                             color="danger"
                             variant="ghost"
-                            onClick={() => handleDelete(brand._id)}
+                            onClick={() => handleDeleteClick(brand._id)}
                           >
                             <CIcon icon={cilTrash} />
                           </CButton>
@@ -204,6 +214,16 @@ const BrandList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Brand?"
+        message="Are you sure you want to delete this brand? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

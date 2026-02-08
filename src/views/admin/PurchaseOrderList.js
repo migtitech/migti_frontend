@@ -28,12 +28,14 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom, cilCloudDownload } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
+import { ConfirmDialog } from '../../components'
 
 const PurchaseOrderList = () => {
   const navigate = useNavigate()
   const { purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, suppliers } = useData()
   const [showModal, setShowModal] = useState(false)
   const [editingOrder, setEditingOrder] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
   const [formData, setFormData] = useState({
     supplierId: '',
     supplierName: '',
@@ -105,10 +107,14 @@ const PurchaseOrderList = () => {
     handleCloseModal()
   }
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this purchase order?')) {
-      deletePurchaseOrder(id)
-    }
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id })
+  }
+
+  const handleDeleteConfirm = () => {
+    const id = confirmDelete.id
+    setConfirmDelete({ visible: false, id: null })
+    if (id != null) deletePurchaseOrder(id)
   }
 
   const getStatusBadge = (status) => {
@@ -365,6 +371,15 @@ const PurchaseOrderList = () => {
           </CModalFooter>
         </CForm>
       </CModal>
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Purchase Order?"
+        message="Are you sure you want to delete this purchase order? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </>
   )
 }
