@@ -159,7 +159,7 @@ const CategoryList = () => {
                   <CTableBody>
                     {categories.map((cat, index) => (
                       <React.Fragment key={cat._id}>
-                        <CTableRow>
+                        <CTableRow onClick={() => navigate(`/categories/${cat._id}`)} style={{ cursor: 'pointer' }}>
                           <CTableDataCell>
                             <CButton
                               color="light"
@@ -202,7 +202,9 @@ const CategoryList = () => {
                               color="success"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/categories/new?parent=${cat._id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/categories/new?parent=${cat._id}`)}}
                               title="Add Subcategory"
                             >
                               <CIcon icon={cilPlus} />
@@ -211,7 +213,9 @@ const CategoryList = () => {
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/categories/edit/${cat._id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/categories/edit/${cat._id}`)}}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -220,7 +224,9 @@ const CategoryList = () => {
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(cat._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(cat._id)}}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />

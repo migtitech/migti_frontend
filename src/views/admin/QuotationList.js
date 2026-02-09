@@ -99,7 +99,10 @@ const QuotationList = () => {
               <CTableBody>
                 {filteredQuotations && filteredQuotations.length > 0 ? (
                   filteredQuotations.map((quotation, index) => (
-                    <CTableRow key={quotation.id}>
+                    <CTableRow key={quotation.id}
+                    onClick={() => navigate(`/quotations/${quotation.id}`)}
+                    style={{ cursor: 'pointer' }}
+                    >
                       <CTableDataCell>{index + 1}</CTableDataCell>
                       <CTableDataCell>
                         <strong>QT-{String(quotation.id).padStart(4, '0')}</strong>
@@ -137,7 +140,9 @@ const QuotationList = () => {
                           variant="ghost"
                           size="sm"
                           title="View"
-                          onClick={() => navigate(`/quotations/${quotation.id}`)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/quotations/${quotation.id}`)}}
                         >
                           <CIcon icon={cilZoom} />
                         </CButton>
@@ -156,7 +161,9 @@ const QuotationList = () => {
                           variant="ghost"
                           size="sm"
                           title="Edit"
-                          onClick={() => navigate(`/quotations/edit/${quotation.id}`)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/quotations/edit/${quotation.id}`)}}
                         >
                           <CIcon icon={cilPencil} />
                         </CButton>
@@ -166,7 +173,9 @@ const QuotationList = () => {
                           variant="ghost"
                           size="sm"
                           title="Delete"
-                          onClick={() => handleDeleteClick(quotation.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteClick(quotation.id)}}
                         >
                           <CIcon icon={cilTrash} />
                         </CButton>

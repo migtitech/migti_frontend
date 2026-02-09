@@ -86,7 +86,7 @@ const AreaView = () => {
       </CRow>
 
       <CRow>
-        <CCol xs={12} md={6}>
+        <CCol xs={12} >
           <CCard>
             <CCardHeader>
               <strong>Area Details</strong>
