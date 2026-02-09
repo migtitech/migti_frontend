@@ -184,8 +184,12 @@ const SupplierList = () => {
                 {error}
               </CAlert>
             )}
-            <CRow className="mb-3 align-items-end suppliers-filter-row" style={{ position: 'relative', zIndex: 10, overflow: 'visible' }}>
-              <CCol md={6} style={{ overflow: 'visible' }}>
+            <CRow className="mb-3 d-flex align-items-end justify-content-between " 
+            // style={{ position: 'relative', zIndex: 10, overflow: 'visible' }}
+            >
+              <CCol md={6} 
+              // style={{ overflow: 'visible' }}
+              >
                 <CInputGroup>
                   <CInputGroupText>
                     <CIcon icon={cilSearch} />
@@ -212,7 +216,7 @@ const SupplierList = () => {
                       getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
                     />
                   </CCol>
-                  <CCol xs={12} sm={4}>
+                  <CCol xs={12} sm={5}>
                     <SearchableDropdown
                       label="Subcategory"
                       options={subcategories}
@@ -225,7 +229,7 @@ const SupplierList = () => {
                       disabled={!filterCategory}
                     />
                   </CCol>
-                  <CCol xs={12} sm={4}>
+                  <CCol xs={12} sm={3}>
                     <SearchableDropdown
                       label="Area"
                       options={areas}
