@@ -19,6 +19,7 @@ import {
   CFormInput,
   CInputGroup,
   CInputGroupText,
+  CTooltip,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
@@ -88,6 +89,7 @@ const SupplierList = () => {
       try {
         const res = await categoryService.getAll({ parent: '', pageSize: 100 })
         const data = res?.data || res
+        console.log("categories", data)
         if (!cancelled) setCategories(data?.categories || [])
       } catch {
         if (!cancelled) setCategories([])
@@ -255,13 +257,14 @@ const SupplierList = () => {
                       <CTableHeaderCell>Label</CTableHeaderCell>
                       <CTableHeaderCell>Shop Location</CTableHeaderCell>
                       <CTableHeaderCell>Categories</CTableHeaderCell>
-                      <CTableHeaderCell>Remark</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {suppliers.map((supplier, index) => (
-                      <CTableRow key={supplier._id}>
+                      <CTableRow key={supplier._id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/suppliers/${supplier._id}`)}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{supplier.name}</strong>
@@ -272,16 +275,33 @@ const SupplierList = () => {
                         <CTableDataCell>{supplier.email || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.other_contact || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.label || '-'}</CTableDataCell>
-                        <CTableDataCell>{supplier.shop_location || '-'}</CTableDataCell>
+                        {/* <CTableDataCell>
+                          <span className="text-truncate d-inline-block"
+                          style={{ maxWidth: '150px' }}
+                          title={supplier.shop_location}
+                        >{supplier.shop_location || '-'}
+                        </span>
+                        </CTableDataCell> */}
+
+                        <CTableDataCell>
+                          <CTooltip content={supplier.shop_location || '-'}>
+                            <span
+                              className="text-truncate d-inline-block"
+                              style={{ maxWidth: '130px' }}
+                            >
+                              {supplier.shop_location || '-'}
+                            </span>
+                          </CTooltip>
+                        </CTableDataCell>
+
                         <CTableDataCell>
                           {supplier.categories?.length
                             ? supplier.categories
-                                .map((cat) => (typeof cat === 'string' ? cat : cat?.name))
-                                .filter(Boolean)
-                                .join(', ')
+                              .map((cat) => (typeof cat === 'string' ? cat : cat?.name))
+                              .filter(Boolean)
+                              .join(', ')
                             : '-'}
                         </CTableDataCell>
-                        <CTableDataCell>{supplier.remark || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
                             color="info"
@@ -296,7 +316,10 @@ const SupplierList = () => {
                             color="warning"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/suppliers/edit/${supplier._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/suppliers/edit/${supplier._id}`)}
+                            }
                             title="Edit"
                           >
                             <CIcon icon={cilPencil} />
@@ -305,7 +328,9 @@ const SupplierList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteClick(supplier._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(supplier._id)}}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />
