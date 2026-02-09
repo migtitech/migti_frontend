@@ -90,7 +90,9 @@ const IndustryForm = () => {
     try {
       const res = await areaService.getAll({ pageSize: 100 })
       const data = res?.data || res
-      setAreas(data?.areas || [])
+      // console.log("areas", data)
+      setAreas(data?.areas.filter(a => a.areaType === "market") || [])
+      // setAreas(data?.areas || [])
     } catch (err) {
       console.error('Failed to fetch areas', err)
     }
