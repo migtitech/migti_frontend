@@ -211,6 +211,7 @@ const RawQuery = () => {
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>#</CTableHeaderCell>
+                    <CTableHeaderCell>Query No.</CTableHeaderCell>
                     <CTableHeaderCell>Title</CTableHeaderCell>
                     <CTableHeaderCell>Industry</CTableHeaderCell>
                     <CTableHeaderCell>Priority</CTableHeaderCell>
@@ -222,7 +223,7 @@ const RawQuery = () => {
                 <CTableBody>
                   {loading ? (
                     <CTableRow>
-                      <CTableDataCell colSpan={6}>
+                      <CTableDataCell colSpan={7}>
                         <Loader message="Loading raw queries..." />
                       </CTableDataCell>
                     </CTableRow>
@@ -231,6 +232,9 @@ const RawQuery = () => {
                   {queries && queries?.map((query, index) => (
                     <CTableRow key={query._id || query.id}>
                       <CTableDataCell>{(pageNumber - 1) * pageSize + index + 1}</CTableDataCell>
+                      <CTableDataCell>
+                        <span className="badge bg-dark">{query.raw_query_number || query.rawQueryNumber || '-'}</span>
+                      </CTableDataCell>
                       <CTableDataCell>
                         <strong>{query.title || '-'}</strong>
                       </CTableDataCell>
@@ -276,7 +280,7 @@ const RawQuery = () => {
                   ))}
                   {(!queries || queries.length === 0) && (
                     <CTableRow>
-                      <CTableDataCell colSpan={6} className="text-center">
+                      <CTableDataCell colSpan={7} className="text-center">
                         No raw queries found. Click "Add Raw Query" to create one.
                       </CTableDataCell>
                     </CTableRow>

@@ -17,17 +17,11 @@ import {
   CFormSelect,
   CFormCheck,
   CAlert,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CImage,
   CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilTrash, cilArrowLeft, cilChevronBottom, cilChevronTop } from '@coreui/icons'
+import { cilPlus, cilTrash, cilArrowLeft } from '@coreui/icons'
 import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
@@ -120,8 +114,6 @@ const ProductForm = () => {
   const [brands, setBrands] = useState([])
 
   const [variants, setVariants] = useState([])
-  const [variantCombinations, setVariantCombinations] = useState([])
-  const [expandedSubVariants, setExpandedSubVariants] = useState({})
   const [customVariantInput, setCustomVariantInput] = useState({})
 
   const [imageFiles, setImageFiles] = useState([])
@@ -142,9 +134,6 @@ const ProductForm = () => {
   })
 
   const hasVariants = watch('hasVariants')
-  const priceValue = parseFloat(watch('price')) || 0
-  const mrpValue = parseFloat(watch('mrp')) || 0
-  const costPriceValue = parseFloat(watch('costPrice')) || 0
 
   useEffect(() => {
     fetchDropdownData()
@@ -158,7 +147,6 @@ const ProductForm = () => {
   useEffect(() => {
     if (!hasVariants) {
       setVariants([])
-      setVariantCombinations([])
     }
   }, [hasVariants])
 
@@ -224,7 +212,6 @@ const ProductForm = () => {
         })
         const loadedVariants = product.variants || []
         setVariants(loadedVariants)
-        setVariantCombinations(product.variantCombinations || [])
         const customInputMap = {}
         loadedVariants.forEach((v, i) => {
           if (v.name && !VARIANT_TYPE_OPTIONS.some((o) => o.value === v.name)) {
@@ -283,13 +270,6 @@ const ProductForm = () => {
 
   const removeVariant = (index) => {
     setVariants((prev) => prev.filter((_, i) => i !== index))
-    setVariantCombinations((prev) => {
-      const variantName = variants[index]?.name
-      if (!variantName) return []
-      return prev.filter(
-        (combo) => !combo.optionValues.some((ov) => ov.variantName === variantName),
-      )
-    })
   }
 
   const addSubVariant = (variantIndex) => {
@@ -310,9 +290,6 @@ const ProductForm = () => {
   }
 
   const updateSubVariantName = (variantIndex, optionIndex, value) => {
-    const oldVariant = variants[variantIndex]
-    const oldValue = oldVariant.options[optionIndex]
-
     setVariants((prev) => {
       const next = [...prev]
       const newOptions = [...next[variantIndex].options]
@@ -320,125 +297,15 @@ const ProductForm = () => {
       next[variantIndex] = { ...next[variantIndex], options: newOptions }
       return next
     })
-
-    if (oldValue) {
-      setVariantCombinations((prev) =>
-        prev.map((combo) => ({
-          ...combo,
-          optionValues: combo.optionValues.map((ov) =>
-            ov.variantName === oldVariant.name && ov.variantValue === oldValue
-              ? { ...ov, variantValue: value }
-              : ov,
-          ),
-        })),
-      )
-    }
   }
 
   const removeSubVariant = (variantIndex, optionIndex) => {
-    const variant = variants[variantIndex]
-    const removedValue = variant.options[optionIndex]
-
     setVariants((prev) => {
       const next = [...prev]
       const newOptions = next[variantIndex].options.filter((_, i) => i !== optionIndex)
       next[variantIndex] = { ...next[variantIndex], options: newOptions }
       return next
     })
-
-    setVariantCombinations((prev) =>
-      prev.filter(
-        (combo) =>
-          !combo.optionValues.some(
-            (ov) => ov.variantName === variant.name && ov.variantValue === removedValue,
-          ),
-      ),
-    )
-  }
-
-  const generateCombinations = () => {
-    if (variants.length === 0 || variants.some((v) => !v.name || v.options.length === 0)) {
-      toastError('Please fill in all variant names and add at least one sub-variant.')
-      return
-    }
-    if (variants.some((v) => v.options.some((o) => !o.trim()))) {
-      toastError('Please fill in all sub-variant names.')
-      return
-    }
-
-    const combine = (arrays) => {
-      if (arrays.length === 0) return [[]]
-      const [first, ...rest] = arrays
-      const restCombinations = combine(rest)
-      return first.flatMap((item) => restCombinations.map((combo) => [item, ...combo]))
-    }
-
-    const optionArrays = variants.map((v) =>
-      v.options.map((opt) => ({ variantName: v.name, variantValue: opt })),
-    )
-
-    const newCombinations = combine(optionArrays)
-
-    if (newCombinations.length > 100) {
-      toastError('Too many variant combinations (max 100). Please reduce the number of options.')
-      return
-    }
-
-    const merged = newCombinations.map((optionValues) => {
-      const existing = variantCombinations.find(
-        (combo) =>
-          combo.optionValues.length === optionValues.length &&
-          combo.optionValues.every(
-            (ov, i) =>
-              ov.variantName === optionValues[i].variantName &&
-              ov.variantValue === optionValues[i].variantValue,
-          ),
-      )
-      if (existing) return existing
-      return {
-        optionValues,
-        sku: '',
-        price: priceValue || 0,
-        mrp: mrpValue || 0,
-        costPrice: costPriceValue || 0,
-        quantity: 0,
-        weight: 0,
-        weightUnit: 'g',
-        dimensions: { length: 0, width: 0, height: 0 },
-        dimensionUnit: 'cm',
-        images: [],
-        isActive: true,
-      }
-    })
-
-    setVariantCombinations(merged)
-    setError('')
-  }
-
-  const updateCombinationField = (index, field, value) => {
-    setVariantCombinations((prev) => {
-      const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
-      return next
-    })
-  }
-
-  const updateCombinationDimension = (index, dimField, value) => {
-    setVariantCombinations((prev) => {
-      const next = [...prev]
-      next[index] = {
-        ...next[index],
-        dimensions: {
-          ...next[index].dimensions,
-          [dimField]: parseFloat(value) || 0,
-        },
-      }
-      return next
-    })
-  }
-
-  const toggleSubVariantExpand = (index) => {
-    setExpandedSubVariants((prev) => ({ ...prev, [index]: !prev[index] }))
   }
 
   // Image handling
@@ -493,7 +360,6 @@ const ProductForm = () => {
         quantity: parseInt(values.quantity) || 0,
         hasVariants: values.hasVariants,
         variants: values.hasVariants ? variants : [],
-        variantCombinations: values.hasVariants ? variantCombinations : [],
         images: uploadedImages,
         weight: parseFloat(values.weight) || 0,
         weightUnit: values.weightUnit,
@@ -884,247 +750,12 @@ const ProductForm = () => {
               </CCard>
             ))}
 
-            <div className="mb-3 d-flex gap-2">
+            <div className="mb-3">
               <CButton color="light" onClick={addVariant}>
                 <CIcon icon={cilPlus} className="me-1" />
                 Add Variant
               </CButton>
-              {variants.length > 0 &&
-                variants.some((v) => v.name && v.options.length > 0) && (
-                  <CButton color="primary" onClick={generateCombinations}>
-                    Generate Combinations
-                  </CButton>
-                )}
             </div>
-
-            {variantCombinations.length > 0 && (
-              <CCard className="border mt-3">
-                <CCardHeader className="bg-light">
-                  <strong>
-                    Sub-variant Combinations ({variantCombinations.length})
-                  </strong>
-                </CCardHeader>
-                <CCardBody className="p-2">
-                  {variantCombinations.map((combo, idx) => (
-                    <CCard
-                      key={idx}
-                      className="mb-2 border"
-                      style={{ backgroundColor: combo.isActive ? '#fff' : '#f8f8f8' }}
-                    >
-                      <div
-                        className="d-flex align-items-center justify-content-between p-2"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => toggleSubVariantExpand(idx)}
-                      >
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          {combo.optionValues.map((ov, ovIdx) => (
-                            <span key={ovIdx}>
-                              <strong>{ov.variantName}:</strong>{' '}
-                              <span className="badge bg-primary-subtle text-primary-emphasis me-1">
-                                {ov.variantValue}
-                              </span>
-                            </span>
-                          ))}
-                          {combo.sku && (
-                            <span className="text-muted small ms-2">SKU: {combo.sku}</span>
-                          )}
-                        </div>
-                        <div className="d-flex align-items-center gap-2">
-                          <CFormCheck
-                            label="Active"
-                            checked={combo.isActive}
-                            onChange={(e) => {
-                              e.stopPropagation()
-                              updateCombinationField(idx, 'isActive', e.target.checked)
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <CIcon
-                            icon={
-                              expandedSubVariants[idx] ? cilChevronTop : cilChevronBottom
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      {expandedSubVariants[idx] && (
-                        <CCardBody className="pt-0 px-3 pb-3">
-                          <hr className="mt-0 mb-3" />
-                          <CRow className="mb-2">
-                            <CCol md={4}>
-                              <CFormLabel className="small mb-1">SKU *</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                value={combo.sku}
-                                onChange={(e) =>
-                                  updateCombinationField(idx, 'sku', e.target.value)
-                                }
-                                placeholder="Enter SKU"
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Price *</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.price}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'price',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">MRP</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.mrp}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'mrp',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Cost Price</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.costPrice}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'costPrice',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Quantity</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                value={combo.quantity}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'quantity',
-                                    parseInt(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                          </CRow>
-
-                          <CRow>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Weight</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.weight || 0}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'weight',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Weight Unit</CFormLabel>
-                              <CFormSelect
-                                size="sm"
-                                value={combo.weightUnit || 'g'}
-                                onChange={(e) =>
-                                  updateCombinationField(idx, 'weightUnit', e.target.value)
-                                }
-                              >
-                                <option value="g">g</option>
-                                <option value="kg">kg</option>
-                                <option value="lb">lb</option>
-                                <option value="oz">oz</option>
-                              </CFormSelect>
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Length</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.dimensions?.length || 0}
-                                onChange={(e) =>
-                                  updateCombinationDimension(idx, 'length', e.target.value)
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Width</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.dimensions?.width || 0}
-                                onChange={(e) =>
-                                  updateCombinationDimension(idx, 'width', e.target.value)
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Height</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.dimensions?.height || 0}
-                                onChange={(e) =>
-                                  updateCombinationDimension(idx, 'height', e.target.value)
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Dim. Unit</CFormLabel>
-                              <CFormSelect
-                                size="sm"
-                                value={combo.dimensionUnit || 'cm'}
-                                onChange={(e) =>
-                                  updateCombinationField(idx, 'dimensionUnit', e.target.value)
-                                }
-                              >
-                                <option value="cm">cm</option>
-                                <option value="in">in</option>
-                                <option value="m">m</option>
-                              </CFormSelect>
-                            </CCol>
-                          </CRow>
-                        </CCardBody>
-                      )}
-                    </CCard>
-                  ))}
-                </CCardBody>
-              </CCard>
-            )}
           </CCardBody>
         )}
       </CCard>

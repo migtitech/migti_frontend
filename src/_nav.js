@@ -19,6 +19,7 @@ import {
   cilTags,
   cilList,
   cilMap,
+  cilSearch,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -111,6 +112,13 @@ const _nav = [
     name: 'Raw Query',
     to: '/raw-query',
     icon: <CIcon icon={cilCode} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'sales', 'hod'],
+  },
+  {
+    component: CNavItem,
+    name: 'Tracking',
+    to: '/tracking',
+    icon: <CIcon icon={cilSearch} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'sales', 'hod'],
   },
   {

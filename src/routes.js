@@ -35,6 +35,7 @@ const QueryForm = React.lazy(() => import('./views/admin/QueryForm'))
 const RawQuery = React.lazy(() => import('./views/admin/RawQuery'))
 const RawQueryView = React.lazy(() => import('./views/admin/RawQueryView'))
 const RawQueryCreate = React.lazy(() => import('./views/admin/RawQueryCreate'))
+const Tracking = React.lazy(() => import('./views/admin/Tracking'))
 
 // Quotations
 const QuotationList = React.lazy(() => import('./views/admin/QuotationList'))
@@ -120,6 +121,7 @@ const routes = [
   { path: '/raw-query', name: 'Raw Query', element: RawQuery, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
   { path: '/raw-query/new', name: 'New Raw Query', element: RawQueryCreate, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
   { path: '/raw-query/:id', name: 'Raw Query Details', element: RawQueryView, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+  { path: '/tracking', name: 'Tracking', element: Tracking, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
 
   // Quotations - accessible by super_admin, admin, finance, sales, hod
   { path: '/quotations', name: 'Quotations', element: QuotationList, allowedRoles: ['super_admin', 'admin', 'finance', 'sales', 'hod'] },

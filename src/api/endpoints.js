@@ -127,6 +127,16 @@ export const INDUSTRIES = {
   DELETE: '/industries/delete',
 }
 
+export const QUERIES = {
+  CREATE: '/queries/create',
+  LIST: '/queries/list',
+  GET_BY_ID: '/queries/get-by-id',
+  UPDATE: '/queries/update',
+  DELETE: '/queries/delete',
+  ACTIVITIES: '/queries/activities',
+  RECORD_ACTIVITY: '/queries/record-activity',
+}
+
 // Export all endpoints
 export default {
   BASE_URL,
@@ -145,4 +155,5 @@ export default {
   RATE_CARDS,
   AREAS,
   INDUSTRIES,
+  QUERIES,
 }

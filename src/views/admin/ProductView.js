@@ -10,12 +10,6 @@ import {
   CBadge,
   CAlert,
   CImage,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CListGroup,
   CListGroupItem,
 } from '@coreui/react'
@@ -185,61 +179,24 @@ const ProductView = () => {
           </CCard>
 
           {/* Variants */}
-          {product.hasVariants && product.variantCombinations?.length > 0 && (
+          {product.hasVariants && product.variants?.length > 0 && (
             <CCard className="mb-4">
               <CCardHeader>
-                <strong>Variants ({product.variantCombinations.length})</strong>
+                <strong>Variants</strong>
               </CCardHeader>
               <CCardBody>
-                <CTable hover responsive bordered>
-                  <CTableHead>
-                    <CTableRow>
-                      {product.variants?.map((v) => (
-                        <CTableHeaderCell key={v.name}>{v.name}</CTableHeaderCell>
+                <CListGroup flush>
+                  {product.variants.map((variant, idx) => (
+                    <CListGroupItem key={idx}>
+                      <strong>{variant.name}:</strong>{' '}
+                      {variant.options?.map((opt, optIdx) => (
+                        <CBadge key={optIdx} color="primary" className="me-1">
+                          {opt}
+                        </CBadge>
                       ))}
-                      <CTableHeaderCell>SKU</CTableHeaderCell>
-                      <CTableHeaderCell>Price</CTableHeaderCell>
-                      <CTableHeaderCell>MRP</CTableHeaderCell>
-                      <CTableHeaderCell>Qty</CTableHeaderCell>
-                      <CTableHeaderCell>Weight</CTableHeaderCell>
-                      <CTableHeaderCell>Dimensions (L x W x H)</CTableHeaderCell>
-                      <CTableHeaderCell>Status</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {product.variantCombinations.map((combo, idx) => (
-                      <CTableRow key={idx}>
-                        {combo.optionValues?.map((ov, ovIdx) => (
-                          <CTableDataCell key={ovIdx}>{ov.variantValue}</CTableDataCell>
-                        ))}
-                        <CTableDataCell>{combo.sku}</CTableDataCell>
-                        <CTableDataCell>₹{combo.price?.toLocaleString()}</CTableDataCell>
-                        <CTableDataCell>₹{combo.mrp?.toLocaleString()}</CTableDataCell>
-                        <CTableDataCell>{combo.quantity}</CTableDataCell>
-                        <CTableDataCell>
-                          {combo.weight > 0
-                            ? `${combo.weight} ${combo.weightUnit || 'g'}`
-                            : '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {combo.dimensions &&
-                          (combo.dimensions.length > 0 ||
-                            combo.dimensions.width > 0 ||
-                            combo.dimensions.height > 0)
-                            ? `${combo.dimensions.length} x ${combo.dimensions.width} x ${combo.dimensions.height} ${combo.dimensionUnit || 'cm'}`
-                            : '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {combo.isActive ? (
-                            <CBadge color="success">Active</CBadge>
-                          ) : (
-                            <CBadge color="secondary">Inactive</CBadge>
-                          )}
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
+                    </CListGroupItem>
+                  ))}
+                </CListGroup>
               </CCardBody>
             </CCard>
           )}
