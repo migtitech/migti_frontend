@@ -54,6 +54,7 @@ const SupplierView = React.lazy(() => import('./views/admin/SupplierView'))
 const SupplierForm = React.lazy(() => import('./views/admin/SupplierForm'))
 
 const FollowUpDashboard = React.lazy(() => import('./views/admin/FollowUpDashboard'))
+const FollowUpForm = React.lazy(() => import('./views/admin/FollowUpForm'))
 
 // Rate Cards
 const RateCardList = React.lazy(() => import('./views/admin/RateCardList'))
@@ -146,7 +147,9 @@ const routes = [
 
   // Follow-up Dashboard - accessible by super_admin, admin, sales, hod
   { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-
+  { path: '/followups/new', name: 'Add Follow-up', element: FollowUpForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+  { path : '/followups/edit/:id', name: 'Edit Follow-up', element: FollowUpForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+ 
   // Employees - accessible by super_admin, admin, hod
   { path: '/employees', name: 'Employees', element: EmployeeList, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/employees/new', name: 'Add Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },

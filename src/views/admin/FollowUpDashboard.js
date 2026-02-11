@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -20,16 +20,6 @@ import {
   CNavLink,
   CTabContent,
   CTabPane,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CForm,
-  CFormInput,
-  CFormLabel,
-  CFormTextarea,
-  CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
@@ -43,22 +33,21 @@ import {
   cilPencil,
 } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
+import { toastSuccess, toastError } from '../../utils/toast'
+import queryService from '../../services/queryService'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+// import { Loader, ConfirmDialog } from '../../components'
 
 const FollowUpDashboard = () => {
   const navigate = useNavigate()
-  const { followUps, addFollowUp, updateFollowUp, queries, quotations, purchaseOrders } = useData()
+  const { followUps, addFollowUp, updateFollowUp, quotations, purchaseOrders } = useData()
   const [activeTab, setActiveTab] = useState(1)
-  const [showModal, setShowModal] = useState(false)
   const [editingFollowUp, setEditingFollowUp] = useState(null)
-  const [formData, setFormData] = useState({
-    type: 'query',
-    referenceId: '',
-    title: '',
-    description: '',
-    dueDate: '',
-    priority: 'normal',
-    status: 'pending',
-  })
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [queries, setQueries] = useState([])
+  const [pagination, setPagination] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -77,61 +66,37 @@ const FollowUpDashboard = () => {
   }) || []
   const completedFollowUps = followUps?.filter((f) => f.status === 'completed') || []
 
-  const handleOpenModal = (followUp = null) => {
-    if (followUp) {
-      setEditingFollowUp(followUp)
-      setFormData({
-        type: followUp.type || 'query',
-        referenceId: followUp.referenceId || '',
-        title: followUp.title || '',
-        description: followUp.description || '',
-        dueDate: followUp.dueDate ? followUp.dueDate.split('T')[0] : '',
-        priority: followUp.priority || 'normal',
-        status: followUp.status || 'pending',
-      })
-    } else {
-      setEditingFollowUp(null)
-      setFormData({
-        type: 'query',
-        referenceId: '',
-        title: '',
-        description: '',
-        dueDate: '',
-        priority: 'normal',
-        status: 'pending',
-      })
+  const fetchQueries = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await withMinimumDelay(() =>
+        queryService.getAll({ queries }),
+      )
+      const data = res?.data || res
+      const result = data?.data ?? data
+      setQueries(result?.queries || [])
+      setPagination(result?.pagination || null)
+      console.log('Result:', result)
+      console.log('Queries:', result?.queries || [])
+      const product = result?.queries?.[0]?.products?.[0]?.productName || null
+      console.log('Product Name:', product)
+    } catch (err) {
+      toastError(err?.message || 'Failed to load queries')
+      setError(err?.message || 'Failed to load queries')
+      // setQueries([])
+      setPagination(null)
+    } finally {
+      setLoading(false)
     }
-    setShowModal(true)
+
   }
 
-  const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingFollowUp(null)
-    setFormData({
-      type: 'query',
-      referenceId: '',
-      title: '',
-      description: '',
-      dueDate: '',
-      priority: 'normal',
-      status: 'pending',
-    })
-  }
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const data = {
-      ...formData,
-      referenceId: formData.referenceId ? parseInt(formData.referenceId) : null,
-      dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : null,
-    }
-    if (editingFollowUp) {
-      updateFollowUp(editingFollowUp.id, data)
-    } else {
-      addFollowUp(data)
-    }
-    handleCloseModal()
-  }
+  useEffect(() => {
+    fetchQueries()
+    console.log('Follow-ups:', queries)
+  }, [])
 
   const markAsComplete = (id) => {
     updateFollowUp(id, { status: 'completed', completedAt: new Date().toISOString() })
@@ -174,7 +139,7 @@ const FollowUpDashboard = () => {
     }
   }
 
-  const renderFollowUpTable = (items) => (
+  const renderFollowUpTable = () => (
     <CTable hover responsive>
       <CTableHead>
         <CTableRow>
@@ -187,14 +152,14 @@ const FollowUpDashboard = () => {
         </CTableRow>
       </CTableHead>
       <CTableBody>
-        {items.map((followUp) => {
+        {queries.map((followUp, index) => {
           const dueDate = new Date(followUp.dueDate)
           dueDate.setHours(0, 0, 0, 0)
           const isOverdue = followUp.status === 'pending' && dueDate < today
           return (
-            <CTableRow key={followUp.id} className={isOverdue ? 'table-danger' : ''}>
+            <CTableRow key={followUp._id} className={isOverdue ? 'table-danger' : ''}>
               <CTableDataCell>
-                <strong>{followUp.title}</strong>
+                <strong>{followUp?.companyInfo.name}</strong>
                 {followUp.description && (
                   <>
                     <br />
@@ -206,14 +171,9 @@ const FollowUpDashboard = () => {
                 <CBadge color="info">{followUp.type?.replace('_', ' ')}</CBadge>
               </CTableDataCell>
               <CTableDataCell>
-                {followUp.dueDate ? (
-                  <>
-                    {new Date(followUp.dueDate).toLocaleDateString()}
-                    {isOverdue && <CBadge color="danger" className="ms-2">Overdue</CBadge>}
-                  </>
-                ) : (
-                  '-'
-                )}
+                {followUp?.createdAt
+                  ? new Date(followUp?.createdAt).toLocaleDateString()
+                  : '-'}
               </CTableDataCell>
               <CTableDataCell>{getPriorityBadge(followUp.priority)}</CTableDataCell>
               <CTableDataCell>{getStatusBadge(followUp.status)}</CTableDataCell>
@@ -223,7 +183,7 @@ const FollowUpDashboard = () => {
                     color="success"
                     variant="ghost"
                     size="sm"
-                    onClick={() => markAsComplete(followUp.id)}
+                    onClick={() => markAsComplete(followUp._id)}
                     title="Mark Complete"
                   >
                     <CIcon icon={cilCheck} />
@@ -233,7 +193,7 @@ const FollowUpDashboard = () => {
                   color="warning"
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleOpenModal(followUp)}
+                  onClick={() => navigate(`/followups/edit/${followUp._id}`)}
                   title="Edit"
                 >
                   <CIcon icon={cilPencil} />
@@ -242,7 +202,7 @@ const FollowUpDashboard = () => {
             </CTableRow>
           )
         })}
-        {items.length === 0 && (
+        {queries.length === 0 && (
           <CTableRow>
             <CTableDataCell colSpan={6} className="text-center">
               No follow-ups found
@@ -261,7 +221,7 @@ const FollowUpDashboard = () => {
             <h4>Follow-up Dashboard</h4>
             <p className="text-muted mb-0">Track and manage your follow-ups</p>
           </div>
-          <CButton color="primary" onClick={() => handleOpenModal()}>
+          <CButton color="primary" onClick={() => navigate(`/followups/new`)}>
             <CIcon icon={cilPlus} className="me-2" />
             Add Follow-up
           </CButton>
@@ -372,128 +332,6 @@ const FollowUpDashboard = () => {
         </CCardBody>
       </CCard>
 
-      {/* Add/Edit Modal */}
-      <CModal visible={showModal} onClose={handleCloseModal} size="lg">
-        <CModalHeader>
-          <CModalTitle>{editingFollowUp ? 'Edit Follow-up' : 'Add New Follow-up'}</CModalTitle>
-        </CModalHeader>
-        <CForm onSubmit={handleSubmit}>
-          <CModalBody>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="title">Title *</CFormLabel>
-                  <CFormInput
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                  />
-                </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="dueDate">Due Date *</CFormLabel>
-                  <CFormInput
-                    type="date"
-                    id="dueDate"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    required
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={4}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="type">Type</CFormLabel>
-                  <CFormSelect
-                    id="type"
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value, referenceId: '' })}
-                  >
-                    <option value="query">Query</option>
-                    <option value="quotation">Quotation</option>
-                    <option value="purchase_order">Purchase Order</option>
-                    <option value="general">General</option>
-                  </CFormSelect>
-                </div>
-              </CCol>
-              <CCol md={4}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="referenceId">Reference</CFormLabel>
-                  <CFormSelect
-                    id="referenceId"
-                    value={formData.referenceId}
-                    onChange={(e) => setFormData({ ...formData, referenceId: e.target.value })}
-                    disabled={formData.type === 'general'}
-                  >
-                    <option value="">Select Reference (Optional)</option>
-                    {getReferenceOptions().map((opt) => (
-                      <option key={opt.id} value={opt.id}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                </div>
-              </CCol>
-              <CCol md={4}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="priority">Priority</CFormLabel>
-                  <CFormSelect
-                    id="priority"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                  >
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                  </CFormSelect>
-                </div>
-              </CCol>
-            </CRow>
-            {editingFollowUp && (
-              <CRow>
-                <CCol md={6}>
-                  <div className="mb-3">
-                    <CFormLabel htmlFor="status">Status</CFormLabel>
-                    <CFormSelect
-                      id="status"
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="completed">Completed</option>
-                    </CFormSelect>
-                  </div>
-                </CCol>
-              </CRow>
-            )}
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="description">Description</CFormLabel>
-                  <CFormTextarea
-                    id="description"
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-              </CCol>
-            </CRow>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={handleCloseModal}>
-              Cancel
-            </CButton>
-            <CButton color="primary" type="submit">
-              {editingFollowUp ? 'Update' : 'Create'}
-            </CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
     </>
   )
 }
