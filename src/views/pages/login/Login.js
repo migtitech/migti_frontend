@@ -12,11 +12,11 @@ import {
   CInputGroup,
   CInputGroupText,
   CRow,
-  CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser, cilPeople } from '@coreui/icons'
 import { useAuth, ROLES, ROLE_LABELS } from '../../../context/AuthContext'
+import { toastSuccess, toastError } from '../../../utils/toast'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -38,10 +38,9 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
 
     if (!email || !password || !role) {
-      setError('Please fill in all fields')
+      toastError('Please fill in all fields')
       return
     }
 
@@ -49,9 +48,10 @@ const Login = () => {
     const result = await login(email, password, role)
 
     if (result.success) {
+      toastSuccess('Signed in successfully')
       navigate('/dashboard')
     } else {
-      setError(result.error)
+      toastError(result.error)
     }
     setLoading(false)
   }
@@ -71,12 +71,6 @@ const Login = () => {
 
                   <h4 className="mb-3">Sign In</h4>
                   <p className="text-body-secondary mb-4">Sign in to your account</p>
-
-                  {error && (
-                    <CAlert color="danger" dismissible onClose={() => setError('')}>
-                      {error}
-                    </CAlert>
-                  )}
 
                   <CInputGroup className="mb-3">
                     <CInputGroupText>

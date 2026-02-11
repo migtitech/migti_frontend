@@ -10,12 +10,6 @@ import {
   CBadge,
   CAlert,
   CImage,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CListGroup,
   CListGroupItem,
 } from '@coreui/react'
@@ -24,7 +18,11 @@ import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import productService from '../../services/productService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+<<<<<<< HEAD
 import { getImageDisplayUrl } from '../../utils/imageUtils'
+=======
+import { toastError } from '../../utils/toast'
+>>>>>>> origin/develop
 
 const ProductView = () => {
   const { id } = useParams()
@@ -38,14 +36,11 @@ const ProductView = () => {
       setLoading(true)
       setError('')
       try {
-        const res = await withMinimumDelay(
-          () => productService.getById(id),
-          2000
-        )
+        const res = await withMinimumDelay(() => productService.getById(id))
         const data = res?.data || res
         setProduct(data)
       } catch (err) {
-        setError(err?.message || 'Failed to fetch product')
+        toastError(err?.message || 'Failed to fetch product')
       } finally {
         setLoading(false)
       }
@@ -188,18 +183,22 @@ const ProductView = () => {
           </CCard>
 
           {/* Variants */}
-          {product.hasVariants && product.variantCombinations?.length > 0 && (
+          {product.hasVariants && product.variants?.length > 0 && (
             <CCard className="mb-4">
               <CCardHeader>
-                <strong>Variants ({product.variantCombinations.length})</strong>
+                <strong>Variants</strong>
               </CCardHeader>
               <CCardBody>
-                <CTable hover responsive bordered>
-                  <CTableHead>
-                    <CTableRow>
-                      {product.variants?.map((v) => (
-                        <CTableHeaderCell key={v.name}>{v.name}</CTableHeaderCell>
+                <CListGroup flush>
+                  {product.variants.map((variant, idx) => (
+                    <CListGroupItem key={idx}>
+                      <strong>{variant.name}:</strong>{' '}
+                      {variant.options?.map((opt, optIdx) => (
+                        <CBadge key={optIdx} color="primary" className="me-1">
+                          {opt}
+                        </CBadge>
                       ))}
+<<<<<<< HEAD
                       <CTableHeaderCell>SKU</CTableHeaderCell>
                       <CTableHeaderCell>Images</CTableHeaderCell>
                       <CTableHeaderCell>Price</CTableHeaderCell>
@@ -246,6 +245,11 @@ const ProductView = () => {
                     ))}
                   </CTableBody>
                 </CTable>
+=======
+                    </CListGroupItem>
+                  ))}
+                </CListGroup>
+>>>>>>> origin/develop
               </CCardBody>
             </CCard>
           )}

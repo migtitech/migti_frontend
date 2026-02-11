@@ -4,11 +4,12 @@ import { RAW_QUERIES } from '../api/endpoints'
 const mapToApiPayload = (data) => ({
   priority: data.priority,
   title: data.title,
-  company_info: data.companyInfo,
+  company_info: data.companyInfo || '',
+  industry_id: data.industryId || null,
   supplier_id: data.supplierId || null,
   description: data.description,
   files: data.files || [],
-  created_by: data.created_by,
+  created_by: data.created_by != null ? String(data.created_by) : undefined,
 })
 
 const rawQueryService = {
@@ -20,6 +21,14 @@ const rawQueryService = {
   getById: async (id) => {
     const response = await api.get(RAW_QUERIES.GET_BY_ID, {
       params: { rawQueryId: id },
+    })
+    return response
+  },
+
+  searchByNumber: async (rawQueryNumber) => {
+    // Search using the list endpoint with the raw_query_number as search term
+    const response = await api.get(RAW_QUERIES.LIST, {
+      params: { search: rawQueryNumber, pageSize: 5 },
     })
     return response
   },
@@ -39,6 +48,23 @@ const rawQueryService = {
   delete: async (id) => {
     const response = await api.delete(RAW_QUERIES.DELETE, {
       params: { rawQueryId: id },
+    })
+    return response
+  },
+
+  getActivities: async (rawQueryId) => {
+    const response = await api.get(RAW_QUERIES.ACTIVITIES, {
+      params: { rawQueryId },
+    })
+    return response
+  },
+
+  recordActivity: async (rawQueryId, type, performedBy, meta = {}) => {
+    const response = await api.post(RAW_QUERIES.RECORD_ACTIVITY, {
+      rawQueryId,
+      type,
+      performedBy: performedBy != null ? String(performedBy) : undefined,
+      meta,
     })
     return response
   },

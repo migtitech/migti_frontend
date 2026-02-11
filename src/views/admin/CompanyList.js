@@ -23,6 +23,7 @@ import companyService from '../../services/companyService'
 import Badge from '../../badges/Badge'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const CompanyList = () => {
   const navigate = useNavigate()
@@ -37,10 +38,7 @@ const CompanyList = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(
-        () => companyService.getAll({ search: searchTerm || '' }),
-        2000
-      )
+      const res = await withMinimumDelay(() => companyService.getAll({ search: searchTerm || '' }))
       const data = res?.data || res
       setCompanies(data?.companies || data || [])
     } catch (err) {
@@ -65,9 +63,10 @@ const CompanyList = () => {
     if (!id) return
     try {
       await companyService.delete(id)
+      toastSuccess('Company deleted successfully')
       fetchCompanies()
     } catch (err) {
-      setError(err?.message || 'Failed to delete company')
+      toastError(err?.message || 'Failed to delete company')
     }
   }
 

@@ -18,6 +18,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import brandService from '../../services/brandService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const BrandForm = () => {
   const navigate = useNavigate()
@@ -43,7 +44,7 @@ const BrandForm = () => {
     const fetchBrand = async () => {
       setLoading(true)
       try {
-        const res = await withMinimumDelay(() => brandService.getById(id), 2000)
+        const res = await withMinimumDelay(() => brandService.getById(id))
         const brand = res?.data || res
 
         setFormData({
@@ -54,7 +55,7 @@ const BrandForm = () => {
           status: brand.status || 'active',
         })
       } catch (err) {
-        setError('Failed to load brand details')
+        toastError('Failed to load brand details')
       } finally {
         setLoading(false)
       }
@@ -77,12 +78,14 @@ const BrandForm = () => {
     try {
       if (isEdit) {
         await brandService.update(id, formData)
+        toastSuccess('Brand updated successfully')
       } else {
         await brandService.create(formData)
+        toastSuccess('Brand created successfully')
       }
       navigate('/brands')
     } catch (err) {
-      setError(err?.message || 'Failed to save brand')
+      toastError(err?.message || 'Failed to save brand')
     } finally {
       setSubmitting(false)
     }

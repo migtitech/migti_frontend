@@ -17,6 +17,7 @@ import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import supplierService from '../../services/supplierService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const SupplierView = () => {
   const { id } = useParams()
@@ -30,14 +31,11 @@ const SupplierView = () => {
       setLoading(true)
       setError('')
       try {
-        const res = await withMinimumDelay(
-          () => supplierService.getById(id),
-          2000
-        )
+        const res = await withMinimumDelay(() => supplierService.getById(id))
         const data = res?.data || res
         setSupplier(data)
       } catch (err) {
-        setError(err?.message || 'Failed to fetch supplier')
+        toastError(err?.message || 'Failed to fetch supplier')
       } finally {
         setLoading(false)
       }

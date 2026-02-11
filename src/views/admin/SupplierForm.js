@@ -17,6 +17,7 @@ import {
   CFormTextarea,
   CRow,
   CBadge,
+  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
@@ -24,6 +25,7 @@ import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const supplierSchema = yup.object({
   name: yup.string().required('Name is required').min(2).max(100),
@@ -133,7 +135,7 @@ const SupplierForm = () => {
         remark: data?.remark || '',
       })
     } catch (err) {
-      setError(err?.message || 'Failed to fetch supplier')
+      toastError(err?.message || 'Failed to fetch supplier')
     } finally {
       setLoading(false)
     }
@@ -175,12 +177,14 @@ const SupplierForm = () => {
       }
       if (isEdit) {
         await supplierService.update(id, payload)
+        toastSuccess('Supplier updated successfully')
       } else {
         await supplierService.create(payload)
+        toastSuccess('Supplier created successfully')
       }
       navigate('/suppliers')
     } catch (err) {
-      setError(err?.message || 'Failed to save supplier')
+      toastError(err?.message || 'Failed to save supplier')
     } finally {
       setSubmitting(false)
     }

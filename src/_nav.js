@@ -12,11 +12,14 @@ import {
   cilDollar,
   cilPeople,
   cilFactory,
+  cilIndustry,
   cilBell,
   cilUser,
   cilLayers,
   cilTags,
   cilList,
+  cilMap,
+  cilSearch,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -57,6 +60,20 @@ const _nav = [
     roles: ['super_admin', 'admin', 'hod'],
   },
   {
+    component: CNavItem,
+    name: 'Areas',
+    to: '/areas',
+    icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'hod'],
+  },
+  {
+    component: CNavItem,
+    name: 'Industries',
+    to: '/industries',
+    icon: <CIcon icon={cilIndustry} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'purchase', 'hod'],
+  },
+  {
     component: CNavGroup,
     name: 'Product Management',
     to: '/products',
@@ -95,6 +112,13 @@ const _nav = [
     name: 'Raw Query',
     to: '/raw-query',
     icon: <CIcon icon={cilCode} customClassName="nav-icon" />,
+    roles: ['super_admin', 'admin', 'sales', 'hod'],
+  },
+  {
+    component: CNavItem,
+    name: 'Tracking',
+    to: '/tracking',
+    icon: <CIcon icon={cilSearch} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'sales', 'hod'],
   },
   {

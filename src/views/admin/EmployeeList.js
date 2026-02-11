@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 import { ConfirmDialog } from '../../components'
 import EmployeeHeader from './employees/EmployeeHeader'
 import EmployeeTable from './employees/EmployeeTable'
@@ -26,11 +27,11 @@ const EmployeeList = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await withMinimumDelay(() => employeeService.getAll(), 2000)
+      const response = await withMinimumDelay(() => employeeService.getAll())
       const list = response?.data?.employees || response?.data || []
       setEmployees(list.map(normalizeId))
     } catch (err) {
-      setError(err?.message || 'Failed to load employees')
+      toastError(err?.message || 'Failed to load employees')
     } finally {
       setLoading(false)
     }
@@ -42,7 +43,7 @@ const EmployeeList = () => {
       const list = response?.data?.branches || response?.data || []
       setBranches(list.map(normalizeId))
     } catch (err) {
-      setError(err?.message || 'Failed to load branches')
+      toastError(err?.message || 'Failed to load branches')
     }
   }
 
@@ -65,8 +66,9 @@ const EmployeeList = () => {
     try {
       await employeeService.delete(id)
       setEmployees((prev) => prev.filter((employee) => employee.id !== id))
+      toastSuccess('Employee deleted successfully')
     } catch (err) {
-      setError(err?.message || 'Failed to delete employee')
+      toastError(err?.message || 'Failed to delete employee')
     } finally {
       setSubmitting(false)
     }

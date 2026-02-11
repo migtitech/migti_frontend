@@ -17,12 +17,6 @@ import {
   CFormSelect,
   CFormCheck,
   CAlert,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CImage,
   CSpinner,
 } from '@coreui/react'
@@ -34,7 +28,19 @@ import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+<<<<<<< HEAD
 import { getImageDisplayUrl } from '../../utils/imageUtils'
+=======
+import { toastSuccess, toastError } from '../../utils/toast'
+
+const VARIANT_TYPE_OPTIONS = [
+  { value: 'Color', label: 'Color' },
+  { value: 'Size', label: 'Size' },
+  { value: 'Quantity', label: 'Quantity' },
+  { value: 'Dimension', label: 'Dimension' },
+  { value: 'Build Material', label: 'Build Material' },
+]
+>>>>>>> origin/develop
 
 const numberField = (label, required = false) => {
   let schema = yup
@@ -114,7 +120,7 @@ const ProductForm = () => {
   const [brands, setBrands] = useState([])
 
   const [variants, setVariants] = useState([])
-  const [variantCombinations, setVariantCombinations] = useState([])
+  const [customVariantInput, setCustomVariantInput] = useState({})
 
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
@@ -135,9 +141,6 @@ const ProductForm = () => {
   })
 
   const hasVariants = watch('hasVariants')
-  const priceValue = parseFloat(watch('price')) || 0
-  const mrpValue = parseFloat(watch('mrp')) || 0
-  const costPriceValue = parseFloat(watch('costPrice')) || 0
 
   useEffect(() => {
     fetchDropdownData()
@@ -151,7 +154,6 @@ const ProductForm = () => {
   useEffect(() => {
     if (!hasVariants) {
       setVariants([])
-      setVariantCombinations([])
     }
   }, [hasVariants])
 
@@ -191,10 +193,7 @@ const ProductForm = () => {
   const fetchProduct = async () => {
     setLoading(true)
     try {
-      const res = await withMinimumDelay(
-        () => productService.getById(id),
-        2000
-      )
+      const res = await withMinimumDelay(() => productService.getById(id))
       const product = res?.data || res
       if (product) {
         reset({
@@ -218,8 +217,15 @@ const ProductForm = () => {
           status: product.status || 'draft',
           unit: product.unit || 'pcs',
         })
-        setVariants(product.variants || [])
-        setVariantCombinations(product.variantCombinations || [])
+        const loadedVariants = product.variants || []
+        setVariants(loadedVariants)
+        const customInputMap = {}
+        loadedVariants.forEach((v, i) => {
+          if (v.name && !VARIANT_TYPE_OPTIONS.some((o) => o.value === v.name)) {
+            customInputMap[i] = true
+          }
+        })
+        setCustomVariantInput(customInputMap)
         setExistingImages(product.images || [])
         setImagePreviews(product.images || [])
         if (product.category?._id || product.category) {
@@ -227,7 +233,7 @@ const ProductForm = () => {
         }
       }
     } catch (err) {
-      setError(err?.message || 'Failed to fetch product')
+      toastError(err?.message || 'Failed to fetch product')
     } finally {
       setLoading(false)
     }
@@ -243,6 +249,24 @@ const ProductForm = () => {
     setVariants((prev) => [...prev, { name: '', options: [] }])
   }
 
+  const handleVariantTypeChange = (index, value) => {
+    if (value === '__custom__') {
+      setCustomVariantInput((prev) => ({ ...prev, [index]: true }))
+      setVariants((prev) => {
+        const next = [...prev]
+        next[index] = { ...next[index], name: '' }
+        return next
+      })
+    } else {
+      setCustomVariantInput((prev) => ({ ...prev, [index]: false }))
+      setVariants((prev) => {
+        const next = [...prev]
+        next[index] = { ...next[index], name: value }
+        return next
+      })
+    }
+  }
+
   const updateVariantName = (index, name) => {
     setVariants((prev) => {
       const next = [...prev]
@@ -251,66 +275,42 @@ const ProductForm = () => {
     })
   }
 
-  const updateVariantOptions = (index, optionsStr) => {
+  const removeVariant = (index) => {
+    setVariants((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const addSubVariant = (variantIndex) => {
+    const variant = variants[variantIndex]
+    if (!variant?.name) {
+      toastError('Please enter a variant name first.')
+      return
+    }
+    const newOption = ''
     setVariants((prev) => {
       const next = [...prev]
-      next[index] = {
-        ...next[index],
-        options: optionsStr
-          .split(',')
-          .map((o) => o.trim())
-          .filter(Boolean),
+      next[variantIndex] = {
+        ...next[variantIndex],
+        options: [...next[variantIndex].options, newOption],
       }
       return next
     })
   }
 
-  const removeVariant = (index) => {
-    setVariants((prev) => prev.filter((_, i) => i !== index))
-    setVariantCombinations([])
-  }
-
-  const generateCombinations = () => {
-    if (variants.length === 0 || variants.some((v) => !v.name || v.options.length === 0)) {
-      setError('Please fill in all variant names and options before generating combinations.')
-      return
-    }
-
-    const combine = (arrays) => {
-      if (arrays.length === 0) return [[]]
-      const [first, ...rest] = arrays
-      const restCombinations = combine(rest)
-      return first.flatMap((item) => restCombinations.map((combo) => [item, ...combo]))
-    }
-
-    const optionArrays = variants.map((v) =>
-      v.options.map((opt) => ({ variantName: v.name, variantValue: opt })),
-    )
-
-    const combinations = combine(optionArrays).map((optionValues) => ({
-      optionValues,
-      sku: '',
-      price: priceValue || 0,
-      mrp: mrpValue || 0,
-      costPrice: costPriceValue || 0,
-      quantity: 0,
-      images: [],
-      isActive: true,
-    }))
-
-    if (combinations.length > 100) {
-      setError('Too many variant combinations (max 100). Please reduce the number of options.')
-      return
-    }
-
-    setVariantCombinations(combinations)
-    setError('')
-  }
-
-  const updateCombinationField = (index, field, value) => {
-    setVariantCombinations((prev) => {
+  const updateSubVariantName = (variantIndex, optionIndex, value) => {
+    setVariants((prev) => {
       const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
+      const newOptions = [...next[variantIndex].options]
+      newOptions[optionIndex] = value
+      next[variantIndex] = { ...next[variantIndex], options: newOptions }
+      return next
+    })
+  }
+
+  const removeSubVariant = (variantIndex, optionIndex) => {
+    setVariants((prev) => {
+      const next = [...prev]
+      const newOptions = next[variantIndex].options.filter((_, i) => i !== optionIndex)
+      next[variantIndex] = { ...next[variantIndex], options: newOptions }
       return next
     })
   }
@@ -385,7 +385,11 @@ const ProductForm = () => {
         quantity: parseInt(values.quantity) || 0,
         hasVariants: values.hasVariants,
         variants: values.hasVariants ? variants : [],
+<<<<<<< HEAD
         variantCombinations: combosForPayload,
+=======
+        images: uploadedImages,
+>>>>>>> origin/develop
         weight: parseFloat(values.weight) || 0,
         weightUnit: values.weightUnit,
         dimensions: {
@@ -450,6 +454,7 @@ const ProductForm = () => {
         const finalCombos = combosWithImages.map(({ _pendingVariantUpload, ...c }) => c)
         const payload = { ...basePayload, images: productImages, variantCombinations: finalCombos }
         await productService.update(id, payload)
+<<<<<<< HEAD
         setSuccess('Product updated successfully')
         setImageFiles([])
         setVariantImageFiles({})
@@ -516,6 +521,17 @@ const ProductForm = () => {
     } catch (err) {
       setError(err?.message || 'Failed to save product')
       setUploadStatus('')
+=======
+        toastSuccess('Product updated successfully')
+        navigate('/products')
+      } else {
+        await productService.create(payload)
+        toastSuccess('Product created successfully')
+        setTimeout(() => navigate('/products'), 1500)
+      }
+    } catch (err) {
+      toastError(err?.message || 'Failed to save product')
+>>>>>>> origin/develop
     } finally {
       setSubmitting(false)
     }
@@ -757,43 +773,137 @@ const ProductForm = () => {
         </CCardHeader>
         {hasVariants && (
           <CCardBody>
-            {variants.map((variant, index) => (
-              <CRow key={index} className="mb-3 align-items-end">
-                <CCol md={3}>
-                  <CFormLabel>Variant Name</CFormLabel>
-                  <CFormInput
-                    value={variant.name}
-                    onChange={(e) => updateVariantName(index, e.target.value)}
-                    placeholder="e.g., Color, Size"
-                  />
-                </CCol>
-                <CCol md={7}>
-                  <CFormLabel>Options (comma separated)</CFormLabel>
-                  <CFormInput
-                    value={variant.options.join(', ')}
-                    onChange={(e) => updateVariantOptions(index, e.target.value)}
-                    placeholder="e.g., Red, Blue, Green"
-                  />
-                </CCol>
-                <CCol md={2}>
-                  <CButton color="danger" variant="ghost" onClick={() => removeVariant(index)}>
-                    <CIcon icon={cilTrash} />
-                  </CButton>
-                </CCol>
-              </CRow>
+            {variants.map((variant, vIndex) => (
+              <CCard key={vIndex} className="mb-3 border">
+                <CCardHeader className="bg-light d-flex justify-content-between align-items-center py-2">
+                  <div className="d-flex align-items-center gap-2 flex-grow-1">
+                    <strong className="text-nowrap">Variant:</strong>
+                    {customVariantInput[vIndex] ? (
+                      <div className="d-flex align-items-center gap-1">
+                        <CFormInput
+                          size="sm"
+                          value={variant.name}
+                          onChange={(e) => updateVariantName(vIndex, e.target.value)}
+                          placeholder="Enter custom variant name"
+                          style={{ maxWidth: '200px' }}
+                          autoFocus
+                        />
+                        <CButton
+                          color="secondary"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setCustomVariantInput((prev) => ({ ...prev, [vIndex]: false }))
+                            setVariants((prev) => {
+                              const next = [...prev]
+                              next[vIndex] = { ...next[vIndex], name: '' }
+                              return next
+                            })
+                          }}
+                          title="Back to dropdown"
+                        >
+                          &times;
+                        </CButton>
+                      </div>
+                    ) : (
+                      <CFormSelect
+                        size="sm"
+                        value={
+                          VARIANT_TYPE_OPTIONS.some((o) => o.value === variant.name)
+                            ? variant.name
+                            : variant.name
+                              ? '__custom__'
+                              : ''
+                        }
+                        onChange={(e) => handleVariantTypeChange(vIndex, e.target.value)}
+                        style={{ maxWidth: '250px' }}
+                      >
+                        <option value="" disabled>
+                          Select variant type
+                        </option>
+                        {VARIANT_TYPE_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                        <option value="__custom__">+ Create New</option>
+                      </CFormSelect>
+                    )}
+                  </div>
+                  <div className="d-flex gap-1">
+                    <CButton
+                      color="primary"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => addSubVariant(vIndex)}
+                      title="Add sub-variant"
+                    >
+                      <CIcon icon={cilPlus} className="me-1" />
+                      Add Sub-variant
+                    </CButton>
+                    <CButton
+                      color="danger"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeVariant(vIndex)}
+                      title="Remove variant"
+                    >
+                      <CIcon icon={cilTrash} />
+                    </CButton>
+                  </div>
+                </CCardHeader>
+                {variant.options.length > 0 && (
+                  <CCardBody className="p-2">
+                    {variant.options.map((option, oIndex) => (
+                      <div
+                        key={oIndex}
+                        className="border rounded mb-2"
+                        style={{ backgroundColor: '#fafafa' }}
+                      >
+                        <div className="d-flex align-items-center gap-2 p-2">
+                          <CFormInput
+                            size="sm"
+                            value={option}
+                            onChange={(e) =>
+                              updateSubVariantName(vIndex, oIndex, e.target.value)
+                            }
+                            placeholder={`e.g., ${variant.name === 'Color' ? 'Red, Blue, Green' : variant.name === 'Size' ? 'S, M, L, XL' : 'Option name'}`}
+                            style={{ maxWidth: '200px' }}
+                          />
+                          <span className="text-muted small">
+                            Sub-variant {oIndex + 1}
+                          </span>
+                          <div className="ms-auto d-flex gap-1">
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeSubVariant(vIndex, oIndex)}
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </CCardBody>
+                )}
+                {variant.options.length === 0 && (
+                  <CCardBody className="text-muted text-center py-3">
+                    No sub-variants yet. Click &quot;Add Sub-variant&quot; to add options like Red,
+                    Blue, Green.
+                  </CCardBody>
+                )}
+              </CCard>
             ))}
 
             <div className="mb-3">
-              <CButton color="light" onClick={addVariant} className="me-2">
+              <CButton color="light" onClick={addVariant}>
                 <CIcon icon={cilPlus} className="me-1" />
                 Add Variant
               </CButton>
-              {variants.length > 0 && (
-                <CButton color="primary" onClick={generateCombinations}>
-                  Generate Combinations
-                </CButton>
-              )}
             </div>
+<<<<<<< HEAD
 
             {variantCombinations.length > 0 && (
               <CTable hover responsive bordered className="mt-3">
@@ -934,6 +1044,8 @@ const ProductForm = () => {
                 </CTableBody>
               </CTable>
             )}
+=======
+>>>>>>> origin/develop
           </CCardBody>
         )}
       </CCard>

@@ -55,6 +55,8 @@ export const RAW_QUERIES = {
   GET_BY_ID: '/raw-queries/get-by-id',
   UPDATE: '/raw-queries/update',
   DELETE: '/raw-queries/delete',
+  ACTIVITIES: '/raw-queries/activities',
+  RECORD_ACTIVITY: '/raw-queries/record-activity',
 }
 
 // Dashboard endpoints
@@ -105,14 +107,38 @@ export const SUPPLIERS = {
 }
 
 export const RATE_CARDS = {
-  CREATE: '/rate-cards/create',
-  LIST: '/rate-cards/list',
-  GET_BY_ID: '/rate-cards/get-by-id',
-  UPDATE: '/rate-cards/update',
+  UPSERT_RATE: '/rate-cards/upsert-rate',
+  BY_PRODUCT: '/rate-cards/by-product',
+  BY_SUPPLIER: '/rate-cards/by-supplier',
   DELETE: '/rate-cards/delete',
-  ADD_SUPPLIER: '/rate-cards/add-supplier',
-  UPDATE_SUPPLIER: '/rate-cards/update-supplier',
-  DELETE_SUPPLIER: '/rate-cards/delete-supplier',
+  SEARCH_PRODUCTS: '/rate-cards/search-products',
+  SEARCH_SUPPLIERS: '/rate-cards/search-suppliers',
+}
+
+export const AREAS = {
+  CREATE: '/areas/create',
+  LIST: '/areas/list',
+  GET_BY_ID: '/areas/get-by-id',
+  UPDATE: '/areas/update',
+  DELETE: '/areas/delete',
+}
+
+export const INDUSTRIES = {
+  CREATE: '/industries/create',
+  LIST: '/industries/list',
+  GET_BY_ID: '/industries/get-by-id',
+  UPDATE: '/industries/update',
+  DELETE: '/industries/delete',
+}
+
+export const QUERIES = {
+  CREATE: '/queries/create',
+  LIST: '/queries/list',
+  GET_BY_ID: '/queries/get-by-id',
+  UPDATE: '/queries/update',
+  DELETE: '/queries/delete',
+  ACTIVITIES: '/queries/activities',
+  RECORD_ACTIVITY: '/queries/record-activity',
 }
 
 // Export all endpoints
@@ -131,5 +157,11 @@ export default {
   PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
+<<<<<<< HEAD
   IMAGES,
+=======
+  AREAS,
+  INDUSTRIES,
+  QUERIES,
+>>>>>>> origin/develop
 }

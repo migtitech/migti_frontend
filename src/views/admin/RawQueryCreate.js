@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -17,25 +17,40 @@ import {
 } from '@coreui/react'
 import { useAuth } from '../../context/AuthContext'
 import rawQueryService from '../../services/rawQueryService'
-import supplierService from '../../services/supplierService'
+import industryService from '../../services/industryService'
+import areaService from '../../services/areaService'
+import { toastSuccess, toastError } from '../../utils/toast'
+
+const INITIAL_INDUSTRY_EDIT = {
+  name: '',
+  area: '',
+  location: '',
+  address: '',
+  purchase_manager_name: '',
+  purchase_manager_phone: '',
+  email: '',
+}
 
 const RawQueryCreate = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
     title: '',
-    companyInfo: '',
     priority: 'medium',
     description: '',
   })
-  const [companySearch, setCompanySearch] = useState('')
-  const [companyMode, setCompanyMode] = useState('supplier')
-  const [manualCompanyInfo, setManualCompanyInfo] = useState('')
-  const [supplierOptions, setSupplierOptions] = useState([])
-  const [supplierLoading, setSupplierLoading] = useState(false)
-  const [supplierError, setSupplierError] = useState('')
-  const [showSupplierOptions, setShowSupplierOptions] = useState(false)
-  const [selectedSupplier, setSelectedSupplier] = useState(null)
+  const [industrySearch, setIndustrySearch] = useState('')
+  const [industryDropdownOpen, setIndustryDropdownOpen] = useState(false)
+  const [industrySearchResults, setIndustrySearchResults] = useState([])
+  const [industrySearchLoading, setIndustrySearchLoading] = useState(false)
+  const [industryId, setIndustryId] = useState('')
+  const [createNewIndustry, setCreateNewIndustry] = useState(false)
+  const [industryDetails, setIndustryDetails] = useState(null)
+  const [industryEditForm, setIndustryEditForm] = useState(INITIAL_INDUSTRY_EDIT)
+  const [areas, setAreas] = useState([])
+  const [savingIndustry, setSavingIndustry] = useState(false)
+  const [creatingIndustry, setCreatingIndustry] = useState(false)
+  const dropdownRef = useRef(null)
   const [audioClips, setAudioClips] = useState([])
   const [isRecording, setIsRecording] = useState(false)
   const [recordingSeconds, setRecordingSeconds] = useState(0)
@@ -48,20 +63,154 @@ const RawQueryCreate = () => {
   const audioClipsRef = useRef([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [descriptionError, setDescriptionError] = useState('')
+  const [descriptionTouched, setDescriptionTouched] = useState(false)
 
   useEffect(() => {
     audioClipsRef.current = audioClips
   }, [audioClips])
 
   useEffect(() => {
-    const term = companySearch.trim()
-    const timer = setTimeout(() => {
-      if (companyMode === 'supplier') {
-        fetchSuppliers(term)
+    const fetchAreas = async () => {
+      try {
+        const res = await areaService.getAll({ pageSize: 100 })
+        const data = res?.data || res
+        setAreas(data?.areas || [])
+      } catch {
+        setAreas([])
       }
+    }
+    fetchAreas()
+  }, [])
+
+  const fetchIndustrySearch = useCallback(async (term) => {
+    if (term.trim().length === 0) {
+      setIndustrySearchResults([])
+      return
+    }
+    setIndustrySearchLoading(true)
+    try {
+      const response = await industryService.getAll({ search: term.trim(), pageSize: 5 })
+      const payload = response?.data || response
+      setIndustrySearchResults(payload?.industries || [])
+    } catch {
+      setIndustrySearchResults([])
+    } finally {
+      setIndustrySearchLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchIndustrySearch(industrySearch)
     }, 300)
     return () => clearTimeout(timer)
-  }, [companySearch, companyMode])
+  }, [industrySearch, fetchIndustrySearch])
+
+  const handleSelectIndustry = async (industry) => {
+    setIndustryId(industry._id || industry.id)
+    setIndustrySearch((industry.name || '') + (industry.location ? ` (${industry.location})` : ''))
+    setIndustryDropdownOpen(false)
+    setCreateNewIndustry(false)
+    try {
+      const res = await industryService.getById(industry._id || industry.id)
+      const data = res?.data || res
+      setIndustryDetails(data)
+      setIndustryEditForm({
+        name: data?.name || '',
+        area: typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || '',
+        location: data?.location || '',
+        address: data?.address || '',
+        purchase_manager_name: data?.purchase_manager_name || '',
+        purchase_manager_phone: data?.purchase_manager_phone || '',
+        email: data?.email || '',
+      })
+    } catch {
+      setIndustryDetails(industry)
+      setIndustryEditForm({
+        name: industry?.name || '',
+        area: typeof industry?.area === 'object' ? industry?.area?._id || '' : industry?.area || '',
+        location: industry?.location || '',
+        address: industry?.address || '',
+        purchase_manager_name: industry?.purchase_manager_name || '',
+        purchase_manager_phone: industry?.purchase_manager_phone || '',
+        email: industry?.email || '',
+      })
+    }
+  }
+
+  const handleCreateNewIndustry = () => {
+    setIndustryDropdownOpen(false)
+    setCreateNewIndustry(true)
+    setIndustryId('')
+    setIndustrySearch('')
+    setIndustryDetails(null)
+    setIndustryEditForm(INITIAL_INDUSTRY_EDIT)
+  }
+
+  const handleSaveIndustryDetails = async (e) => {
+    e.preventDefault()
+    if (!industryId) return
+    setSavingIndustry(true)
+    try {
+      const payload = {
+        ...industryEditForm,
+        area: industryEditForm.area || null,
+      }
+      const res = await industryService.update(industryId, payload)
+      const data = res?.data || res
+      setIndustryDetails(data)
+      toastSuccess('Industry updated successfully')
+    } catch (err) {
+      toastError(err?.message || 'Failed to update industry')
+    } finally {
+      setSavingIndustry(false)
+    }
+  }
+
+  const handleCreateIndustry = async (e) => {
+    e.preventDefault()
+    if (!industryEditForm.name?.trim()) {
+      toastError('Industry name is required')
+      return
+    }
+    setCreatingIndustry(true)
+    try {
+      const payload = {
+        ...industryEditForm,
+        area: industryEditForm.area || null,
+      }
+      const res = await industryService.create(payload)
+      const data = res?.data || res
+      const newIndustry = data
+      setIndustryId(newIndustry._id || newIndustry.id)
+      setIndustryDetails(newIndustry)
+      setIndustryEditForm({
+        name: newIndustry?.name || '',
+        area: typeof newIndustry?.area === 'object' ? newIndustry?.area?._id || '' : newIndustry?.area || '',
+        location: newIndustry?.location || '',
+        address: newIndustry?.address || '',
+        purchase_manager_name: newIndustry?.purchase_manager_name || '',
+        purchase_manager_phone: newIndustry?.purchase_manager_phone || '',
+        email: newIndustry?.email || '',
+      })
+      setCreateNewIndustry(false)
+      setIndustrySearch((newIndustry?.name || '') + (newIndustry?.location ? ` (${newIndustry.location})` : ''))
+      toastSuccess('Industry created successfully')
+    } catch (err) {
+      toastError(err?.message || 'Failed to create industry')
+    } finally {
+      setCreatingIndustry(false)
+    }
+  }
+
+  const handleClearIndustry = () => {
+    setIndustryId('')
+    setIndustrySearch('')
+    setIndustryDetails(null)
+    setCreateNewIndustry(false)
+    setIndustryEditForm(INITIAL_INDUSTRY_EDIT)
+  }
 
   useEffect(() => {
     return () => {
@@ -86,45 +235,6 @@ const RawQueryCreate = () => {
     const minutes = Math.floor(totalSeconds / 60)
     const seconds = totalSeconds % 60
     return `${minutes}:${seconds.toString().padStart(2, '0')}`
-  }
-
-  const getSupplierLabel = (supplier) => {
-    const name = supplier?.name || 'Unnamed supplier'
-    const shopname = supplier?.shopname ? ` (${supplier.shopname})` : ''
-    return `${name}${shopname}`
-  }
-
-  const fetchSuppliers = async (search = '') => {
-    setSupplierLoading(true)
-    setSupplierError('')
-    try {
-      const response = await supplierService.search({ search, limit: 5 })
-      const payload = response?.data || response
-      setSupplierOptions(payload?.suppliers || [])
-    } catch (err) {
-      setSupplierError(err?.message || 'Failed to fetch suppliers')
-      setSupplierOptions([])
-    } finally {
-      setSupplierLoading(false)
-    }
-  }
-
-  const handleSupplierSelect = (supplier) => {
-    const label = getSupplierLabel(supplier)
-    setSelectedSupplier(supplier)
-    setCompanySearch(label)
-    setFormData({ ...formData, companyInfo: label })
-    setCompanyMode('supplier')
-    setShowSupplierOptions(false)
-  }
-
-  const handleOtherSelect = () => {
-    setCompanyMode('other')
-    setSelectedSupplier(null)
-    setCompanySearch('')
-    setSupplierOptions([])
-    setShowSupplierOptions(false)
-    setFormData({ ...formData, companyInfo: manualCompanyInfo })
   }
 
   const readBlobAsDataUrl = (blob) =>
@@ -272,26 +382,43 @@ const RawQueryCreate = () => {
     })
   }
 
+  const DESCRIPTION_MIN_LENGTH = 5
+
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const createdBy = user?.id || user?._id
+    const storedUserJson = localStorage.getItem('migticrm_user')
+    const storedUser = storedUserJson ? JSON.parse(storedUserJson) : null
+    const createdBy = storedUser?._id ?? user?.id ?? user?._id
     if (!createdBy) {
-      setError('Unable to determine current user. Please log in again.')
+      toastError('Unable to determine current user. Please log in again.')
       return
     }
+    if (!industryId) {
+      toastError('Please select or create an industry.')
+      return
+    }
+    const desc = (formData.description || '').trim()
+    if (desc.length < DESCRIPTION_MIN_LENGTH) {
+      setDescriptionError(`Description must be at least ${DESCRIPTION_MIN_LENGTH} characters long.`)
+      setDescriptionTouched(true)
+      toastError(`Description must be at least ${DESCRIPTION_MIN_LENGTH} characters long.`)
+      return
+    }
+    setDescriptionError('')
     try {
       setSubmitting(true)
       setError('')
       const files = audioClips.map((clip) => clip.dataUrl).filter(Boolean)
       await rawQueryService.create({
         ...formData,
+        industryId: industryId,
         created_by: createdBy,
         files,
-        supplierId: companyMode === 'supplier' ? selectedSupplier?._id : null,
       })
+      toastSuccess('Raw query created successfully')
       navigate('/raw-query')
     } catch (err) {
-      setError(err?.message || 'Failed to create raw query')
+      toastError(err?.message || 'Failed to create raw query')
     } finally {
       setSubmitting(false)
     }
@@ -336,112 +463,311 @@ const RawQueryCreate = () => {
               </CRow>
               <CRow>
                 <CCol xs={12}>
-                  <div className="mb-3">
-                    <CFormLabel htmlFor="companyInfo">Company</CFormLabel>
-                    <div className="position-relative">
-                      <CFormInput
-                        id="companyInfo"
-                        value={companySearch}
-                        onChange={(e) => {
-                          setCompanySearch(e.target.value)
-                          setFormData({ ...formData, companyInfo: e.target.value })
-                          setSelectedSupplier(null)
-                          setShowSupplierOptions(true)
-                          setCompanyMode('supplier')
-                        }}
-                        onFocus={() => {
-                          setShowSupplierOptions(true)
-                          if (!supplierOptions.length && companyMode === 'supplier') {
-                            fetchSuppliers(companySearch.trim())
-                          }
-                        }}
-                        onBlur={() => {
-                          setTimeout(() => setShowSupplierOptions(false), 150)
-                        }}
-                        placeholder="Search supplier or company..."
-                        required={companyMode === 'supplier'}
-                        disabled={companyMode === 'other'}
-                      />
-                      {showSupplierOptions && (
-                        <div
-                          className="position-absolute w-100 bg-white border rounded mt-1"
-                          style={{ zIndex: 10, maxHeight: 240, overflowY: 'auto' }}
-                        >
-                          {supplierLoading && (
-                            <div className="px-3 py-2 text-muted">Searching suppliers...</div>
-                          )}
-                          {supplierError && !supplierLoading && (
-                            <div className="px-3 py-2 text-danger">{supplierError}</div>
-                          )}
-                          {!supplierLoading && !supplierError && supplierOptions.length === 0 && (
-                            <div className="px-3 py-2 text-muted">No suppliers found.</div>
-                          )}
-                          {!supplierLoading && !supplierError && supplierOptions.length > 0 && (
-                            <CListGroup flush>
-                              <CListGroupItem
-                                component="button"
-                                type="button"
-                                className="text-start fw-semibold"
-                                onMouseDown={handleOtherSelect}
-                              >
-                                Other (manual entry)
-                              </CListGroupItem>
-                              {supplierOptions.map((supplier) => (
-                                <CListGroupItem
-                                  key={supplier._id || supplier.id}
-                                  component="button"
-                                  type="button"
-                                  className="text-start"
-                                  onMouseDown={() => handleSupplierSelect(supplier)}
-                                >
-                                  <div className="fw-semibold">{getSupplierLabel(supplier)}</div>
-                                  <div className="text-muted small">
-                                    {supplier.email || supplier.phone_1 || supplier.phone_2 || ''}
-                                  </div>
-                                </CListGroupItem>
-                              ))}
-                            </CListGroup>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {selectedSupplier && (
-                      <div className="mt-2 text-muted small">
-                        Selected: {getSupplierLabel(selectedSupplier)}
+                  <div className="mb-3 position-relative" ref={dropdownRef}>
+                    <CFormLabel htmlFor="industrySearch">Industry</CFormLabel>
+                    <CFormInput
+                      id="industrySearch"
+                      type="text"
+                      value={industrySearch}
+                      onChange={(e) => setIndustrySearch(e.target.value)}
+                      onFocus={() => setIndustryDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setIndustryDropdownOpen(false), 200)}
+                      placeholder="Search industry or create new..."
+                      required={!industryId && !createNewIndustry}
+                      disabled={!!industryId && !createNewIndustry}
+                      autoComplete="off"
+                    />
+                    {industryId && !createNewIndustry && (
+                      <div className="mt-2">
+                        <CButton color="link" size="sm" type="button" onClick={handleClearIndustry}>
+                          Change industry
+                        </CButton>
                       </div>
                     )}
-                    {companyMode === 'other' && (
-                      <div className="mt-3">
-                        <CFormLabel htmlFor="manualCompanyInfo">Company Info</CFormLabel>
-                        <CFormTextarea
-                          id="manualCompanyInfo"
-                          rows={2}
-                          value={manualCompanyInfo}
-                          onChange={(e) => {
-                            setManualCompanyInfo(e.target.value)
-                            setFormData({ ...formData, companyInfo: e.target.value })
-                          }}
-                          placeholder="Company name, contact details, address, etc."
-                          required
-                        />
-                        <div className="mt-2">
-                          <CButton
-                            color="link"
+                    {industryDropdownOpen && (
+                      <div
+                        className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                        style={{ zIndex: 10, maxHeight: 280, overflowY: 'auto' }}
+                      >
+                        <CListGroup flush>
+                          <CListGroupItem
+                            component="button"
                             type="button"
-                            onClick={() => {
-                              setCompanyMode('supplier')
-                              setManualCompanyInfo('')
-                              setFormData({ ...formData, companyInfo: '' })
+                            className="text-start fw-semibold text-primary"
+                            onMouseDown={(e) => {
+                              e.preventDefault()
+                              handleCreateNewIndustry()
                             }}
                           >
-                            Search supplier instead
-                          </CButton>
-                        </div>
+                            + Create new industry
+                          </CListGroupItem>
+                          {industrySearchLoading && (
+                            <CListGroupItem className="text-muted">Searching...</CListGroupItem>
+                          )}
+                          {!industrySearchLoading && industrySearchResults.length === 0 && industrySearch.trim() && (
+                            <CListGroupItem className="text-muted">No industries found. Try "Create new".</CListGroupItem>
+                          )}
+                          {!industrySearchLoading &&
+                            industrySearchResults.map((industry) => (
+                              <CListGroupItem
+                                key={industry._id || industry.id}
+                                component="button"
+                                type="button"
+                                className="text-start"
+                                onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  handleSelectIndustry(industry)
+                                }}
+                              >
+                                <div className="fw-semibold">{industry.name}</div>
+                                {(industry.location || industry.email) && (
+                                  <div className="text-muted small">
+                                    {[industry.location, industry.email].filter(Boolean).join(' • ')}
+                                  </div>
+                                )}
+                              </CListGroupItem>
+                            ))}
+                        </CListGroup>
                       </div>
                     )}
                   </div>
                 </CCol>
               </CRow>
+
+              {/* Editable industry details when an industry is selected */}
+              {industryId && industryDetails && !createNewIndustry && (
+                <CRow>
+                  <CCol xs={12}>
+                    <CCard className="mb-4">
+                      <CCardHeader className="d-flex justify-content-between align-items-center">
+                        <strong>Industry details (editable)</strong>
+                        <CButton color="primary" size="sm" onClick={handleSaveIndustryDetails} disabled={savingIndustry}>
+                          {savingIndustry ? 'Saving...' : 'Save changes'}
+                        </CButton>
+                      </CCardHeader>
+                      <CCardBody>
+                        <CForm onSubmit={handleSaveIndustryDetails}>
+                          <CRow>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Industry Name</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.name}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, name: e.target.value }))}
+                                  placeholder="Industry name"
+                                />
+                              </div>
+                            </CCol>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Area</CFormLabel>
+                                <CFormSelect
+                                  value={industryEditForm.area}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, area: e.target.value }))}
+                                >
+                                  <option value="">Select area</option>
+                                  {areas.map((a) => (
+                                    <option key={a._id || a.id} value={a._id || a.id}>
+                                      {a.name}
+                                      {a.city ? ` - ${a.city}` : ''}
+                                    </option>
+                                  ))}
+                                </CFormSelect>
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <CRow>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Location</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.location}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, location: e.target.value }))}
+                                  placeholder="Location"
+                                />
+                              </div>
+                            </CCol>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Email</CFormLabel>
+                                <CFormInput
+                                  type="email"
+                                  value={industryEditForm.email}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, email: e.target.value }))}
+                                  placeholder="Email"
+                                />
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <CRow>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Purchase Manager Name</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.purchase_manager_name}
+                                  onChange={(e) =>
+                                    setIndustryEditForm((f) => ({ ...f, purchase_manager_name: e.target.value }))
+                                  }
+                                  placeholder="Name"
+                                />
+                              </div>
+                            </CCol>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Purchase Manager Phone</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.purchase_manager_phone}
+                                  onChange={(e) =>
+                                    setIndustryEditForm((f) => ({ ...f, purchase_manager_phone: e.target.value }))
+                                  }
+                                  placeholder="Phone"
+                                />
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <CRow>
+                            <CCol xs={12}>
+                              <div className="mb-3">
+                                <CFormLabel>Address</CFormLabel>
+                                <CFormTextarea
+                                  rows={2}
+                                  value={industryEditForm.address}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, address: e.target.value }))}
+                                  placeholder="Address"
+                                />
+                              </div>
+                            </CCol>
+                          </CRow>
+                        </CForm>
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
+                </CRow>
+              )}
+
+              {/* Create new industry form */}
+              {createNewIndustry && (
+                <CRow>
+                  <CCol xs={12}>
+                    <CCard className="mb-4 border-primary">
+                      <CCardHeader>
+                        <strong>Create new industry</strong>
+                      </CCardHeader>
+                      <CCardBody>
+                        <CForm onSubmit={handleCreateIndustry}>
+                          <CRow>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Industry Name *</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.name}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, name: e.target.value }))}
+                                  placeholder="Industry name"
+                                  required
+                                />
+                              </div>
+                            </CCol>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Area</CFormLabel>
+                                <CFormSelect
+                                  value={industryEditForm.area}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, area: e.target.value }))}
+                                >
+                                  <option value="">Select area</option>
+                                  {areas.map((a) => (
+                                    <option key={a._id || a.id} value={a._id || a.id}>
+                                      {a.name}
+                                      {a.city ? ` - ${a.city}` : ''}
+                                    </option>
+                                  ))}
+                                </CFormSelect>
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <CRow>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Location</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.location}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, location: e.target.value }))}
+                                  placeholder="Location"
+                                />
+                              </div>
+                            </CCol>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Email</CFormLabel>
+                                <CFormInput
+                                  type="email"
+                                  value={industryEditForm.email}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, email: e.target.value }))}
+                                  placeholder="Email"
+                                />
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <CRow>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Purchase Manager Name</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.purchase_manager_name}
+                                  onChange={(e) =>
+                                    setIndustryEditForm((f) => ({ ...f, purchase_manager_name: e.target.value }))
+                                  }
+                                  placeholder="Name"
+                                />
+                              </div>
+                            </CCol>
+                            <CCol md={6}>
+                              <div className="mb-3">
+                                <CFormLabel>Purchase Manager Phone</CFormLabel>
+                                <CFormInput
+                                  value={industryEditForm.purchase_manager_phone}
+                                  onChange={(e) =>
+                                    setIndustryEditForm((f) => ({ ...f, purchase_manager_phone: e.target.value }))
+                                  }
+                                  placeholder="Phone"
+                                />
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <CRow>
+                            <CCol xs={12}>
+                              <div className="mb-3">
+                                <CFormLabel>Address</CFormLabel>
+                                <CFormTextarea
+                                  rows={2}
+                                  value={industryEditForm.address}
+                                  onChange={(e) => setIndustryEditForm((f) => ({ ...f, address: e.target.value }))}
+                                  placeholder="Address"
+                                />
+                              </div>
+                            </CCol>
+                          </CRow>
+                          <div className="d-flex gap-2">
+                            <CButton
+                              color="secondary"
+                              type="button"
+                              onClick={() => {
+                                setCreateNewIndustry(false)
+                                setIndustryEditForm(INITIAL_INDUSTRY_EDIT)
+                              }}
+                            >
+                              Cancel
+                            </CButton>
+                            <CButton color="primary" type="submit" disabled={creatingIndustry}>
+                              {creatingIndustry ? 'Creating...' : 'Create industry'}
+                            </CButton>
+                          </div>
+                        </CForm>
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
+                </CRow>
+              )}
               <CRow>
                 <CCol xs={12}>
                   <div className="mb-3">
@@ -450,9 +776,31 @@ const RawQueryCreate = () => {
                       id="description"
                       rows={4}
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    required
+                      onChange={(e) => {
+                        setFormData({ ...formData, description: e.target.value })
+                        setDescriptionError('')
+                      }}
+                      onBlur={() => {
+                        setDescriptionTouched(true)
+                        const trimmed = (formData.description || '').trim()
+                        if (trimmed.length > 0 && trimmed.length < DESCRIPTION_MIN_LENGTH) {
+                          setDescriptionError(`Description must be at least ${DESCRIPTION_MIN_LENGTH} characters long.`)
+                        } else {
+                          setDescriptionError('')
+                        }
+                      }}
+                      placeholder="Enter description (at least 5 characters)"
+                      required
+                      className={descriptionError ? 'is-invalid' : ''}
                     />
+                    {descriptionError && (
+                      <div className="invalid-feedback d-block">{descriptionError}</div>
+                    )}
+                    {descriptionTouched && !descriptionError && (formData.description || '').trim().length > 0 && (
+                      <div className="form-text">
+                        {(formData.description || '').trim().length} characters
+                      </div>
+                    )}
                   </div>
                 </CCol>
               </CRow>

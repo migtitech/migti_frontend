@@ -28,7 +28,11 @@ import brandService from '../../services/brandService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+<<<<<<< HEAD
 import { getImageDisplayUrl } from '../../utils/imageUtils'
+=======
+import { toastSuccess, toastError } from '../../utils/toast'
+>>>>>>> origin/develop
 
 const ProductList = () => {
   const navigate = useNavigate()
@@ -60,12 +64,12 @@ const ProductList = () => {
       if (filterBrand) params.brand = filterBrand
       if (filterStatus) params.status = filterStatus
 
-      const res = await withMinimumDelay(() => productService.getAll(params), 2000)
+      const res = await withMinimumDelay(() => productService.getAll(params))
       const data = res?.data || res
       setProducts(data?.products || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      setError(err?.message || 'Failed to fetch products')
+      toastError(err?.message || 'Failed to fetch products')
     } finally {
       setLoading(false)
     }
@@ -107,9 +111,10 @@ const ProductList = () => {
     setConfirmDelete({ visible: false, id: null })
     try {
       await productService.delete(id)
+      toastSuccess('Product deleted successfully')
       fetchProducts()
     } catch (err) {
-      setError(err?.message || 'Failed to delete product')
+      toastError(err?.message || 'Failed to delete product')
     }
   }
 

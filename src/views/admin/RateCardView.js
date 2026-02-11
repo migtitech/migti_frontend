@@ -33,6 +33,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import rateCardService from '../../services/rateCardService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 const RateCardView = () => {
   const navigate = useNavigate()
@@ -59,11 +60,11 @@ const RateCardView = () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(() => rateCardService.getById(id), 2000)
+      const res = await withMinimumDelay(() => rateCardService.getById(id))
       const data = res?.data || res
       setRateCard(data)
     } catch (err) {
-      setError(err?.message || 'Failed to fetch rate card details')
+      toastError(err?.message || 'Failed to fetch rate card details')
     } finally {
       setLoading(false)
     }
@@ -127,13 +128,15 @@ const RateCardView = () => {
       }
       if (editingSupplier) {
         await rateCardService.updateSupplier(id, editingSupplier._id, payload)
+        toastSuccess('Supplier updated successfully')
       } else {
         await rateCardService.addSupplier(id, payload)
+        toastSuccess('Supplier added successfully')
       }
       setModalVisible(false)
       fetchRateCard()
     } catch (err) {
-      setError(err?.message || 'Failed to save supplier')
+      toastError(err?.message || 'Failed to save supplier')
     } finally {
       setModalSubmitting(false)
     }
@@ -149,9 +152,10 @@ const RateCardView = () => {
     if (!supplierId) return
     try {
       await rateCardService.deleteSupplier(id, supplierId)
+      toastSuccess('Supplier removed successfully')
       fetchRateCard()
     } catch (err) {
-      setError(err?.message || 'Failed to delete supplier')
+      toastError(err?.message || 'Failed to delete supplier')
     }
   }
 

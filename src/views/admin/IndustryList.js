@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   CCard,
   CCardBody,
@@ -12,23 +13,23 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CBadge,
   CAlert,
-  CImage,
   CPagination,
   CPaginationItem,
+  CFormInput,
+  CInputGroup,
+  CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
-import brandService from '../../services/brandService'
-import Filtered from '../../filtered/Filtered'
-import { useNavigate } from 'react-router-dom'
+import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import industryService from '../../services/industryService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
-const BrandList = () => {
-  const [brands, setBrands] = useState([])
+const IndustryList = () => {
+  const navigate = useNavigate()
+  const [industries, setIndustries] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -36,33 +37,33 @@ const BrandList = () => {
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const navigate = useNavigate()
-
-  const fetchBrands = async () => {
+  const fetchIndustries = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
       const res = await withMinimumDelay(() =>
-        brandService.getAll({
+        industryService.getAll({
           pageNumber: page,
           pageSize: 10,
-          search: searchTerm,
-        })
+          search: searchTerm || undefined,
+        }),
       )
       const data = res?.data || res
-      setBrands(data?.brands || [])
+      setIndustries(data?.industries || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      setError(err?.message || 'Failed to fetch brands')
+      toastError(err?.message || 'Failed to fetch industries')
     } finally {
       setLoading(false)
     }
-  }
+  }, [page, searchTerm])
 
   useEffect(() => {
-    const timer = setTimeout(fetchBrands, 300)
+    const timer = setTimeout(() => {
+      fetchIndustries()
+    }, 300)
     return () => clearTimeout(timer)
-  }, [searchTerm, page])
+  }, [fetchIndustries])
 
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id })
@@ -73,134 +74,143 @@ const BrandList = () => {
     setConfirmDelete({ visible: false, id: null })
     if (!id) return
     try {
-      await brandService.delete(id)
-      toastSuccess('Brand deleted successfully')
-      fetchBrands()
+      await industryService.delete(id)
+      toastSuccess('Industry deleted successfully')
+      fetchIndustries()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete brand')
+      toastError(err?.message || 'Failed to delete industry')
     }
   }
-
-  const getStatusBadge = (status) =>
-    status === 'active' ? (
-      <CBadge color="success">Active</CBadge>
-    ) : (
-      <CBadge color="secondary">Inactive</CBadge>
-    )
 
   return (
     <CRow>
       <CCol xs={12}>
-        <CCard>
+        <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Brands</strong>
-            <CButton color="primary" onClick={() => navigate('/brands/new')}>
+            <strong>Industries</strong>
+            <CButton color="primary" onClick={() => navigate('/industries/new')}>
               <CIcon icon={cilPlus} className="me-2" />
-              Add Brand
+              Add Industry
             </CButton>
           </CCardHeader>
-
           <CCardBody>
             {error && (
               <CAlert color="danger" dismissible onClose={() => setError('')}>
                 {error}
               </CAlert>
             )}
-
-            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-
+            <CRow className="mb-3 align-items-end">
+              <CCol md={6}>
+                <CInputGroup>
+                  <CInputGroupText>
+                    <CIcon icon={cilSearch} />
+                  </CInputGroupText>
+                  <CFormInput
+                    type="text"
+                    placeholder="Search industries..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value)
+                      setPage(1)
+                    }}
+                  />
+                </CInputGroup>
+              </CCol>
+            </CRow>
             {loading ? (
-              <Loader message="Loading brands..." />
+              <Loader message="Loading industries..." />
             ) : (
               <>
                 <CTable hover responsive>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Logo</CTableHeaderCell>
-                      <CTableHeaderCell>Name</CTableHeaderCell>
-                      <CTableHeaderCell>Website</CTableHeaderCell>
-                      <CTableHeaderCell>Status</CTableHeaderCell>
+                      <CTableHeaderCell>Industry Name</CTableHeaderCell>
+                      <CTableHeaderCell>Area</CTableHeaderCell>
+                      <CTableHeaderCell>Location</CTableHeaderCell>
+                      <CTableHeaderCell>Address</CTableHeaderCell>
+                      <CTableHeaderCell>Purchase Manager</CTableHeaderCell>
+                      <CTableHeaderCell>Phone</CTableHeaderCell>
+                      <CTableHeaderCell>Email</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
-
                   <CTableBody>
-                    {brands.map((brand, index) => (
-                      <CTableRow key={brand._id}>
+                    {industries.map((industry, index) => (
+                      <CTableRow key={industry._id}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
-
                         <CTableDataCell>
-                          {brand.logo ? (
-                            <CImage src={brand.logo} width={40} height={40} />
-                          ) : (
-                            <small className="text-muted">N/A</small>
-                          )}
+                          <strong>{industry.name}</strong>
                         </CTableDataCell>
-
                         <CTableDataCell>
-                          <strong>{brand.name}</strong>
+                          {typeof industry.area === 'object'
+                            ? industry.area?.name || '-'
+                            : industry.area || '-'}
                         </CTableDataCell>
-
-                        <CTableDataCell>
-                          {brand.website || '-'}
-                        </CTableDataCell>
-
-                        <CTableDataCell>
-                          {getStatusBadge(brand.status)}
-                        </CTableDataCell>
-
+                        <CTableDataCell>{industry.location || '-'}</CTableDataCell>
+                        <CTableDataCell>{industry.address || '-'}</CTableDataCell>
+                        <CTableDataCell>{industry.purchase_manager_name || '-'}</CTableDataCell>
+                        <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
+                        <CTableDataCell>{industry.email || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
+                            color="info"
+                            variant="ghost"
                             size="sm"
+                            onClick={() => navigate(`/industries/${industry._id}`)}
+                            title="View"
+                          >
+                            <CIcon icon={cilZoom} />
+                          </CButton>
+                          <CButton
                             color="warning"
                             variant="ghost"
-                            onClick={() => navigate(`/brands/edit/${brand._id}`)}
+                            size="sm"
+                            onClick={() => navigate(`/industries/edit/${industry._id}`)}
+                            title="Edit"
                           >
                             <CIcon icon={cilPencil} />
                           </CButton>
-
                           <CButton
-                            size="sm"
                             color="danger"
                             variant="ghost"
-                            onClick={() => handleDeleteClick(brand._id)}
+                            size="sm"
+                            onClick={() => handleDeleteClick(industry._id)}
+                            title="Delete"
                           >
                             <CIcon icon={cilTrash} />
                           </CButton>
                         </CTableDataCell>
                       </CTableRow>
                     ))}
-
-                    {brands.length === 0 && (
+                    {industries.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={6} className="text-center">
-                          No brands found
+                        <CTableDataCell colSpan={9} className="text-center">
+                          {searchTerm
+                            ? 'No industries match the current search.'
+                            : 'No industries found. Click "Add Industry" to create one.'}
                         </CTableDataCell>
                       </CTableRow>
                     )}
                   </CTableBody>
                 </CTable>
-
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center mt-3">
+                  <CPagination className="justify-content-center">
                     <CPaginationItem
                       disabled={!pagination.hasPrevPage}
                       onClick={() => setPage(page - 1)}
                     >
-                      Prev
+                      Previous
                     </CPaginationItem>
-
-                    {Array.from({ length: pagination.totalPages }).map((_, i) => (
+                    {Array.from({ length: pagination.totalPages }, (_, i) => (
                       <CPaginationItem
-                        key={i}
+                        key={i + 1}
                         active={page === i + 1}
                         onClick={() => setPage(i + 1)}
                       >
                         {i + 1}
                       </CPaginationItem>
                     ))}
-
                     <CPaginationItem
                       disabled={!pagination.hasNextPage}
                       onClick={() => setPage(page + 1)}
@@ -219,8 +229,8 @@ const BrandList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Brand?"
-        message="Are you sure you want to delete this brand? This action cannot be undone."
+        title="Delete Industry?"
+        message="Are you sure you want to delete this industry? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
       />
@@ -228,4 +238,4 @@ const BrandList = () => {
   )
 }
 
-export default BrandList
+export default IndustryList

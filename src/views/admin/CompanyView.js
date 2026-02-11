@@ -17,6 +17,7 @@ import companyService from '../../services/companyService'
 import branchService from '../../services/branchService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
 
 const CompanyView = () => {
   const { id } = useParams()
@@ -37,13 +38,11 @@ const CompanyView = () => {
       setLoading(true)
       setError('')
       try {
-        const [companyResponse, branchesResponse] = await withMinimumDelay(
-          () =>
-            Promise.all([
-              companyService.getById(id),
-              branchService.getAll({ companyId: id }),
-            ]),
-          2000
+        const [companyResponse, branchesResponse] = await withMinimumDelay(() =>
+          Promise.all([
+            companyService.getById(id),
+            branchService.getAll({ companyId: id }),
+          ])
         )
 
         const companyPayload =
@@ -61,7 +60,7 @@ const CompanyView = () => {
         )
         setBranches(filteredBranches)
       } catch (err) {
-        setError(err?.message || 'Failed to load company')
+        toastError(err?.message || 'Failed to load company')
       } finally {
         setLoading(false)
       }

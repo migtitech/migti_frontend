@@ -22,6 +22,7 @@ import { cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastSuccess, toastError } from '../../utils/toast'
 
 
 const quotationSchema = yup.object({
@@ -77,7 +78,7 @@ const QuotationForm = () => {
       setLoading(true)
       setError('')
       try {
-        await withMinimumDelay(() => Promise.resolve(), 2000)
+        await withMinimumDelay(() => Promise.resolve())
         const quotation = quotations?.find((q) => q.id === Number(id))
         if (!quotation) return
 
@@ -114,13 +115,15 @@ const QuotationForm = () => {
 
       if (isEdit) {
         updateQuotation(Number(id), payload)
+        toastSuccess('Quotation updated successfully')
       } else {
         addQuotation(payload)
+        toastSuccess('Quotation created successfully')
       }
 
       navigate('/quotations')
     } catch (err) {
-      setError('Failed to save quotation')
+      toastError('Failed to save quotation')
     }
   }
 
