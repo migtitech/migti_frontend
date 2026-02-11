@@ -28,9 +28,6 @@ import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
-<<<<<<< HEAD
-import { getImageDisplayUrl } from '../../utils/imageUtils'
-=======
 import { toastSuccess, toastError } from '../../utils/toast'
 
 const VARIANT_TYPE_OPTIONS = [
@@ -40,7 +37,6 @@ const VARIANT_TYPE_OPTIONS = [
   { value: 'Dimension', label: 'Dimension' },
   { value: 'Build Material', label: 'Build Material' },
 ]
->>>>>>> origin/develop
 
 const numberField = (label, required = false) => {
   let schema = yup
@@ -385,11 +381,7 @@ const ProductForm = () => {
         quantity: parseInt(values.quantity) || 0,
         hasVariants: values.hasVariants,
         variants: values.hasVariants ? variants : [],
-<<<<<<< HEAD
-        variantCombinations: combosForPayload,
-=======
         images: uploadedImages,
->>>>>>> origin/develop
         weight: parseFloat(values.weight) || 0,
         weightUnit: values.weightUnit,
         dimensions: {
@@ -454,74 +446,6 @@ const ProductForm = () => {
         const finalCombos = combosWithImages.map(({ _pendingVariantUpload, ...c }) => c)
         const payload = { ...basePayload, images: productImages, variantCombinations: finalCombos }
         await productService.update(id, payload)
-<<<<<<< HEAD
-        setSuccess('Product updated successfully')
-        setImageFiles([])
-        setVariantImageFiles({})
-        setExistingImages(productImages)
-        setImagePreviews(productImages)
-      } else {
-        setUploadStatus('Creating product...')
-        const payload = { ...basePayload, images: [] }
-        const createRes = await productService.create(payload)
-        const created = createRes?.data || createRes
-        const productId = created?.id || created?._id || created?.product?.id || created?.product?._id
-        if (!productId) {
-          setUploadStatus('')
-          setSuccess('Product created successfully')
-          setTimeout(() => navigate('/products'), 1500)
-          return
-        }
-
-        let uploadError = null
-        if (imageFiles.length > 0) {
-          setUploadStatus('Uploading product images...')
-          try {
-            await productService.uploadImagesS3(productId, imageFiles)
-          } catch (uploadErr) {
-            console.error('Product image upload failed', uploadErr)
-            uploadError = uploadErr?.message || 'Image upload failed'
-          }
-        }
-
-        const combos = created?.variantCombinations || []
-        for (let idx = 0; idx < combos.length; idx++) {
-          const files = variantImageFiles[idx]
-          const combo = combos[idx]
-          if (files?.length > 0 && combo?.uniqueId && !uploadError) {
-            try {
-              await imageService.uploadImages({
-                productId,
-                files,
-                imageType: 'variant',
-                variantCombinationUniqueId: combo.uniqueId,
-              })
-            } catch (uploadErr) {
-              console.error('Variant image upload failed', uploadErr)
-              uploadError = uploadError
-                ? `${uploadError}; variant images: ${uploadErr?.message}`
-                : `Variant image upload failed: ${uploadErr?.message}`
-            }
-          }
-        }
-
-        setUploadStatus('')
-        if (uploadError) {
-          setError(`Product created but image upload failed: ${uploadError}`)
-          setSuccess('Product created. You can edit the product to add images.')
-        } else {
-          const hasImages =
-            imageFiles.length > 0 || Object.values(variantImageFiles).some((f) => f?.length)
-          setSuccess(
-            hasImages ? 'Product created and images uploaded successfully' : 'Product created successfully',
-          )
-        }
-        setTimeout(() => navigate('/products'), 1500)
-      }
-    } catch (err) {
-      setError(err?.message || 'Failed to save product')
-      setUploadStatus('')
-=======
         toastSuccess('Product updated successfully')
         navigate('/products')
       } else {
@@ -531,7 +455,6 @@ const ProductForm = () => {
       }
     } catch (err) {
       toastError(err?.message || 'Failed to save product')
->>>>>>> origin/develop
     } finally {
       setSubmitting(false)
     }
@@ -903,149 +826,6 @@ const ProductForm = () => {
                 Add Variant
               </CButton>
             </div>
-<<<<<<< HEAD
-
-            {variantCombinations.length > 0 && (
-              <CTable hover responsive bordered className="mt-3">
-                <CTableHead>
-                  <CTableRow>
-                    {variants.map((v) => (
-                      <CTableHeaderCell key={v.name}>{v.name}</CTableHeaderCell>
-                    ))}
-                    <CTableHeaderCell>SKU</CTableHeaderCell>
-                    <CTableHeaderCell>Price</CTableHeaderCell>
-                    <CTableHeaderCell>MRP</CTableHeaderCell>
-                    <CTableHeaderCell>Cost</CTableHeaderCell>
-                    <CTableHeaderCell>Qty</CTableHeaderCell>
-                    <CTableHeaderCell>Images</CTableHeaderCell>
-                    <CTableHeaderCell>Active</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {variantCombinations.map((combo, idx) => (
-                    <CTableRow key={idx}>
-                      {combo.optionValues.map((ov, ovIdx) => (
-                        <CTableDataCell key={ovIdx}>{ov.variantValue}</CTableDataCell>
-                      ))}
-                      <CTableDataCell>
-                        <CFormInput
-                          size="sm"
-                          value={combo.sku}
-                          onChange={(e) => updateCombinationField(idx, 'sku', e.target.value)}
-                          placeholder="SKU"
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          size="sm"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={combo.price}
-                          onChange={(e) =>
-                            updateCombinationField(idx, 'price', parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          size="sm"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={combo.mrp}
-                          onChange={(e) =>
-                            updateCombinationField(idx, 'mrp', parseFloat(e.target.value) || 0)
-                          }
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          size="sm"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={combo.costPrice}
-                          onChange={(e) =>
-                            updateCombinationField(
-                              idx,
-                              'costPrice',
-                              parseFloat(e.target.value) || 0,
-                            )
-                          }
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormInput
-                          size="sm"
-                          type="number"
-                          min="0"
-                          value={combo.quantity}
-                          onChange={(e) =>
-                            updateCombinationField(
-                              idx,
-                              'quantity',
-                              parseInt(e.target.value) || 0,
-                            )
-                          }
-                        />
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <div className="d-flex flex-wrap align-items-center gap-1">
-                          {(combo.images || []).map((img, i) => (
-                            <div key={i} className="position-relative">
-                              <CImage
-                                src={getImageDisplayUrl(img)}
-                                width={40}
-                                height={40}
-                                className="object-fit-cover rounded"
-                              />
-                            </div>
-                          ))}
-                          {(variantImageFiles[idx] || []).map((file, i) => (
-                            <div key={`new-${i}`} className="position-relative">
-                              <CImage
-                                src={URL.createObjectURL(file)}
-                                width={40}
-                                height={40}
-                                className="object-fit-cover rounded"
-                              />
-                              <CButton
-                                color="danger"
-                                size="sm"
-                                className="position-absolute top-0 end-0"
-                                style={{ transform: 'translate(50%, -50%)', padding: '0 4px' }}
-                                onClick={() => removeVariantImage(idx, i)}
-                              >
-                                &times;
-                              </CButton>
-                            </div>
-                          ))}
-                          <CFormInput
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            size="sm"
-                            style={{ width: 80 }}
-                            onChange={(e) => handleVariantImageUpload(idx, e)}
-                          />
-                        </div>
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <CFormCheck
-                          checked={combo.isActive}
-                          onChange={(e) =>
-                            updateCombinationField(idx, 'isActive', e.target.checked)
-                          }
-                        />
-                      </CTableDataCell>
-                    </CTableRow>
-                  ))}
-                </CTableBody>
-              </CTable>
-            )}
-=======
->>>>>>> origin/develop
           </CCardBody>
         )}
       </CCard>

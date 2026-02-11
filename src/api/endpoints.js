@@ -157,11 +157,7 @@ export default {
   PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
-<<<<<<< HEAD
-  IMAGES,
-=======
   AREAS,
   INDUSTRIES,
   QUERIES,
->>>>>>> origin/develop
 }
