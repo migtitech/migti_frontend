@@ -16,9 +16,15 @@ import {
   CListGroupItem,
   CSpinner,
   CAlert,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
+import { cilArrowLeft, cilPlus, cilTrash, cilPencil } from '@coreui/icons'
 import queryService from '../../services/queryService'
 import industryService from '../../services/industryService'
 import productService from '../../services/productService'
@@ -77,13 +83,14 @@ const QueryForm = () => {
   const [areas, setAreas] = useState([])
   const companyDropdownRef = useRef(null)
 
-  // Products – repeatable sections with product type search
-  const [products, setProducts] = useState([{ ...INITIAL_PRODUCT }])
-  const [productSearchByIndex, setProductSearchByIndex] = useState({})
-  const [productDropdownByIndex, setProductDropdownByIndex] = useState({})
-  const [productSearchResultsByIndex, setProductSearchResultsByIndex] = useState({})
-  const [productSearchLoadingByIndex, setProductSearchLoadingByIndex] = useState({})
-  const lastProductCardRef = useRef(null)
+  // Products – form for add/edit one, then table of all added
+  const [products, setProducts] = useState([])
+  const [formProduct, setFormProduct] = useState({ ...INITIAL_PRODUCT })
+  const [editingProductIndex, setEditingProductIndex] = useState(null)
+  const [productSearch, setProductSearch] = useState('')
+  const [productDropdownOpen, setProductDropdownOpen] = useState(false)
+  const [productSearchResults, setProductSearchResults] = useState([])
+  const [productSearchLoading, setProductSearchLoading] = useState(false)
 
   // Delivery
   const [delivery, setDelivery] = useState(INITIAL_DELIVERY)
@@ -163,133 +170,128 @@ const QueryForm = () => {
     setCompanyInfo(INITIAL_COMPANY)
   }
 
-  // Product search – top 5 by index
-  const fetchProductSearch = useCallback(async (index, term) => {
+  // Product search – single form
+  const fetchProductSearch = useCallback(async (term) => {
     if (!term?.trim()) {
-      setProductSearchResultsByIndex((prev) => ({ ...prev, [index]: [] }))
+      setProductSearchResults([])
       return
     }
-    setProductSearchLoadingByIndex((prev) => ({ ...prev, [index]: true }))
+    setProductSearchLoading(true)
     try {
       const res = await productService.getAll({ search: term.trim(), pageSize: 5 })
       const data = res?.data || res
-      setProductSearchResultsByIndex((prev) => ({ ...prev, [index]: data?.products || [] }))
+      setProductSearchResults(data?.products || [])
     } catch {
-      setProductSearchResultsByIndex((prev) => ({ ...prev, [index]: [] }))
+      setProductSearchResults([])
     } finally {
-      setProductSearchLoadingByIndex((prev) => ({ ...prev, [index]: false }))
+      setProductSearchLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    const timers = {}
-    Object.keys(productSearchByIndex).forEach((key) => {
-      const val = productSearchByIndex[key]
-      const idx = Number(key)
-      if (val?.trim()) {
-        timers[key] = setTimeout(() => fetchProductSearch(idx, val), 300)
-      } else {
-        setProductSearchResultsByIndex((prev) => ({ ...prev, [idx]: [] }))
-      }
-    })
-    return () => Object.values(timers).forEach(clearTimeout)
-  }, [productSearchByIndex, fetchProductSearch])
+    const t = setTimeout(() => fetchProductSearch(productSearch), 300)
+    return () => clearTimeout(t)
+  }, [productSearch, fetchProductSearch])
 
-  const handleSelectProduct = (index, product) => {
+  const handleSelectProduct = (product) => {
     const pid = product._id || product.id
-    setProducts((prev) => {
-      const next = [...prev]
-      const existingVariants = next[index].variants?.length ? next[index].variants : []
-      next[index] = {
-        ...next[index],
-        productName: product?.name || '',
-        variants: product?.hasVariants && product?.variants?.length
-          ? product.variants.map((v) => ({ variantName: v.name || '', quantity: 1 }))
-          : existingVariants,
-        product_id: pid,
-      }
-      return next
+    const existingVariants = formProduct.variants?.length ? formProduct.variants : []
+    setFormProduct({
+      ...formProduct,
+      productName: product?.name || '',
+      variants: product?.hasVariants && product?.variants?.length
+        ? product.variants.map((v) => ({ variantName: v.name || '', quantity: 1 }))
+        : existingVariants,
+      product_id: pid,
     })
-    setProductSearchByIndex((prev) => ({ ...prev, [index]: '' }))
-    setProductDropdownByIndex((prev) => ({ ...prev, [index]: false }))
-    setProductSearchResultsByIndex((prev) => ({ ...prev, [index]: [] }))
+    setProductSearch('')
+    setProductDropdownOpen(false)
+    setProductSearchResults([])
   }
 
-  const prevProductsLengthRef = useRef(products.length)
-
-  const addProduct = () => {
-    setProducts((prev) => [...prev, { ...INITIAL_PRODUCT }])
+  const clearProductForm = () => {
+    setFormProduct({ ...INITIAL_PRODUCT })
+    setEditingProductIndex(null)
+    setProductSearch('')
+    setProductDropdownOpen(false)
+    setProductSearchResults([])
   }
 
-  useEffect(() => {
-    if (products.length > prevProductsLengthRef.current) {
-      prevProductsLengthRef.current = products.length
-      setTimeout(() => {
-        lastProductCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    } else {
-      prevProductsLengthRef.current = products.length
+  const saveProduct = () => {
+    if (!formProduct.productName?.trim()) {
+      toastError('Product name is required')
+      return
     }
-  }, [products.length])
+    setProducts((prev) => [...prev, { ...formProduct }])
+    clearProductForm()
+    toastSuccess('Product added to list')
+  }
 
-  const removeProduct = (index) => {
-    if (products.length <= 1) return
+  const updateProductInList = () => {
+    if (editingProductIndex == null || !formProduct.productName?.trim()) {
+      if (!formProduct.productName?.trim()) toastError('Product name is required')
+      return
+    }
+    setProducts((prev) => {
+      const next = [...prev]
+      next[editingProductIndex] = { ...formProduct }
+      return next
+    })
+    clearProductForm()
+    toastSuccess('Product updated')
+  }
+
+  const editProductFromTable = (index) => {
+    const p = products[index]
+    setFormProduct({
+      productName: p.productName || '',
+      quantity: p.quantity ?? 1,
+      unit: p.unit || '',
+      variants: (p.variants || []).map((v) => ({
+        variantName: v.variantName || '',
+        quantity: v.quantity ?? 1,
+      })),
+      remark: p.remark || '',
+      product_id: p.product_id || null,
+    })
+    setEditingProductIndex(index)
+    setProductSearch('')
+    setProductDropdownOpen(false)
+  }
+
+  const deleteProductFromTable = (index) => {
     setProducts((prev) => prev.filter((_, i) => i !== index))
-    setProductSearchByIndex((prev => {
-      const next = { ...prev }
-      delete next[index]
-      return next
-    }))
-    setProductDropdownByIndex((prev => {
-      const next = { ...prev }
-      delete next[index]
-      return next
-    }))
-    setProductSearchResultsByIndex((prev => {
-      const next = { ...prev }
-      delete next[index]
-      return next
+    if (editingProductIndex === index) {
+      clearProductForm()
+    } else if (editingProductIndex != null && editingProductIndex > index) {
+      setEditingProductIndex((prev) => prev - 1)
+    }
+    toastSuccess('Product removed from list')
+  }
+
+  const updateFormProduct = (field, value) => {
+    setFormProduct((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const addVariant = () => {
+    setFormProduct((prev) => ({
+      ...prev,
+      variants: [...(prev.variants || []), { ...INITIAL_VARIANT }],
     }))
   }
 
-  const updateProduct = (index, field, value) => {
-    setProducts((prev) => {
-      const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
-      return next
+  const removeVariant = (variantIndex) => {
+    setFormProduct((prev) => {
+      const v = prev.variants || []
+      return { ...prev, variants: v.filter((_, i) => i !== variantIndex) }
     })
   }
 
-  const addVariant = (productIndex) => {
-    setProducts((prev) => {
-      const next = [...prev]
-      next[productIndex] = {
-        ...next[productIndex],
-        variants: [...(next[productIndex].variants || []), { ...INITIAL_VARIANT }],
-      }
-      return next
-    })
-  }
-
-  const removeVariant = (productIndex, variantIndex) => {
-    setProducts((prev) => {
-      const next = [...prev]
-      const v = next[productIndex].variants || []
-      next[productIndex] = {
-        ...next[productIndex],
-        variants: v.filter((_, i) => i !== variantIndex),
-      }
-      return next
-    })
-  }
-
-  const updateVariant = (productIndex, variantIndex, field, value) => {
-    setProducts((prev) => {
-      const next = [...prev]
-      const variants = [...(next[productIndex].variants || [])]
+  const updateVariant = (variantIndex, field, value) => {
+    setFormProduct((prev) => {
+      const variants = [...(prev.variants || [])]
       variants[variantIndex] = { ...variants[variantIndex], [field]: value }
-      next[productIndex] = { ...next[productIndex], variants }
-      return next
+      return { ...prev, variants }
     })
   }
 
@@ -328,7 +330,7 @@ const QueryForm = () => {
           })),
           remark: p.remark || '',
           product_id: p.product_id?._id || p.product_id || null,
-        })) : [{ ...INITIAL_PRODUCT }]
+        })) : []
         setProducts(prods)
 
         const del = q.delivery || {}
@@ -368,6 +370,11 @@ const QueryForm = () => {
     e.preventDefault()
     if (!companyInfo?.name?.trim()) {
       toastError('Company / Industry name is required')
+      return
+    }
+    const validProducts = products.filter((p) => (p.productName || '').trim())
+    if (validProducts.length === 0) {
+      toastError('Add at least one product using the form above and click Save')
       return
     }
     setSubmitting(true)
@@ -590,169 +597,203 @@ const QueryForm = () => {
           </CCardBody>
         </CCard>
 
-        {/* 2. Products */}
+        {/* 2. Products – add/edit form + table */}
         <CCard className="mb-4">
-          <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>2. Products</strong>
-            <CButton color="primary" size="sm" type="button" onClick={addProduct}>
-              <CIcon icon={cilPlus} className="me-1" />
-              Add product
-            </CButton>
-          </CCardHeader>
+          <CCardHeader><strong>2. Products</strong></CCardHeader>
           <CCardBody>
-            {products.map((prod, index) => (
-              <div
-                key={index}
-                ref={index === products.length - 1 ? lastProductCardRef : null}
-                className="mb-4"
-              >
-              <CCard>
-                <CCardHeader className="d-flex justify-content-between align-items-center py-2">
-                  <strong>Product {index + 1}</strong>
-                  {products.length > 1 && (
-                    <CButton
-                      color="danger"
-                      variant="ghost"
-                      size="sm"
-                      type="button"
-                      onClick={() => removeProduct(index)}
+            <CCard className="mb-4">
+              <CCardHeader className="py-2">
+                <strong>{editingProductIndex != null ? 'Edit product' : 'Add product'}</strong>
+              </CCardHeader>
+              <CCardBody>
+                <div className="mb-3 position-relative">
+                  <CFormLabel>Type / Name (search – best 5 matches)</CFormLabel>
+                  <CFormInput
+                    type="text"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    onFocus={() => setProductDropdownOpen(true)}
+                    onBlur={() => setTimeout(() => setProductDropdownOpen(false), 200)}
+                    placeholder="Search product type or name"
+                    autoComplete="off"
+                  />
+                  {productDropdownOpen && (productSearchResults?.length > 0 || productSearchLoading) && (
+                    <div
+                      className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                      style={{ zIndex: 10, maxHeight: 220, overflowY: 'auto' }}
                     >
-                      <CIcon icon={cilTrash} />
+                      <CListGroup flush>
+                        {productSearchLoading && (
+                          <CListGroupItem className="text-muted">Searching...</CListGroupItem>
+                        )}
+                        {!productSearchLoading &&
+                          productSearchResults.map((pr) => (
+                            <CListGroupItem
+                              key={pr._id || pr.id}
+                              component="button"
+                              type="button"
+                              className="text-start"
+                              onMouseDown={(e) => {
+                                e.preventDefault()
+                                handleSelectProduct(pr)
+                              }}
+                            >
+                              <div className="fw-semibold">{pr.name}</div>
+                              {pr.sku && <div className="text-muted small">SKU: {pr.sku}</div>}
+                            </CListGroupItem>
+                          ))}
+                      </CListGroup>
+                    </div>
+                  )}
+                </div>
+                <CRow>
+                  <CCol md={6}>
+                    <div className="mb-3">
+                      <CFormLabel>Product name</CFormLabel>
+                      <CFormInput
+                        value={formProduct.productName}
+                        onChange={(e) => updateFormProduct('productName', e.target.value)}
+                        placeholder="Product name"
+                      />
+                    </div>
+                  </CCol>
+                  <CCol md={4}>
+                    <div className="mb-3">
+                      <CFormLabel>Quantity (number)</CFormLabel>
+                      <CFormInput
+                        type="number"
+                        min={0}
+                        value={formProduct.quantity}
+                        onChange={(e) => updateFormProduct('quantity', Number(e.target.value) ?? 0)}
+                        placeholder="0"
+                      />
+                    </div>
+                  </CCol>
+                  <CCol md={2}>
+                    <div className="mb-3">
+                      <CFormLabel>Unit</CFormLabel>
+                      <CFormInput
+                        value={formProduct.unit || ''}
+                        onChange={(e) => updateFormProduct('unit', e.target.value)}
+                        placeholder="pcs, kg, etc."
+                      />
+                    </div>
+                  </CCol>
+                </CRow>
+                <div className="mb-3">
+                  <div className="d-flex justify-content-between align-items-center mb-2">
+                    <CFormLabel className="mb-0">Variants (name + quantity)</CFormLabel>
+                    <CButton color="primary" size="sm" type="button" onClick={addVariant}>
+                      <CIcon icon={cilPlus} className="me-1" />
+                      Add variant
+                    </CButton>
+                  </div>
+                  {(formProduct.variants || []).length > 0 ? (
+                    (formProduct.variants || []).map((v, vIdx) => (
+                      <CRow key={vIdx} className="mb-2 align-items-end">
+                        <CCol md={5}>
+                          <CFormInput
+                            value={v.variantName || ''}
+                            onChange={(e) => updateVariant(vIdx, 'variantName', e.target.value)}
+                            placeholder="Variant name"
+                          />
+                        </CCol>
+                        <CCol md={3}>
+                          <CFormInput
+                            type="number"
+                            min={0}
+                            value={v.quantity ?? ''}
+                            onChange={(e) => updateVariant(vIdx, 'quantity', Number(e.target.value) ?? 0)}
+                            placeholder="Qty"
+                          />
+                        </CCol>
+                        <CCol md={2}>
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            type="button"
+                            onClick={() => removeVariant(vIdx)}
+                          >
+                            <CIcon icon={cilTrash} />
+                          </CButton>
+                        </CCol>
+                      </CRow>
+                    ))
+                  ) : (
+                    <p className="text-muted small mb-0">No variants. Click &quot;Add variant&quot; to add.</p>
+                  )}
+                </div>
+                <div className="mb-3">
+                  <CFormLabel>Remark</CFormLabel>
+                  <CFormTextarea
+                    rows={2}
+                    value={formProduct.remark}
+                    onChange={(e) => updateFormProduct('remark', e.target.value)}
+                    placeholder="Remark"
+                  />
+                </div>
+                <div className="d-flex gap-2">
+                  {editingProductIndex != null ? (
+                    <CButton color="primary" type="button" onClick={updateProductInList}>
+                      Update
+                    </CButton>
+                  ) : (
+                    <CButton color="primary" type="button" onClick={saveProduct}>
+                      Save
                     </CButton>
                   )}
-                </CCardHeader>
-                <CCardBody>
-                  <div className="mb-3 position-relative">
-                    <CFormLabel>Type / Name (search – best 5 matches)</CFormLabel>
-                    <CFormInput
-                      type="text"
-                      value={productSearchByIndex[index] ?? ''}
-                      onChange={(e) => setProductSearchByIndex((p) => ({ ...p, [index]: e.target.value }))}
-                      onFocus={() => setProductDropdownByIndex((p) => ({ ...p, [index]: true }))}
-                      onBlur={() => setTimeout(() => setProductDropdownByIndex((p) => ({ ...p, [index]: false })), 200)}
-                      placeholder="Search product type or name"
-                      autoComplete="off"
-                    />
-                    {productDropdownByIndex[index] && (productSearchResultsByIndex[index]?.length > 0 || productSearchLoadingByIndex[index]) && (
-                      <div
-                        className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
-                        style={{ zIndex: 10, maxHeight: 220, overflowY: 'auto' }}
-                      >
-                        <CListGroup flush>
-                          {productSearchLoadingByIndex[index] && (
-                            <CListGroupItem className="text-muted">Searching...</CListGroupItem>
-                          )}
-                          {!productSearchLoadingByIndex[index] &&
-                            (productSearchResultsByIndex[index] || []).map((pr) => (
-                              <CListGroupItem
-                                key={pr._id || pr.id}
-                                component="button"
-                                type="button"
-                                className="text-start"
-                                onMouseDown={(e) => {
-                                  e.preventDefault()
-                                  handleSelectProduct(index, pr)
-                                }}
-                              >
-                                <div className="fw-semibold">{pr.name}</div>
-                                {pr.sku && <div className="text-muted small">SKU: {pr.sku}</div>}
-                              </CListGroupItem>
-                            ))}
-                        </CListGroup>
-                      </div>
-                    )}
-                  </div>
-                  <CRow>
-                    <CCol md={6}>
-                      <div className="mb-3">
-                        <CFormLabel>Product name</CFormLabel>
-                        <CFormInput
-                          value={prod.productName}
-                          onChange={(e) => updateProduct(index, 'productName', e.target.value)}
-                          placeholder="Product name"
-                        />
-                      </div>
-                    </CCol>
-                    <CCol md={4}>
-                      <div className="mb-3">
-                        <CFormLabel>Quantity (number)</CFormLabel>
-                        <CFormInput
-                          type="number"
-                          min={0}
-                          value={prod.quantity}
-                          onChange={(e) => updateProduct(index, 'quantity', Number(e.target.value) ?? 0)}
-                          placeholder="0"
-                        />
-                      </div>
-                    </CCol>
-                    <CCol md={2}>
-                      <div className="mb-3">
-                        <CFormLabel>Unit</CFormLabel>
-                        <CFormInput
-                          value={prod.unit || ''}
-                          onChange={(e) => updateProduct(index, 'unit', e.target.value)}
-                          placeholder="pcs, kg, etc."
-                        />
-                      </div>
-                    </CCol>
-                  </CRow>
-                  <div className="mb-3">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <CFormLabel className="mb-0">Variants (name + quantity)</CFormLabel>
-                      <CButton color="primary" size="sm" type="button" onClick={() => addVariant(index)}>
-                        <CIcon icon={cilPlus} className="me-1" />
-                        Add variant
-                      </CButton>
-                    </div>
-                    {(prod.variants || []).length > 0 ? (
-                      (prod.variants || []).map((v, vIdx) => (
-                        <CRow key={vIdx} className="mb-2 align-items-end">
-                          <CCol md={5}>
-                            <CFormInput
-                              value={v.variantName || ''}
-                              onChange={(e) => updateVariant(index, vIdx, 'variantName', e.target.value)}
-                              placeholder="Variant name"
-                            />
-                          </CCol>
-                          <CCol md={3}>
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              value={v.quantity ?? ''}
-                              onChange={(e) => updateVariant(index, vIdx, 'quantity', Number(e.target.value) ?? 0)}
-                              placeholder="Qty"
-                            />
-                          </CCol>
-                          <CCol md={2}>
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              type="button"
-                              onClick={() => removeVariant(index, vIdx)}
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          </CCol>
-                        </CRow>
-                      ))
-                    ) : (
-                      <p className="text-muted small mb-0">No variants. Click &quot;Add variant&quot; to add.</p>
-                    )}
-                  </div>
-                  <div className="mb-3">
-                    <CFormLabel>Remark</CFormLabel>
-                    <CFormTextarea
-                      rows={2}
-                      value={prod.remark}
-                      onChange={(e) => updateProduct(index, 'remark', e.target.value)}
-                      placeholder="Remark"
-                    />
-                  </div>
-                </CCardBody>
-              </CCard>
-              </div>
-            ))}
+                  {editingProductIndex != null && (
+                    <CButton color="secondary" type="button" onClick={clearProductForm}>
+                      Cancel
+                    </CButton>
+                  )}
+                </div>
+              </CCardBody>
+            </CCard>
+
+            <div className="mt-3">
+              <strong className="d-block mb-2">Added products</strong>
+              {products.length === 0 ? (
+                <p className="text-muted small mb-0">No products added yet. Fill the form above and click Save to add.</p>
+              ) : (
+                <CTable responsive hover>
+                  <CTableHead>
+                    <CTableRow>
+                      <CTableHeaderCell>Product name</CTableHeaderCell>
+                      <CTableHeaderCell>Quantity</CTableHeaderCell>
+                      <CTableHeaderCell>Unit</CTableHeaderCell>
+                      <CTableHeaderCell>Variants</CTableHeaderCell>
+                      <CTableHeaderCell>Remark</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {products.map((p, index) => (
+                      <CTableRow key={index}>
+                        <CTableDataCell>{p.productName || '–'}</CTableDataCell>
+                        <CTableDataCell>{p.quantity ?? '–'}</CTableDataCell>
+                        <CTableDataCell>{p.unit || '–'}</CTableDataCell>
+                        <CTableDataCell>
+                          {(p.variants || []).length > 0
+                            ? (p.variants || []).map((v, i) => `${v.variantName || '–'}: ${v.quantity ?? 0}`).join(', ')
+                            : '–'}
+                        </CTableDataCell>
+                        <CTableDataCell>{(p.remark || '').slice(0, 40)}{(p.remark || '').length > 40 ? '…' : ''}</CTableDataCell>
+                        <CTableDataCell className="text-end">
+                          <CButton color="primary" variant="ghost" size="sm" className="me-1" onClick={() => editProductFromTable(index)}>
+                            <CIcon icon={cilPencil} />
+                          </CButton>
+                          <CButton color="danger" variant="ghost" size="sm" onClick={() => deleteProductFromTable(index)}>
+                            <CIcon icon={cilTrash} />
+                          </CButton>
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              )}
+            </div>
           </CCardBody>
         </CCard>
 

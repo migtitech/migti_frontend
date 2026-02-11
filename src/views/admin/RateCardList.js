@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
   CCard,
   CCardBody,
@@ -13,332 +13,1039 @@ import {
   CTableRow,
   CButton,
   CBadge,
-  CAlert,
-  CPagination,
-  CPaginationItem,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CForm,
+  CNav,
+  CNavItem,
+  CNavLink,
+  CTabContent,
+  CTabPane,
   CFormInput,
-  CFormLabel,
-  CFormTextarea,
-  CFormSelect,
+  CInputGroup,
+  CInputGroupText,
   CSpinner,
+  CListGroup,
+  CListGroupItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
-import { useNavigate } from 'react-router-dom'
+import { cilSearch, cilSave, cilTrash, cilPlus } from '@coreui/icons'
 import rateCardService from '../../services/rateCardService'
-import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
 const RateCardList = () => {
-  const navigate = useNavigate()
-  const [rateCards, setRateCards] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [activeTab, setActiveTab] = useState('product')
 
-  // Modal state for create/edit product
-  const [modalVisible, setModalVisible] = useState(false)
-  const [modalSubmitting, setModalSubmitting] = useState(false)
-  const [editingRateCard, setEditingRateCard] = useState(null)
-  const [formData, setFormData] = useState({
-    productName: '',
-    description: '',
-    status: 'active',
-  })
+  // --- Search by Product state ---
+  const [productSearch, setProductSearch] = useState('')
+  const [productResults, setProductResults] = useState([])
+  const [productSearching, setProductSearching] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [productSuppliers, setProductSuppliers] = useState([])
+  const [productInfo, setProductInfo] = useState(null)
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false)
+  const [showProductDropdown, setShowProductDropdown] = useState(false)
 
-  const fetchRateCards = async () => {
-    setLoading(true)
-    setError('')
+  // --- Search by Supplier state ---
+  const [supplierSearch, setSupplierSearch] = useState('')
+  const [supplierResults, setSupplierResults] = useState([])
+  const [supplierSearching, setSupplierSearching] = useState(false)
+  const [selectedSupplier, setSelectedSupplier] = useState(null)
+  const [supplierProducts, setSupplierProducts] = useState([])
+  const [supplierInfo, setSupplierInfo] = useState(null)
+  const [loadingProducts, setLoadingProducts] = useState(false)
+  const [showSupplierDropdown, setShowSupplierDropdown] = useState(false)
+
+  // --- Rate editing state ---
+  const [editingRates, setEditingRates] = useState({})
+  const [savingRate, setSavingRate] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null, context: null })
+
+  // --- Add Rate tab state ---
+  const [addProductSearch, setAddProductSearch] = useState('')
+  const [addProductResults, setAddProductResults] = useState([])
+  const [addProductSearching, setAddProductSearching] = useState(false)
+  const [addSelectedProduct, setAddSelectedProduct] = useState(null)
+  const [showAddProductDropdown, setShowAddProductDropdown] = useState(false)
+
+  const [addSupplierSearch, setAddSupplierSearch] = useState('')
+  const [addSupplierResults, setAddSupplierResults] = useState([])
+  const [addSupplierSearching, setAddSupplierSearching] = useState(false)
+  const [addSelectedSupplier, setAddSelectedSupplier] = useState(null)
+  const [showAddSupplierDropdown, setShowAddSupplierDropdown] = useState(false)
+
+  const [addRate, setAddRate] = useState('')
+  const [addingRate, setAddingRate] = useState(false)
+
+  const productDropdownRef = useRef(null)
+  const supplierDropdownRef = useRef(null)
+  const addProductDropdownRef = useRef(null)
+  const addSupplierDropdownRef = useRef(null)
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (productDropdownRef.current && !productDropdownRef.current.contains(e.target)) {
+        setShowProductDropdown(false)
+      }
+      if (supplierDropdownRef.current && !supplierDropdownRef.current.contains(e.target)) {
+        setShowSupplierDropdown(false)
+      }
+      if (addProductDropdownRef.current && !addProductDropdownRef.current.contains(e.target)) {
+        setShowAddProductDropdown(false)
+      }
+      if (addSupplierDropdownRef.current && !addSupplierDropdownRef.current.contains(e.target)) {
+        setShowAddSupplierDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // --- Product search ---
+  useEffect(() => {
+    if (!productSearch.trim()) {
+      setProductResults([])
+      setShowProductDropdown(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setProductSearching(true)
+      try {
+        const res = await rateCardService.searchProducts({ search: productSearch, limit: 10 })
+        const data = res?.data || res
+        setProductResults(data?.products || [])
+        setShowProductDropdown(true)
+      } catch {
+        setProductResults([])
+      } finally {
+        setProductSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [productSearch])
+
+  // --- Supplier search ---
+  useEffect(() => {
+    if (!supplierSearch.trim()) {
+      setSupplierResults([])
+      setShowSupplierDropdown(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setSupplierSearching(true)
+      try {
+        const res = await rateCardService.searchSuppliers({ search: supplierSearch, limit: 10 })
+        const data = res?.data || res
+        setSupplierResults(data?.suppliers || [])
+        setShowSupplierDropdown(true)
+      } catch {
+        setSupplierResults([])
+      } finally {
+        setSupplierSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [supplierSearch])
+
+  // --- Add Rate tab: product search ---
+  useEffect(() => {
+    if (!addProductSearch.trim()) {
+      setAddProductResults([])
+      setShowAddProductDropdown(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setAddProductSearching(true)
+      try {
+        const res = await rateCardService.searchProducts({ search: addProductSearch, limit: 10 })
+        const data = res?.data || res
+        setAddProductResults(data?.products || [])
+        setShowAddProductDropdown(true)
+      } catch {
+        setAddProductResults([])
+      } finally {
+        setAddProductSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [addProductSearch])
+
+  // --- Add Rate tab: supplier search ---
+  useEffect(() => {
+    if (!addSupplierSearch.trim()) {
+      setAddSupplierResults([])
+      setShowAddSupplierDropdown(false)
+      return
+    }
+    const timer = setTimeout(async () => {
+      setAddSupplierSearching(true)
+      try {
+        const res = await rateCardService.searchSuppliers({ search: addSupplierSearch, limit: 10 })
+        const data = res?.data || res
+        setAddSupplierResults(data?.suppliers || [])
+        setShowAddSupplierDropdown(true)
+      } catch {
+        setAddSupplierResults([])
+      } finally {
+        setAddSupplierSearching(false)
+      }
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [addSupplierSearch])
+
+  // --- Add Rate tab: submit handler ---
+  const handleAddRate = async () => {
+    if (!addSelectedProduct) {
+      toastError('Please select a product')
+      return
+    }
+    if (!addSelectedSupplier) {
+      toastError('Please select a supplier')
+      return
+    }
+    if (!addRate || isNaN(Number(addRate)) || Number(addRate) < 0) {
+      toastError('Please enter a valid rate')
+      return
+    }
+    setAddingRate(true)
     try {
-      const res = await withMinimumDelay(() =>
-        rateCardService.getAll({
-          pageNumber: page,
-          pageSize: 10,
-          search: searchTerm,
-        })
-      )
-      const data = res?.data || res
-      setRateCards(data?.rateCards || [])
-      setPagination(data?.pagination || {})
+      await rateCardService.upsertRate({
+        productId: addSelectedProduct._id,
+        supplierId: addSelectedSupplier._id,
+        rate: Number(addRate),
+      })
+      toastSuccess('Rate added successfully')
+      // Reset form
+      setAddSelectedProduct(null)
+      setAddProductSearch('')
+      setAddSelectedSupplier(null)
+      setAddSupplierSearch('')
+      setAddRate('')
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch rate cards')
+      toastError(err?.message || 'Failed to add rate')
     } finally {
-      setLoading(false)
+      setAddingRate(false)
     }
   }
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchRateCards()
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm, page])
+  // --- Select product & load suppliers ---
+  const handleSelectProduct = useCallback(async (product) => {
+    setSelectedProduct(product)
+    setProductSearch(product.name)
+    setShowProductDropdown(false)
+    setLoadingSuppliers(true)
+    setEditingRates({})
+    try {
+      const res = await rateCardService.getByProduct(product._id)
+      const data = res?.data || res
+      setProductInfo(data?.product || product)
+      setProductSuppliers(data?.rates || [])
+    } catch (err) {
+      toastError(err?.message || 'Failed to load suppliers')
+    } finally {
+      setLoadingSuppliers(false)
+    }
+  }, [])
 
-  const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
+  // --- Select supplier & load products ---
+  const handleSelectSupplier = useCallback(async (supplier) => {
+    setSelectedSupplier(supplier)
+    setSupplierSearch(supplier.name)
+    setShowSupplierDropdown(false)
+    setLoadingProducts(true)
+    setEditingRates({})
+    try {
+      const res = await rateCardService.getBySupplier(supplier._id)
+      const data = res?.data || res
+      setSupplierInfo(data?.supplier || supplier)
+      setSupplierProducts(data?.rates || [])
+    } catch (err) {
+      toastError(err?.message || 'Failed to load products')
+    } finally {
+      setLoadingProducts(false)
+    }
+  }, [])
+
+  // --- Save rate ---
+  const handleSaveRate = async (productId, supplierId, rate) => {
+    if (rate === '' || rate === undefined || isNaN(Number(rate))) {
+      toastError('Please enter a valid rate')
+      return
+    }
+    const key = `${productId}_${supplierId}`
+    setSavingRate(key)
+    try {
+      await rateCardService.upsertRate({
+        productId,
+        supplierId,
+        rate: Number(rate),
+      })
+      toastSuccess('Rate saved successfully')
+      // Refresh data
+      if (activeTab === 'product' && selectedProduct) {
+        await handleSelectProduct(selectedProduct)
+      } else if (activeTab === 'supplier' && selectedSupplier) {
+        await handleSelectSupplier(selectedSupplier)
+      }
+    } catch (err) {
+      toastError(err?.message || 'Failed to save rate')
+    } finally {
+      setSavingRate(null)
+    }
   }
 
+  // --- Delete rate card entry ---
   const handleDeleteConfirm = async () => {
-    const { id } = confirmDelete
-    setConfirmDelete({ visible: false, id: null })
+    const { id, context } = confirmDelete
+    setConfirmDelete({ visible: false, id: null, context: null })
     if (!id) return
     try {
       await rateCardService.delete(id)
-      toastSuccess('Rate card deleted successfully')
-      fetchRateCards()
+      toastSuccess('Rate entry deleted successfully')
+      if (context === 'product' && selectedProduct) {
+        await handleSelectProduct(selectedProduct)
+      } else if (context === 'supplier' && selectedSupplier) {
+        await handleSelectSupplier(selectedSupplier)
+      }
     } catch (err) {
-      toastError(err?.message || 'Failed to delete rate card')
+      toastError(err?.message || 'Failed to delete rate entry')
     }
   }
 
-  const openCreateModal = () => {
-    setEditingRateCard(null)
-    setFormData({ productName: '', description: '', status: 'active' })
-    setModalVisible(true)
+  const handleRateChange = (key, value) => {
+    setEditingRates((prev) => ({ ...prev, [key]: value }))
   }
 
-  const openEditModal = (rateCard) => {
-    setEditingRateCard(rateCard)
-    setFormData({
-      productName: rateCard.productName || '',
-      description: rateCard.description || '',
-      status: rateCard.status || 'active',
-    })
-    setModalVisible(true)
-  }
-
-  const handleFormChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
-
-  const handleFormSubmit = async (e) => {
-    e.preventDefault()
-    setModalSubmitting(true)
-    setError('')
-    try {
-      const payload = {
-        name: formData.productName,
-        description: formData.description,
-        status: formData.status,
-      }
-      if (editingRateCard) {
-        await rateCardService.update(editingRateCard._id, payload)
-        toastSuccess('Rate card updated successfully')
-      } else {
-        await rateCardService.create(payload)
-        toastSuccess('Rate card created successfully')
-      }
-      setModalVisible(false)
-      fetchRateCards()
-    } catch (err) {
-      toastError(err?.message || 'Failed to save rate card')
-    } finally {
-      setModalSubmitting(false)
-    }
-  }
-
-  const getStatusBadge = (status) => {
-    return status === 'active' ? (
-      <CBadge color="success">Active</CBadge>
-    ) : (
-      <CBadge color="secondary">Inactive</CBadge>
-    )
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0,
+    }).format(amount)
   }
 
   return (
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
-          <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Rate Cards</strong>
-            <CButton color="primary" onClick={openCreateModal}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Product
-            </CButton>
+          <CCardHeader>
+            <strong>Rate Card</strong>
           </CCardHeader>
           <CCardBody>
-            {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
-                {error}
-              </CAlert>
-            )}
-            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-            {loading ? (
-              <Loader message="Loading rate cards..." />
-            ) : (
-              <>
-                <CTable hover responsive>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Product Name</CTableHeaderCell>
-                      <CTableHeaderCell>Description</CTableHeaderCell>
-                      <CTableHeaderCell>Suppliers</CTableHeaderCell>
-                      <CTableHeaderCell>Status</CTableHeaderCell>
-                      <CTableHeaderCell>Actions</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {rateCards.map((rc, index) => (
-                      <CTableRow
-                        key={rc._id}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => navigate(`/rate-cards/${rc._id}`)}
-                      >
-                        <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
-                        <CTableDataCell>
-                          <strong>{rc.name || rc.productName}</strong>
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {rc.description?.substring(0, 60) || '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          <CBadge color="info">{rc.suppliers?.length || 0}</CBadge>
-                        </CTableDataCell>
-                        <CTableDataCell>{getStatusBadge(rc.status)}</CTableDataCell>
-                        <CTableDataCell>
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              openEditModal(rc)
-                            }}
-                            title="Edit"
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteClick(rc._id)
-                            }}
-                            title="Delete"
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                    {rateCards.length === 0 && (
-                      <CTableRow>
-                        <CTableDataCell colSpan={6} className="text-center">
-                          {searchTerm
-                            ? `No rate cards found matching "${searchTerm}"`
-                            : 'No rate cards found. Click "Add Product" to create one.'}
-                        </CTableDataCell>
-                      </CTableRow>
+            {/* Tabs */}
+            <CNav variant="tabs" className="mb-4">
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === 'product'}
+                  onClick={() => setActiveTab('product')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Search by Product
+                </CNavLink>
+              </CNavItem>
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === 'supplier'}
+                  onClick={() => setActiveTab('supplier')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Search by Supplier
+                </CNavLink>
+              </CNavItem>
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === 'addRate'}
+                  onClick={() => setActiveTab('addRate')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <CIcon icon={cilPlus} className="me-1" />
+                  Add Rate
+                </CNavLink>
+              </CNavItem>
+            </CNav>
+
+            <CTabContent>
+              {/* ========== TAB 1: Search by Product ========== */}
+              <CTabPane visible={activeTab === 'product'}>
+                {/* Product Search */}
+                <div ref={productDropdownRef} style={{ position: 'relative', maxWidth: 500 }}>
+                  <CInputGroup className="mb-3">
+                    <CInputGroupText>
+                      <CIcon icon={cilSearch} />
+                    </CInputGroupText>
+                    <CFormInput
+                      placeholder="Search product by name or SKU..."
+                      value={productSearch}
+                      onChange={(e) => {
+                        setProductSearch(e.target.value)
+                        if (!e.target.value.trim()) {
+                          setSelectedProduct(null)
+                          setProductSuppliers([])
+                          setProductInfo(null)
+                        }
+                      }}
+                    />
+                    {productSearching && (
+                      <CInputGroupText>
+                        <CSpinner size="sm" />
+                      </CInputGroupText>
                     )}
-                  </CTableBody>
-                </CTable>
-                {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center">
-                    <CPaginationItem
-                      disabled={!pagination.hasPrevPage}
-                      onClick={() => setPage(page - 1)}
+                  </CInputGroup>
+
+                  {/* Dropdown results */}
+                  {showProductDropdown && productResults.length > 0 && (
+                    <CListGroup
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: 1000,
+                        maxHeight: 250,
+                        overflowY: 'auto',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      }}
                     >
-                      Previous
-                    </CPaginationItem>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => (
-                      <CPaginationItem
-                        key={i + 1}
-                        active={page === i + 1}
-                        onClick={() => setPage(i + 1)}
+                      {productResults.map((p) => (
+                        <CListGroupItem
+                          key={p._id}
+                          onClick={() => handleSelectProduct(p)}
+                          style={{ cursor: 'pointer' }}
+                          className="d-flex justify-content-between align-items-center"
+                        >
+                          <div>
+                            <strong>{p.name}</strong>
+                            {p.sku && (
+                              <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
+                                SKU: {p.sku}
+                              </span>
+                            )}
+                          </div>
+                          {p.price > 0 && (
+                            <CBadge color="info">{formatCurrency(p.price)}</CBadge>
+                          )}
+                        </CListGroupItem>
+                      ))}
+                    </CListGroup>
+                  )}
+
+                  {showProductDropdown &&
+                    productResults.length === 0 &&
+                    !productSearching &&
+                    productSearch.trim() && (
+                      <CListGroup
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          zIndex: 1000,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        }}
                       >
-                        {i + 1}
-                      </CPaginationItem>
-                    ))}
-                    <CPaginationItem
-                      disabled={!pagination.hasNextPage}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                        <CListGroupItem className="text-muted text-center">
+                          No products found
+                        </CListGroupItem>
+                      </CListGroup>
+                    )}
+                </div>
+
+                {/* Product info & suppliers table */}
+                {selectedProduct && (
+                  <>
+                    {productInfo && (
+                      <div className="mb-3 p-3 bg-light rounded">
+                        <h5 className="mb-1">{productInfo.name}</h5>
+                        <div className="text-muted small">
+                          {productInfo.sku && <span className="me-3">SKU: {productInfo.sku}</span>}
+                          {productInfo.price > 0 && (
+                            <span>Base Price: {formatCurrency(productInfo.price)}</span>
+                          )}
+                        </div>
+                        {productInfo.description && (
+                          <div className="text-muted small mt-1">{productInfo.description}</div>
+                        )}
+                      </div>
+                    )}
+
+                    {loadingSuppliers ? (
+                      <Loader message="Loading suppliers..." />
+                    ) : (
+                      <>
+                        <h6 className="mb-3">Suppliers ({productSuppliers.length})</h6>
+                        <CTable hover responsive bordered>
+                          <CTableHead color="light">
+                            <CTableRow>
+                              <CTableHeaderCell style={{ width: 50 }}>S No</CTableHeaderCell>
+                              <CTableHeaderCell>Supplier Name</CTableHeaderCell>
+                              <CTableHeaderCell>Shop</CTableHeaderCell>
+                              <CTableHeaderCell>Phone</CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: 150 }}>
+                                Current Rate
+                              </CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: 150 }}>New Rate</CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: 100 }}>Actions</CTableHeaderCell>
+                            </CTableRow>
+                          </CTableHead>
+                          <CTableBody>
+                            {productSuppliers.map((entry, index) => {
+                              const key = `${selectedProduct._id}_${entry.supplier?._id}`
+                              return (
+                                <CTableRow
+                                  key={entry._id}
+                                  color={
+                                    index === 0 && productSuppliers.length > 1
+                                      ? 'success'
+                                      : undefined
+                                  }
+                                >
+                                  <CTableDataCell>{index + 1}</CTableDataCell>
+                                  <CTableDataCell>
+                                    <strong>{entry.supplier?.name}</strong>
+                                    {index === 0 && productSuppliers.length > 1 && (
+                                      <CBadge color="success" className="ms-2">
+                                        Lowest
+                                      </CBadge>
+                                    )}
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    {entry.supplier?.shopname || '-'}
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    {entry.supplier?.phone_1 || '-'}
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    <strong>{formatCurrency(entry.rate)}</strong>
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    <CFormInput
+                                      type="number"
+                                      size="sm"
+                                      min={0}
+                                      placeholder="New rate"
+                                      value={editingRates[key] ?? ''}
+                                      onChange={(e) => handleRateChange(key, e.target.value)}
+                                    />
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    <CButton
+                                      color="primary"
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={
+                                        !editingRates[key] ||
+                                        editingRates[key] === '' ||
+                                        savingRate === key
+                                      }
+                                      onClick={() =>
+                                        handleSaveRate(
+                                          selectedProduct._id,
+                                          entry.supplier?._id,
+                                          editingRates[key],
+                                        )
+                                      }
+                                      title="Save Rate"
+                                    >
+                                      {savingRate === key ? (
+                                        <CSpinner size="sm" />
+                                      ) : (
+                                        <CIcon icon={cilSave} />
+                                      )}
+                                    </CButton>
+                                    <CButton
+                                      color="danger"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        setConfirmDelete({
+                                          visible: true,
+                                          id: entry._id,
+                                          context: 'product',
+                                        })
+                                      }
+                                      title="Delete"
+                                    >
+                                      <CIcon icon={cilTrash} />
+                                    </CButton>
+                                  </CTableDataCell>
+                                </CTableRow>
+                              )
+                            })}
+                            {productSuppliers.length === 0 && (
+                              <CTableRow>
+                                <CTableDataCell colSpan={7} className="text-center text-muted">
+                                  No suppliers found for this product.
+                                </CTableDataCell>
+                              </CTableRow>
+                            )}
+                          </CTableBody>
+                        </CTable>
+                        {productSuppliers.length > 1 && (
+                          <div className="text-muted small">Sorted by rate (lowest first)</div>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
-              </>
-            )}
+              </CTabPane>
+
+              {/* ========== TAB 2: Search by Supplier ========== */}
+              <CTabPane visible={activeTab === 'supplier'}>
+                {/* Supplier Search */}
+                <div ref={supplierDropdownRef} style={{ position: 'relative', maxWidth: 500 }}>
+                  <CInputGroup className="mb-3">
+                    <CInputGroupText>
+                      <CIcon icon={cilSearch} />
+                    </CInputGroupText>
+                    <CFormInput
+                      placeholder="Search supplier by name, shop or phone..."
+                      value={supplierSearch}
+                      onChange={(e) => {
+                        setSupplierSearch(e.target.value)
+                        if (!e.target.value.trim()) {
+                          setSelectedSupplier(null)
+                          setSupplierProducts([])
+                          setSupplierInfo(null)
+                        }
+                      }}
+                    />
+                    {supplierSearching && (
+                      <CInputGroupText>
+                        <CSpinner size="sm" />
+                      </CInputGroupText>
+                    )}
+                  </CInputGroup>
+
+                  {/* Dropdown results */}
+                  {showSupplierDropdown && supplierResults.length > 0 && (
+                    <CListGroup
+                      style={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: 1000,
+                        maxHeight: 250,
+                        overflowY: 'auto',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                      }}
+                    >
+                      {supplierResults.map((s) => (
+                        <CListGroupItem
+                          key={s._id}
+                          onClick={() => handleSelectSupplier(s)}
+                          style={{ cursor: 'pointer' }}
+                          className="d-flex justify-content-between align-items-center"
+                        >
+                          <div>
+                            <strong>{s.name}</strong>
+                            {s.shopname && (
+                              <span className="text-muted ms-2" style={{ fontSize: '0.85em' }}>
+                                ({s.shopname})
+                              </span>
+                            )}
+                          </div>
+                          {s.phone_1 && <span className="text-muted small">{s.phone_1}</span>}
+                        </CListGroupItem>
+                      ))}
+                    </CListGroup>
+                  )}
+
+                  {showSupplierDropdown &&
+                    supplierResults.length === 0 &&
+                    !supplierSearching &&
+                    supplierSearch.trim() && (
+                      <CListGroup
+                        style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          zIndex: 1000,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        }}
+                      >
+                        <CListGroupItem className="text-muted text-center">
+                          No suppliers found
+                        </CListGroupItem>
+                      </CListGroup>
+                    )}
+                </div>
+
+                {/* Supplier info & products table */}
+                {selectedSupplier && (
+                  <>
+                    {supplierInfo && (
+                      <div className="mb-3 p-3 bg-light rounded">
+                        <h5 className="mb-1">{supplierInfo.name}</h5>
+                        <div className="text-muted small">
+                          {supplierInfo.shopname && (
+                            <span className="me-3">Shop: {supplierInfo.shopname}</span>
+                          )}
+                          {supplierInfo.phone_1 && (
+                            <span className="me-3">Phone: {supplierInfo.phone_1}</span>
+                          )}
+                          {supplierInfo.email && <span>Email: {supplierInfo.email}</span>}
+                        </div>
+                        {supplierInfo.address && (
+                          <div className="text-muted small mt-1">{supplierInfo.address}</div>
+                        )}
+                      </div>
+                    )}
+
+                    {loadingProducts ? (
+                      <Loader message="Loading products..." />
+                    ) : (
+                      <>
+                        <h6 className="mb-3">
+                          Products Supplied ({supplierProducts.length})
+                        </h6>
+                        <CTable hover responsive bordered>
+                          <CTableHead color="light">
+                            <CTableRow>
+                              <CTableHeaderCell style={{ width: 50 }}>S No</CTableHeaderCell>
+                              <CTableHeaderCell>Product Name</CTableHeaderCell>
+                              <CTableHeaderCell>SKU</CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: 150 }}>
+                                Current Rate
+                              </CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: 150 }}>New Rate</CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: 100 }}>Actions</CTableHeaderCell>
+                            </CTableRow>
+                          </CTableHead>
+                          <CTableBody>
+                            {supplierProducts.map((entry, index) => {
+                              const key = `${entry.product?._id}_${selectedSupplier._id}`
+                              return (
+                                <CTableRow key={entry._id}>
+                                  <CTableDataCell>{index + 1}</CTableDataCell>
+                                  <CTableDataCell>
+                                    <strong>{entry.product?.name}</strong>
+                                  </CTableDataCell>
+                                  <CTableDataCell>{entry.product?.sku || '-'}</CTableDataCell>
+                                  <CTableDataCell>
+                                    <strong>{formatCurrency(entry.rate)}</strong>
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    <CFormInput
+                                      type="number"
+                                      size="sm"
+                                      min={0}
+                                      placeholder="New rate"
+                                      value={editingRates[key] ?? ''}
+                                      onChange={(e) => handleRateChange(key, e.target.value)}
+                                    />
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    <CButton
+                                      color="primary"
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={
+                                        !editingRates[key] ||
+                                        editingRates[key] === '' ||
+                                        savingRate === key
+                                      }
+                                      onClick={() =>
+                                        handleSaveRate(
+                                          entry.product?._id,
+                                          selectedSupplier._id,
+                                          editingRates[key],
+                                        )
+                                      }
+                                      title="Save Rate"
+                                    >
+                                      {savingRate === key ? (
+                                        <CSpinner size="sm" />
+                                      ) : (
+                                        <CIcon icon={cilSave} />
+                                      )}
+                                    </CButton>
+                                    <CButton
+                                      color="danger"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        setConfirmDelete({
+                                          visible: true,
+                                          id: entry._id,
+                                          context: 'supplier',
+                                        })
+                                      }
+                                      title="Delete"
+                                    >
+                                      <CIcon icon={cilTrash} />
+                                    </CButton>
+                                  </CTableDataCell>
+                                </CTableRow>
+                              )
+                            })}
+                            {supplierProducts.length === 0 && (
+                              <CTableRow>
+                                <CTableDataCell colSpan={6} className="text-center text-muted">
+                                  No products found for this supplier.
+                                </CTableDataCell>
+                              </CTableRow>
+                            )}
+                          </CTableBody>
+                        </CTable>
+                      </>
+                    )}
+                  </>
+                )}
+              </CTabPane>
+
+              {/* ========== TAB 3: Add Rate ========== */}
+              <CTabPane visible={activeTab === 'addRate'}>
+                <CRow>
+                  <CCol md={6}>
+                    <h6 className="mb-3">Add a new rate for a Product + Supplier</h6>
+
+                    {/* Select Product */}
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold">Product *</label>
+                      <div ref={addProductDropdownRef} style={{ position: 'relative' }}>
+                        <CInputGroup>
+                          <CInputGroupText>
+                            <CIcon icon={cilSearch} />
+                          </CInputGroupText>
+                          <CFormInput
+                            placeholder="Search product by name or SKU..."
+                            value={addProductSearch}
+                            onChange={(e) => {
+                              setAddProductSearch(e.target.value)
+                              if (!e.target.value.trim()) {
+                                setAddSelectedProduct(null)
+                              }
+                            }}
+                          />
+                          {addProductSearching && (
+                            <CInputGroupText>
+                              <CSpinner size="sm" />
+                            </CInputGroupText>
+                          )}
+                        </CInputGroup>
+
+                        {showAddProductDropdown && addProductResults.length > 0 && (
+                          <CListGroup
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              zIndex: 1000,
+                              maxHeight: 200,
+                              overflowY: 'auto',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            }}
+                          >
+                            {addProductResults.map((p) => (
+                              <CListGroupItem
+                                key={p._id}
+                                onClick={() => {
+                                  setAddSelectedProduct(p)
+                                  setAddProductSearch(p.name)
+                                  setShowAddProductDropdown(false)
+                                }}
+                                style={{ cursor: 'pointer' }}
+                                className="d-flex justify-content-between align-items-center"
+                              >
+                                <div>
+                                  <strong>{p.name}</strong>
+                                  {p.sku && (
+                                    <span
+                                      className="text-muted ms-2"
+                                      style={{ fontSize: '0.85em' }}
+                                    >
+                                      SKU: {p.sku}
+                                    </span>
+                                  )}
+                                </div>
+                                {p.price > 0 && (
+                                  <CBadge color="info">{formatCurrency(p.price)}</CBadge>
+                                )}
+                              </CListGroupItem>
+                            ))}
+                          </CListGroup>
+                        )}
+
+                        {showAddProductDropdown &&
+                          addProductResults.length === 0 &&
+                          !addProductSearching &&
+                          addProductSearch.trim() && (
+                            <CListGroup
+                              style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                right: 0,
+                                zIndex: 1000,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              }}
+                            >
+                              <CListGroupItem className="text-muted text-center">
+                                No products found
+                              </CListGroupItem>
+                            </CListGroup>
+                          )}
+                      </div>
+                      {addSelectedProduct && (
+                        <div className="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
+                          <CBadge color="success">Selected</CBadge>
+                          <strong>{addSelectedProduct.name}</strong>
+                          {addSelectedProduct.sku && (
+                            <span className="text-muted small">
+                              (SKU: {addSelectedProduct.sku})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Select Supplier */}
+                    <div className="mb-3">
+                      <label className="form-label fw-semibold">Supplier *</label>
+                      <div ref={addSupplierDropdownRef} style={{ position: 'relative' }}>
+                        <CInputGroup>
+                          <CInputGroupText>
+                            <CIcon icon={cilSearch} />
+                          </CInputGroupText>
+                          <CFormInput
+                            placeholder="Search supplier by name, shop or phone..."
+                            value={addSupplierSearch}
+                            onChange={(e) => {
+                              setAddSupplierSearch(e.target.value)
+                              if (!e.target.value.trim()) {
+                                setAddSelectedSupplier(null)
+                              }
+                            }}
+                          />
+                          {addSupplierSearching && (
+                            <CInputGroupText>
+                              <CSpinner size="sm" />
+                            </CInputGroupText>
+                          )}
+                        </CInputGroup>
+
+                        {showAddSupplierDropdown && addSupplierResults.length > 0 && (
+                          <CListGroup
+                            style={{
+                              position: 'absolute',
+                              top: '100%',
+                              left: 0,
+                              right: 0,
+                              zIndex: 1000,
+                              maxHeight: 200,
+                              overflowY: 'auto',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            }}
+                          >
+                            {addSupplierResults.map((s) => (
+                              <CListGroupItem
+                                key={s._id}
+                                onClick={() => {
+                                  setAddSelectedSupplier(s)
+                                  setAddSupplierSearch(s.name)
+                                  setShowAddSupplierDropdown(false)
+                                }}
+                                style={{ cursor: 'pointer' }}
+                                className="d-flex justify-content-between align-items-center"
+                              >
+                                <div>
+                                  <strong>{s.name}</strong>
+                                  {s.shopname && (
+                                    <span
+                                      className="text-muted ms-2"
+                                      style={{ fontSize: '0.85em' }}
+                                    >
+                                      ({s.shopname})
+                                    </span>
+                                  )}
+                                </div>
+                                {s.phone_1 && (
+                                  <span className="text-muted small">{s.phone_1}</span>
+                                )}
+                              </CListGroupItem>
+                            ))}
+                          </CListGroup>
+                        )}
+
+                        {showAddSupplierDropdown &&
+                          addSupplierResults.length === 0 &&
+                          !addSupplierSearching &&
+                          addSupplierSearch.trim() && (
+                            <CListGroup
+                              style={{
+                                position: 'absolute',
+                                top: '100%',
+                                left: 0,
+                                right: 0,
+                                zIndex: 1000,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                              }}
+                            >
+                              <CListGroupItem className="text-muted text-center">
+                                No suppliers found
+                              </CListGroupItem>
+                            </CListGroup>
+                          )}
+                      </div>
+                      {addSelectedSupplier && (
+                        <div className="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
+                          <CBadge color="success">Selected</CBadge>
+                          <strong>{addSelectedSupplier.name}</strong>
+                          {addSelectedSupplier.shopname && (
+                            <span className="text-muted small">
+                              ({addSelectedSupplier.shopname})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Rate Input */}
+                    <div className="mb-4">
+                      <label className="form-label fw-semibold">Rate (INR) *</label>
+                      <CFormInput
+                        type="number"
+                        min={0}
+                        placeholder="Enter rate e.g. 25000"
+                        value={addRate}
+                        onChange={(e) => setAddRate(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Submit Button */}
+                    <CButton
+                      color="primary"
+                      onClick={handleAddRate}
+                      disabled={addingRate || !addSelectedProduct || !addSelectedSupplier || !addRate}
+                    >
+                      {addingRate ? (
+                        <>
+                          <CSpinner size="sm" className="me-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <CIcon icon={cilPlus} className="me-2" />
+                          Add Rate
+                        </>
+                      )}
+                    </CButton>
+                  </CCol>
+                </CRow>
+              </CTabPane>
+            </CTabContent>
           </CCardBody>
         </CCard>
       </CCol>
 
-      {/* Create/Edit Product Modal */}
-      <CModal visible={modalVisible} onClose={() => setModalVisible(false)}>
-        <CModalHeader>
-          <CModalTitle>{editingRateCard ? 'Edit Product' : 'Add Product'}</CModalTitle>
-        </CModalHeader>
-        <CForm onSubmit={handleFormSubmit}>
-          <CModalBody>
-            <div className="mb-3">
-              <CFormLabel>Product Name *</CFormLabel>
-              <CFormInput
-                name="productName"
-                value={formData.productName}
-                onChange={handleFormChange}
-                required
-                placeholder="e.g. Laptop Acer 8GB RAM Intel i5 512 SSD"
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel>Description</CFormLabel>
-              <CFormTextarea
-                name="description"
-                rows={3}
-                value={formData.description}
-                onChange={handleFormChange}
-                placeholder="Enter product description..."
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel>Status</CFormLabel>
-              <CFormSelect name="status" value={formData.status} onChange={handleFormChange}>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-              </CFormSelect>
-            </div>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" variant="outline" onClick={() => setModalVisible(false)}>
-              Cancel
-            </CButton>
-            <CButton color="primary" type="submit" disabled={modalSubmitting}>
-              {modalSubmitting ? (
-                <>
-                  <CSpinner size="sm" className="me-2" />
-                  Saving...
-                </>
-              ) : editingRateCard ? (
-                'Update Product'
-              ) : (
-                'Create Product'
-              )}
-            </CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
-
       <ConfirmDialog
         visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onClose={() => setConfirmDelete({ visible: false, id: null, context: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Rate Card?"
-        message="Are you sure you want to delete this rate card? All suppliers associated with it will also be removed. This action cannot be undone."
+        title="Delete Rate Entry?"
+        message="Are you sure you want to remove this rate entry? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
       />

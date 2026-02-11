@@ -101,14 +101,12 @@ export const SUPPLIERS = {
 }
 
 export const RATE_CARDS = {
-  CREATE: '/rate-cards/create',
-  LIST: '/rate-cards/list',
-  GET_BY_ID: '/rate-cards/get-by-id',
-  UPDATE: '/rate-cards/update',
+  UPSERT_RATE: '/rate-cards/upsert-rate',
+  BY_PRODUCT: '/rate-cards/by-product',
+  BY_SUPPLIER: '/rate-cards/by-supplier',
   DELETE: '/rate-cards/delete',
-  ADD_SUPPLIER: '/rate-cards/add-supplier',
-  UPDATE_SUPPLIER: '/rate-cards/update-supplier',
-  DELETE_SUPPLIER: '/rate-cards/delete-supplier',
+  SEARCH_PRODUCTS: '/rate-cards/search-products',
+  SEARCH_SUPPLIERS: '/rate-cards/search-suppliers',
 }
 
 export const AREAS = {

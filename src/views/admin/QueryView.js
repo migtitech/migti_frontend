@@ -21,6 +21,7 @@ import {
   CModalTitle,
   CModalBody,
   CModalFooter,
+  CForm,
   CFormInput,
   CFormLabel,
   CFormSelect,
