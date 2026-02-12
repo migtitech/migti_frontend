@@ -50,36 +50,45 @@ const FollowUpDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(10)
-  // const [pendingFollowUps, setPendingFollowUps] = useState([])
-
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  // Filter follow-ups
  
-  
-  const overdueFollowUps = queries?.filter((f) => {
-    const dueDate = new Date(f.dueDate)
-    dueDate.setHours(0, 0, 0, 0)
-    return f.status === 'pending' && dueDate < today
-  }) || []
-  const todayFollowUps = queries?.filter((f) => {
-    const dueDate = new Date(f.dueDate)
-    dueDate.setHours(0, 0, 0, 0)
-    return f.status === 'pending' && dueDate.getTime() === today.getTime()
-  }) || []
-  const completedFollowUps = queries?.filter((f) => f.status === 'completed') || []
- 
-const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
+ const today = new Date()
+today.setHours(0, 0, 0, 0)
+
+const overdueFollowUps = queries.filter((f) => {
+  const dueDate = new Date(f.dueDate)
+  dueDate.setHours(0, 0, 0, 0)
+  return f.status?.toLowerCase() === 'pending' && dueDate < today
+})
+
+const todayFollowUps = queries.filter((f) => {
+  const dueDate = new Date(f.dueDate)
+  dueDate.setHours(0, 0, 0, 0)
+  return (
+    f.status?.toLowerCase() === 'pending' &&
+    dueDate.getTime() === today.getTime()
+  )
+})
+
+const pendingFollowUps = queries.filter(
+  (f) => f.status?.toLowerCase() === 'pending'
+)
+
+const completedFollowUps = queries.filter(
+  (f) => f.status?.toLowerCase() === 'completed'
+)
+
+
 
   const fetchQueries = async () => {
     setLoading(true)
     setError('')
     try {
       const res = await withMinimumDelay(() =>
-        queryService.getAll({ queries,
+        queryService.getAll({
+          queries,
           pageNumber,
-          pageSize, }),
+          pageSize,
+        }),
       )
       const data = res?.data || res
       const result = data?.data ?? data
@@ -88,8 +97,8 @@ const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
       console.log('Result:', result)
       console.log('Queries:', result?.queries || [])
       const product = result?.queries?.[0]?.products?.[0]?.productName || null
-      const pendingFollowUps =setPendingFollowUps( queries?.filter((f) => f.status === 'pending') || [])
-      console.log('Pending Follow-ups:', pendingFollowUps)
+      const pendingFollowUp = setPendingFollowUps(queries?.filter((f) => f.status === 'pending') || [])
+      console.log('Pending Follow-ups:', pendingFollowUp)
       console.log('Product Name:', product)
     } catch (err) {
       toastError(err?.message || 'Failed to load queries')
@@ -105,7 +114,7 @@ const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
   const pag = pagination
   const totalPages = pag?.totalPages ?? 1
   const currentPage = pag?.currentPage ?? 1
-
+  const emptyMessage = "No follow-ups found"
   useEffect(() => {
     fetchQueries()
     console.log('Follow-ups:', queries)
@@ -152,7 +161,7 @@ const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
   //   }
   // }
 
-  const renderFollowUpTable = () => (
+  const renderFollowUpTable = (data = []) => (
     <CTable hover responsive>
       <CTableHead>
         <CTableRow>
@@ -165,7 +174,7 @@ const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
         </CTableRow>
       </CTableHead>
       <CTableBody>
-        {queries.map((followUp, index) => {
+        {data.length>0 ?(data .map((followUp, index) => {
           const dueDate = new Date(followUp.dueDate)
           dueDate.setHours(0, 0, 0, 0)
           const isOverdue = followUp.status === 'pending' && dueDate < today
@@ -215,7 +224,13 @@ const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
             </CTableRow>
           )
         }
-        
+
+        )): (
+           <CTableRow>
+          <CTableDataCell colSpan={6} className="text-center text-muted">
+            {emptyMessage}
+          </CTableDataCell>
+        </CTableRow>
         )}
         {queries.length === 0 && (
           <CTableRow>
@@ -226,7 +241,7 @@ const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
         )}
       </CTableBody>
     </CTable>
-    
+
   )
 
   return (
