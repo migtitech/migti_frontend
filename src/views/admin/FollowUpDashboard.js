@@ -48,30 +48,38 @@ const FollowUpDashboard = () => {
   const [queries, setQueries] = useState([])
   const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  // const [pendingFollowUps, setPendingFollowUps] = useState([])
 
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
   // Filter follow-ups
-  const pendingFollowUps = followUps?.filter((f) => f.status === 'pending') || []
-  const overdueFollowUps = followUps?.filter((f) => {
+ 
+  
+  const overdueFollowUps = queries?.filter((f) => {
     const dueDate = new Date(f.dueDate)
     dueDate.setHours(0, 0, 0, 0)
     return f.status === 'pending' && dueDate < today
   }) || []
-  const todayFollowUps = followUps?.filter((f) => {
+  const todayFollowUps = queries?.filter((f) => {
     const dueDate = new Date(f.dueDate)
     dueDate.setHours(0, 0, 0, 0)
     return f.status === 'pending' && dueDate.getTime() === today.getTime()
   }) || []
-  const completedFollowUps = followUps?.filter((f) => f.status === 'completed') || []
+  const completedFollowUps = queries?.filter((f) => f.status === 'completed') || []
+ 
+const pendingFollowUps = queries?.filter((f) => f.status === 'pending') || []
 
   const fetchQueries = async () => {
     setLoading(true)
     setError('')
     try {
       const res = await withMinimumDelay(() =>
-        queryService.getAll({ queries }),
+        queryService.getAll({ queries,
+          pageNumber,
+          pageSize, }),
       )
       const data = res?.data || res
       const result = data?.data ?? data
@@ -80,6 +88,8 @@ const FollowUpDashboard = () => {
       console.log('Result:', result)
       console.log('Queries:', result?.queries || [])
       const product = result?.queries?.[0]?.products?.[0]?.productName || null
+      const pendingFollowUps =setPendingFollowUps( queries?.filter((f) => f.status === 'pending') || [])
+      console.log('Pending Follow-ups:', pendingFollowUps)
       console.log('Product Name:', product)
     } catch (err) {
       toastError(err?.message || 'Failed to load queries')
@@ -92,6 +102,9 @@ const FollowUpDashboard = () => {
 
   }
 
+  const pag = pagination
+  const totalPages = pag?.totalPages ?? 1
+  const currentPage = pag?.currentPage ?? 1
 
   useEffect(() => {
     fetchQueries()
@@ -126,18 +139,18 @@ const FollowUpDashboard = () => {
     }
   }
 
-  const getReferenceOptions = () => {
-    switch (formData.type) {
-      case 'query':
-        return queries?.map((q) => ({ id: q.id, label: `Query: ${q.subject}` })) || []
-      case 'quotation':
-        return quotations?.map((q) => ({ id: q.id, label: `QT-${String(q.id).padStart(4, '0')}: ${q.customerName}` })) || []
-      case 'purchase_order':
-        return purchaseOrders?.map((o) => ({ id: o.id, label: `PO-${String(o.id).padStart(4, '0')}: ${o.supplierName}` })) || []
-      default:
-        return []
-    }
-  }
+  // const getReferenceOptions = () => {
+  //   switch (formData.type) {
+  //     case 'query':
+  //       return queries?.map((q) => ({ id: q.id, label: `Query: ${q.subject}` })) || []
+  //     case 'quotation':
+  //       return quotations?.map((q) => ({ id: q.id, label: `QT-${String(q.id).padStart(4, '0')}: ${q.customerName}` })) || []
+  //     case 'purchase_order':
+  //       return purchaseOrders?.map((o) => ({ id: o.id, label: `PO-${String(o.id).padStart(4, '0')}: ${o.supplierName}` })) || []
+  //     default:
+  //       return []
+  //   }
+  // }
 
   const renderFollowUpTable = () => (
     <CTable hover responsive>
@@ -159,7 +172,7 @@ const FollowUpDashboard = () => {
           return (
             <CTableRow key={followUp._id} className={isOverdue ? 'table-danger' : ''}>
               <CTableDataCell>
-                <strong>{followUp?.companyInfo.name}</strong>
+                <strong>{followUp?.companyInfo?.name}</strong>
                 {followUp.description && (
                   <>
                     <br />
@@ -201,7 +214,9 @@ const FollowUpDashboard = () => {
               </CTableDataCell>
             </CTableRow>
           )
-        })}
+        }
+        
+        )}
         {queries.length === 0 && (
           <CTableRow>
             <CTableDataCell colSpan={6} className="text-center">
@@ -211,6 +226,7 @@ const FollowUpDashboard = () => {
         )}
       </CTableBody>
     </CTable>
+    
   )
 
   return (

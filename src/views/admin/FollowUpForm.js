@@ -1,4 +1,4 @@
-import React, { use, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
     CCard,
@@ -17,9 +17,7 @@ import {
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
-import { useData } from '../../context/DataContext'
 import queryService from '../../services/queryService'
-
 
 const schema = yup.object({
     title: yup.string().trim().required('Title is required'),
@@ -30,36 +28,12 @@ const schema = yup.object({
     description: yup.string().nullable(),
 })
 
-
 const FollowUpForm = () => {
     const navigate = useNavigate()
     const { id } = useParams()
     const isEdit = Boolean(id)
 
-    const { followUps, addFollowUp, updateFollowUp, queries, quotations, purchaseOrders } =
-        useData()
-
-    const handleSaveQuery = async (data) => {
-        try {
-            if (isEdit) {
-                await queryService.update(id, data)
-            } else {
-                await queryService.create(data)
-            }
-
-            console.log('Query saved successfully', data)
-            // navigate('/queries')
-
-        } catch (error) {
-            console.error(error)
-        }
-    }
-
-
-
-    const followUp = isEdit
-        ? followUps?.find((f) => f.id === parseInt(id))
-        : null
+    const [loading, setLoading] = useState(false)
 
     const {
         register,
@@ -81,56 +55,62 @@ const FollowUpForm = () => {
 
 
     useEffect(() => {
-        if (isEdit && followUp) {
-            reset({
-                ...followUp,
-                dueDate: followUp.dueDate
-                    ? followUp.dueDate.split('T')[0]
-                    : '',
-            })
+        const fetchData = async () => {
+            if (!isEdit) return
+
+            try {
+                setLoading(true)
+
+                const response = await queryService.getById(id)
+
+                console.log("Full API Response:", response)
+                const data = response.data?.data || response.data
+
+                reset({
+                    title: data?.companyInfo.name || '',
+                    dueDate: data?.createdAt
+                        ? new Date(data?.createdAt).toLocaleDateString()
+                  : '-',
+                    type: data?.type || 'query',
+                    referenceId: data?.referenceId || '',
+                    priority: data?.priority || 'normal',
+                    status: data?.status || 'pending',
+                    description: data?.description || '',
+                })
+
+            } catch (error) {
+                console.error('Failed to fetch data', error)
+            } finally {
+                setLoading(false)
+            }
         }
-    }, [isEdit, followUp, reset])
+
+        fetchData()
+    }, [id, isEdit, reset])
 
 
-    const onSubmit = (data) => {
-        const payload = {
-            ...data,
-            referenceId: data.referenceId
-                ? parseInt(data.referenceId)
-                : null,
-            dueDate: new Date(data.dueDate).toISOString(),
+    const onSubmit = async (data) => {
+        try {
+            const payload = {
+                ...data,
+                referenceId: data.referenceId
+                    ? parseInt(data.referenceId)
+                    : null,
+                dueDate: new Date(data.dueDate).toISOString(),
+            }
+
+            if (isEdit) {
+                await queryService.update(id, payload)
+            } else {
+                await queryService.create(payload)
+            }
+
+            navigate('/follow-up')
+
+        } catch (error) {
+            console.error(error)
         }
-
-        isEdit
-            ? updateFollowUp(followUp.id, payload)
-            : addFollowUp(payload)
-
-        navigate('/follow-up')
     }
-
-
-    const getReferenceOptions = (type) => {
-        switch (type) {
-            case 'query':
-                return queries?.map((q) => ({
-                    id: q.id,
-                    label: `Query: ${q.subject}`,
-                }))
-            case 'quotation':
-                return quotations?.map((q) => ({
-                    id: q.id,
-                    label: `QT-${String(q.id).padStart(4, '0')}`,
-                }))
-            case 'purchase_order':
-                return purchaseOrders?.map((o) => ({
-                    id: o.id,
-                    label: `PO-${String(o.id).padStart(4, '0')}`,
-                }))
-            default:
-                return []
-        }
-    }
-
 
     return (
         <CRow>
@@ -147,9 +127,7 @@ const FollowUpForm = () => {
                     </CCardHeader>
 
                     <CCardBody>
-
-                        <CForm onSubmit={handleSubmit(handleSaveQuery)}>
-
+                        <CForm onSubmit={handleSubmit(onSubmit)}>
                             <CRow>
                                 <CCol md={6}>
                                     <CFormLabel>Title *</CFormLabel>
@@ -175,7 +153,6 @@ const FollowUpForm = () => {
                                 </CCol>
                             </CRow>
 
-                            {/* TYPE + PRIORITY */}
                             <CRow className="mt-3">
                                 <CCol md={6}>
                                     <CFormLabel>Type</CFormLabel>
@@ -197,7 +174,6 @@ const FollowUpForm = () => {
                                 </CCol>
                             </CRow>
 
-                            {/* STATUS (only edit) */}
                             {isEdit && (
                                 <div className="mt-3">
                                     <CFormLabel>Status</CFormLabel>
@@ -208,13 +184,14 @@ const FollowUpForm = () => {
                                 </div>
                             )}
 
-                            {/* DESCRIPTION */}
                             <div className="mt-3">
                                 <CFormLabel>Description</CFormLabel>
-                                <CFormTextarea rows={3} {...register('description')} />
+                                <CFormTextarea
+                                    rows={3}
+                                    {...register('description')}
+                                />
                             </div>
 
-                            {/* BUTTONS */}
                             <div className="d-flex gap-2 mt-4">
                                 <CButton
                                     type="button"
