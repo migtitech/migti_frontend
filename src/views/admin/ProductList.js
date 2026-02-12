@@ -28,11 +28,8 @@ import brandService from '../../services/brandService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
-<<<<<<< HEAD
-import { getImageDisplayUrl } from '../../utils/imageUtils'
-=======
 import { toastSuccess, toastError } from '../../utils/toast'
->>>>>>> origin/develop
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const ProductList = () => {
   const navigate = useNavigate()

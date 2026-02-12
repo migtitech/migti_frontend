@@ -18,11 +18,8 @@ import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import productService from '../../services/productService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
-<<<<<<< HEAD
-import { getImageDisplayUrl } from '../../utils/imageUtils'
-=======
 import { toastError } from '../../utils/toast'
->>>>>>> origin/develop
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const ProductView = () => {
   const { id } = useParams()
@@ -198,58 +195,9 @@ const ProductView = () => {
                           {opt}
                         </CBadge>
                       ))}
-<<<<<<< HEAD
-                      <CTableHeaderCell>SKU</CTableHeaderCell>
-                      <CTableHeaderCell>Images</CTableHeaderCell>
-                      <CTableHeaderCell>Price</CTableHeaderCell>
-                      <CTableHeaderCell>MRP</CTableHeaderCell>
-                      <CTableHeaderCell>Qty</CTableHeaderCell>
-                      <CTableHeaderCell>Status</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {product.variantCombinations.map((combo, idx) => (
-                      <CTableRow key={idx}>
-                        {combo.optionValues?.map((ov, ovIdx) => (
-                          <CTableDataCell key={ovIdx}>{ov.variantValue}</CTableDataCell>
-                        ))}
-                        <CTableDataCell>{combo.sku}</CTableDataCell>
-                        <CTableDataCell>
-                          {combo.images?.length > 0 ? (
-                            <div className="d-flex gap-1">
-                              {combo.images.slice(0, 3).map((img, i) => (
-                                <CImage
-                                  key={i}
-                                  src={getImageDisplayUrl(img)}
-                                  width={36}
-                                  height={36}
-                                  className="object-fit-cover rounded"
-                                />
-                              ))}
-                            </div>
-                          ) : (
-                            <span className="text-muted">-</span>
-                          )}
-                        </CTableDataCell>
-                        <CTableDataCell>₹{combo.price?.toLocaleString()}</CTableDataCell>
-                        <CTableDataCell>₹{combo.mrp?.toLocaleString()}</CTableDataCell>
-                        <CTableDataCell>{combo.quantity}</CTableDataCell>
-                        <CTableDataCell>
-                          {combo.isActive ? (
-                            <CBadge color="success">Active</CBadge>
-                          ) : (
-                            <CBadge color="secondary">Inactive</CBadge>
-                          )}
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
-=======
                     </CListGroupItem>
                   ))}
                 </CListGroup>
->>>>>>> origin/develop
               </CCardBody>
             </CCard>
           )}

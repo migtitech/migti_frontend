@@ -29,6 +29,7 @@ import brandService from '../../services/brandService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const VARIANT_TYPE_OPTIONS = [
   { value: 'Color', label: 'Color' },
@@ -449,7 +450,7 @@ const ProductForm = () => {
         toastSuccess('Product updated successfully')
         navigate('/products')
       } else {
-        await productService.create(payload)
+        await productService.create(basePayload)
         toastSuccess('Product created successfully')
         setTimeout(() => navigate('/products'), 1500)
       }
