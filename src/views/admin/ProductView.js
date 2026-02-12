@@ -106,6 +106,30 @@ const ProductView = () => {
 
       <CRow>
         <CCol md={8}>
+
+           {/* Variants */}
+          {product.hasVariants && product.variants?.length > 0 && (
+            <CCard className="mb-4">
+              <CCardHeader>
+                <strong>Variants</strong>
+              </CCardHeader>
+              <CCardBody>
+                <CListGroup flush>
+                  {product.variants.map((variant, idx) => (
+                    <CListGroupItem key={idx}>
+                      <strong>{variant.name}:</strong>{' '}
+                      {variant.options?.map((opt, optIdx) => (
+                        <CBadge key={optIdx} color="primary" className="me-1">
+                          {opt}
+                        </CBadge>
+                      ))}
+                    </CListGroupItem>
+                  ))}
+                </CListGroup>
+              </CCardBody>
+            </CCard>
+          )}
+
           <CCard className="mb-4">
             <CCardHeader>
               <strong>{product.name}</strong> {getStatusBadge(product.status)}
@@ -177,29 +201,6 @@ const ProductView = () => {
               </CListGroup>
             </CCardBody>
           </CCard>
-
-          {/* Variants */}
-          {product.hasVariants && product.variants?.length > 0 && (
-            <CCard className="mb-4">
-              <CCardHeader>
-                <strong>Variants</strong>
-              </CCardHeader>
-              <CCardBody>
-                <CListGroup flush>
-                  {product.variants.map((variant, idx) => (
-                    <CListGroupItem key={idx}>
-                      <strong>{variant.name}:</strong>{' '}
-                      {variant.options?.map((opt, optIdx) => (
-                        <CBadge key={optIdx} color="primary" className="me-1">
-                          {opt}
-                        </CBadge>
-                      ))}
-                    </CListGroupItem>
-                  ))}
-                </CListGroup>
-              </CCardBody>
-            </CCard>
-          )}
 
           {/* Physical Attributes */}
           {(product.weight > 0 ||
