@@ -137,7 +137,10 @@ const IndustryList = () => {
                   </CTableHead>
                   <CTableBody>
                     {industries.map((industry, index) => (
-                      <CTableRow key={industry._id}>
+                      <CTableRow key={industry._id}
+                        onClick={() => navigate(`/industries/${industry._id}`)} 
+                        style={{ cursor: 'pointer' }}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{industry.name}</strong>
@@ -166,7 +169,9 @@ const IndustryList = () => {
                             color="warning"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/industries/edit/${industry._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/industries/edit/${industry._id}`)}}
                             title="Edit"
                           >
                             <CIcon icon={cilPencil} />
@@ -175,7 +180,9 @@ const IndustryList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteClick(industry._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(industry._id)}}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />

@@ -71,9 +71,11 @@ const ProductView = () => {
     return (
       <CAlert color="danger">
         {error}
-        <CButton color="link" onClick={() => navigate('/products')}>
+        <CCardBody>
+          <CButton color="secondray" variant='outline' onClick={() => navigate('/products')}>
           Back to Products
         </CButton>
+        </CCardBody>
       </CAlert>
     )
   }
@@ -82,9 +84,11 @@ const ProductView = () => {
     return (
       <CAlert color="warning">
         Product not found.
-        <CButton color="link" onClick={() => navigate('/products')}>
+        <CCardBody>
+          <CButton color="secondray" variant='outline' onClick={() => navigate('/products')}>
           Back to Products
         </CButton>
+        </CCardBody>
       </CAlert>
     )
   }
@@ -93,10 +97,11 @@ const ProductView = () => {
     <>
       <CRow className="mb-3">
         <CCol className="d-flex gap-2">
-          <CButton color="light" onClick={() => navigate('/products')}>
-            <CIcon icon={cilArrowLeft} className="me-1" />
-            Back
-          </CButton>
+          <CCardBody>
+          <CButton color="secondray" variant='outline' onClick={() => navigate('/products')}>
+          Back to Products
+        </CButton>
+        </CCardBody>
           <CButton color="warning" onClick={() => navigate(`/products/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-1" />
             Edit

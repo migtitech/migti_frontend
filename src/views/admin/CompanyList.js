@@ -111,7 +111,10 @@ const CompanyList = () => {
                   {companies.map((company, index) => {
                     const id = company._id || company.id
                     return (
-                      <CTableRow key={id}>
+                      <CTableRow key={id} 
+                        onClick={() => navigate(`/companies/${id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>{company.name}</CTableDataCell>
                         <CTableDataCell>{company.brandName}</CTableDataCell>
@@ -137,7 +140,9 @@ const CompanyList = () => {
                             variant="ghost"
                             size="sm"
                             title="Branches"
-                            onClick={() => navigate(`/companies/${id}/branches`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/companies/${id}/branches`)}}
                           >
                             <CIcon icon={cilLocationPin} />
                           </CButton>
@@ -147,7 +152,9 @@ const CompanyList = () => {
                             variant="ghost"
                             size="sm"
                             title="Edit"
-                            onClick={() => navigate(`/companies/edit/${id}`)}
+                            onClick={(e) =>{ 
+                              e.stopPropagation()
+                              navigate(`/companies/edit/${id}`)}}
                           >
                             <CIcon icon={cilPencil} />
                           </CButton>
@@ -157,7 +164,9 @@ const CompanyList = () => {
                             variant="ghost"
                             size="sm"
                             title="Delete"
-                            onClick={() => handleDeleteClick(id)}
+                            onClick={(e) =>{ 
+                              e.stopPropagation()
+                              handleDeleteClick(id)}}
                           >
                             <CIcon icon={cilTrash} />
                           </CButton>

@@ -239,7 +239,10 @@ const ProductList = () => {
                   </CTableHead>
                   <CTableBody>
                     {products.map((product, index) => (
-                      <CTableRow key={product._id}>
+                      <CTableRow key={product._id}
+                      onClick={()=>navigate(`/products/${product._id}`)}
+                      style={{cursor:'pointer'}}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           {product.images?.length > 0 ? (
@@ -288,7 +291,9 @@ const ProductList = () => {
                             color="warning"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/products/edit/${product._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/products/edit/${product._id}`)}}
                             title="Edit"
                           >
                             <CIcon icon={cilPencil} />
@@ -297,7 +302,9 @@ const ProductList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleDeleteClick(product._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(product._id)}}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />

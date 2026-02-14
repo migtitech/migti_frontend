@@ -167,7 +167,11 @@ const AreaList = () => {
                       </CTableRow>
                     ) : (
                       areas.map((area) => (
-                        <CTableRow key={getId(area)}>
+                        <CTableRow key={getId(area)}
+                          onClick={() => navigate(`/areas/${getId(area)}`)}
+                          style={{ cursor: 'pointer' }}
+
+                        >
                           <CTableDataCell><strong>{area.name}</strong></CTableDataCell>
                           <CTableDataCell>{area.city}</CTableDataCell>
                           <CTableDataCell>{getAreaTypeBadge(area.areaType)}</CTableDataCell>
@@ -188,7 +192,9 @@ const AreaList = () => {
                               variant="ghost"
                               size="sm"
                               className="me-2"
-                              onClick={() => navigate(`/areas/edit/${getId(area)}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/areas/edit/${getId(area)}`)}}
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
@@ -196,7 +202,9 @@ const AreaList = () => {
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(getId(area))}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(getId(area))}}
                             >
                               <CIcon icon={cilTrash} />
                             </CButton>

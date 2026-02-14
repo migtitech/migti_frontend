@@ -56,7 +56,7 @@ const IndustryView = () => {
     return (
       <CAlert color="danger">
         {error}
-        <CButton color="link" onClick={() => navigate('/industries')}>
+        <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
           Back to Industries
         </CButton>
       </CAlert>
@@ -67,7 +67,7 @@ const IndustryView = () => {
     return (
       <CAlert color="warning">
         Industry not found.
-        <CButton color="link" onClick={() => navigate('/industries')}>
+        <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
           Back to Industries
         </CButton>
       </CAlert>
@@ -78,10 +78,12 @@ const IndustryView = () => {
     <>
       <CRow className="mb-3">
         <CCol className="d-flex gap-2">
-          <CButton color="light" onClick={() => navigate('/industries')}>
+          <CCardBody>
+            <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
             <CIcon icon={cilArrowLeft} className="me-1" />
-            Back
+            Back to Industries
           </CButton>
+          </CCardBody>
           <CButton color="warning" onClick={() => navigate(`/industries/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-1" />
             Edit
@@ -90,7 +92,7 @@ const IndustryView = () => {
       </CRow>
 
       <CRow>
-        <CCol md={8}>
+        <CCol>
           <CCard className="mb-4">
             <CCardHeader>
               <strong>{industry.name}</strong>
