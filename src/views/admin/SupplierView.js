@@ -91,7 +91,7 @@ const SupplierView = () => {
       </CRow>
 
       <CRow>
-        <CCol md={8}>
+        <CCol>
           <CCard className="mb-4">
             <CCardHeader>
               <strong>{supplier.name}</strong>
