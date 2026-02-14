@@ -560,12 +560,12 @@ const RawQueryCreate = () => {
                             </CCol>
                             <CCol md={6}>
                               <div className="mb-3">
-                                <CFormLabel>Area</CFormLabel>
+                                <CFormLabel>Zone</CFormLabel>
                                 <CFormSelect
                                   value={industryEditForm.area}
                                   onChange={(e) => setIndustryEditForm((f) => ({ ...f, area: e.target.value }))}
                                 >
-                                  <option value="">Select area</option>
+                                  <option value="">Select zone</option>
                                   {areas.map((a) => (
                                     <option key={a._id || a.id} value={a._id || a.id}>
                                       {a.name}
@@ -669,12 +669,12 @@ const RawQueryCreate = () => {
                             </CCol>
                             <CCol md={6}>
                               <div className="mb-3">
-                                <CFormLabel>Area</CFormLabel>
+                                <CFormLabel>Zone</CFormLabel>
                                 <CFormSelect
                                   value={industryEditForm.area}
                                   onChange={(e) => setIndustryEditForm((f) => ({ ...f, area: e.target.value }))}
                                 >
-                                  <option value="">Select area</option>
+                                  <option value="">Select zone</option>
                                   {areas.map((a) => (
                                     <option key={a._id || a.id} value={a._id || a.id}>
                                       {a.name}

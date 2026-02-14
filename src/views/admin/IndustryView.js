@@ -98,7 +98,7 @@ const IndustryView = () => {
             <CCardBody>
               <CListGroup flush>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Area:</strong>
+                  <strong>Zone:</strong>
                   <span>
                     {typeof industry.area === 'object'
                       ? industry.area?.name || '-'

@@ -87,7 +87,7 @@ const AreaForm = () => {
         const res = await withMinimumDelay(() => areaService.getById(id))
         const area = res?.data?.data || res?.data || res
         if (!area) {
-          setError('Area not found')
+          setError('Zone not found')
           return
         }
         const companyId = area.companyId?._id || area.companyId || ''
@@ -100,8 +100,8 @@ const AreaForm = () => {
         })
         if (companyId) fetchBranchesByCompany(companyId)
       } catch (err) {
-        setError(err?.message || 'Failed to load area')
-        toastError(err?.message || 'Failed to load area')
+        setError(err?.message || 'Failed to load zone')
+        toastError(err?.message || 'Failed to load zone')
       } finally {
         setLoading(false)
       }
@@ -132,14 +132,14 @@ const AreaForm = () => {
       }
       if (isEdit) {
         await areaService.update(id, payload)
-        toastSuccess('Area updated successfully')
+        toastSuccess('Zone updated successfully')
       } else {
         await areaService.create(payload)
-        toastSuccess('Area created successfully')
+        toastSuccess('Zone created successfully')
       }
-      navigate('/areas')
+      navigate('/zones')
     } catch (err) {
-      const msg = err?.response?.data?.error?.detail || err?.message || 'Failed to save area'
+      const msg = err?.response?.data?.error?.detail || err?.message || 'Failed to save zone'
       toastError(Array.isArray(msg) ? msg.join(', ') : msg)
     } finally {
       setSubmitting(false)
@@ -149,7 +149,7 @@ const AreaForm = () => {
   if (loading) {
     return (
       <div className="text-center py-5">
-        <Loader message="Loading area..." />
+        <Loader message="Loading zone..." />
       </div>
     )
   }
@@ -159,7 +159,7 @@ const AreaForm = () => {
       <CCol xs={12}>
         <CCard>
           <CCardHeader>
-            <strong>{isEdit ? 'Edit Area' : 'Add Area'}</strong>
+            <strong>{isEdit ? 'Edit Zone' : 'Add Zone'}</strong>
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -210,7 +210,7 @@ const AreaForm = () => {
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder="Area name"
+                    placeholder="Zone name"
                     required
                     minLength={2}
                     maxLength={100}
@@ -231,7 +231,7 @@ const AreaForm = () => {
               </CRow>
               <CRow className="mb-3">
                 <CCol md={6}>
-                  <CFormLabel>Area Type *</CFormLabel>
+                  <CFormLabel>Zone Type *</CFormLabel>
                   <CFormSelect
                     name="areaType"
                     value={formData.areaType}
@@ -244,7 +244,7 @@ const AreaForm = () => {
                 </CCol>
               </CRow>
               <div className="d-flex justify-content-end gap-2 pt-2">
-                <CButton color="secondary" variant="outline" onClick={() => navigate('/areas')}>
+                <CButton color="secondary" variant="outline" onClick={() => navigate('/zones')}>
                   Cancel
                 </CButton>
                 <CButton color="primary" type="submit" disabled={submitting}>
@@ -254,9 +254,9 @@ const AreaForm = () => {
                       Saving...
                     </>
                   ) : isEdit ? (
-                    'Update Area'
+                    'Update Zone'
                   ) : (
-                    'Create Area'
+                    'Create Zone'
                   )}
                 </CButton>
               </div>

@@ -513,12 +513,12 @@ const QueryForm = () => {
               </CCol>
               <CCol md={6}>
                 <div className="mb-3">
-                  <CFormLabel>Area</CFormLabel>
+                  <CFormLabel>Zone</CFormLabel>
                   <CFormSelect
                     value={companyInfo.area}
                     onChange={(e) => setCompanyInfo((c) => ({ ...c, area: e.target.value }))}
                   >
-                    <option value="">Select area</option>
+                    <option value="">Select zone</option>
                     {areas.map((a) => (
                       <option key={a._id || a.id} value={a._id || a.id}>
                         {a.name}

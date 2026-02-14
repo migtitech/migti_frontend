@@ -63,7 +63,7 @@ const AreaList = () => {
       setAreas(data?.areas || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch areas')
+      toastError(err?.message || 'Failed to fetch zones')
     } finally {
       setLoading(false)
     }
@@ -81,14 +81,15 @@ const AreaList = () => {
   const handleDeleteClick = (id) => setConfirmDelete({ visible: true, id })
   const handleDeleteConfirm = async () => {
     const aid = confirmDelete.id
+    console.log('Deleting area with id:', aid)
     setConfirmDelete({ visible: false, id: null })
     if (!aid) return
     try {
       await areaService.delete(aid)
-      toastSuccess('Area deleted successfully')
+      toastSuccess('Zone deleted successfully')
       fetchAreas()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete area')
+      toastError(err?.message || 'Failed to delete zone')
     }
   }
 
@@ -101,10 +102,10 @@ const AreaList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <strong>Areas</strong>
-            <CButton color="primary" onClick={() => navigate('/areas/new')}>
+            <strong>Zones</strong>
+            <CButton color="primary" onClick={() => navigate('/zones/new')}>
               <CIcon icon={cilPlus} className="me-2" />
-              Add Area
+              Add Zone
             </CButton>
           </CCardHeader>
           <CCardBody>
@@ -144,7 +145,7 @@ const AreaList = () => {
               </CFormSelect>
             </div>
             {loading ? (
-              <Loader message="Loading areas..." />
+              <Loader message="Loading zones..." />
             ) : (
               <>
                 <CTable responsive hover>
@@ -152,7 +153,7 @@ const AreaList = () => {
                     <CTableRow>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>City</CTableHeaderCell>
-                      <CTableHeaderCell>Area Type</CTableHeaderCell>
+                      <CTableHeaderCell>Zone Type</CTableHeaderCell>
                       <CTableHeaderCell>Company</CTableHeaderCell>
                       <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
@@ -162,7 +163,7 @@ const AreaList = () => {
                     {areas.length === 0 ? (
                       <CTableRow>
                         <CTableDataCell colSpan={6} className="text-center py-4 text-muted">
-                          No areas found
+                          No zones found
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
@@ -179,7 +180,7 @@ const AreaList = () => {
                               variant="ghost"
                               size="sm"
                               className="me-2"
-                              onClick={() => navigate(`/areas/${getId(area)}`)}
+                              onClick={() => navigate(`/zones/${getId(area)}`)}
                             >
                               <CIcon icon={cilZoom} />
                             </CButton>
@@ -188,7 +189,7 @@ const AreaList = () => {
                               variant="ghost"
                               size="sm"
                               className="me-2"
-                              onClick={() => navigate(`/areas/edit/${getId(area)}`)}
+                              onClick={() => navigate(`/zones/edit/${getId(area)}`)}
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
@@ -232,10 +233,11 @@ const AreaList = () => {
       </CCol>
       <ConfirmDialog
         visible={confirmDelete.visible}
-        title="Delete Area"
-        message="Are you sure you want to delete this area?"
+        title="Delete Zone"
+        confirmText="Delete"
+        message="Are you sure you want to delete this zone?"
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setConfirmDelete({ visible: false, id: null })}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
       />
     </CRow>
   )

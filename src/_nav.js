@@ -39,18 +39,6 @@ const _nav = [
     to: '/companies',
     icon: <CIcon icon={cilBuilding} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'sales', 'hod'],
-    // items: [
-    //   {
-    //     component: CNavItem,
-    //     name: 'All Companies',
-    //     to: '/companies',
-    //   },
-    //   {
-    //     component: CNavItem,
-    //     name: 'Add Company',
-    //     to: '/companies/new',
-    //   },
-    // ],
   },
   {
     component: CNavItem,
@@ -61,8 +49,8 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Areas',
-    to: '/areas',
+    name: 'Zones',
+    to: '/zones',
     icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'hod'],
   },

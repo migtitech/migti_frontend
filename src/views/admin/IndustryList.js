@@ -126,7 +126,7 @@ const IndustryList = () => {
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Industry Name</CTableHeaderCell>
-                      <CTableHeaderCell>Area</CTableHeaderCell>
+                      <CTableHeaderCell>Zone</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
                       <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Purchase Manager</CTableHeaderCell>

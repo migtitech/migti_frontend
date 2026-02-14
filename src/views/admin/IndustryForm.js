@@ -94,7 +94,7 @@ const IndustryForm = () => {
       setAreas(data?.areas.filter(a => a.areaType === "market") || [])
       // setAreas(data?.areas || [])
     } catch (err) {
-      console.error('Failed to fetch areas', err)
+      console.error('Failed to fetch zones', err)
     }
   }
 
@@ -194,9 +194,9 @@ const IndustryForm = () => {
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Area</CFormLabel>
+                <CFormLabel>Zone</CFormLabel>
                 <CFormSelect {...register('area')}>
-                  <option value="">Select Area</option>
+                  <option value="">Select Zone</option>
                   {areas.map((a) => (
                     <option key={a._id} value={a._id}>
                       {a.name} {a.city ? `- ${a.city}` : ''}

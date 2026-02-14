@@ -64,10 +64,10 @@ const EmployeeList = React.lazy(() => import('./views/admin/EmployeeList'))
 const EmployeeView = React.lazy(() => import('./views/admin/EmployeeView'))
 const EmployeeForm = React.lazy(() => import('./views/admin/EmployeeForm'))
 
-// Areas
-const AreaList = React.lazy(() => import('./views/admin/AreaList'))
-const AreaForm = React.lazy(() => import('./views/admin/AreaForm'))
-const AreaView = React.lazy(() => import('./views/admin/AreaView'))
+// zones
+const ZoneList = React.lazy(() => import('./views/admin/AreaList'))
+const ZoneForm = React.lazy(() => import('./views/admin/AreaForm'))
+const ZoneView = React.lazy(() => import('./views/admin/AreaView'))
 
 // Industries
 const IndustryList = React.lazy(() => import('./views/admin/IndustryList'))
@@ -155,11 +155,11 @@ const routes = [
   { path: '/employees/edit/:id', name: 'Edit Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, allowedRoles: ['super_admin', 'admin', 'hod'] },
 
-  // Areas - company, branch, name, city, area type
-  { path: '/areas', name: 'Areas', element: AreaList, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/new', name: 'Add Area', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/edit/:id', name: 'Edit Area', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/:id', name: 'Area Details', element: AreaView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // zones - company, branch, name, city, area type
+  { path: '/zones', name: 'Zones', element: ZoneList, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/zones/new', name: 'Add Zone', element: ZoneForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/zones/edit/:id', name: 'Edit Zone', element: ZoneForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/zones/:id', name: 'Zone Details', element: ZoneView, allowedRoles: ['super_admin', 'admin', 'hod'] },
 
   // Industries - accessible by super_admin, admin, purchase, hod
   { path: '/industries', name: 'Industries', element: IndustryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
