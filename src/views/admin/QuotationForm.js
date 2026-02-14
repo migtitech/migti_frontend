@@ -23,6 +23,8 @@ import { useData } from '../../context/DataContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import Product from './product/Product'
+import PaymentAddress from './product/PaymentAndDelivery'
 
 
 const quotationSchema = yup.object({
@@ -51,7 +53,7 @@ const defaultValues = {
   status: 'draft',
 }
 
-const QuotationForm = () => {
+const QuotationForm = ({ }) => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
@@ -60,6 +62,18 @@ const QuotationForm = () => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [products, setProducts] = useState([])
+  const [editingProductIndex, setEditingProductIndex] = useState(null)
+  const saveProduct = (productData) => {
+    setProducts((prev) => [...prev, productData])
+  }
+
+  const updateProduct = (index, productData) => {
+    const update = [...products]
+    update[index] = productData
+    setProducts(update)
+    setEditingProductIndex(null)
+  }
 
   const {
     register,
@@ -227,173 +241,15 @@ const QuotationForm = () => {
         </CCardBody>
       </CCard>
 
-     <CCard className="mb-4">
-  <CCardHeader>
-    <strong>2. Products</strong>
-  </CCardHeader>
 
-  <CCardBody>
+      <Product
+        onSave={saveProduct}
+        onUpdate={updateProduct}
+        editingIndex={editingProductIndex}
+        setEditingIndex={setEditingProductIndex}>
+      </Product>
 
-    {/* Product Form */}
-    <CCard className="mb-4 shadow-sm">
-      <CCardHeader className="py-2">
-        <strong>Add Product</strong>
-      </CCardHeader>
-
-      <CCardBody>
-
-        {/* Search */}
-        <div className="mb-4">
-          <CFormLabel className="fw-semibold">
-            Type / Name (Search)
-          </CFormLabel>
-          <CFormInput
-            type="text"
-            placeholder="Search product type or name"
-          />
-        </div>
-
-        {/* Basic Fields */}
-        <CRow className="g-3">
-          <CCol md={6}>
-            <CFormLabel className="fw-semibold">
-              Product Name
-            </CFormLabel>
-            <CFormInput placeholder="Enter product name" />
-          </CCol>
-
-          <CCol md={3}>
-            <CFormLabel className="fw-semibold">
-              Quantity
-            </CFormLabel>
-            <CFormInput type="number" placeholder="0" />
-          </CCol>
-
-          <CCol md={3}>
-            <CFormLabel className="fw-semibold">
-              Unit
-            </CFormLabel>
-            <CFormInput placeholder="pcs, kg, etc." />
-          </CCol>
-        </CRow>
-
-        {/* Variants Section */}
-        <div className="mt-4">
-          <div className="d-flex justify-content-between align-items-center mb-3">
-            <CFormLabel className="fw-semibold mb-0">
-              Variants
-            </CFormLabel>
-            <CButton color="primary" size="sm">
-              + Add Variant
-            </CButton>
-          </div>
-
-          {/* Static Variant Row */}
-          <CRow className="g-2 mb-2">
-            <CCol md={6}>
-              <CFormInput placeholder="Variant name" />
-            </CCol>
-
-            <CCol md={4}>
-              <CFormInput type="number" placeholder="Quantity" />
-            </CCol>
-
-            <CCol md={2}>
-              <CButton color="danger" variant="ghost" size="sm">
-                Remove
-              </CButton>
-            </CCol>
-          </CRow>
-        </div>
-
-        {/* Remark */}
-        <div className="mt-4">
-          <CFormLabel className="fw-semibold">
-            Remark
-          </CFormLabel>
-          <CFormTextarea
-            rows={2}
-            placeholder="Enter remark"
-          />
-        </div>
-
-        {/* Buttons */}
-        <div className="d-flex gap-2 mt-4">
-          <CButton color="primary">
-            Save
-          </CButton>
-          <CButton color="secondary">
-            Cancel
-          </CButton>
-        </div>
-
-      </CCardBody>
-    </CCard>
-
-
-  </CCardBody>
-</CCard>
-
-<CCard className="mb-4 shadow-sm">
-  <CCardHeader>
-    <strong>3. Delivery & Payment</strong>
-  </CCardHeader>
-
-  <CCardBody>
-
-    <CRow className="g-3">
-
-      <CCol md={6}>
-        <CFormLabel className="fw-semibold">
-          Delivery Location
-        </CFormLabel>
-        <CFormInput
-          placeholder="Enter delivery location"
-        />
-      </CCol>
-
-      <CCol md={6}>
-        <CFormLabel className="fw-semibold">
-          Contact Person Name
-        </CFormLabel>
-        <CFormInput
-          placeholder="Enter contact name"
-        />
-      </CCol>
-
-      <CCol md={6}>
-        <CFormLabel className="fw-semibold">
-          Contact Person Phone
-        </CFormLabel>
-        <CFormInput
-          placeholder="Enter phone number"
-        />
-      </CCol>
-
-      <CCol md={6}>
-        <CFormLabel className="fw-semibold">
-          Expected Delivery Date
-        </CFormLabel>
-        <CFormInput
-          type="date"
-        />
-      </CCol>
-
-      <CCol md={6}>
-        <CFormLabel className="fw-semibold">
-          Priority
-        </CFormLabel>
-        <CFormSelect>
-          <option>Non-urgent</option>
-          <option>Urgent</option>
-        </CFormSelect>
-      </CCol>
-
-    </CRow>
-
-  </CCardBody>
-</CCard>
-
+      <PaymentAddress></PaymentAddress>
 
       <CCard>
         <CCardBody className="d-flex justify-content-end gap-2">

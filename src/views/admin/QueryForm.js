@@ -204,6 +204,7 @@ const QueryForm = () => {
         : existingVariants,
       product_id: pid,
     })
+    console.log('Selected product:', product)
     setProductSearch('')
     setProductDropdownOpen(false)
     setProductSearchResults([])
