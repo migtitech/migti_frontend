@@ -164,8 +164,7 @@ const EmployeeView = () => {
         </CCardBody>
       </CCard>
     )
-  }
-
+  } 
   if (!employee) {
     return (
       <CCard>
@@ -228,7 +227,7 @@ const EmployeeView = () => {
           <CCard className="h-100">
             <CCardHeader>
               <CIcon icon={cilPeople} className="me-2" />
-              <strong>Personal Information</strong>
+              <strong>Personal Information</strong>x
             </CCardHeader>
             <CCardBody>
               <CListGroup flush>
