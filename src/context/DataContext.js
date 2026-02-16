@@ -302,6 +302,24 @@ const initialFollowUps = [
   },
 ]
 
+const initialGroups = [
+  {
+    id: 1,
+    groupname: 'Group A',
+    sku: 'GRP-A',
+    description: 'This is Group A',
+    createdAt: new Date().toISOString(),
+
+  },
+  {
+    id: 2,
+    groupname: 'Group B',
+    sku: 'GRP-B',
+    description: 'This is Group B',
+    createdAt: new Date().toISOString(),
+  }
+]
+
 const initialEmployees = [
   {
     id: 1,
@@ -381,6 +399,7 @@ export const DataProvider = ({ children }) => {
   const [suppliers, setSuppliers] = useState(initialSuppliers)
   const [followUps, setFollowUps] = useState(initialFollowUps)
   const [employees, setEmployees] = useState(initialEmployees)
+  const [groups, setGroups] = useState(initialGroups)
 
   // Company CRUD
   const addCompany = (company) => {
@@ -637,6 +656,9 @@ export const DataProvider = ({ children }) => {
     addEmployee,
     updateEmployee,
     deleteEmployee,
+
+    //groups
+    initialGroups,
   }
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>
