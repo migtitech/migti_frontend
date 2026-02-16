@@ -19,68 +19,77 @@ import {
   CFormInput,
   CInputGroup,
   CInputGroupText,
+  CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import industryBranchService from '../../services/industryBranchService'
 import industryService from '../../services/industryService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import usePermissions from '../../hooks/usePermissions'
 
-const IndustryList = () => {
+const IndustryBranchList = () => {
   const navigate = useNavigate()
   const { canCreate, canUpdate, canDelete } = usePermissions()
+  const [branches, setBranches] = useState([])
   const [industries, setIndustries] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterIndustryId, setFilterIndustryId] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const fetchIndustries = useCallback(async () => {
+  const fetchIndustries = async () => {
+    try {
+      const res = await industryService.getAll({ pageNumber: 1, pageSize: 500 })
+      const data = res?.data?.data || res?.data || res
+      setIndustries(data?.industries || [])
+    } catch (err) {
+      console.error('Failed to fetch industries', err)
+    }
+  }
+
+  const fetchBranches = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(() =>
-        industryService.getAll({
-          pageNumber: page,
-          pageSize: 10,
-          search: searchTerm || undefined,
-        }),
-      )
-      const data = res?.data || res
-      setIndustries(data?.industries || [])
+      const params = { pageNumber: page, pageSize: 10, search: searchTerm || undefined }
+      if (filterIndustryId) params.industryId = filterIndustryId
+      const res = await withMinimumDelay(() => industryBranchService.getAll(params))
+      const data = res?.data?.data || res?.data || res
+      setBranches(data?.branches || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch industries')
+      toastError(err?.message || 'Failed to fetch industry branches')
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm])
+  }, [page, searchTerm, filterIndustryId])
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchIndustries()
-    }, 300)
+    fetchIndustries()
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchBranches(), 300)
     return () => clearTimeout(timer)
-  }, [fetchIndustries])
+  }, [fetchBranches])
 
-  const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
-
+  const handleDeleteClick = (id) => setConfirmDelete({ visible: true, id })
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
+    const bid = confirmDelete.id
     setConfirmDelete({ visible: false, id: null })
-    if (!id) return
+    if (!bid) return
     try {
-      await industryService.delete(id)
-      toastSuccess('Industry deleted successfully')
-      fetchIndustries()
+      await industryBranchService.delete(bid)
+      toastSuccess('Industry branch deleted successfully')
+      fetchBranches()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete industry')
+      toastError(err?.message || 'Failed to delete industry branch')
     }
   }
 
@@ -89,11 +98,11 @@ const IndustryList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Industries</strong>
-            {canCreate('industries') && (
-              <CButton color="primary" onClick={() => navigate('/industries/new')}>
+            <strong>Industry Branches</strong>
+            {canCreate('industry_branches') && (
+              <CButton color="primary" onClick={() => navigate('/industry-branches/new')}>
                 <CIcon icon={cilPlus} className="me-2" />
-                Add Industry
+                Add Industry Branch
               </CButton>
             )}
           </CCardHeader>
@@ -104,14 +113,14 @@ const IndustryList = () => {
               </CAlert>
             )}
             <CRow className="mb-3 align-items-end">
-              <CCol md={6}>
+              <CCol md={4}>
                 <CInputGroup>
                   <CInputGroupText>
                     <CIcon icon={cilSearch} />
                   </CInputGroupText>
                   <CFormInput
                     type="text"
-                    placeholder="Search industries..."
+                    placeholder="Search branches..."
                     value={searchTerm}
                     onChange={(e) => {
                       setSearchTerm(e.target.value)
@@ -120,74 +129,79 @@ const IndustryList = () => {
                   />
                 </CInputGroup>
               </CCol>
+              <CCol md={4}>
+                <CFormSelect
+                  value={filterIndustryId}
+                  onChange={(e) => {
+                    setFilterIndustryId(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">All Industries</option>
+                  {industries.map((ind) => (
+                    <option key={ind._id} value={ind._id}>
+                      {ind.name}
+                    </option>
+                  ))}
+                </CFormSelect>
+              </CCol>
             </CRow>
             {loading ? (
-              <Loader message="Loading industries..." />
+              <Loader message="Loading industry branches..." />
             ) : (
               <>
                 <CTable hover responsive>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Industry Name</CTableHeaderCell>
-                      <CTableHeaderCell>GST No</CTableHeaderCell>
-                      <CTableHeaderCell>Area</CTableHeaderCell>
+                      <CTableHeaderCell>Industry</CTableHeaderCell>
+                      <CTableHeaderCell>Branch Name</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase Managers</CTableHeaderCell>
+                      <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
-                    {industries.map((industry, index) => (
-                      <CTableRow key={industry._id}
-                        onClick={() => navigate(`/industries/${industry._id}`)} 
-                        style={{ cursor: 'pointer' }}
-                      >
+                    {branches.map((branch, index) => (
+                      <CTableRow key={branch._id}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
-                          <strong>{industry.name}</strong>
+                          {typeof branch.industryId === 'object'
+                            ? branch.industryId?.name || '-'
+                            : '-'}
                         </CTableDataCell>
                         <CTableDataCell>
-                          {typeof industry.area === 'object'
-                            ? industry.area?.name || '-'
-                            : industry.area || '-'}
+                          <strong>{branch.name}</strong>
                         </CTableDataCell>
-                        <CTableDataCell>{industry.location || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.address || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_name || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.email || '-'}</CTableDataCell>
+                        <CTableDataCell>{branch.location || '-'}</CTableDataCell>
+                        <CTableDataCell>{branch.address || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/industries/${industry._id}`)}
+                            onClick={() => navigate('/industry-branches/' + branch._id)}
                             title="View"
                           >
                             <CIcon icon={cilZoom} />
                           </CButton>
-                          {canUpdate('industries') && (
+                          {canUpdate('industry_branches') && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/industries/edit/${industry._id}`)}}
+                              onClick={() => navigate('/industry-branches/edit/' + branch._id)}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
-                          {canDelete('industries') && (
+                          {canDelete('industry_branches') && (
                             <CButton
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(industry._id)}}
+                              onClick={() => handleDeleteClick(branch._id)}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />
@@ -196,19 +210,17 @@ const IndustryList = () => {
                         </CTableDataCell>
                       </CTableRow>
                     ))}
-                    {industries.length === 0 && (
+                    {branches.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center">
-                          {searchTerm
-                            ? 'No industries match the current search.'
-                            : 'No industries found. Click "Add Industry" to create one.'}
+                        <CTableDataCell colSpan={6} className="text-center">
+                          No industry branches found. Select an industry and create a branch.
                         </CTableDataCell>
                       </CTableRow>
                     )}
                   </CTableBody>
                 </CTable>
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center">
+                  <CPagination className="justify-content-center mt-3">
                     <CPaginationItem
                       disabled={!pagination.hasPrevPage}
                       onClick={() => setPage(page - 1)}
@@ -237,13 +249,12 @@ const IndustryList = () => {
           </CCardBody>
         </CCard>
       </CCol>
-
       <ConfirmDialog
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Industry?"
-        message="Are you sure you want to delete this industry? This action cannot be undone."
+        title="Delete Industry Branch?"
+        message="Are you sure you want to delete this industry branch?"
         confirmText="Delete"
         cancelText="Cancel"
       />
@@ -251,4 +262,4 @@ const IndustryList = () => {
   )
 }
 
-export default IndustryList
+export default IndustryBranchList

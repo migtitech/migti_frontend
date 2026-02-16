@@ -20,7 +20,7 @@ const AppContent = () => {
                   exact={route.exact}
                   name={route.name}
                   element={
-                    <ProtectedRoute allowedRoles={route.allowedRoles || []}>
+                    <ProtectedRoute module={route.module} action={route.action}>
                       <route.element />
                     </ProtectedRoute>
                   }

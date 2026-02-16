@@ -11,7 +11,7 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilZoom, cilPeople, cilLocationPin, cilPlus } from '@coreui/icons'
+import { cilPencil, cilTrash, cilZoom, cilPeople, cilPlus } from '@coreui/icons'
 import { Loader } from '../../../components'
 
 const BranchCards = ({
@@ -61,13 +61,6 @@ const BranchCards = ({
                   <div className="mb-2">
                     <small className="text-muted">Company:</small>
                     <p className="mb-1">{company?.name || 'N/A'}</p>
-                  </div>
-                  <div className="mb-2">
-                    <small className="text-muted">Location:</small>
-                    <p className="mb-1">
-                      <CIcon icon={cilLocationPin} className="me-1" />
-                      {branch.location}
-                    </p>
                   </div>
                   <div className="mb-2">
                     <small className="text-muted">Email:</small>

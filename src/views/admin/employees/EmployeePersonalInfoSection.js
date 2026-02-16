@@ -133,21 +133,21 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
       </CCol>
     </CRow>
     <CRow>
-      <CCol md={6}>
-        <div className="mb-3">
-          <CFormLabel htmlFor="password">
-            Password {isEdit ? '(leave blank to keep)' : '*'}
-          </CFormLabel>
-          <CFormInput
-            type="password"
-            id="password"
-            {...register('password')}
-            invalid={!!errors.password}
-          />
-          <CFormFeedback invalid>{errors.password?.message}</CFormFeedback>
-        </div>
-      </CCol>
-      <CCol md={6}>
+      {!isEdit && (
+        <CCol md={6}>
+          <div className="mb-3">
+            <CFormLabel htmlFor="password">Password *</CFormLabel>
+            <CFormInput
+              type="password"
+              id="password"
+              {...register('password')}
+              invalid={!!errors.password}
+            />
+            <CFormFeedback invalid>{errors.password?.message}</CFormFeedback>
+          </div>
+        </CCol>
+      )}
+      <CCol md={isEdit ? 12 : 6}>
         <div className="mb-3">
           <CFormLabel htmlFor="address">Address *</CFormLabel>
           <CFormInput id="address" {...register('address')} invalid={!!errors.address} />

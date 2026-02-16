@@ -2,6 +2,19 @@
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4545/api'
 
+/** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
+export const getAssetsBaseUrl = () => {
+  const base = BASE_URL.replace(/\/api\/?$/, '')
+  return base || (typeof window !== 'undefined' ? window.location.origin : '')
+}
+/** If path is full URL (e.g. S3), return as-is; else build local /assets/ URL */
+export const getAssetsUrl = (path) => {
+  if (!path) return ''
+  if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://')))
+    return path
+  return `${getAssetsBaseUrl()}/assets/${path}`
+}
+
 export const API_VERSION = '/v1'
 
 export const AUTH = {
@@ -99,6 +112,10 @@ export const PRODUCTS = {
   UPLOAD_IMAGES: '/products/upload-images',
 }
 
+export const DOCUMENTS = {
+  UPLOAD: '/documents/upload',
+}
+
 export const SUPPLIERS = {
   CREATE: '/suppliers/create',
   LIST: '/suppliers/list',
@@ -149,6 +166,10 @@ export const QUERIES = {
   DELETE: '/queries/delete',
   ACTIVITIES: '/queries/activities',
   RECORD_ACTIVITY: '/queries/record-activity',
+}
+
+export const ADMIN = {
+  PERMISSIONS_MODULES: '/admin/permissions/modules',
 }
 
 // Export all endpoints

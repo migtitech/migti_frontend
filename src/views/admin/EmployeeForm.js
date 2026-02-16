@@ -21,6 +21,8 @@ import EmployeeCompanyInfoSection from './employees/EmployeeCompanyInfoSection'
 import EmployeeAssetsSection from './employees/EmployeeAssetsSection'
 import EmployeeFormActions from './employees/EmployeeFormActions'
 import EmployeeAccountDetailsSection from './employees/EmployeeAccountDetailsSection'
+import EmployeePermissionsSection from './employees/EmployeePermissionsSection'
+import { FULL_ACCESS_ROLES } from '../../context/AuthContext'
 
 const EmployeeForm = () => {
   const navigate = useNavigate()
@@ -31,6 +33,7 @@ const EmployeeForm = () => {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [permissions, setPermissions] = useState([])
 
   const roleOptions = useMemo(
     () => ['hod', 'sales', 'purchase', 'finance', 'delivery'],
@@ -82,9 +85,7 @@ const EmployeeForm = () => {
           accountHolderName: yup.string().required('Account holder name is required').min(2).max(100),
           upiDetails: yup.string().trim().nullable(),
         }),
-        password: isEdit
-          ? yup.string().min(6, 'Password must be at least 6 characters')
-          : yup.string().required('Password is required').min(6),
+        ...(isEdit ? {} : { password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters') }),
         branchId: yup.string().required('Branch is required'),
         assets: yup.object({
           bike: yup.object({
@@ -239,6 +240,7 @@ const EmployeeForm = () => {
           toastError('Employee not found')
           return
         }
+        setPermissions(employee.permissions || [])
         reset({
           name: employee.name || '',
           email: employee.email || '',
@@ -257,7 +259,6 @@ const EmployeeForm = () => {
           idnumber: employee.idnumber || '',
           salaryType: employee.salaryType || 'monthly',
           salary: employee.salary ?? '',
-          password: '',
           bankDetails: {
             accountNumber: employee?.bankDetails?.accountNumber || '',
             ifscCode: employee?.bankDetails?.ifscCode || '',
@@ -307,13 +308,21 @@ const EmployeeForm = () => {
     loadEmployee()
   }, [id, isEdit, reset])
 
+  const selectedRole = watch('role')
+
   const onSubmit = async (data) => {
     setSubmitting(true)
     setError('')
     try {
       const payload = { ...data }
-      if (isEdit && !payload.password) {
+      if (isEdit) {
         delete payload.password
+      }
+      // Include permissions for non-full-access roles
+      if (!FULL_ACCESS_ROLES.includes(payload.role)) {
+        payload.permissions = permissions
+      } else {
+        payload.permissions = []
       }
       if (isEdit) {
         await employeeService.update(id, payload)
@@ -399,6 +408,21 @@ const EmployeeForm = () => {
           <EmployeeAccountDetailsSection register={register} errors={errors} />
         </CCardBody>
       </CCard>
+
+      {selectedRole && !FULL_ACCESS_ROLES.includes(selectedRole) && (
+        <CCard className="mb-4">
+          <CCardHeader>
+            <strong>Access Permissions</strong>
+          </CCardHeader>
+          <CCardBody>
+            <EmployeePermissionsSection
+              selectedRole={selectedRole}
+              permissions={permissions}
+              onChange={setPermissions}
+            />
+          </CCardBody>
+        </CCard>
+      )}
 
       <EmployeeFormActions
         submitting={submitting}

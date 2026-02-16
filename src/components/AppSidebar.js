@@ -11,7 +11,7 @@ import {
 } from '@coreui/react'
 
 import { AppSidebarNav } from './AppSidebarNav'
-import { useAuth } from '../context/AuthContext'
+import usePermissions from '../hooks/usePermissions'
 
 // sidebar nav config
 import navigation from '../_nav'
@@ -20,23 +20,36 @@ const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
-  const { user } = useAuth()
+  const { hasAnyPermission, isFullAccess } = usePermissions()
 
-  // Filter navigation items based on user role
+  // Filter navigation items based on permissions
   const filteredNavigation = useMemo(() => {
-    if (!user) return []
+    const filterItem = (item) => {
+      // No module = accessible to all (e.g., Dashboard)
+      if (!item.module) return true
+      // Full-access roles see everything
+      if (isFullAccess) return true
+      // Check if user has any permission for this module
+      return hasAnyPermission(item.module)
+    }
 
-    const userRole = user.role
-
-    return navigation.filter((item) => {
-      // If no roles specified or empty array, allow all roles
-      if (!item.roles || item.roles.length === 0) {
-        return true
-      }
-      // Check if user's role is in the allowed roles
-      return item.roles.includes(userRole)
-    })
-  }, [user])
+    return navigation
+      .filter(filterItem)
+      .map((item) => {
+        // For groups with sub-items, filter sub-items too
+        if (item.items) {
+          const filteredItems = item.items.filter((subItem) => {
+            if (!subItem.module) return true
+            if (isFullAccess) return true
+            return hasAnyPermission(subItem.module)
+          })
+          if (filteredItems.length === 0) return null
+          return { ...item, items: filteredItems }
+        }
+        return item
+      })
+      .filter(Boolean)
+  }, [hasAnyPermission, isFullAccess])
 
   return (
     <CSidebar

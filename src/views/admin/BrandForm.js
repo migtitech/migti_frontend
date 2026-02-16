@@ -28,8 +28,6 @@ const BrandForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    logo: '',
-    website: '',
     status: 'active',
   })
 
@@ -50,8 +48,6 @@ const BrandForm = () => {
         setFormData({
           name: brand.name || '',
           description: brand.description || '',
-          logo: brand.logo || '',
-          website: brand.website || '',
           status: brand.status || 'active',
         })
       } catch (err) {
@@ -115,7 +111,7 @@ const BrandForm = () => {
             )}
 
             <CForm onSubmit={handleSubmit}>
-              {/* Row 1: Brand Name + Website */}
+              {/* Row 1: Brand Name + Status */}
               <CRow className="mb-3">
                 <CCol md={6} className="mb-3 mb-md-0">
                   <CFormLabel>Brand Name *</CFormLabel>
@@ -124,28 +120,6 @@ const BrandForm = () => {
                     value={formData.name}
                     onChange={handleChange}
                     required
-                  />
-                </CCol>
-                <CCol md={6}>
-                  <CFormLabel>Website</CFormLabel>
-                  <CFormInput
-                    name="website"
-                    value={formData.website}
-                    onChange={handleChange}
-                    placeholder="https://example.com"
-                  />
-                </CCol>
-              </CRow>
-
-              {/* Row 2: Logo URL + Status */}
-              <CRow className="mb-3">
-                <CCol md={6} className="mb-3 mb-md-0">
-                  <CFormLabel>Logo URL</CFormLabel>
-                  <CFormInput
-                    name="logo"
-                    value={formData.logo}
-                    onChange={handleChange}
-                    placeholder="https://example.com/logo.png"
                   />
                 </CCol>
                 <CCol md={6}>
@@ -161,7 +135,7 @@ const BrandForm = () => {
                 </CCol>
               </CRow>
 
-              {/* Row 3: Description (full width) */}
+              {/* Row 2: Description (full width) */}
               <div className="mb-4">
                 <CFormLabel>Description</CFormLabel>
                 <CFormTextarea

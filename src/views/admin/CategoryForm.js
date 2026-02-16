@@ -14,10 +14,12 @@ import {
   CAlert,
   CSpinner,
 } from '@coreui/react'
+import CIcon from '@coreui/icons-react'
+import { cilReload } from '@coreui/icons'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import categoryService from '../../services/categoryService'
 import groupService from '../../services/groupService'
-import { Loader } from '../../components'
+import { Loader, SearchableDropdown } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
@@ -34,7 +36,6 @@ const CategoryForm = () => {
     group: '',
     parent: '',
     status: 'active',
-    sortOrder: 0,
     categoryCode: '',
   })
 
@@ -43,6 +44,7 @@ const CategoryForm = () => {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [groupsRefreshing, setGroupsRefreshing] = useState(false)
 
   const fetchGroups = async () => {
     try {
@@ -54,6 +56,18 @@ const CategoryForm = () => {
       setGroups(data?.groups || [])
     } catch (err) {
       console.error('Failed to fetch groups', err)
+    }
+  }
+
+  const refreshGroups = async () => {
+    setGroupsRefreshing(true)
+    try {
+      await fetchGroups()
+      toastSuccess('Groups refreshed')
+    } catch (err) {
+      toastError(err?.message || 'Failed to refresh groups')
+    } finally {
+      setGroupsRefreshing(false)
     }
   }
 
@@ -109,10 +123,7 @@ const CategoryForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === 'sortOrder' ? (value === '' ? 0 : parseInt(value, 10)) : value,
-    }))
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = async (e) => {
@@ -124,7 +135,6 @@ const CategoryForm = () => {
       const { categoryCode, ...rest } = formData
       const payload = {
         ...rest,
-        sortOrder: parseInt(formData.sortOrder, 10) || 0,
         group: formData.group || null,
         parent: formData.parent || null,
       }
@@ -204,21 +214,34 @@ const CategoryForm = () => {
               {/* Row 0.5: Group (select first before category) */}
               <CRow className="mb-3">
                 <CCol md={6}>
-                  <CFormLabel>Group</CFormLabel>
-                  <CFormSelect
-                    name="group"
+                  <div className="d-flex align-items-center gap-2 mb-1">
+                    <CFormLabel className="mb-0">Group</CFormLabel>
+                    <CButton
+                      color="secondary"
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshGroups}
+                      disabled={groupsRefreshing}
+                      title="Refresh groups list"
+                      aria-label="Refresh groups"
+                    >
+                      {groupsRefreshing ? (
+                        <CSpinner size="sm" />
+                      ) : (
+                        <CIcon icon={cilReload} />
+                      )}
+                    </CButton>
+                  </div>
+                  <SearchableDropdown
+                    options={groups}
                     value={formData.group}
-                    onChange={handleChange}
-                  >
-                    <option value="">Select Group (optional)</option>
-                    {groups.map((grp) => (
-                      <option key={grp._id} value={grp._id}>
-                        {grp.name}
-                        {grp.code ? ` (${grp.code})` : ''}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                  <small className="text-muted">Select a group before creating the category.</small>
+                    onChange={(val) => setFormData((prev) => ({ ...prev, group: val || '' }))}
+                    placeholder="Select Group (optional)"
+                    maxDisplayCount={5}
+                    getOptionLabel={(grp) => `${grp.name || ''}${grp.code ? ` (${grp.code})` : ''}`}
+                    getOptionValue={(grp) => grp._id}
+                  />
+                  <small className="text-muted">Search and select a group. Best 5 matches shown. Click the refresh icon to reload groups.</small>
                 </CCol>
               </CRow>
 
@@ -250,9 +273,9 @@ const CategoryForm = () => {
                 </CCol>
               </CRow>
 
-              {/* Row 2: Status + Sort Order */}
+              {/* Row 2: Status */}
               <CRow className="mb-3">
-                <CCol md={6} className="mb-3 mb-md-0">
+                <CCol md={6}>
                   <CFormLabel>Status</CFormLabel>
                   <CFormSelect
                     name="status"
@@ -262,16 +285,6 @@ const CategoryForm = () => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </CFormSelect>
-                </CCol>
-                <CCol md={6}>
-                  <CFormLabel>Sort Order</CFormLabel>
-                  <CFormInput
-                    type="number"
-                    name="sortOrder"
-                    value={formData.sortOrder}
-                    onChange={handleChange}
-                    min={0}
-                  />
                 </CCol>
               </CRow>
 

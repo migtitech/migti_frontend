@@ -6,6 +6,7 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
+  CFormTextarea,
   CModal,
   CModalBody,
   CModalFooter,
@@ -36,12 +37,16 @@ const BranchFormModal = ({
           .string()
           .required('Phone is required')
           .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits'),
-        location: yup.string().required('Location is required').min(2).max(200),
         branchcode: yup.string().required('Branch code is required').min(1).max(50),
         gstNumber: yup.string().required('GST number is required').min(3).max(50),
-        officeImages: yup.string().required('Office images is required').min(1).max(500),
         address: yup.string().required('Address is required').min(2).max(200),
         fullAddress: yup.string().required('Full address is required').min(5).max(500),
+        mapLocationUrl: yup
+          .string()
+          .optional()
+          .transform((v) => (v === '' ? undefined : v))
+          .url('Enter a valid URL')
+          .max(500),
       }),
     []
   )
@@ -122,13 +127,6 @@ const BranchFormModal = ({
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel htmlFor="location">Location *</CFormLabel>
-                <CFormInput id="location" {...register('location')} invalid={!!errors.location} required />
-                {errors.location && <div className="text-danger small">{errors.location.message}</div>}
-              </div>
-            </CCol>
-            <CCol md={6}>
-              <div className="mb-3">
                 <CFormLabel htmlFor="branchcode">Branch Code *</CFormLabel>
                 <CFormInput
                   id="branchcode"
@@ -155,15 +153,16 @@ const BranchFormModal = ({
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel htmlFor="officeImages">Office Images *</CFormLabel>
+                <CFormLabel htmlFor="mapLocationUrl">Map Location URL</CFormLabel>
                 <CFormInput
-                  id="officeImages"
-                  {...register('officeImages')}
-                  invalid={!!errors.officeImages}
-                  required
+                  id="mapLocationUrl"
+                  type="url"
+                  {...register('mapLocationUrl')}
+                  invalid={!!errors.mapLocationUrl}
+                  placeholder="https://maps.google.com/..."
                 />
-                {errors.officeImages && (
-                  <div className="text-danger small">{errors.officeImages.message}</div>
+                {errors.mapLocationUrl && (
+                  <div className="text-danger small">{errors.mapLocationUrl.message}</div>
                 )}
               </div>
             </CCol>
@@ -176,13 +175,18 @@ const BranchFormModal = ({
                 {errors.address && <div className="text-danger small">{errors.address.message}</div>}
               </div>
             </CCol>
-            <CCol md={6}>
+            <CCol md={6} />
+          </CRow>
+          <CRow>
+            <CCol md={12}>
               <div className="mb-3">
                 <CFormLabel htmlFor="fullAddress">Full Address *</CFormLabel>
-                <CFormInput
+                <CFormTextarea
                   id="fullAddress"
+                  rows={3}
                   {...register('fullAddress')}
                   invalid={!!errors.fullAddress}
+                  placeholder="Enter complete address..."
                   required
                 />
                 {errors.fullAddress && (

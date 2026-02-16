@@ -25,9 +25,11 @@ import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const CategoryList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -127,10 +129,12 @@ const CategoryList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Categories</strong>
-            <CButton color="primary" onClick={() => navigate('/categories/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Category
-            </CButton>
+            {canCreate('categories') && (
+              <CButton color="primary" onClick={() => navigate('/categories/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Category
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -202,39 +206,45 @@ const CategoryList = () => {
                             >
                               <CIcon icon={cilInfo} />
                             </CButton>
-                            <CButton
-                              color="success"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/categories/new?parent=${cat._id}`)}}
-                              title="Add Subcategory"
-                            >
-                              <CIcon icon={cilPlus} />
-                            </CButton>
-                            <CButton
-                              color="warning"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/categories/edit/${cat._id}`)}}
-                              title="Edit"
-                            >
-                              <CIcon icon={cilPencil} />
-                            </CButton>
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(cat._id)}}
-                              title="Delete"
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
+                            {canCreate('categories') && (
+                              <CButton
+                                color="success"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/categories/new?parent=${cat._id}`)}}
+                                title="Add Subcategory"
+                              >
+                                <CIcon icon={cilPlus} />
+                              </CButton>
+                            )}
+                            {canUpdate('categories') && (
+                              <CButton
+                                color="warning"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/categories/edit/${cat._id}`)}}
+                                title="Edit"
+                              >
+                                <CIcon icon={cilPencil} />
+                              </CButton>
+                            )}
+                            {canDelete('categories') && (
+                              <CButton
+                                color="danger"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(cat._id)}}
+                                title="Delete"
+                              >
+                                <CIcon icon={cilTrash} />
+                              </CButton>
+                            )}
                           </CTableDataCell>
                         </CTableRow>
                         {expandedCategories[cat._id] &&
@@ -266,24 +276,28 @@ const CategoryList = () => {
                                 >
                                   <CIcon icon={cilInfo} />
                                 </CButton>
-                                <CButton
-                                  color="warning"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => navigate(`/categories/edit/${sub._id}`)}
-                                  title="Edit"
-                                >
-                                  <CIcon icon={cilPencil} />
-                                </CButton>
-                                <CButton
-                                  color="danger"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => handleDeleteClick(sub._id, cat._id)}
-                                  title="Delete"
-                                >
-                                  <CIcon icon={cilTrash} />
-                                </CButton>
+                                {canUpdate('categories') && (
+                                  <CButton
+                                    color="warning"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => navigate(`/categories/edit/${sub._id}`)}
+                                    title="Edit"
+                                  >
+                                    <CIcon icon={cilPencil} />
+                                  </CButton>
+                                )}
+                                {canDelete('categories') && (
+                                  <CButton
+                                    color="danger"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleDeleteClick(sub._id, cat._id)}
+                                    title="Delete"
+                                  >
+                                    <CIcon icon={cilTrash} />
+                                  </CButton>
+                                )}
                               </CTableDataCell>
                             </CTableRow>
                           ))}

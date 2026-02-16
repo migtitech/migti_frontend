@@ -27,9 +27,11 @@ import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const AreaList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [areas, setAreas] = useState([])
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(false)
@@ -102,10 +104,12 @@ const AreaList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <strong>Zones</strong>
-            <CButton color="primary" onClick={() => navigate('/areas/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Zone
-            </CButton>
+            {canCreate('zones') && (
+              <CButton color="primary" onClick={() => navigate('/areas/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Zone
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -195,27 +199,31 @@ const AreaList = () => {
                             >
                               <CIcon icon={cilZoom} />
                             </CButton>
-                            <CButton
-                              color="primary"
-                              variant="ghost"
-                              size="sm"
-                              className="me-2"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/areas/edit/${getId(area)}`)}}
-                            >
-                              <CIcon icon={cilPencil} />
-                            </CButton>
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(getId(area))}}
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
+                            {canUpdate('zones') && (
+                              <CButton
+                                color="primary"
+                                variant="ghost"
+                                size="sm"
+                                className="me-2"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/areas/edit/${getId(area)}`)}}
+                              >
+                                <CIcon icon={cilPencil} />
+                              </CButton>
+                            )}
+                            {canDelete('zones') && (
+                              <CButton
+                                color="danger"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(getId(area))}}
+                              >
+                                <CIcon icon={cilTrash} />
+                              </CButton>
+                            )}
                           </CTableDataCell>
                         </CTableRow>
                       ))

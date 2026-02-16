@@ -10,15 +10,30 @@ import {
   CBadge,
   CAlert,
   CImage,
-  CListGroup,
-  CListGroupItem,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
+  CModal,
+  CModalBody,
+  CModalHeader,
+  CModalTitle,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil } from '@coreui/icons'
+import { cilArrowLeft, cilPencil, cilX } from '@coreui/icons'
 import productService from '../../services/productService'
+import { getAssetsUrl } from '../../api/endpoints'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError } from '../../utils/toast'
+
+const getImageUrl = (img) => {
+  if (!img) return ''
+  if (typeof img === 'object' && img?.path) return getAssetsUrl(img.path)
+  return typeof img === 'string' ? img : ''
+}
 
 const ProductView = () => {
   const { id } = useParams()
@@ -26,6 +41,7 @@ const ProductView = () => {
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [expandedImage, setExpandedImage] = useState(null)
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -72,9 +88,9 @@ const ProductView = () => {
       <CAlert color="danger">
         {error}
         <CCardBody>
-          <CButton color="secondray" variant='outline' onClick={() => navigate('/products')}>
-          Back to Products
-        </CButton>
+          <CButton color="secondary" variant="outline" onClick={() => navigate('/products')}>
+            Back to Products
+          </CButton>
         </CCardBody>
       </CAlert>
     )
@@ -85,23 +101,47 @@ const ProductView = () => {
       <CAlert color="warning">
         Product not found.
         <CCardBody>
-          <CButton color="secondray" variant='outline' onClick={() => navigate('/products')}>
-          Back to Products
-        </CButton>
+          <CButton color="secondary" variant="outline" onClick={() => navigate('/products')}>
+            Back to Products
+          </CButton>
         </CCardBody>
       </CAlert>
     )
   }
 
+  const keyValueRows = [
+    { key: 'SKU', value: product.sku },
+    ...(product.shortDescription ? [{ key: 'Short Description', value: product.shortDescription }] : []),
+    { key: 'Category', value: product.category?.name || '-' },
+    { key: 'Subcategory', value: product.subcategory?.name || '-' },
+    { key: 'Brand', value: product.brand?.name || '-' },
+    { key: 'Group', value: product.group?.name || '-' },
+    { key: 'HSN Number', value: product.hsnNumber || '-', highlight: true },
+    { key: 'Default Model Number', value: product.defaultModelNumber || '-' },
+    { key: 'GST %', value: product.gstPercentage != null && product.gstPercentage !== '' ? `${product.gstPercentage}%` : '-', highlight: true },
+    { key: 'Unit', value: product.unit || 'pcs' },
+    ...(product.tags?.length > 0
+      ? [
+          {
+            key: 'Tags',
+            value: product.tags.map((tag, i) => (
+              <CBadge key={i} color="info" className="me-1">
+                {tag}
+              </CBadge>
+            )),
+          },
+        ]
+      : []),
+  ]
+
   return (
     <>
       <CRow className="mb-3">
         <CCol className="d-flex gap-2">
-          <CCardBody>
-          <CButton color="secondray" variant='outline' onClick={() => navigate('/products')}>
-          Back to Products
-        </CButton>
-        </CCardBody>
+          <CButton color="secondary" variant="outline" onClick={() => navigate('/products')}>
+            <CIcon icon={cilArrowLeft} className="me-1" />
+            Back to Products
+          </CButton>
           <CButton color="warning" onClick={() => navigate(`/products/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-1" />
             Edit
@@ -112,157 +152,286 @@ const ProductView = () => {
       <CRow>
         <CCol md={8}>
           <CCard className="mb-4">
-            <CCardHeader>
-              <strong>{product.name}</strong> {getStatusBadge(product.status)}
+            <CCardHeader className="d-flex align-items-center gap-2">
+              <strong>{product.name}</strong>
+              {getStatusBadge(product.status)}
             </CCardHeader>
-            <CCardBody>
-              <CListGroup flush>
-                <CListGroupItem>
-                  <strong>SKU:</strong> {product.sku}
-                </CListGroupItem>
-                {product.shortDescription && (
-                  <CListGroupItem>
-                    <strong>Short Description:</strong> {product.shortDescription}
-                  </CListGroupItem>
-                )}
-                {product.description && (
-                  <CListGroupItem>
-                    <strong>Description:</strong> {product.description}
-                  </CListGroupItem>
-                )}
-                <CListGroupItem>
-                  <strong>Category:</strong> {product.category?.name || '-'}
-                </CListGroupItem>
-                {product.subcategory && (
-                  <CListGroupItem>
-                    <strong>Subcategory:</strong> {product.subcategory?.name || '-'}
-                  </CListGroupItem>
-                )}
-                <CListGroupItem>
-                  <strong>Brand:</strong> {product.brand?.name || '-'}
-                </CListGroupItem>
-                <CListGroupItem>
-                  <strong>Unit:</strong> {product.unit || 'pcs'}
-                </CListGroupItem>
-                {product.tags?.length > 0 && (
-                  <CListGroupItem>
-                    <strong>Tags:</strong>{' '}
-                    {product.tags.map((tag, i) => (
-                      <CBadge key={i} color="info" className="me-1">
-                        {tag}
-                      </CBadge>
-                    ))}
-                  </CListGroupItem>
-                )}
-              </CListGroup>
+            <CCardBody className="p-0">
+              <CTable bordered hover responsive className="mb-0">
+                <CTableBody>
+                  {keyValueRows.map((row, idx) => (
+                    <CTableRow
+                      key={idx}
+                      className={row.highlight ? 'table-warning' : ''}
+                    >
+                      <CTableHeaderCell
+                        style={{
+                          width: '35%',
+                          backgroundColor: row.highlight ? '#fff3cd' : '#f8f9fa',
+                          fontWeight: 600,
+                        }}
+                        className="text-nowrap"
+                      >
+                        {row.key}
+                      </CTableHeaderCell>
+                      <CTableDataCell
+                        style={row.highlight ? { backgroundColor: '#fff3cd', fontWeight: 600 } : {}}
+                      >
+                        {row.value}
+                      </CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
             </CCardBody>
           </CCard>
 
-          {/* Pricing */}
-          <CCard className="mb-4">
-            <CCardHeader>
-              <strong>Pricing & Stock</strong>
-            </CCardHeader>
-            <CCardBody>
-              <CListGroup flush>
-                <CListGroupItem>
-                  <strong>Price:</strong> ₹{product.price?.toLocaleString()}
-                </CListGroupItem>
-                <CListGroupItem>
-                  <strong>MRP:</strong> ₹{product.mrp?.toLocaleString() || '0'}
-                </CListGroupItem>
-                <CListGroupItem>
-                  <strong>Cost Price:</strong> ₹{product.costPrice?.toLocaleString() || '0'}
-                </CListGroupItem>
-                {!product.hasVariants && (
-                  <CListGroupItem>
-                    <strong>Quantity:</strong> {product.quantity}
-                  </CListGroupItem>
-                )}
-              </CListGroup>
-            </CCardBody>
-          </CCard>
-
-          {/* Variants */}
+          {/* Variant definitions */}
           {product.hasVariants && product.variants?.length > 0 && (
             <CCard className="mb-4">
               <CCardHeader>
-                <strong>Variants</strong>
+                <strong>Variant types</strong>
               </CCardHeader>
-              <CCardBody>
-                <CListGroup flush>
-                  {product.variants.map((variant, idx) => (
-                    <CListGroupItem key={idx}>
-                      <strong>{variant.name}:</strong>{' '}
-                      {variant.options?.map((opt, optIdx) => (
-                        <CBadge key={optIdx} color="primary" className="me-1">
-                          {opt}
-                        </CBadge>
-                      ))}
-                    </CListGroupItem>
-                  ))}
-                </CListGroup>
+              <CCardBody className="p-0">
+                <CTable bordered hover responsive className="mb-0">
+                  <CTableBody>
+                    {product.variants.map((variant, idx) => (
+                      <CTableRow key={idx}>
+                        <CTableHeaderCell
+                          style={{ width: '35%', backgroundColor: '#f8f9fa', fontWeight: 600 }}
+                        >
+                          {variant.name}
+                        </CTableHeaderCell>
+                        <CTableDataCell>
+                          {(variant.options || []).map((opt, i) => (
+                            <CBadge key={i} color="primary" className="me-1">
+                              {opt}
+                            </CBadge>
+                          ))}
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              </CCardBody>
+            </CCard>
+          )}
+
+          {/* Variant combinations – bordered table: Variant value | Images */}
+          {product.hasVariants && product.variantCombinations?.length > 0 && (
+            <CCard className="mb-4">
+              <CCardHeader>
+                <strong>Variant combinations & images</strong>
+              </CCardHeader>
+              <CCardBody className="p-0">
+                <CTable bordered hover responsive className="mb-0">
+                  <CTableHead>
+                    <CTableRow>
+                      <CTableHeaderCell style={{ backgroundColor: '#f8f9fa', fontWeight: 600 }}>
+                        Variant
+                      </CTableHeaderCell>
+                      <CTableHeaderCell style={{ backgroundColor: '#fff3cd', fontWeight: 600 }}>
+                        HSN Number
+                      </CTableHeaderCell>
+                      <CTableHeaderCell style={{ backgroundColor: '#fff3cd', fontWeight: 600 }}>
+                        Model Number
+                      </CTableHeaderCell>
+                      <CTableHeaderCell style={{ backgroundColor: '#fff3cd', fontWeight: 600 }}>
+                        GST %
+                      </CTableHeaderCell>
+                      <CTableHeaderCell style={{ backgroundColor: '#f8f9fa', fontWeight: 600 }}>
+                        Images
+                      </CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {product.variantCombinations.map((combo, cIdx) => (
+                      <CTableRow key={combo.uniqueId || cIdx}>
+                        <CTableDataCell className="align-middle">
+                          <strong>
+                            {combo.optionValues
+                              ?.map((o) => `${o.variantName}: ${o.variantValue}`)
+                              .join(' · ') || '—'}
+                          </strong>
+                        </CTableDataCell>
+                        <CTableDataCell
+                          className="align-middle"
+                          style={{ backgroundColor: '#fff3cd', fontWeight: 600 }}
+                        >
+                          {combo.hsnNumber || product.hsnNumber || '—'}
+                        </CTableDataCell>
+                        <CTableDataCell
+                          className="align-middle"
+                          style={{ backgroundColor: '#fff3cd', fontWeight: 600 }}
+                        >
+                          {combo.modelNumber || product.defaultModelNumber || '—'}
+                        </CTableDataCell>
+                        <CTableDataCell
+                          className="align-middle"
+                          style={{ backgroundColor: '#fff3cd', fontWeight: 600 }}
+                        >
+                          {combo.gstPercentage != null && combo.gstPercentage !== ''
+                            ? `${combo.gstPercentage}%`
+                            : product.gstPercentage != null && product.gstPercentage !== ''
+                              ? `${product.gstPercentage}%`
+                              : '—'}
+                        </CTableDataCell>
+                        <CTableDataCell className="align-middle">
+                          <div className="d-flex flex-wrap gap-2 align-items-center">
+                            {(combo.images || []).length > 0 ? (
+                              (combo.images || []).map((img, iIdx) => {
+                                const src = getImageUrl(img)
+                                return (
+                                  <div
+                                    key={img?._id || iIdx}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setExpandedImage(src)}
+                                    onKeyDown={(e) => e.key === 'Enter' && setExpandedImage(src)}
+                                    className="rounded border overflow-hidden"
+                                    style={{
+                                      width: 64,
+                                      height: 64,
+                                      cursor: 'pointer',
+                                    }}
+                                  >
+                                    <CImage
+                                      src={src}
+                                      width={64}
+                                      height={64}
+                                      className="object-fit-cover w-100 h-100"
+                                    />
+                                  </div>
+                                )
+                              })
+                            ) : (
+                              <span className="text-muted">No images</span>
+                            )}
+                          </div>
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
               </CCardBody>
             </CCard>
           )}
 
           {/* Physical Attributes */}
           {(product.weight > 0 ||
-            product.dimensions?.length > 0 ||
-            product.dimensions?.width > 0 ||
-            product.dimensions?.height > 0) && (
+            (product.dimensions && (product.dimensions.width > 0 || product.dimensions.height > 0 || product.dimensions.length > 0))) && (
             <CCard className="mb-4">
               <CCardHeader>
-                <strong>Physical Attributes</strong>
+                <strong>Physical attributes</strong>
               </CCardHeader>
-              <CCardBody>
-                <CListGroup flush>
-                  {product.weight > 0 && (
-                    <CListGroupItem>
-                      <strong>Weight:</strong> {product.weight} {product.weightUnit}
-                    </CListGroupItem>
-                  )}
-                  {(product.dimensions?.length > 0 ||
-                    product.dimensions?.width > 0 ||
-                    product.dimensions?.height > 0) && (
-                    <CListGroupItem>
-                      <strong>Dimensions:</strong> {product.dimensions.length} x{' '}
-                      {product.dimensions.width} x {product.dimensions.height}{' '}
-                      {product.dimensionUnit}
-                    </CListGroupItem>
-                  )}
-                </CListGroup>
+              <CCardBody className="p-0">
+                <CTable bordered hover responsive className="mb-0">
+                  <CTableBody>
+                    {product.weight > 0 && (
+                      <CTableRow>
+                        <CTableHeaderCell
+                          style={{ width: '35%', backgroundColor: '#f8f9fa', fontWeight: 600 }}
+                        >
+                          Weight
+                        </CTableHeaderCell>
+                        <CTableDataCell>
+                          {product.weight} {product.weightUnit}
+                        </CTableDataCell>
+                      </CTableRow>
+                    )}
+                    {product.dimensions &&
+                      (product.dimensions.length > 0 ||
+                        product.dimensions.width > 0 ||
+                        product.dimensions.height > 0) && (
+                        <CTableRow>
+                          <CTableHeaderCell
+                            style={{ width: '35%', backgroundColor: '#f8f9fa', fontWeight: 600 }}
+                          >
+                            Dimensions
+                          </CTableHeaderCell>
+                          <CTableDataCell>
+                            {product.dimensions.length} × {product.dimensions.width} ×{' '}
+                            {product.dimensions.height} {product.dimensionUnit}
+                          </CTableDataCell>
+                        </CTableRow>
+                      )}
+                  </CTableBody>
+                </CTable>
               </CCardBody>
             </CCard>
           )}
         </CCol>
 
-        {/* Images sidebar */}
+        {/* Main product images sidebar */}
         <CCol md={4}>
           <CCard className="mb-4">
             <CCardHeader>
-              <strong>Images</strong>
+              <strong>Product images</strong>
             </CCardHeader>
             <CCardBody>
               {product.images?.length > 0 ? (
                 <div className="d-flex flex-wrap gap-2">
-                  {product.images.map((img, index) => (
-                    <CImage
-                      key={index}
-                      src={img}
-                      width={150}
-                      height={150}
-                      className="object-fit-cover rounded border"
-                    />
-                  ))}
+                  {product.images.map((img, index) => {
+                    const src = getImageUrl(img)
+                    return (
+                      <div
+                        key={img?._id || index}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setExpandedImage(src)}
+                        onKeyDown={(e) => e.key === 'Enter' && setExpandedImage(src)}
+                        className="rounded border overflow-hidden"
+                        style={{ width: 120, height: 120, cursor: 'pointer' }}
+                      >
+                        <CImage
+                          src={src}
+                          width={120}
+                          height={120}
+                          className="object-fit-cover w-100 h-100"
+                        />
+                      </div>
+                    )
+                  })}
                 </div>
               ) : (
-                <p className="text-muted">No images uploaded</p>
+                <p className="text-muted mb-0">No images uploaded</p>
               )}
             </CCardBody>
           </CCard>
         </CCol>
       </CRow>
+
+      {/* Image expand modal */}
+      <CModal
+        alignment="center"
+        visible={!!expandedImage}
+        onClose={() => setExpandedImage(null)}
+        className="p-0"
+      >
+        <CModalHeader className="border-0 pb-0">
+          <CModalTitle>Image</CModalTitle>
+          <CButton
+            color="secondary"
+            variant="ghost"
+            size="sm"
+            className="rounded-circle"
+            onClick={() => setExpandedImage(null)}
+            aria-label="Close"
+          >
+            <CIcon icon={cilX} size="lg" />
+          </CButton>
+        </CModalHeader>
+        <CModalBody className="text-center p-3">
+          {expandedImage && (
+            <img
+              src={expandedImage}
+              alt="Expanded"
+              className="img-fluid rounded"
+              style={{ maxHeight: '80vh', objectFit: 'contain' }}
+            />
+          )}
+        </CModalBody>
+      </CModal>
     </>
   )
 }

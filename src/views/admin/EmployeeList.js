@@ -7,9 +7,11 @@ import { toastSuccess, toastError } from '../../utils/toast'
 import { ConfirmDialog } from '../../components'
 import EmployeeHeader from './employees/EmployeeHeader'
 import EmployeeTable from './employees/EmployeeTable'
+import usePermissions from '../../hooks/usePermissions'
 
 const EmployeeList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [employees, setEmployees] = useState([])
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
@@ -76,7 +78,7 @@ const EmployeeList = () => {
 
   return (
     <>
-      <EmployeeHeader onAdd={() => navigate('/employees/new')} />
+      <EmployeeHeader onAdd={() => navigate('/employees/new')} canCreate={canCreate} />
       <EmployeeTable
         employees={employees}
         branches={branches}
@@ -86,6 +88,8 @@ const EmployeeList = () => {
         onView={(employeeId) => navigate(`/employees/${employeeId}`)}
         onEdit={(employee) => navigate(`/employees/edit/${employee.id}`)}
         onDelete={handleDeleteClick}
+        canUpdate={canUpdate}
+        canDelete={canDelete}
       />
       <ConfirmDialog
         visible={confirmDelete.visible}

@@ -24,9 +24,11 @@ import Badge from '../../badges/Badge'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const CompanyList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
 
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(false)
@@ -76,10 +78,12 @@ const CompanyList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Companies</strong>
-            <CButton color="primary" onClick={() => navigate('/companies/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Company
-            </CButton>
+            {canCreate('companies') && (
+              <CButton color="primary" onClick={() => navigate('/companies/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Company
+              </CButton>
+            )}
           </CCardHeader>
 
           <CCardBody>
@@ -147,29 +151,33 @@ const CompanyList = () => {
                             <CIcon icon={cilLocationPin} />
                           </CButton>
 
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            title="Edit"
-                            onClick={(e) =>{ 
-                              e.stopPropagation()
-                              navigate(`/companies/edit/${id}`)}}
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
+                          {canUpdate('companies') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              title="Edit"
+                              onClick={(e) =>{
+                                e.stopPropagation()
+                                navigate(`/companies/edit/${id}`)}}
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
 
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            title="Delete"
-                            onClick={(e) =>{ 
-                              e.stopPropagation()
-                              handleDeleteClick(id)}}
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canDelete('companies') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              title="Delete"
+                              onClick={(e) =>{
+                                e.stopPropagation()
+                                handleDeleteClick(id)}}
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     )

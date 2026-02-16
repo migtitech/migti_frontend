@@ -25,9 +25,11 @@ import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const GroupList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -95,10 +97,12 @@ const GroupList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Groups</strong>
-            <CButton color="primary" onClick={() => navigate('/groups/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Group
-            </CButton>
+            {canCreate('groups') && (
+              <CButton color="primary" onClick={() => navigate('/groups/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Group
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -118,7 +122,6 @@ const GroupList = () => {
                       <CTableHeaderCell>Code</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
-                      <CTableHeaderCell>Sort Order</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
@@ -139,30 +142,34 @@ const GroupList = () => {
                         <CTableDataCell>{grp.sortOrder ?? 0}</CTableDataCell>
                         <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
                         <CTableDataCell>
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/groups/edit/${grp._id}`)}
-                            title="Edit"
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(grp._id)}
-                            title="Delete"
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canUpdate('groups') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/groups/edit/${grp._id}`)}
+                              title="Edit"
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
+                          {canDelete('groups') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(grp._id)}
+                              title="Delete"
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     ))}
                     {groups.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center">
+                        <CTableDataCell colSpan={6} className="text-center">
                           {searchTerm
                             ? `No groups found matching "${searchTerm}"`
                             : 'No groups found. Click "Add Group" to create one.'}

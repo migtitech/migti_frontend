@@ -14,7 +14,6 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CImage,
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
@@ -26,6 +25,7 @@ import { useNavigate } from 'react-router-dom'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const BrandList = () => {
   const [brands, setBrands] = useState([])
@@ -37,6 +37,7 @@ const BrandList = () => {
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
 
   const fetchBrands = async () => {
     setLoading(true)
@@ -94,10 +95,12 @@ const BrandList = () => {
         <CCard>
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Brands</strong>
-            <CButton color="primary" onClick={() => navigate('/brands/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Brand
-            </CButton>
+            {canCreate('brands') && (
+              <CButton color="primary" onClick={() => navigate('/brands/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Brand
+              </CButton>
+            )}
           </CCardHeader>
 
           <CCardBody>
@@ -117,9 +120,7 @@ const BrandList = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Logo</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
-                      <CTableHeaderCell>Website</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
@@ -129,52 +130,42 @@ const BrandList = () => {
                     {brands.map((brand, index) => (
                       <CTableRow key={brand._id}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
-
-                        <CTableDataCell>
-                          {brand.logo ? (
-                            <CImage src={brand.logo} width={40} height={40} />
-                          ) : (
-                            <small className="text-muted">N/A</small>
-                          )}
-                        </CTableDataCell>
-
                         <CTableDataCell>
                           <strong>{brand.name}</strong>
                         </CTableDataCell>
-
-                        <CTableDataCell>
-                          {brand.website || '-'}
-                        </CTableDataCell>
-
                         <CTableDataCell>
                           {getStatusBadge(brand.status)}
                         </CTableDataCell>
 
                         <CTableDataCell>
-                          <CButton
-                            size="sm"
-                            color="warning"
-                            variant="ghost"
-                            onClick={() => navigate(`/brands/edit/${brand._id}`)}
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
+                          {canUpdate('brands') && (
+                            <CButton
+                              size="sm"
+                              color="warning"
+                              variant="ghost"
+                              onClick={() => navigate(`/brands/edit/${brand._id}`)}
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
 
-                          <CButton
-                            size="sm"
-                            color="danger"
-                            variant="ghost"
-                            onClick={() => handleDeleteClick(brand._id)}
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canDelete('brands') && (
+                            <CButton
+                              size="sm"
+                              color="danger"
+                              variant="ghost"
+                              onClick={() => handleDeleteClick(brand._id)}
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     ))}
 
                     {brands.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={6} className="text-center">
+                        <CTableDataCell colSpan={4} className="text-center">
                           No brands found
                         </CTableDataCell>
                       </CTableRow>

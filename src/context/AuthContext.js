@@ -30,6 +30,9 @@ export const ROLE_LABELS = {
   [ROLES.DELIVERY]: 'Delivery',
 }
 
+// Roles that get full access to everything (no permission checks needed)
+export const FULL_ACCESS_ROLES = [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.HOD]
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)

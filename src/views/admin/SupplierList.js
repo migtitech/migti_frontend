@@ -28,9 +28,11 @@ import areaService from '../../services/areaService'
 import { Loader, ConfirmDialog, SearchableDropdown } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const SupplierList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -171,10 +173,12 @@ const SupplierList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Suppliers</strong>
-            <CButton color="primary" onClick={() => navigate('/suppliers/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Supplier
-            </CButton>
+            {canCreate('suppliers') && (
+              <CButton color="primary" onClick={() => navigate('/suppliers/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Supplier
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody style={{ overflow: 'visible' }}>
             {error && (
@@ -292,24 +296,28 @@ const SupplierList = () => {
                           >
                             <CIcon icon={cilZoom} />
                           </CButton>
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/suppliers/edit/${supplier._id}`)}
-                            title="Edit"
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(supplier._id)}
-                            title="Delete"
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canUpdate('suppliers') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/suppliers/edit/${supplier._id}`)}
+                              title="Edit"
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
+                          {canDelete('suppliers') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteClick(supplier._id)}
+                              title="Delete"
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     ))}

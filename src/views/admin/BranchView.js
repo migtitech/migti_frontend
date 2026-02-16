@@ -152,10 +152,6 @@ const BranchView = () => {
                   <span>{branch.phone || '-'}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Location:</strong>
-                  <span>{branch.location || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Branch Code:</strong>
                   <span>{branch.branchcode || '-'}</span>
                 </CListGroupItem>
@@ -165,8 +161,26 @@ const BranchView = () => {
                 </CListGroupItem>
                 <CListGroupItem>
                   <strong>Address:</strong>
-                  <p className="mb-0 mt-2">{branch.address || branch.fullAddress || '-'}</p>
+                  <p className="mb-0 mt-2">{branch.address || '-'}</p>
                 </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Full Address:</strong>
+                  <p className="mb-0 mt-2">{branch.fullAddress || '-'}</p>
+                </CListGroupItem>
+                {branch.mapLocationUrl && (
+                  <CListGroupItem className="d-flex justify-content-between align-items-center">
+                    <strong>Map Location:</strong>
+                    <CButton
+                      color="link"
+                      size="sm"
+                      href={branch.mapLocationUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View on Map
+                    </CButton>
+                  </CListGroupItem>
+                )}
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
                   <span>{branch.createdAt ? new Date(branch.createdAt).toLocaleDateString() : '-'}</span>

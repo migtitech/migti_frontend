@@ -30,7 +30,6 @@ const GroupForm = () => {
     code: '',
     description: '',
     status: 'active',
-    sortOrder: 0,
   })
 
   const [loading, setLoading] = useState(false)
@@ -44,7 +43,6 @@ const GroupForm = () => {
         code: '',
         description: '',
         status: 'active',
-        sortOrder: 0,
       })
       return
     }
@@ -60,7 +58,6 @@ const GroupForm = () => {
           code: group.code || '',
           description: group.description || '',
           status: group.status || 'active',
-          sortOrder: group.sortOrder ?? 0,
         })
       } catch (err) {
         setError('Failed to load group details')
@@ -87,10 +84,7 @@ const GroupForm = () => {
 
     try {
       const { code: _omit, ...rest } = formData
-      const payload = {
-        ...rest,
-        sortOrder: parseInt(formData.sortOrder, 10) || 0,
-      }
+      const payload = { ...rest }
       if (isEdit) {
         await groupService.update(id, payload)
         toastSuccess('Group updated successfully')
@@ -159,7 +153,7 @@ const GroupForm = () => {
               </CRow>
 
               <CRow className="mb-3">
-                <CCol md={6} className="mb-3 mb-md-0">
+                <CCol md={6}>
                   <CFormLabel>Status</CFormLabel>
                   <CFormSelect
                     name="status"
@@ -169,16 +163,6 @@ const GroupForm = () => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </CFormSelect>
-                </CCol>
-                <CCol md={6}>
-                  <CFormLabel>Sort Order</CFormLabel>
-                  <CFormInput
-                    type="number"
-                    name="sortOrder"
-                    value={formData.sortOrder}
-                    onChange={handleChange}
-                    min={0}
-                  />
                 </CCol>
               </CRow>
 

@@ -77,110 +77,119 @@ const IndustryList = React.lazy(() => import('./views/admin/IndustryList'))
 const IndustryForm = React.lazy(() => import('./views/admin/IndustryForm'))
 const IndustryView = React.lazy(() => import('./views/admin/IndustryView'))
 
+// Industry Branches
+const IndustryBranchList = React.lazy(() => import('./views/admin/IndustryBranchList'))
+const IndustryBranchForm = React.lazy(() => import('./views/admin/IndustryBranchForm'))
+const IndustryBranchView = React.lazy(() => import('./views/admin/IndustryBranchView'))
+
 // Error pages
 const Page401 = React.lazy(() => import('./views/pages/page401/Page401'))
 
-// Role-based route configuration
-// If allowedRoles is empty or not specified, all authenticated users can access
+// Permission-based route configuration
+// 'module' maps to the RBAC module key, 'action' specifies required permission
+// Routes without module are accessible to all authenticated users
 const routes = [
   { path: '/', exact: true, name: 'Home' },
-  { path: '/dashboard', name: 'Dashboard', element: Dashboard, allowedRoles: [] },
+  { path: '/dashboard', name: 'Dashboard', element: Dashboard },
 
-  // Companies - accessible by super_admin, admin, sales, hod
-  { path: '/companies', name: 'Companies', element: CompanyList, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/companies/new', name: 'Add Company', element: CompanyForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/companies/edit/:id', name: 'Add Company', element: CompanyForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/companies/:id', name: 'Company Details', element: CompanyView, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/companies/:companyId/branches', name: 'Company Branches', element: BranchManagement, allowedRoles: ['super_admin', 'admin', 'hod'] },
-//  { path: '/suppliers/new', name: 'Add Supplier', element: SupplierForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
- 
-  // Branches - accessible by super_admin, admin, hod
-  { path: '/branches', name: 'Branches', element: BranchList, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/branches/:id', name: 'Branch Details', element: BranchView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // Companies
+  { path: '/companies', name: 'Companies', element: CompanyList, module: 'companies', action: 'read' },
+  { path: '/companies/new', name: 'Add Company', element: CompanyForm, module: 'companies', action: 'create' },
+  { path: '/companies/edit/:id', name: 'Edit Company', element: CompanyForm, module: 'companies', action: 'update' },
+  { path: '/companies/:id', name: 'Company Details', element: CompanyView, module: 'companies', action: 'read' },
+  { path: '/companies/:companyId/branches', name: 'Company Branches', element: BranchManagement, module: 'branches', action: 'read' },
 
-  // Categories - accessible by super_admin, admin, purchase, hod
-  { path: '/categories', name: 'Categories', element: CategoryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/categories/new', name: 'Add Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/categories/edit/:id', name: 'Edit Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/categories/:id', name: 'Category Details', element: CategoryView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  // Branches
+  { path: '/branches', name: 'Branches', element: BranchList, module: 'branches', action: 'read' },
+  { path: '/branches/:id', name: 'Branch Details', element: BranchView, module: 'branches', action: 'read' },
 
-  // Groups - accessible by super_admin, admin, purchase, hod
-  { path: '/groups', name: 'Groups', element: GroupList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/groups/new', name: 'Add Group', element: GroupForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/groups/edit/:id', name: 'Edit Group', element: GroupForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  // Categories
+  { path: '/categories', name: 'Categories', element: CategoryList, module: 'categories', action: 'read' },
+  { path: '/categories/new', name: 'Add Category', element: CategoryForm, module: 'categories', action: 'create' },
+  { path: '/categories/edit/:id', name: 'Edit Category', element: CategoryForm, module: 'categories', action: 'update' },
+  { path: '/categories/:id', name: 'Category Details', element: CategoryView, module: 'categories', action: 'read' },
 
-  // Brands - accessible by super_admin, admin, purchase, hod
-  { path: '/brands', name: 'Brands', element: BrandList2, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/brands/new', name: 'Add Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/brands/edit/:id', name: 'Edit Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  // Groups
+  { path: '/groups', name: 'Groups', element: GroupList, module: 'groups', action: 'read' },
+  { path: '/groups/new', name: 'Add Group', element: GroupForm, module: 'groups', action: 'create' },
+  { path: '/groups/edit/:id', name: 'Edit Group', element: GroupForm, module: 'groups', action: 'update' },
 
+  // Brands
+  { path: '/brands', name: 'Brands', element: BrandList2, module: 'brands', action: 'read' },
+  { path: '/brands/new', name: 'Add Brands', element: BrandForm, module: 'brands', action: 'create' },
+  { path: '/brands/edit/:id', name: 'Edit Brands', element: BrandForm, module: 'brands', action: 'update' },
 
-  // Products - accessible by super_admin, admin, sales, finance, purchase, hod
-  { path: '/products', name: 'Products', element: ProductList, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
-  { path: '/products/new', name: 'Add Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/products/edit/:id', name: 'Edit Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/products/:id', name: 'Product Details', element: ProductView, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
+  // Products
+  { path: '/products', name: 'Products', element: ProductList, module: 'products', action: 'read' },
+  { path: '/products/new', name: 'Add Product', element: ProductForm, module: 'products', action: 'create' },
+  { path: '/products/edit/:id', name: 'Edit Product', element: ProductForm, module: 'products', action: 'update' },
+  { path: '/products/:id', name: 'Product Details', element: ProductView, module: 'products', action: 'read' },
 
-  // Queries - accessible by super_admin, admin, sales, hod
-  { path: '/queries', name: 'Queries', element: QueryList, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/queries/new', name: 'Add Queries', element: QueryForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/queries/edit/:id', name: 'Edit Queries', element: QueryForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/queries/:id', name: 'Query Details', element: QueryView, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/raw-query', name: 'Raw Query', element: RawQuery, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/raw-query/new', name: 'New Raw Query', element: RawQueryCreate, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/raw-query/:id', name: 'Raw Query Details', element: RawQueryView, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-  { path: '/tracking', name: 'Tracking', element: Tracking, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+  // Queries
+  { path: '/queries', name: 'Queries', element: QueryList, module: 'queries', action: 'read' },
+  { path: '/queries/new', name: 'Add Queries', element: QueryForm, module: 'queries', action: 'create' },
+  { path: '/queries/edit/:id', name: 'Edit Queries', element: QueryForm, module: 'queries', action: 'update' },
+  { path: '/queries/:id', name: 'Query Details', element: QueryView, module: 'queries', action: 'read' },
+  { path: '/raw-query', name: 'Raw Query', element: RawQuery, module: 'raw_queries', action: 'read' },
+  { path: '/raw-query/new', name: 'New Raw Query', element: RawQueryCreate, module: 'raw_queries', action: 'create' },
+  { path: '/raw-query/:id', name: 'Raw Query Details', element: RawQueryView, module: 'raw_queries', action: 'read' },
+  { path: '/tracking', name: 'Tracking', element: Tracking, module: 'queries', action: 'read' },
 
-  // Quotations - accessible by super_admin, admin, finance, sales, hod
-  { path: '/quotations', name: 'Quotations', element: QuotationList, allowedRoles: ['super_admin', 'admin', 'finance', 'sales', 'hod'] },
-  { path: '/quotations/:id', name: 'Quotation Details', element: QuotationView, allowedRoles: ['super_admin', 'admin', 'finance', 'sales', 'hod'] },
-  { path: '/quotations/new', name: 'Add Quotations', element: QuotationForm, allowedRoles: ['super_admin', 'admin', 'finance', 'sales', 'hod'] },
-  { path: '/quotations/edit/:id', name: 'Edit Quotations', element: QuotationForm, allowedRoles: ['super_admin', 'admin', 'finance', 'sales', 'hod'] },
-  
-  // Purchase Orders - accessible by super_admin, admin, finance, purchase, hod
-  { path: '/purchase-orders', name: 'Purchase Orders', element: PurchaseOrderList, allowedRoles: ['super_admin', 'admin', 'finance', 'purchase', 'hod'] },
-  { path: '/purchase-orders/:id', name: 'Purchase Order Details', element: PurchaseOrderView, allowedRoles: ['super_admin', 'admin', 'finance', 'purchase', 'hod'] },
+  // Quotations
+  { path: '/quotations', name: 'Quotations', element: QuotationList, module: 'quotations', action: 'read' },
+  { path: '/quotations/:id', name: 'Quotation Details', element: QuotationView, module: 'quotations', action: 'read' },
+  { path: '/quotations/new', name: 'Add Quotations', element: QuotationForm, module: 'quotations', action: 'create' },
+  { path: '/quotations/edit/:id', name: 'Edit Quotations', element: QuotationForm, module: 'quotations', action: 'update' },
 
-  // Finance - accessible by super_admin, admin, finance, hod
-  { path: '/finance', name: 'Finance', element: FinanceDashboard, allowedRoles: ['super_admin', 'admin', 'finance', 'hod'] },
+  // Purchase Orders
+  { path: '/purchase-orders', name: 'Purchase Orders', element: PurchaseOrderList, module: 'purchase_orders', action: 'read' },
+  { path: '/purchase-orders/:id', name: 'Purchase Order Details', element: PurchaseOrderView, module: 'purchase_orders', action: 'read' },
 
-  // Suppliers - accessible by super_admin, admin, purchase, hod
-  { path: '/suppliers', name: 'Suppliers', element: SupplierList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/suppliers/new', name: 'Add Supplier', element: SupplierForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/suppliers/edit/:id', name: 'Edit Supplier', element: SupplierForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/suppliers/:id', name: 'Supplier Details', element: SupplierView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  // Finance
+  { path: '/finance', name: 'Finance', element: FinanceDashboard, module: 'finance', action: 'read' },
 
-  // Rate Cards - accessible by super_admin, admin, purchase, hod
-  { path: '/rate-cards', name: 'Rate Cards', element: RateCardList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  // Suppliers
+  { path: '/suppliers', name: 'Suppliers', element: SupplierList, module: 'suppliers', action: 'read' },
+  { path: '/suppliers/new', name: 'Add Supplier', element: SupplierForm, module: 'suppliers', action: 'create' },
+  { path: '/suppliers/edit/:id', name: 'Edit Supplier', element: SupplierForm, module: 'suppliers', action: 'update' },
+  { path: '/suppliers/:id', name: 'Supplier Details', element: SupplierView, module: 'suppliers', action: 'read' },
 
-  // Follow-up Dashboard - accessible by super_admin, admin, sales, hod
-  { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+  // Rate Cards
+  { path: '/rate-cards', name: 'Rate Cards', element: RateCardList, module: 'rate_cards', action: 'read' },
 
-  // Employees - accessible by super_admin, admin, hod
-  { path: '/employees', name: 'Employees', element: EmployeeList, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/employees/new', name: 'Add Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/employees/edit/:id', name: 'Edit Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // Follow-up Dashboard
+  { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, module: 'follow_up', action: 'read' },
 
-  // Zones - company, branch, name, city, area type
-  { path: '/areas', name: 'Zones', element: AreaList, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/new', name: 'Add Zone', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/edit/:id', name: 'Edit Zone', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/:id', name: 'Zone Details', element: AreaView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // Employees
+  { path: '/employees', name: 'Employees', element: EmployeeList, module: 'employees', action: 'read' },
+  { path: '/employees/new', name: 'Add Employee', element: EmployeeForm, module: 'employees', action: 'create' },
+  { path: '/employees/edit/:id', name: 'Edit Employee', element: EmployeeForm, module: 'employees', action: 'update' },
+  { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, module: 'employees', action: 'read' },
 
-  // Industries - accessible by super_admin, admin, purchase, hod
-  { path: '/industries', name: 'Industries', element: IndustryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/industries/new', name: 'Add Industry', element: IndustryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/industries/edit/:id', name: 'Edit Industry', element: IndustryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/industries/:id', name: 'Industry Details', element: IndustryView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  // Zones
+  { path: '/areas', name: 'Zones', element: AreaList, module: 'zones', action: 'read' },
+  { path: '/areas/new', name: 'Add Zone', element: AreaForm, module: 'zones', action: 'create' },
+  { path: '/areas/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
+  { path: '/areas/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
+
+  // Industries
+  { path: '/industries', name: 'Industries', element: IndustryList, module: 'industries', action: 'read' },
+  { path: '/industries/new', name: 'Add Industry', element: IndustryForm, module: 'industries', action: 'create' },
+  { path: '/industries/edit/:id', name: 'Edit Industry', element: IndustryForm, module: 'industries', action: 'update' },
+  { path: '/industries/:id', name: 'Industry Details', element: IndustryView, module: 'industries', action: 'read' },
+
+  // Industry Branches
+  { path: '/industry-branches', name: 'Industry Branches', element: IndustryBranchList, module: 'industry_branches', action: 'read' },
+  { path: '/industry-branches/new', name: 'Add Industry Branch', element: IndustryBranchForm, module: 'industry_branches', action: 'create' },
+  { path: '/industry-branches/edit/:id', name: 'Edit Industry Branch', element: IndustryBranchForm, module: 'industry_branches', action: 'update' },
+  { path: '/industry-branches/:id', name: 'Industry Branch Details', element: IndustryBranchView, module: 'industry_branches', action: 'read' },
 
   // Admin routes for company/branch management (legacy)
-  { path: '/admin/companies/:companyId/branches', name: 'Branches', element: BranchManagement, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/admin/companies/:companyId/branches/:branchId/users', name: 'Branch Users', element: BranchUserManagement, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  
+  { path: '/admin/companies/:companyId/branches', name: 'Branches', element: BranchManagement, module: 'branches', action: 'read' },
+  { path: '/admin/companies/:companyId/branches/:branchId/users', name: 'Branch Users', element: BranchUserManagement, module: 'branches', action: 'read' },
 
   // Unauthorized page - accessible by all
-  { path: '/unauthorized', name: 'Unauthorized', element: Page401, allowedRoles: [] },
+  { path: '/unauthorized', name: 'Unauthorized', element: Page401 },
 ]
 
 export default routes
