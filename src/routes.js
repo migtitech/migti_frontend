@@ -28,6 +28,11 @@ const ProductList = React.lazy(() => import('./views/admin/ProductList'))
 const ProductForm = React.lazy(() => import('./views/admin/ProductForm'))
 const ProductView = React.lazy(() => import('./views/admin/ProductView'))
 
+// Groups
+const GroupList = React.lazy(() => import('./views/admin/GroupList'))
+const GroupForm = React.lazy(() => import('./views/admin/GroupForm'))
+const GroupView = React.lazy(() => import('./views/admin/GroupView'))
+
 // Queries
 const QueryList = React.lazy(() => import('./views/admin/QueryList'))
 const QueryView = React.lazy(() => import('./views/admin/QueryView'))
@@ -112,6 +117,13 @@ const routes = [
   { path: '/products/edit/:id', name: 'Edit Product', element: ProductForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
   { path: '/products/:id', name: 'Product Details', element: ProductView, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
 
+
+  // Groups - accessible by super_admin, admin, sales, finance, purchase, hod
+  { path: '/groups', name: 'Groups', element: GroupList, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
+  { path: '/groups/new', name: 'Add Groups', element: GroupForm, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
+  { path: '/groups/view/:id', name: 'Groups Details', element: GroupView, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
+  { path: '/groups/edit/:id', name: 'Add Groups', element: GroupForm, allowedRoles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'] },
+  
   // Queries - accessible by super_admin, admin, sales, hod
   { path: '/queries', name: 'Queries', element: QueryList, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
   { path: '/queries/new', name: 'Add Queries', element: QueryForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
