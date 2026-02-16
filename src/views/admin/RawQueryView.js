@@ -34,16 +34,32 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('en-IN', {
+
+  const formatter = new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',
     day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    month: '2-digit',
+    year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true,
+    hour12: false,
   })
+
+  const parts = formatter.formatToParts(d).reduce((acc, part) => {
+    acc[part.type] = part.value
+    return acc
+  }, {})
+
+  const dd = parts.day || ''
+  const mm = parts.month || ''
+  const yy = parts.year || ''
+  const hh = parts.hour || ''
+  const mi = parts.minute || ''
+  const ss = parts.second || ''
+
+  // ddmmyy and HH:MM:SS
+  return `${dd}${mm}${yy} ${hh}:${mi}:${ss}`
 }
 
 // Get the logged-in user from localStorage to resolve performer names
@@ -167,6 +183,8 @@ const RawQueryView = () => {
   const [followUpForm, setFollowUpForm] = useState({ followUpStatus: 'pending', note: '' })
   const [submitting, setSubmitting] = useState(false)
   const [userCache, setUserCache] = useState({}) // cache of userId -> user object
+  const [activityPage, setActivityPage] = useState(1)
+  const ACTIVITIES_PER_PAGE = 10
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
@@ -189,6 +207,7 @@ const RawQueryView = () => {
       const res = await rawQueryService.getActivities(id)
       const data = res?.data ?? []
       setActivities(Array.isArray(data) ? data : [])
+      setActivityPage(1)
     } catch {
       setActivities([])
     } finally {
@@ -419,6 +438,20 @@ const RawQueryView = () => {
     }
   }
 
+  const totalActivityPages = Math.max(
+    1,
+    Math.ceil((activities || []).length / ACTIVITIES_PER_PAGE),
+  )
+  const safePage =
+    activityPage > totalActivityPages ? totalActivityPages : activityPage
+  const pagedActivities = (activities || []).slice(
+    (safePage - 1) * ACTIVITIES_PER_PAGE,
+    safePage * ACTIVITIES_PER_PAGE,
+  )
+
+  const canGoPrev = safePage > 1
+  const canGoNext = safePage < totalActivityPages
+
   return (
     <>
       <CRow className="mb-3">
@@ -570,7 +603,10 @@ const RawQueryView = () => {
               <div className="query-tracking-timeline">
                 {/* Created by */}
                 <div className="d-flex align-items-start mb-3 pb-3 border-bottom">
-                  <div className="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40 }}>
+                  <div
+                    className="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3"
+                    style={{ width: 40, height: 40, minWidth: 40 }}
+                  >
                     <CIcon icon={cilUser} className="text-white" />
                   </div>
                   <div className="flex-grow-1">
@@ -588,14 +624,23 @@ const RawQueryView = () => {
                           {getUserDisplayName(creator) || 'Unknown user'}
                         </span>
                         {creator?.role && (
-                          <CBadge color="light" textColor="dark" size="sm" className="ms-1">
+                          <CBadge
+                            color="light"
+                            textColor="dark"
+                            size="sm"
+                            className="ms-1"
+                          >
                             {creator.role}
                           </CBadge>
                         )}
                       </div>
                       {creator?.email && (
                         <div className="small text-muted ms-3">
-                          <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
+                          <CIcon
+                            icon={cilEnvelopeClosed}
+                            size="sm"
+                            className="me-1"
+                          />
                           {creator.email}
                         </div>
                       )}
@@ -605,74 +650,167 @@ const RawQueryView = () => {
 
                 {/* Activity timeline */}
                 {activitiesLoading ? (
-                  <div className="text-center py-3 text-muted small">Loading activities...</div>
+                  <div className="text-center py-3 text-muted small">
+                    Loading activities...
+                  </div>
                 ) : activities.length === 0 ? (
-                  <div className="text-center py-3 text-muted small">No other activity yet.</div>
+                  <div className="text-center py-3 text-muted small">
+                    No other activity yet.
+                  </div>
                 ) : (
-                  activities.map((act, index) => {
-                    const performer = getPerformerInfo(act, userCache)
-                    const timestamp = getTimestamp(act)
-                    const timeAgo = getTimeAgo(timestamp)
-                    return (
-                      <div key={act._id || act.id || index} className="d-flex align-items-start mb-3">
-                        <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40, backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})` }}>
-                          <CIcon icon={getActivityIcon(act.type)} className="text-white" />
-                        </div>
-                        <div className="flex-grow-1">
-                          <div className="d-flex align-items-center gap-2 flex-wrap">
-                            <CBadge color={getActivityBadgeColor(act.type)}>
-                              {getActivityLabel(act.type)}
-                            </CBadge>
-                            <span className="small text-muted">
-                              <CIcon icon={cilClock} size="sm" className="me-1" />
-                              {formatDateTime(timestamp)}
-                            </span>
-                            {timeAgo && (
-                              <span className="small text-muted fst-italic">({timeAgo})</span>
-                            )}
+                  <>
+                    {pagedActivities.map((act, index) => {
+                      const performer = getPerformerInfo(act, userCache)
+                      const timestamp = getTimestamp(act)
+                      const timeAgo = getTimeAgo(timestamp)
+
+                      return (
+                        <div
+                          key={act._id || act.id || index}
+                          className="d-flex align-items-start mb-3"
+                        >
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center me-3"
+                            style={{
+                              width: 40,
+                              height: 40,
+                              minWidth: 40,
+                              backgroundColor: `var(--cui-${getActivityBadgeColor(
+                                act.type,
+                              )})`,
+                            }}
+                          >
+                            <CIcon
+                              icon={getActivityIcon(act.type)}
+                              className="text-white"
+                            />
                           </div>
-                          <div className="mt-1">
-                            <div className="d-flex align-items-center gap-1">
-                              <CIcon icon={cilUser} size="sm" className="text-muted" />
-                              <span className="fw-semibold">{performer.name || 'Unknown user'}</span>
-                              {performer.role && (
-                                <CBadge color="light" textColor="dark" size="sm" className="ms-1">
-                                  {performer.role}
-                                </CBadge>
+                          <div className="flex-grow-1">
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <CBadge color={getActivityBadgeColor(act.type)}>
+                                {getActivityLabel(act.type)}
+                              </CBadge>
+                              <span className="small text-muted">
+                                <CIcon
+                                  icon={cilClock}
+                                  size="sm"
+                                  className="me-1"
+                                />
+                                {formatDateTime(timestamp)}
+                              </span>
+                              {timeAgo && (
+                                <span className="small text-muted fst-italic">
+                                  ({timeAgo})
+                                </span>
                               )}
                             </div>
-                            {performer.email && (
-                              <div className="small text-muted ms-3">
-                                <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
-                                {performer.email}
+                            <div className="mt-1">
+                              <div className="d-flex align-items-center gap-1">
+                                <CIcon
+                                  icon={cilUser}
+                                  size="sm"
+                                  className="text-muted"
+                                />
+                                <span className="fw-semibold">
+                                  {performer.name || 'Unknown user'}
+                                </span>
+                                {performer.role && (
+                                  <CBadge
+                                    color="light"
+                                    textColor="dark"
+                                    size="sm"
+                                    className="ms-1"
+                                  >
+                                    {performer.role}
+                                  </CBadge>
+                                )}
+                              </div>
+                              {performer.email && (
+                                <div className="small text-muted ms-3">
+                                  <CIcon
+                                    icon={cilEnvelopeClosed}
+                                    size="sm"
+                                    className="me-1"
+                                  />
+                                  {performer.email}
+                                </div>
+                              )}
+                            </div>
+                            {act.type === 'action' &&
+                              (act.meta?.action || act.metadata?.action) && (
+                                <div className="small text-body-secondary mt-1 p-2 bg-light rounded">
+                                  <strong>Action:</strong>{' '}
+                                  {act.meta?.action || act.metadata?.action}
+                                </div>
+                              )}
+                            {act.type === 'follow_up' && (
+                              <div className="small mt-1 p-2 bg-light rounded">
+                                {(act.meta?.followUpStatus ||
+                                  act.metadata?.followUpStatus) && (
+                                  <CBadge
+                                    color={
+                                      (act.meta?.followUpStatus ||
+                                        act.metadata?.followUpStatus) ===
+                                      'completed'
+                                        ? 'success'
+                                        : (act.meta?.followUpStatus ||
+                                            act.metadata?.followUpStatus) ===
+                                          'in_progress'
+                                          ? 'primary'
+                                          : (act.meta?.followUpStatus ||
+                                              act.metadata?.followUpStatus) ===
+                                              'cancelled'
+                                            ? 'danger'
+                                            : 'warning'
+                                    }
+                                    className="me-1"
+                                  >
+                                    {act.meta?.followUpStatus ||
+                                      act.metadata?.followUpStatus}
+                                  </CBadge>
+                                )}
+                                {(act.meta?.note || act.metadata?.note) && (
+                                  <span className="text-body-secondary">
+                                    {act.meta?.note || act.metadata?.note}
+                                  </span>
+                                )}
                               </div>
                             )}
                           </div>
-                          {act.type === 'action' && (act.meta?.action || act.metadata?.action) && (
-                            <div className="small text-body-secondary mt-1 p-2 bg-light rounded">
-                              <strong>Action:</strong> {act.meta?.action || act.metadata?.action}
-                            </div>
-                          )}
-                          {act.type === 'follow_up' && (
-                            <div className="small mt-1 p-2 bg-light rounded">
-                              {(act.meta?.followUpStatus || act.metadata?.followUpStatus) && (
-                                <CBadge color={
-                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'completed' ? 'success' :
-                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'in_progress' ? 'primary' :
-                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'cancelled' ? 'danger' : 'warning'
-                                } className="me-1">
-                                  {act.meta?.followUpStatus || act.metadata?.followUpStatus}
-                                </CBadge>
-                              )}
-                              {(act.meta?.note || act.metadata?.note) && (
-                                <span className="text-body-secondary">{act.meta?.note || act.metadata?.note}</span>
-                              )}
-                            </div>
-                          )}
+                        </div>
+                      )
+                    })}
+
+                    {totalActivityPages > 1 && (
+                      <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-3">
+                        <div className="small text-muted">
+                          Page {safePage} of {totalActivityPages}
+                        </div>
+                        <div className="d-flex gap-2">
+                          <CButton
+                            color="light"
+                            size="sm"
+                            disabled={!canGoPrev}
+                            onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                          >
+                            Previous
+                          </CButton>
+                          <CButton
+                            color="light"
+                            size="sm"
+                            disabled={!canGoNext}
+                            onClick={() =>
+                              setActivityPage((p) =>
+                                Math.min(totalActivityPages, p + 1),
+                              )
+                            }
+                          >
+                            Next
+                          </CButton>
                         </div>
                       </div>
-                    )
-                  })
+                    )}
+                  </>
                 )}
               </div>
             </CCardBody>

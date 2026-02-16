@@ -23,11 +23,13 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilTrash, cilArrowLeft } from '@coreui/icons'
 import productService from '../../services/productService'
+import imageService from '../../services/imageService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const VARIANT_TYPE_OPTIONS = [
   { value: 'Color', label: 'Color' },
@@ -106,6 +108,7 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -119,6 +122,7 @@ const ProductForm = () => {
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
   const [existingImages, setExistingImages] = useState([])
+  const [variantImageFiles, setVariantImageFiles] = useState({})
 
   const {
     register,
@@ -326,27 +330,45 @@ const ProductForm = () => {
     }
   }
 
+  const handleVariantImageUpload = (comboIndex, e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    setVariantImageFiles((prev) => ({
+      ...prev,
+      [comboIndex]: [...(prev[comboIndex] || []), ...files],
+    }))
+  }
+
+  const removeVariantImage = (comboIndex, fileIndex) => {
+    setVariantImageFiles((prev) => {
+      const list = prev[comboIndex] || []
+      const next = list.filter((_, i) => i !== fileIndex)
+      if (next.length === 0) {
+        const { [comboIndex]: _, ...rest } = prev
+        return rest
+      }
+      return { ...prev, [comboIndex]: next }
+    })
+  }
+
+  const extractImageUrls = (images) => {
+    if (!images || !Array.isArray(images)) return []
+    return images.map((img) => getImageDisplayUrl(img)).filter(Boolean)
+  }
+
   const onSubmit = async (values) => {
     setSubmitting(true)
+    setUploadStatus('')
     setError('')
     setSuccess('')
 
     try {
-      let uploadedImages = [...existingImages]
+      const combosForPayload = (values.hasVariants ? variantCombinations : []).map((c, i) => ({
+        ...c,
+        sku: (c.sku || '').trim() || `${values.sku}-V${i + 1}`,
+      }))
 
-      if (imageFiles.length > 0) {
-        try {
-          const uploadRes = await productService.uploadImages(imageFiles)
-          const uploadData = uploadRes?.data || uploadRes
-          if (uploadData?.images) {
-            uploadedImages = [...uploadedImages, ...uploadData.images]
-          }
-        } catch (uploadErr) {
-          console.error('Image upload failed, continuing without images', uploadErr)
-        }
-      }
-
-      const payload = {
+      const basePayload = {
         name: values.name,
         sku: values.sku,
         description: values.description || '',
@@ -380,11 +402,55 @@ const ProductForm = () => {
       }
 
       if (isEdit) {
+        let productImages = [...existingImages]
+        if (imageFiles.length > 0) {
+          try {
+            const uploadRes = await productService.uploadImagesS3(id, imageFiles)
+            const uploaded = uploadRes?.data?.images || []
+            productImages = [...productImages, ...extractImageUrls(uploaded)]
+          } catch (uploadErr) {
+            console.error('Product image upload failed', uploadErr)
+          }
+        }
+
+        const combosWithImages = variantCombinations.map((combo, idx) => {
+          const existing = extractImageUrls(combo.images || [])
+          if (variantImageFiles[idx]?.length > 0 && combo.uniqueId) {
+            return { ...combo, _pendingVariantUpload: variantImageFiles[idx] }
+          }
+          return { ...combo, images: existing }
+        })
+
+        const pendingVariantUploads = combosWithImages
+          .map((c, i) => (c._pendingVariantUpload ? { index: i, combo: c } : null))
+          .filter(Boolean)
+
+        for (const { index, combo } of pendingVariantUploads) {
+          try {
+            const res = await imageService.uploadImages({
+              productId: id,
+              files: combo._pendingVariantUpload,
+              imageType: 'variant',
+              variantCombinationUniqueId: combo.uniqueId,
+            })
+            const urls = extractImageUrls(res?.data?.images || [])
+            combosWithImages[index] = {
+              ...combo,
+              images: [...extractImageUrls(combo.images || []), ...urls],
+              _pendingVariantUpload: undefined,
+            }
+          } catch (uploadErr) {
+            console.error('Variant image upload failed', uploadErr)
+          }
+        }
+
+        const finalCombos = combosWithImages.map(({ _pendingVariantUpload, ...c }) => c)
+        const payload = { ...basePayload, images: productImages, variantCombinations: finalCombos }
         await productService.update(id, payload)
         toastSuccess('Product updated successfully')
         navigate('/products')
       } else {
-        await productService.create(payload)
+        await productService.create(basePayload)
         toastSuccess('Product created successfully')
         setTimeout(() => navigate('/products'), 1500)
       }
@@ -417,6 +483,11 @@ const ProductForm = () => {
       {error && (
         <CAlert color="danger" dismissible onClose={() => setError('')}>
           {error}
+        </CAlert>
+      )}
+      {uploadStatus && (
+        <CAlert color="info" className="mb-2">
+          {uploadStatus}
         </CAlert>
       )}
       {success && (

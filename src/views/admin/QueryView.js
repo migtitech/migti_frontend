@@ -51,16 +51,32 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('en-IN', {
+
+  const formatter = new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',
     day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    month: '2-digit',
+    year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true,
+    hour12: false,
   })
+
+  const parts = formatter.formatToParts(d).reduce((acc, part) => {
+    acc[part.type] = part.value
+    return acc
+  }, {})
+
+  const dd = parts.day || ''
+  const mm = parts.month || ''
+  const yy = parts.year || ''
+  const hh = parts.hour || ''
+  const mi = parts.minute || ''
+  const ss = parts.second || ''
+
+  // ddmmyy and HH:MM:SS
+  return `${dd}${mm}${yy} ${hh}:${mi}:${ss}`
 }
 
 const getTimeAgo = (dateStr) => {
@@ -128,6 +144,8 @@ const QueryView = () => {
   const [submitting, setSubmitting] = useState(false)
   const [statusUpdating, setStatusUpdating] = useState(false)
   const [userCache, setUserCache] = useState({})
+  const [activityPage, setActivityPage] = useState(1)
+  const ACTIVITIES_PER_PAGE = 10
 
   const fetchActivities = async () => {
     if (!id) return
@@ -137,6 +155,7 @@ const QueryView = () => {
       const resData = res?.data
       const arr = Array.isArray(resData) ? resData : (resData?.data ?? [])
       setActivities(Array.isArray(arr) ? arr : [])
+      setActivityPage(1)
     } catch {
       setActivities([])
     } finally {
@@ -375,6 +394,20 @@ const QueryView = () => {
     return variants.map((v) => `${v.variantName || '—'} × ${v.quantity ?? 0}`).join(', ')
   }
 
+  const totalActivityPages = Math.max(
+    1,
+    Math.ceil((activities || []).length / ACTIVITIES_PER_PAGE),
+  )
+  const safePage =
+    activityPage > totalActivityPages ? totalActivityPages : activityPage
+  const pagedActivities = (activities || []).slice(
+    (safePage - 1) * ACTIVITIES_PER_PAGE,
+    safePage * ACTIVITIES_PER_PAGE,
+  )
+
+  const canGoPrev = safePage > 1
+  const canGoNext = safePage < totalActivityPages
+
   return (
     <>
       <CRow className="mb-3">
@@ -529,7 +562,8 @@ const QueryView = () => {
               ) : activities.length === 0 ? (
                 <div className="text-center py-3 text-muted small">No other activity yet.</div>
               ) : (
-                activities.map((act, index) => {
+                <>
+                  {pagedActivities.map((act, index) => {
                   const performer = getPerformerInfo(act)
                   const timestamp = act.createdAt || act.created_at || act.timestamp
                   return (
@@ -561,9 +595,38 @@ const QueryView = () => {
                           </div>
                         )}
                       </div>
+                      </div>
+                    )
+                  })}
+
+                  {totalActivityPages > 1 && (
+                    <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-3">
+                      <div className="small text-muted">
+                        Page {safePage} of {totalActivityPages}
+                      </div>
+                      <div className="d-flex gap-2">
+                        <CButton
+                          color="light"
+                          size="sm"
+                          disabled={!canGoPrev}
+                          onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                        >
+                          Previous
+                        </CButton>
+                        <CButton
+                          color="light"
+                          size="sm"
+                          disabled={!canGoNext}
+                          onClick={() =>
+                            setActivityPage((p) => Math.min(totalActivityPages, p + 1))
+                          }
+                        >
+                          Next
+                        </CButton>
+                      </div>
                     </div>
-                  )
-                })
+                  )}
+                </>
               )}
             </CCardBody>
           </CCard>

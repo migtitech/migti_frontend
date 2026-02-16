@@ -19,6 +19,7 @@ import productService from '../../services/productService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError } from '../../utils/toast'
+import { getImageDisplayUrl } from '../../utils/imageUtils'
 
 const ProductView = () => {
   const { id } = useParams()
@@ -249,7 +250,7 @@ const ProductView = () => {
                   {product.images.map((img, index) => (
                     <CImage
                       key={index}
-                      src={img}
+                      src={getImageDisplayUrl(img)}
                       width={150}
                       height={150}
                       className="object-fit-cover rounded border"

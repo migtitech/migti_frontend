@@ -2,6 +2,15 @@ import { api } from '../api/axiosClient'
 import axiosClient from '../api/axiosClient'
 import { PRODUCTS } from '../api/endpoints'
 
+const getFormDataConfig = () => ({
+  transformRequest: [(data, headers) => {
+    if (data instanceof FormData) {
+      delete headers['Content-Type']
+    }
+    return data
+  }],
+})
+
 const productService = {
   getAll: async (params = {}) => {
     const response = await api.get(PRODUCTS.LIST, { params })
@@ -34,14 +43,47 @@ const productService = {
     return response
   },
 
+  /**
+   * Legacy: Local disk upload (no productId). Returns paths for use in create payload.
+   */
   uploadImages: async (files) => {
     const formData = new FormData()
     files.forEach((file) => {
       formData.append('images', file)
     })
-    const response = await axiosClient.post(PRODUCTS.UPLOAD_IMAGES, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const response = await axiosClient.post(PRODUCTS.UPLOAD_IMAGES, formData, getFormDataConfig())
+    return response
+  },
+
+  /**
+   * S3 upload for product images. Requires productId. Saves to Images model.
+   * Use after product is created or when editing existing product.
+   *
+   * @param {string} productId
+   * @param {File[]} files
+   * @returns {Promise<{ data: { images: Array } }>}
+   */
+  uploadImagesS3: async (productId, files) => {
+    const formData = new FormData()
+    files.forEach((file) => {
+      formData.append('images', file)
     })
+    if (import.meta.env?.DEV) {
+      console.debug('[productService.uploadImagesS3] Request:', {
+        url: `${PRODUCTS.UPLOAD_IMAGES_S3}?productId=${productId}`,
+        productId,
+        fileCount: files.length,
+        contentType: '(browser-set multipart/form-data with boundary)',
+      })
+    }
+    const response = await axiosClient.post(
+      `${PRODUCTS.UPLOAD_IMAGES_S3}?productId=${productId}`,
+      formData,
+      getFormDataConfig(),
+    )
+    if (import.meta.env?.DEV) {
+      console.debug('[productService.uploadImagesS3] Response:', response)
+    }
     return response
   },
 }

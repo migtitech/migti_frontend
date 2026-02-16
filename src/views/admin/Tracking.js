@@ -40,16 +40,32 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('en-IN', {
+
+  const formatter = new Intl.DateTimeFormat('en-IN', {
     timeZone: 'Asia/Kolkata',
     day: '2-digit',
-    month: 'short',
-    year: 'numeric',
+    month: '2-digit',
+    year: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: true,
+    hour12: false,
   })
+
+  const parts = formatter.formatToParts(d).reduce((acc, part) => {
+    acc[part.type] = part.value
+    return acc
+  }, {})
+
+  const dd = parts.day || ''
+  const mm = parts.month || ''
+  const yy = parts.year || ''
+  const hh = parts.hour || ''
+  const mi = parts.minute || ''
+  const ss = parts.second || ''
+
+  // ddmmyy and HH:MM:SS
+  return `${dd}${mm}${yy} ${hh}:${mi}:${ss}`
 }
 
 const formatDate = (dateStr) => {
@@ -121,6 +137,8 @@ const Tracking = () => {
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [userCache, setUserCache] = useState({})
+  const [activityPage, setActivityPage] = useState(1)
+  const ACTIVITIES_PER_PAGE = 10
 
   const handleSearch = async () => {
     const trimmed = searchInput.trim()
@@ -181,6 +199,7 @@ const Tracking = () => {
           const resData = actRes?.data
           const arr = Array.isArray(resData) ? resData : (resData?.data ?? [])
           setActivities(Array.isArray(arr) ? arr : [])
+          setActivityPage(1)
         } catch {
           setActivities([])
         }
@@ -234,6 +253,7 @@ const Tracking = () => {
           const actRes = await rawQueryService.getActivities(recordId)
           const actData = actRes?.data ?? []
           setActivities(Array.isArray(actData) ? actData : (actRes?.data?.data ?? []))
+          setActivityPage(1)
         } catch {
           setActivities([])
         }
@@ -428,6 +448,20 @@ const Tracking = () => {
     const colorMap = { closed: 'secondary', convertedToQuotation: 'success', progress: 'primary', followup01pending: 'warning', followup02pending: 'warning', followup03pending: 'warning', pending: 'info' }
     return <CBadge color={colorMap[status] || 'secondary'}>{status || '—'}</CBadge>
   }
+
+  const totalActivityPages = Math.max(
+    1,
+    Math.ceil((activities || []).length / ACTIVITIES_PER_PAGE),
+  )
+  const safePage =
+    activityPage > totalActivityPages ? totalActivityPages : activityPage
+  const pagedActivities = (activities || []).slice(
+    (safePage - 1) * ACTIVITIES_PER_PAGE,
+    safePage * ACTIVITIES_PER_PAGE,
+  )
+
+  const canGoPrev = safePage > 1
+  const canGoNext = safePage < totalActivityPages
 
   return (
     <>
@@ -723,105 +757,158 @@ const Tracking = () => {
                     No tracking activities recorded yet.
                   </div>
                 ) : (
-                  activities.map((act, index) => {
-                    const performer = getPerformerInfo(act)
-                    const timestamp = getTimestamp(act)
-                    const isLast = index === activities.length - 1
-                    return (
-                      <div
-                        key={act._id || act.id || index}
-                        className={`d-flex align-items-start mb-3 ${!isLast ? 'pb-3 border-bottom' : ''}`}
-                      >
+                  <>
+                    {pagedActivities.map((act, index) => {
+                      const performer = getPerformerInfo(act)
+                      const timestamp = getTimestamp(act)
+                      const globalIndex =
+                        (safePage - 1) * ACTIVITIES_PER_PAGE + index
+                      const isLast = globalIndex === activities.length - 1
+
+                      return (
                         <div
-                          className="rounded-circle d-flex align-items-center justify-content-center me-3"
-                          style={{
-                            width: 40,
-                            height: 40,
-                            minWidth: 40,
-                            backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})`,
-                          }}
+                          key={act._id || act.id || index}
+                          className={`d-flex align-items-start mb-3 ${
+                            !isLast ? 'pb-3 border-bottom' : ''
+                          }`}
                         >
-                          <CIcon
-                            icon={getActivityIcon(act.type)}
-                            className="text-white"
-                          />
-                        </div>
-                        <div className="flex-grow-1">
-                          <div className="d-flex align-items-center gap-2 flex-wrap">
-                            <CBadge color={getActivityBadgeColor(act.type)}>
-                              {getActivityLabel(act.type)}
-                            </CBadge>
-                            <span className="small text-muted">
-                              <CIcon icon={cilClock} size="sm" className="me-1" />
-                              {formatDateTime(timestamp)}
-                            </span>
-                            <span className="small text-muted fst-italic">
-                              ({getTimeAgo(timestamp)})
-                            </span>
+                          <div
+                            className="rounded-circle d-flex align-items-center justify-content-center me-3"
+                            style={{
+                              width: 40,
+                              height: 40,
+                              minWidth: 40,
+                              backgroundColor: `var(--cui-${getActivityBadgeColor(
+                                act.type,
+                              )})`,
+                            }}
+                          >
+                            <CIcon
+                              icon={getActivityIcon(act.type)}
+                              className="text-white"
+                            />
                           </div>
-
-                          {/* Performer details */}
-                          <div className="mt-1">
-                            <div className="d-flex align-items-center gap-2">
-                              <CIcon icon={cilUser} size="sm" className="text-muted" />
-                              <span className="fw-semibold">
-                                {performer.name || 'Unknown user'}
+                          <div className="flex-grow-1">
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <CBadge color={getActivityBadgeColor(act.type)}>
+                                {getActivityLabel(act.type)}
+                              </CBadge>
+                              <span className="small text-muted">
+                                <CIcon icon={cilClock} size="sm" className="me-1" />
+                                {formatDateTime(timestamp)}
                               </span>
-                              {performer.role && (
-                                <CBadge color="light" textColor="dark" size="sm">
-                                  {performer.role}
-                                </CBadge>
+                              <span className="small text-muted fst-italic">
+                                ({getTimeAgo(timestamp)})
+                              </span>
+                            </div>
+
+                            {/* Performer details */}
+                            <div className="mt-1">
+                              <div className="d-flex align-items-center gap-2">
+                                <CIcon
+                                  icon={cilUser}
+                                  size="sm"
+                                  className="text-muted"
+                                />
+                                <span className="fw-semibold">
+                                  {performer.name || 'Unknown user'}
+                                </span>
+                                {performer.role && (
+                                  <CBadge color="light" textColor="dark" size="sm">
+                                    {performer.role}
+                                  </CBadge>
+                                )}
+                              </div>
+                              {performer.email && (
+                                <div className="small text-muted ms-4">
+                                  <CIcon
+                                    icon={cilEnvelopeClosed}
+                                    size="sm"
+                                    className="me-1"
+                                  />
+                                  {performer.email}
+                                </div>
+                              )}
+                              {performer.phone && (
+                                <div className="small text-muted ms-4">
+                                  <CIcon icon={cilPhone} size="sm" className="me-1" />
+                                  {performer.phone}
+                                </div>
                               )}
                             </div>
-                            {performer.email && (
-                              <div className="small text-muted ms-4">
-                                <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
-                                {performer.email}
-                              </div>
-                            )}
-                            {performer.phone && (
-                              <div className="small text-muted ms-4">
-                                <CIcon icon={cilPhone} size="sm" className="me-1" />
-                                {performer.phone}
+
+                            {/* Action details */}
+                            {act.type === 'action' &&
+                              (act.meta?.action || act.metadata?.action) && (
+                                <div className="mt-2 p-2 bg-light rounded small">
+                                  <strong>Action:</strong>{' '}
+                                  {act.meta?.action || act.metadata?.action}
+                                </div>
+                              )}
+
+                            {/* Follow-up details */}
+                            {act.type === 'follow_up' && (
+                              <div className="mt-2 p-2 bg-light rounded small">
+                                {(act.meta?.followUpStatus ||
+                                  act.metadata?.followUpStatus) && (
+                                  <div className="mb-1">
+                                    <strong>Status:</strong>{' '}
+                                    <CBadge
+                                      color={getFollowUpStatusColor(
+                                        act.meta?.followUpStatus ||
+                                          act.metadata?.followUpStatus,
+                                      )}
+                                    >
+                                      {act.meta?.followUpStatus ||
+                                        act.metadata?.followUpStatus}
+                                    </CBadge>
+                                  </div>
+                                )}
+                                {(act.meta?.note || act.metadata?.note) && (
+                                  <div>
+                                    <strong>Note:</strong>{' '}
+                                    {act.meta?.note || act.metadata?.note}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
+                        </div>
+                      )
+                    })}
 
-                          {/* Action details */}
-                          {act.type === 'action' && (act.meta?.action || act.metadata?.action) && (
-                            <div className="mt-2 p-2 bg-light rounded small">
-                              <strong>Action:</strong>{' '}
-                              {act.meta?.action || act.metadata?.action}
-                            </div>
-                          )}
-
-                          {/* Follow-up details */}
-                          {act.type === 'follow_up' && (
-                            <div className="mt-2 p-2 bg-light rounded small">
-                              {(act.meta?.followUpStatus || act.metadata?.followUpStatus) && (
-                                <div className="mb-1">
-                                  <strong>Status:</strong>{' '}
-                                  <CBadge
-                                    color={getFollowUpStatusColor(
-                                      act.meta?.followUpStatus || act.metadata?.followUpStatus,
-                                    )}
-                                  >
-                                    {act.meta?.followUpStatus || act.metadata?.followUpStatus}
-                                  </CBadge>
-                                </div>
-                              )}
-                              {(act.meta?.note || act.metadata?.note) && (
-                                <div>
-                                  <strong>Note:</strong>{' '}
-                                  {act.meta?.note || act.metadata?.note}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                    {totalActivityPages > 1 && (
+                      <div className="d-flex justify-content-between align-items-center pt-3 border-top mt-3">
+                        <div className="small text-muted">
+                          Page {safePage} of {totalActivityPages}
+                        </div>
+                        <div className="d-flex gap-2">
+                          <CButton
+                            color="light"
+                            size="sm"
+                            disabled={!canGoPrev}
+                            onClick={() =>
+                              setActivityPage((p) => Math.max(1, p - 1))
+                            }
+                          >
+                            Previous
+                          </CButton>
+                          <CButton
+                            color="light"
+                            size="sm"
+                            disabled={!canGoNext}
+                            onClick={() =>
+                              setActivityPage((p) =>
+                                Math.min(totalActivityPages, p + 1),
+                              )
+                            }
+                          >
+                            Next
+                          </CButton>
                         </div>
                       </div>
-                    )
-                  })
+                    )}
+                  </>
                 )}
               </CCardBody>
             </CCard>

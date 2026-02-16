@@ -89,6 +89,12 @@ export const PRODUCTS = {
   UPDATE: '/products/update',
   DELETE: '/products/delete',
   UPLOAD_IMAGES: '/products/upload-images',
+  UPLOAD_IMAGES_S3: '/products/upload-images-s3',
+}
+
+export const IMAGES = {
+  UPLOAD: '/images/upload',
+  DELETE: '/images/delete',
 }
 
 export const SUPPLIERS = {
