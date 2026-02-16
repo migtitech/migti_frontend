@@ -34,24 +34,11 @@ const uploadImages = async ({ productId, files, imageType = 'product', variantCo
     params.append('variantCombinationUniqueId', variantCombinationUniqueId)
   }
 
-  if (import.meta.env?.DEV) {
-    console.debug('[imageService.uploadImages] Request:', {
-      url: `${IMAGES.UPLOAD}?${params.toString()}`,
-      productId,
-      imageType,
-      variantCombinationUniqueId: variantCombinationUniqueId || '(none)',
-      fileCount: files.length,
-      contentType: '(browser-set multipart/form-data with boundary)',
-    })
-  }
   const response = await axiosClient.post(
     `${IMAGES.UPLOAD}?${params.toString()}`,
     formData,
     getFormDataConfig(),
   )
-  if (import.meta.env?.DEV) {
-    console.debug('[imageService.uploadImages] Response:', response)
-  }
   return response
 }
 

@@ -69,21 +69,13 @@ const productService = {
       formData.append('images', file)
     })
     if (import.meta.env?.DEV) {
-      console.debug('[productService.uploadImagesS3] Request:', {
-        url: `${PRODUCTS.UPLOAD_IMAGES_S3}?productId=${productId}`,
-        productId,
-        fileCount: files.length,
-        contentType: '(browser-set multipart/form-data with boundary)',
-      })
+      
     }
     const response = await axiosClient.post(
       `${PRODUCTS.UPLOAD_IMAGES_S3}?productId=${productId}`,
       formData,
       getFormDataConfig(),
     )
-    if (import.meta.env?.DEV) {
-      console.debug('[productService.uploadImagesS3] Response:', response)
-    }
     return response
   },
 }

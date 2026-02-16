@@ -122,6 +122,7 @@ const ProductForm = () => {
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
   const [existingImages, setExistingImages] = useState([])
+  const [variantCombinations, setVariantCombinations] = useState([])
   const [variantImageFiles, setVariantImageFiles] = useState({})
 
   const {
@@ -223,6 +224,7 @@ const ProductForm = () => {
           }
         })
         setCustomVariantInput(customInputMap)
+        setVariantCombinations(product.variantCombinations || [])
         setExistingImages(product.images || [])
         setImagePreviews(product.images || [])
         if (product.category?._id || product.category) {
@@ -363,6 +365,7 @@ const ProductForm = () => {
     setSuccess('')
 
     try {
+      const uploadedImages = extractImageUrls(existingImages)
       const combosForPayload = (values.hasVariants ? variantCombinations : []).map((c, i) => ({
         ...c,
         sku: (c.sku || '').trim() || `${values.sku}-V${i + 1}`,
