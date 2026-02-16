@@ -112,16 +112,28 @@ const IndustryView = () => {
                   <span>{industry.location || '-'}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Email:</strong>
-                  <span>{industry.email || '-'}</span>
+                  <strong>GST Number:</strong>
+                  <span>{industry.gstNumber || '-'}</span>
                 </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Purchase Manager:</strong>
-                  <span>{industry.purchase_manager_name || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Purchase Manager Phone:</strong>
-                  <span>{industry.purchase_manager_phone || '-'}</span>
+                <CListGroupItem>
+                  <strong>Purchase Managers:</strong>
+                  {(industry.purchaseManagers || []).length > 0 ? (
+                    <ul className="mb-0 mt-2 ps-3">
+                      {industry.purchaseManagers.map((pm) => (
+                        <li key={pm._id || pm.name}>
+                          {pm.name}
+                          {pm.phone ? ` · ${pm.phone}` : ''}
+                          {pm.email ? ` · ${pm.email}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="d-block mt-2">
+                      {industry.purchase_manager_name
+                        ? `${industry.purchase_manager_name}${industry.purchase_manager_phone ? ` · ${industry.purchase_manager_phone}` : ''}${industry.email ? ` · ${industry.email}` : ''}`
+                        : '-'}
+                    </span>
+                  )}
                 </CListGroupItem>
                 <CListGroupItem>
                   <strong>Address:</strong>

@@ -61,7 +61,7 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Areas',
+    name: 'Zones',
     to: '/areas',
     icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'hod'],
@@ -80,6 +80,12 @@ const _nav = [
     icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
     roles: ['super_admin', 'admin', 'sales', 'finance', 'purchase', 'hod'],
     items: [
+      {
+        component: CNavItem,
+        name: 'Groups',
+        to: '/groups',
+        icon: <CIcon icon={cilList} customClassName="nav-icon" />,
+      },
       {
         component: CNavItem,
         name: 'Categories',

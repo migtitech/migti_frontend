@@ -1,5 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
 import {
   CCard,
   CCardBody,
@@ -13,23 +12,23 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
+  CBadge,
   CAlert,
   CPagination,
   CPaginationItem,
-  CFormInput,
-  CInputGroup,
-  CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
-import industryService from '../../services/industryService'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { useNavigate } from 'react-router-dom'
+import groupService from '../../services/groupService'
+import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
-const IndustryList = () => {
+const GroupList = () => {
   const navigate = useNavigate()
-  const [industries, setIndustries] = useState([])
+  const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -37,49 +36,57 @@ const IndustryList = () => {
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const fetchIndustries = useCallback(async () => {
+  const fetchGroups = async () => {
     setLoading(true)
     setError('')
     try {
       const res = await withMinimumDelay(() =>
-        industryService.getAll({
+        groupService.getAll({
           pageNumber: page,
           pageSize: 10,
-          search: searchTerm || undefined,
-        }),
+          search: searchTerm,
+        })
       )
       const data = res?.data || res
-      setIndustries(data?.industries || [])
+      setGroups(data?.groups || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch industries')
+      setError(err?.message || 'Failed to fetch groups')
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm])
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchIndustries()
+      fetchGroups()
     }, 300)
     return () => clearTimeout(timer)
-  }, [fetchIndustries])
+  }, [searchTerm, page])
 
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id })
   }
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
+    const { id } = confirmDelete
     setConfirmDelete({ visible: false, id: null })
     if (!id) return
     try {
-      await industryService.delete(id)
-      toastSuccess('Industry deleted successfully')
-      fetchIndustries()
+      await groupService.delete(id)
+      toastSuccess('Group deleted successfully')
+      fetchGroups()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete industry')
+      toastError(err?.message || 'Failed to delete group')
     }
+  }
+
+  const getStatusBadge = (status) => {
+    return status === 'active' ? (
+      <CBadge color="success">Active</CBadge>
+    ) : (
+      <CBadge color="secondary">Inactive</CBadge>
+    )
   }
 
   return (
@@ -87,10 +94,10 @@ const IndustryList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Industries</strong>
-            <CButton color="primary" onClick={() => navigate('/industries/new')}>
+            <strong>Groups</strong>
+            <CButton color="primary" onClick={() => navigate('/groups/new')}>
               <CIcon icon={cilPlus} className="me-2" />
-              Add Industry
+              Add Group
             </CButton>
           </CCardHeader>
           <CCardBody>
@@ -99,77 +106,44 @@ const IndustryList = () => {
                 {error}
               </CAlert>
             )}
-            <CRow className="mb-3 align-items-end">
-              <CCol md={6}>
-                <CInputGroup>
-                  <CInputGroupText>
-                    <CIcon icon={cilSearch} />
-                  </CInputGroupText>
-                  <CFormInput
-                    type="text"
-                    placeholder="Search industries..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value)
-                      setPage(1)
-                    }}
-                  />
-                </CInputGroup>
-              </CCol>
-            </CRow>
+            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
             {loading ? (
-              <Loader message="Loading industries..." />
+              <Loader message="Loading groups..." />
             ) : (
               <>
                 <CTable hover responsive>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Industry Name</CTableHeaderCell>
-                      <CTableHeaderCell>GST No</CTableHeaderCell>
-                      <CTableHeaderCell>Area</CTableHeaderCell>
-                      <CTableHeaderCell>Location</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase Managers</CTableHeaderCell>
+                      <CTableHeaderCell>Code</CTableHeaderCell>
+                      <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Description</CTableHeaderCell>
+                      <CTableHeaderCell>Sort Order</CTableHeaderCell>
+                      <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
-                    {industries.map((industry, index) => (
-                      <CTableRow key={industry._id}
-                        onClick={() => navigate(`/industries/${industry._id}`)} 
-                        style={{ cursor: 'pointer' }}
-                      >
+                    {groups.map((grp, index) => (
+                      <CTableRow key={grp._id}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
-                          <strong>{industry.name}</strong>
+                          <code>{grp.code || '—'}</code>
                         </CTableDataCell>
                         <CTableDataCell>
-                          {typeof industry.area === 'object'
-                            ? industry.area?.name || '-'
-                            : industry.area || '-'}
+                          <strong>{grp.name}</strong>
                         </CTableDataCell>
-                        <CTableDataCell>{industry.location || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.address || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_name || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.email || '-'}</CTableDataCell>
                         <CTableDataCell>
-                          <CButton
-                            color="info"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/industries/${industry._id}`)}
-                            title="View"
-                          >
-                            <CIcon icon={cilZoom} />
-                          </CButton>
+                          {grp.description?.substring(0, 50) || '—'}
+                        </CTableDataCell>
+                        <CTableDataCell>{grp.sortOrder ?? 0}</CTableDataCell>
+                        <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
+                        <CTableDataCell>
                           <CButton
                             color="warning"
                             variant="ghost"
                             size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/industries/edit/${industry._id}`)}}
+                            onClick={() => navigate(`/groups/edit/${grp._id}`)}
                             title="Edit"
                           >
                             <CIcon icon={cilPencil} />
@@ -178,9 +152,7 @@ const IndustryList = () => {
                             color="danger"
                             variant="ghost"
                             size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteClick(industry._id)}}
+                            onClick={() => handleDeleteClick(grp._id)}
                             title="Delete"
                           >
                             <CIcon icon={cilTrash} />
@@ -188,12 +160,12 @@ const IndustryList = () => {
                         </CTableDataCell>
                       </CTableRow>
                     ))}
-                    {industries.length === 0 && (
+                    {groups.length === 0 && (
                       <CTableRow>
                         <CTableDataCell colSpan={7} className="text-center">
                           {searchTerm
-                            ? 'No industries match the current search.'
-                            : 'No industries found. Click "Add Industry" to create one.'}
+                            ? `No groups found matching "${searchTerm}"`
+                            : 'No groups found. Click "Add Group" to create one.'}
                         </CTableDataCell>
                       </CTableRow>
                     )}
@@ -234,8 +206,8 @@ const IndustryList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Industry?"
-        message="Are you sure you want to delete this industry? This action cannot be undone."
+        title="Delete Group?"
+        message="Are you sure you want to delete this group? Categories linked to it will need to be updated first."
         confirmText="Delete"
         cancelText="Cancel"
       />
@@ -243,4 +215,4 @@ const IndustryList = () => {
   )
 }
 
-export default IndustryList
+export default GroupList

@@ -16,6 +16,7 @@ import {
 } from '@coreui/react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import categoryService from '../../services/categoryService'
+import groupService from '../../services/groupService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -30,16 +31,31 @@ const CategoryForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    group: '',
     parent: '',
     status: 'active',
     sortOrder: 0,
     categoryCode: '',
   })
 
+  const [groups, setGroups] = useState([])
   const [rootCategories, setRootCategories] = useState([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  const fetchGroups = async () => {
+    try {
+      const res = await groupService.getAll({
+        pageNumber: 1,
+        pageSize: 100,
+      })
+      const data = res?.data || res
+      setGroups(data?.groups || [])
+    } catch (err) {
+      console.error('Failed to fetch groups', err)
+    }
+  }
 
   const fetchRootCategories = async () => {
     try {
@@ -56,6 +72,7 @@ const CategoryForm = () => {
   }
 
   useEffect(() => {
+    fetchGroups()
     fetchRootCategories()
   }, [])
 
@@ -74,6 +91,7 @@ const CategoryForm = () => {
         setFormData({
           name: category.name || '',
           description: category.description || '',
+          group: category.group?._id || category.group || '',
           parent: category.parent?._id || category.parent || '',
           status: category.status || 'active',
           sortOrder: category.sortOrder ?? 0,
@@ -107,6 +125,7 @@ const CategoryForm = () => {
       const payload = {
         ...rest,
         sortOrder: parseInt(formData.sortOrder, 10) || 0,
+        group: formData.group || null,
         parent: formData.parent || null,
       }
       if (isEdit) {
@@ -179,6 +198,27 @@ const CategoryForm = () => {
                         : 'Root category code will be e.g. MIG01, MIG02...'}
                     </small>
                   )}
+                </CCol>
+              </CRow>
+
+              {/* Row 0.5: Group (select first before category) */}
+              <CRow className="mb-3">
+                <CCol md={6}>
+                  <CFormLabel>Group</CFormLabel>
+                  <CFormSelect
+                    name="group"
+                    value={formData.group}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select Group (optional)</option>
+                    {groups.map((grp) => (
+                      <option key={grp._id} value={grp._id}>
+                        {grp.name}
+                        {grp.code ? ` (${grp.code})` : ''}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                  <small className="text-muted">Select a group before creating the category.</small>
                 </CCol>
               </CRow>
 

@@ -20,6 +20,10 @@ const CategoryList = React.lazy(() => import('./views/admin/CategoryList'))
 const CategoryForm = React.lazy(() => import('./views/admin/CategoryForm'))
 const CategoryView = React.lazy(() => import('./views/admin/CategoryView'))
 
+// Groups
+const GroupList = React.lazy(() => import('./views/admin/GroupList'))
+const GroupForm = React.lazy(() => import('./views/admin/GroupForm'))
+
 // Brands
 const BrandList2 = React.lazy(() => import('./views/admin/BrandList'))
 const BrandForm = React.lazy(() => import('./views/admin/BrandForm'))
@@ -100,6 +104,11 @@ const routes = [
   { path: '/categories/edit/:id', name: 'Edit Category', element: CategoryForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
   { path: '/categories/:id', name: 'Category Details', element: CategoryView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
 
+  // Groups - accessible by super_admin, admin, purchase, hod
+  { path: '/groups', name: 'Groups', element: GroupList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/groups/new', name: 'Add Group', element: GroupForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+  { path: '/groups/edit/:id', name: 'Edit Group', element: GroupForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
+
   // Brands - accessible by super_admin, admin, purchase, hod
   { path: '/brands', name: 'Brands', element: BrandList2, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
   { path: '/brands/new', name: 'Add Brands', element: BrandForm, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
@@ -153,11 +162,11 @@ const routes = [
   { path: '/employees/edit/:id', name: 'Edit Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, allowedRoles: ['super_admin', 'admin', 'hod'] },
 
-  // Areas - company, branch, name, city, area type
-  { path: '/areas', name: 'Areas', element: AreaList, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/new', name: 'Add Area', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/edit/:id', name: 'Edit Area', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
-  { path: '/areas/:id', name: 'Area Details', element: AreaView, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  // Zones - company, branch, name, city, area type
+  { path: '/areas', name: 'Zones', element: AreaList, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/areas/new', name: 'Add Zone', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/areas/edit/:id', name: 'Edit Zone', element: AreaForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
+  { path: '/areas/:id', name: 'Zone Details', element: AreaView, allowedRoles: ['super_admin', 'admin', 'hod'] },
 
   // Industries - accessible by super_admin, admin, purchase, hod
   { path: '/industries', name: 'Industries', element: IndustryList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },

@@ -34,8 +34,8 @@ const AreaView = () => {
         const data = res?.data?.data || res?.data || res
         setArea(data)
       } catch (err) {
-        setError(err?.message || 'Failed to load area')
-        toastError(err?.message || 'Failed to load area')
+        setError(err?.message || 'Failed to load zone')
+        toastError(err?.message || 'Failed to load zone')
       } finally {
         setLoading(false)
       }
@@ -47,7 +47,7 @@ const AreaView = () => {
     return (
       <CCard>
         <CCardBody>
-          <Loader message="Loading area..." />
+          <Loader message="Loading zone..." />
         </CCardBody>
       </CCard>
     )
@@ -57,9 +57,9 @@ const AreaView = () => {
     return (
       <CCard>
         <CCardBody className="text-center py-5">
-          <p className="text-danger mb-3">{error || 'Area not found'}</p>
+          <p className="text-danger mb-3">{error || 'Zone not found'}</p>
           <CButton color="primary" onClick={() => navigate('/areas')}>
-            Back to Areas
+            Back to Zones
           </CButton>
         </CCardBody>
       </CCard>
@@ -74,13 +74,13 @@ const AreaView = () => {
         <CCol>
           <CButton color="secondary" variant="outline" onClick={() => navigate('/areas')}>
             <CIcon icon={cilArrowLeft} className="me-2" />
-            Back to Areas
+            Back to Zones
           </CButton>
         </CCol>
         <CCol className="text-end">
           <CButton color="primary" onClick={() => navigate(`/areas/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-2" />
-            Edit Area
+            Edit Zone
           </CButton>
         </CCol>
       </CRow>
@@ -89,7 +89,7 @@ const AreaView = () => {
         <CCol xs={12} >
           <CCard>
             <CCardHeader>
-              <strong>Area Details</strong>
+              <strong>Zone Details</strong>
             </CCardHeader>
             <CCardBody>
               <CListGroup flush>
@@ -102,7 +102,7 @@ const AreaView = () => {
                   <span>{area.city}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between align-items-center">
-                  <span className="text-muted">Area Type</span>
+                  <span className="text-muted">Zone Type</span>
                   <CBadge color={area.areaType === 'market' ? 'info' : 'secondary'}>
                     {areaTypeLabel}
                   </CBadge>

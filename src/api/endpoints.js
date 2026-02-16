@@ -74,6 +74,14 @@ export const CATEGORIES = {
   DELETE: '/categories/delete',
 }
 
+export const GROUPS = {
+  CREATE: '/groups/create',
+  LIST: '/groups/list',
+  GET_BY_ID: '/groups/get-by-id',
+  UPDATE: '/groups/update',
+  DELETE: '/groups/delete',
+}
+
 export const BRANDS = {
   CREATE: '/brands/create',
   LIST: '/brands/list',
@@ -125,6 +133,14 @@ export const INDUSTRIES = {
   DELETE: '/industries/delete',
 }
 
+export const INDUSTRY_BRANCHES = {
+  CREATE: '/industry-branches/create',
+  LIST: '/industry-branches/list',
+  GET_BY_ID: '/industry-branches/get-by-id',
+  UPDATE: '/industry-branches/update',
+  DELETE: '/industry-branches/delete',
+}
+
 export const QUERIES = {
   CREATE: '/queries/create',
   LIST: '/queries/list',
@@ -147,11 +163,13 @@ export default {
   RAW_QUERIES,
   DASHBOARD,
   CATEGORIES,
+  GROUPS,
   BRANDS,
   PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
   AREAS,
   INDUSTRIES,
+  INDUSTRY_BRANCHES,
   QUERIES,
 }

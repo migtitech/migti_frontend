@@ -149,6 +149,7 @@ const CategoryList = () => {
                       <CTableHeaderCell style={{ width: 40 }}></CTableHeaderCell>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Code</CTableHeaderCell>
+                      <CTableHeaderCell>Group</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell>Sort Order</CTableHeaderCell>
@@ -179,6 +180,9 @@ const CategoryList = () => {
                           <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                           <CTableDataCell>
                             <code>{cat.categoryCode || '—'}</code>
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {typeof cat.group === 'object' ? cat.group?.name || '—' : '—'}
                           </CTableDataCell>
                           <CTableDataCell>
                             <strong>{cat.name}</strong>
@@ -241,6 +245,9 @@ const CategoryList = () => {
                               <CTableDataCell>
                                 <code>{sub.categoryCode || '—'}</code>
                               </CTableDataCell>
+                              <CTableDataCell>
+                                {typeof sub.group === 'object' ? sub.group?.name || '—' : '—'}
+                              </CTableDataCell>
                               <CTableDataCell className="ps-4">
                                 &#8627; {sub.name}
                               </CTableDataCell>
@@ -284,7 +291,7 @@ const CategoryList = () => {
                     ))}
                     {categories.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={8} className="text-center">
+                        <CTableDataCell colSpan={9} className="text-center">
                           {searchTerm
                             ? `No categories found matching "${searchTerm}"`
                             : 'No categories found. Click "Add Category" to create one.'}

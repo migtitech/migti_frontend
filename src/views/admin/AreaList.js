@@ -85,10 +85,10 @@ const AreaList = () => {
     if (!aid) return
     try {
       await areaService.delete(aid)
-      toastSuccess('Area deleted successfully')
+      toastSuccess('Zone deleted successfully')
       fetchAreas()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete area')
+      toastError(err?.message || 'Failed to delete zone')
     }
   }
 
@@ -101,10 +101,10 @@ const AreaList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <strong>Areas</strong>
+            <strong>Zones</strong>
             <CButton color="primary" onClick={() => navigate('/areas/new')}>
               <CIcon icon={cilPlus} className="me-2" />
-              Add Area
+              Add Zone
             </CButton>
           </CCardHeader>
           <CCardBody>
@@ -152,7 +152,7 @@ const AreaList = () => {
               </CCol>
             </CRow>
             {loading ? (
-              <Loader message="Loading areas..." />
+              <Loader message="Loading zones..." />
             ) : (
               <>
                 <CTable responsive hover>
@@ -160,7 +160,7 @@ const AreaList = () => {
                     <CTableRow>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>City</CTableHeaderCell>
-                      <CTableHeaderCell>Area Type</CTableHeaderCell>
+                      <CTableHeaderCell>Zone Type</CTableHeaderCell>
                       <CTableHeaderCell>Company</CTableHeaderCell>
                       <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
@@ -170,7 +170,7 @@ const AreaList = () => {
                     {areas.length === 0 ? (
                       <CTableRow>
                         <CTableDataCell colSpan={6} className="text-center py-4 text-muted">
-                          No areas found
+                          No zones found
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
@@ -248,8 +248,8 @@ const AreaList = () => {
       </CCol>
       <ConfirmDialog
         visible={confirmDelete.visible}
-        title="Delete Area"
-        message="Are you sure you want to delete this area?"
+        title="Delete Zone"
+        message="Are you sure you want to delete this zone?"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConfirmDelete({ visible: false, id: null })}
       />

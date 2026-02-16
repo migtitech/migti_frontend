@@ -1,5 +1,5 @@
 /** Minimum loader delay in ms. Change this single value to update loader time app-wide. */
-export const LOADER_MIN_DELAY_MS = 1000
+export const LOADER_MIN_DELAY_MS = 250
 
 /**
  * Runs an async operation and ensures at least LOADER_MIN_DELAY_MS pass before resolving.

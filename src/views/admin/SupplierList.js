@@ -225,11 +225,11 @@ const SupplierList = () => {
                   </CCol>
                   <CCol xs={12} sm={4}>
                     <SearchableDropdown
-                      label="Area"
+                      label="Zone"
                       options={areas}
                       value={filterArea}
                       onChange={handleFilterAreaChange}
-                      placeholder="Select area"
+                      placeholder="Select zone"
                       maxDisplayCount={5}
                       getOptionLabel={(opt) => opt?.name ?? ''}
                       getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}

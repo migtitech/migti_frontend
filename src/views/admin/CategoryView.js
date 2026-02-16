@@ -123,6 +123,10 @@ const CategoryView = () => {
                   <span>{category.name}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
+                  <strong>Group:</strong>
+                  <span>{category.group?.name || '—'}</span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Parent:</strong>
                   <span>{category.parent?.name || 'None (Root)'}</span>
                 </CListGroupItem>
