@@ -46,8 +46,9 @@ const IndustryBranchList = () => {
   const fetchIndustries = async () => {
     try {
       const res = await industryService.getAll({ pageNumber: 1, pageSize: 500 })
-      const data = res?.data?.data || res?.data || res
-      setIndustries(data?.industries || [])
+      const data = res?.data ?? res
+      const list = data?.industries ?? data?.data?.industries ?? []
+      setIndustries(Array.isArray(list) ? list : [])
     } catch (err) {
       console.error('Failed to fetch industries', err)
     }

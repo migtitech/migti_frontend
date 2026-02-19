@@ -258,6 +258,7 @@ const SupplierList = () => {
                       <CTableHeaderCell>Other Contact</CTableHeaderCell>
                       <CTableHeaderCell>Label</CTableHeaderCell>
                       <CTableHeaderCell>Shop Location</CTableHeaderCell>
+                      <CTableHeaderCell>GST</CTableHeaderCell>
                       <CTableHeaderCell>Categories</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -277,6 +278,7 @@ const SupplierList = () => {
                         <CTableDataCell>{supplier.other_contact || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.label || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.shop_location || '-'}</CTableDataCell>
+                        <CTableDataCell>{supplier.gst || '-'}</CTableDataCell>
                         <CTableDataCell>
                           {supplier.categories?.length
                             ? supplier.categories
@@ -323,7 +325,7 @@ const SupplierList = () => {
                     ))}
                     {suppliers.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={12} className="text-center">
+                        <CTableDataCell colSpan={13} className="text-center">
                           {searchTerm || filterCategory || filterSubcategory || filterArea
                             ? 'No suppliers match the current search or filters.'
                             : 'No suppliers found. Click "Add Supplier" to create one.'}

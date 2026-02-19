@@ -58,6 +58,20 @@ const companyService = {
     })
     return response
   },
+
+  /**
+   * Upload company logo to S3. Returns { url } to use as logoUrl in create/update.
+   * @param {File} file - Image file (e.g. from input type="file")
+   * @returns {Promise<{ data: { url: string } }>}
+   */
+  uploadLogo: async (file) => {
+    const formData = new FormData()
+    formData.append('logo', file)
+    const response = await api.post(COMPANIES.UPLOAD_LOGO, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response
+  },
 }
 
 export default companyService

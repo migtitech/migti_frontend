@@ -1,6 +1,6 @@
 
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crm.migti.com/api'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4545/api'
 
 /** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
 export const getAssetsBaseUrl = () => {
@@ -44,6 +44,7 @@ export const COMPANIES = {
   GET_BY_ID: '/companies/get-by-id',
   UPDATE: '/companies/update',
   DELETE: '/companies/delete',
+  UPLOAD_LOGO: '/companies/upload-logo',
 }
 
 export const BRANCHES = {

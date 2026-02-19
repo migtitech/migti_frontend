@@ -27,6 +27,9 @@ import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
+// Indian GSTIN: 15 chars - 2 digit state + 5 letter + 4 digit + 1 letter (PAN) + 1 entity + Z + 1 checksum (empty allowed)
+const GSTIN_REGEX = /^(|[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z])$/
+
 const supplierSchema = yup.object({
   name: yup.string().required('Name is required').min(2).max(100),
   shopname: yup.string().optional().max(200),
@@ -47,6 +50,11 @@ const supplierSchema = yup.object({
   other_contact: yup.string().optional().max(200),
   label: yup.string().optional().max(100),
   shop_location: yup.string().optional().max(200),
+  gst: yup
+    .string()
+    .optional()
+    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+    .matches(GSTIN_REGEX, 'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)'),
   categories: yup.array().of(yup.string()).default([]),
   remark: yup.string().optional().max(500),
 })
@@ -61,6 +69,7 @@ const defaultValues = {
   other_contact: '',
   label: '',
   shop_location: '',
+  gst: '',
   categories: [],
   remark: '',
 }
@@ -129,6 +138,7 @@ const SupplierForm = () => {
         other_contact: data?.other_contact || '',
         label: data?.label || data?.labal || '',
         shop_location: data?.shop_location || '',
+        gst: data?.gst || '',
         categories: (data?.categories || []).map((cat) =>
           typeof cat === 'string' ? cat : cat?._id,
         ),
@@ -171,14 +181,21 @@ const SupplierForm = () => {
     setSubmitting(true)
     setError('')
     try {
-      const payload = {
-        ...values,
-        categories: values.categories || [],
-      }
       if (isEdit) {
+        const payload = {
+          address: values.address || '',
+          phone_1: values.phone_1 || '',
+          phone_2: values.phone_2 || '',
+          categories: values.categories || [],
+          remark: values.remark || '',
+        }
         await supplierService.update(id, payload)
         toastSuccess('Supplier updated successfully')
       } else {
+        const payload = {
+          ...values,
+          categories: values.categories || [],
+        }
         await supplierService.create(payload)
         toastSuccess('Supplier created successfully')
       }
@@ -218,13 +235,18 @@ const SupplierForm = () => {
       <CCard className="mb-4">
         <CCardHeader>
           <strong>{isEdit ? 'Edit Supplier' : 'Add Supplier'}</strong>
+          {isEdit && (
+            <small className="text-muted d-block mt-1">
+              Only address, mobile numbers, categories and remark can be updated.
+            </small>
+          )}
         </CCardHeader>
         <CCardBody>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Name *</CFormLabel>
-                <CFormInput {...register('name')} />
+                <CFormInput {...register('name')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.name && (
                   <div className="text-danger small mt-1">{errors.name.message}</div>
                 )}
@@ -233,7 +255,7 @@ const SupplierForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Shop Name</CFormLabel>
-                <CFormInput {...register('shopname')} />
+                <CFormInput {...register('shopname')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.shopname && (
                   <div className="text-danger small mt-1">{errors.shopname.message}</div>
                 )}
@@ -245,7 +267,7 @@ const SupplierForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Email</CFormLabel>
-                <CFormInput type="email" {...register('email')} />
+                <CFormInput type="email" {...register('email')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.email && (
                   <div className="text-danger small mt-1">{errors.email.message}</div>
                 )}
@@ -254,7 +276,7 @@ const SupplierForm = () => {
             <CCol md={3}>
               <div className="mb-3">
                 <CFormLabel>Phone 1</CFormLabel>
-                <CFormInput {...register('phone_1')} />
+                <CFormInput {...register('phone_1')} placeholder="10 digits" />
                 {errors.phone_1 && (
                   <div className="text-danger small mt-1">{errors.phone_1.message}</div>
                 )}
@@ -263,7 +285,7 @@ const SupplierForm = () => {
             <CCol md={3}>
               <div className="mb-3">
                 <CFormLabel>Phone 2</CFormLabel>
-                <CFormInput {...register('phone_2')} />
+                <CFormInput {...register('phone_2')} placeholder="10 digits" />
                 {errors.phone_2 && (
                   <div className="text-danger small mt-1">{errors.phone_2.message}</div>
                 )}
@@ -275,7 +297,7 @@ const SupplierForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Other Contact</CFormLabel>
-                <CFormInput {...register('other_contact')} />
+                <CFormInput {...register('other_contact')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.other_contact && (
                   <div className="text-danger small mt-1">{errors.other_contact.message}</div>
                 )}
@@ -284,7 +306,7 @@ const SupplierForm = () => {
             <CCol md={3}>
               <div className="mb-3">
                 <CFormLabel>Label</CFormLabel>
-                <CFormInput {...register('label')} />
+                <CFormInput {...register('label')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.label && (
                   <div className="text-danger small mt-1">{errors.label.message}</div>
                 )}
@@ -293,10 +315,30 @@ const SupplierForm = () => {
             <CCol md={3}>
               <div className="mb-3">
                 <CFormLabel>Shop Location</CFormLabel>
-                <CFormInput {...register('shop_location')} />
+                <CFormInput {...register('shop_location')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.shop_location && (
                   <div className="text-danger small mt-1">{errors.shop_location.message}</div>
                 )}
+              </div>
+            </CCol>
+          </CRow>
+
+          <CRow>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>GST Number</CFormLabel>
+                <CFormInput
+                  placeholder="e.g. 22AABCU9603R1ZX"
+                  maxLength={15}
+                  {...register('gst')}
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={isEdit ? 'bg-light' : ''}
+                />
+                {errors.gst && (
+                  <div className="text-danger small mt-1">{errors.gst.message}</div>
+                )}
+                <small className="text-muted">15-character GSTIN (optional)</small>
               </div>
             </CCol>
           </CRow>

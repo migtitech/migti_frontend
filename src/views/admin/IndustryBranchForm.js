@@ -70,13 +70,24 @@ const IndustryBranchForm = () => {
     }
   }, [id])
 
+  // Refetch industries when form becomes visible (e.g. after adding industry in another tab)
+  useEffect(() => {
+    const onFocus = () => {
+      if (!isEdit) fetchIndustries()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [isEdit])
+
   const fetchIndustries = async () => {
     try {
       const res = await industryService.getAll({ pageNumber: 1, pageSize: 500 })
-      const data = res?.data?.data || res?.data || res
-      setIndustries(data?.industries || [])
+      const data = res?.data ?? res
+      const list = data?.industries ?? data?.data?.industries ?? []
+      setIndustries(Array.isArray(list) ? list : [])
     } catch (err) {
       console.error('Failed to fetch industries', err)
+      toastError(err?.message || 'Failed to load industries for dropdown')
     }
   }
 
@@ -162,11 +173,14 @@ const IndustryBranchForm = () => {
                 <CFormLabel>Industry *</CFormLabel>
                 <CFormSelect {...register('industryId')} disabled={isEdit}>
                   <option value="">Select Industry</option>
-                  {industries.map((ind) => (
-                    <option key={ind._id} value={ind._id}>
-                      {ind.name}
-                    </option>
-                  ))}
+                  {industries.map((ind) => {
+                    const industryId = ind._id ?? ind.id
+                    return (
+                      <option key={industryId} value={industryId}>
+                        {ind.name ?? '-'}
+                      </option>
+                    )
+                  })}
                 </CFormSelect>
                 {errors.industryId && (
                   <div className="text-danger small mt-1">{errors.industryId.message}</div>

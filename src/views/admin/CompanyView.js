@@ -127,6 +127,15 @@ const CompanyView = () => {
               </CButton>
             </CCardHeader>
             <CCardBody>
+              {(company.logoUrl || company.logo) && (
+                <div className="mb-3 text-center">
+                  <img
+                    src={company.logoUrl || company.logo}
+                    alt="Company logo"
+                    style={{ maxHeight: 100, maxWidth: 200, objectFit: 'contain' }}
+                  />
+                </div>
+              )}
               <CListGroup flush>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Company Name:</strong>
@@ -141,8 +150,36 @@ const CompanyView = () => {
                   <span>{company.email}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
+                  <strong>Mobile:</strong>
+                  <span>{company.mobile || '-'}</span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
+                  <strong>Website:</strong>
+                  <span>
+                    {company.website ? (
+                      <a href={company.website} target="_blank" rel="noopener noreferrer">
+                        {company.website}
+                      </a>
+                    ) : (
+                      '-'
+                    )}
+                  </span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
+                  <strong>Status:</strong>
+                  <span>
+                    <CBadge color={company.isActive !== false ? 'success' : 'secondary'}>
+                      {company.isActive !== false ? 'Active' : 'Inactive'}
+                    </CBadge>
+                  </span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>GST Number:</strong>
                   <span>{company.gst || '-'}</span>
+                </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Address:</strong>
+                  <p className="mb-0 mt-2">{company.address || '-'}</p>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>

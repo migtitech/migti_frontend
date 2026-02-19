@@ -160,22 +160,33 @@ const IndustryForm = () => {
     setSubmitting(true)
     setError('')
     try {
-      const payload = {
-        ...values,
-        area: values.area || null,
-        gstNumber: values.gstNumber || '',
-        purchaseManagers: (values.purchaseManagers || []).filter(
-          (pm) => (pm.name || '').trim(),
-        ).map((pm) => ({
-          name: (pm.name || '').trim(),
-          phone: (pm.phone || '').trim(),
-          email: (pm.email || '').trim(),
-        })),
-      }
       if (isEdit) {
+        const payload = {
+          location: values.location || '',
+          address: values.address || '',
+          purchaseManagers: (values.purchaseManagers || []).filter(
+            (pm) => (pm.name || '').trim(),
+          ).map((pm) => ({
+            name: (pm.name || '').trim(),
+            phone: (pm.phone || '').trim(),
+            email: (pm.email || '').trim(),
+          })),
+        }
         await industryService.update(id, payload)
         toastSuccess('Industry updated successfully')
       } else {
+        const payload = {
+          ...values,
+          area: values.area || null,
+          gstNumber: values.gstNumber || '',
+          purchaseManagers: (values.purchaseManagers || []).filter(
+            (pm) => (pm.name || '').trim(),
+          ).map((pm) => ({
+            name: (pm.name || '').trim(),
+            phone: (pm.phone || '').trim(),
+            email: (pm.email || '').trim(),
+          })),
+        }
         await industryService.create(payload)
         toastSuccess('Industry created successfully')
       }
@@ -215,13 +226,18 @@ const IndustryForm = () => {
       <CCard className="mb-4">
         <CCardHeader>
           <strong>{isEdit ? 'Edit Industry' : 'Add Industry'}</strong>
+          {isEdit && (
+            <small className="text-muted d-block mt-1">
+              Only location, purchase managers and address can be updated.
+            </small>
+          )}
         </CCardHeader>
         <CCardBody>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Industry Name *</CFormLabel>
-                <CFormInput {...register('name')} />
+                <CFormInput {...register('name')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.name && (
                   <div className="text-danger small mt-1">{errors.name.message}</div>
                 )}
@@ -230,7 +246,7 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>GST Number</CFormLabel>
-                <CFormInput {...register('gstNumber')} placeholder="e.g. 27AABCU9603R1ZM" />
+                <CFormInput {...register('gstNumber')} placeholder="e.g. 27AABCU9603R1ZM" readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
                 {errors.gstNumber && (
                   <div className="text-danger small mt-1">{errors.gstNumber.message}</div>
                 )}
@@ -242,7 +258,7 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Zone</CFormLabel>
-                <CFormSelect {...register('area')}>
+                <CFormSelect {...register('area')} disabled={isEdit} className={isEdit ? 'bg-light' : ''}>
                   <option value="">Select Zone</option>
                   {areas.map((a) => (
                     <option key={a._id} value={a._id}>

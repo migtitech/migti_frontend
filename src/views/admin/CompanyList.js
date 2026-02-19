@@ -20,7 +20,6 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilZoom, cilLocationPin } from '@coreui/icons'
 import Filtered from '../../filtered/Filtered'
 import companyService from '../../services/companyService'
-import Badge from '../../badges/Badge'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -123,10 +122,21 @@ const CompanyList = () => {
                         <CTableDataCell>{company.name}</CTableDataCell>
                         <CTableDataCell>{company.brandName}</CTableDataCell>
                         <CTableDataCell>{company.email}</CTableDataCell>
-                        <CTableDataCell>{company.logoUrl || '-'}</CTableDataCell>
                         <CTableDataCell>
-                          {/* <CBadge color="success">Active</CBadge> */}
-                          <Badge text="active" color='primary'/>
+                          {company.logoUrl ? (
+                            <img
+                              src={company.logoUrl}
+                              alt="Logo"
+                              style={{ height: 32, width: 'auto', maxWidth: 80, objectFit: 'contain' }}
+                            />
+                          ) : (
+                            '-'
+                          )}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <CBadge color={company.isActive !== false ? 'success' : 'secondary'}>
+                            {company.isActive !== false ? 'Active' : 'Inactive'}
+                          </CBadge>
                         </CTableDataCell>
                         <CTableDataCell>
                           <CButton
