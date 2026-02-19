@@ -36,9 +36,12 @@ const BranchFormModal = ({
         phone: yup
           .string()
           .required('Phone is required')
-          .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits'),
+          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
         branchcode: yup.string().required('Branch code is required').min(1).max(50),
-        gstNumber: yup.string().required('GST number is required').min(3).max(50),
+        gstNumber: yup
+          .string()
+          .required('GST number is required')
+          .matches(/^\d{15}$/, 'GST number must be exactly 15 digits'),
         address: yup.string().required('Address is required').min(2).max(200),
         fullAddress: yup.string().required('Full address is required').min(5).max(500),
         mapLocationUrl: yup

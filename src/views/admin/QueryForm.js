@@ -372,6 +372,16 @@ const QueryForm = () => {
       toastError('Company / Industry name is required')
       return
     }
+    const pm = (companyInfo?.purchase_manager_phone || '').trim()
+    if (pm && !/^\d{10}$/.test(pm)) {
+      toastError('Purchase manager phone must be exactly 10 digits')
+      return
+    }
+    const cpp = (delivery?.contactPersonPhone || '').trim()
+    if (cpp && !/^\d{10}$/.test(cpp)) {
+      toastError('Contact person phone must be exactly 10 digits')
+      return
+    }
     const validProducts = products.filter((p) => (p.productName || '').trim())
     if (validProducts.length === 0) {
       toastError('Add at least one product using the form above and click Save')

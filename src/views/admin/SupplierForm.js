@@ -34,13 +34,13 @@ const supplierSchema = yup.object({
   phone_1: yup
     .string()
     .optional()
-    .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits')
+    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
     .nullable()
     .transform((value, original) => (original === '' ? null : value)),
   phone_2: yup
     .string()
     .optional()
-    .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits')
+    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
     .nullable()
     .transform((value, original) => (original === '' ? null : value)),
   email: yup.string().email('Enter a valid email').optional().nullable().transform((v, o) => (o === '' ? null : v)),

@@ -48,7 +48,7 @@ const EmployeeForm = () => {
         phone: yup
           .string()
           .required('Phone is required')
-          .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits'),
+          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
         fatherName: yup.string().required("Father's name is required").min(2).max(100),
         motherName: yup.string().required("Mother's name is required").min(2).max(100),
         pincode: yup
@@ -61,7 +61,7 @@ const EmployeeForm = () => {
         companyPhone: yup
           .string()
           .required('Company phone is required')
-          .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits'),
+          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
         role: yup.string().required('Role is required'),
         designation: yup.string().required('Designation is required').min(2).max(100),
         address: yup.string().required('Address is required').min(2).max(500),
@@ -409,20 +409,19 @@ const EmployeeForm = () => {
         </CCardBody>
       </CCard>
 
-      {selectedRole && !FULL_ACCESS_ROLES.includes(selectedRole) && (
-        <CCard className="mb-4">
-          <CCardHeader>
-            <strong>Access Permissions</strong>
-          </CCardHeader>
-          <CCardBody>
-            <EmployeePermissionsSection
-              selectedRole={selectedRole}
-              permissions={permissions}
-              onChange={setPermissions}
-            />
-          </CCardBody>
-        </CCard>
-      )}
+      <CCard className="mb-4">
+        <CCardHeader>
+          <strong>Access Permissions</strong>
+          <small className="text-muted ms-2">Control what this employee can access</small>
+        </CCardHeader>
+        <CCardBody>
+          <EmployeePermissionsSection
+            selectedRole={selectedRole}
+            permissions={permissions}
+            onChange={setPermissions}
+          />
+        </CCardBody>
+      </CCard>
 
       <EmployeeFormActions
         submitting={submitting}
