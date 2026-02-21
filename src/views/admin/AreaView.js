@@ -58,7 +58,7 @@ const AreaView = () => {
       <CCard>
         <CCardBody className="text-center py-5">
           <p className="text-danger mb-3">{error || 'Zone not found'}</p>
-          <CButton color="primary" onClick={() => navigate('/areas')}>
+          <CButton color="primary" onClick={() => navigate('/zones')}>
             Back to Zones
           </CButton>
         </CCardBody>
@@ -72,13 +72,13 @@ const AreaView = () => {
     <>
       <CRow className="mb-3">
         <CCol>
-          <CButton color="secondary" variant="outline" onClick={() => navigate('/areas')}>
+          <CButton color="secondary" variant="outline" onClick={() => navigate('/zones')}>
             <CIcon icon={cilArrowLeft} className="me-2" />
             Back to Zones
           </CButton>
         </CCol>
         <CCol className="text-end">
-          <CButton color="primary" onClick={() => navigate(`/areas/edit/${id}`)}>
+          <CButton color="primary" onClick={() => navigate(`/zones/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-2" />
             Edit Zone
           </CButton>

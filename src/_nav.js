@@ -52,7 +52,7 @@ const _nav = [
   {
     component: CNavItem,
     name: 'Zones',
-    to: '/areas',
+    to: '/zones',
     icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
     module: 'zones',
   },

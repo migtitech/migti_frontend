@@ -137,7 +137,7 @@ const AreaForm = () => {
         await areaService.create(payload)
         toastSuccess('Zone created successfully')
       }
-      navigate('/areas')
+      navigate('/zones')
     } catch (err) {
       const msg = err?.response?.data?.error?.detail || err?.message || 'Failed to save zone'
       toastError(Array.isArray(msg) ? msg.join(', ') : msg)
@@ -244,7 +244,7 @@ const AreaForm = () => {
                 </CCol>
               </CRow>
               <div className="d-flex justify-content-end gap-2 pt-2">
-                <CButton color="secondary" variant="outline" onClick={() => navigate('/areas')}>
+                <CButton color="secondary" variant="outline" onClick={() => navigate('/zones')}>
                   Cancel
                 </CButton>
                 <CButton color="primary" type="submit" disabled={submitting}>
