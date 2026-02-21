@@ -39,7 +39,6 @@ import {
   cilClock,
   cilWarning,
   cilPlus,
-  cilZoom,
   cilPencil,
 } from '@coreui/icons'
 import { useData } from '../../context/DataContext'

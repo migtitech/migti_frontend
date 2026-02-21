@@ -10,6 +10,12 @@ import {
   CAlert,
   CListGroup,
   CListGroupItem,
+  CTable,
+  CTableHead,
+  CTableBody,
+  CTableRow,
+  CTableHeaderCell,
+  CTableDataCell,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPencil } from '@coreui/icons'
@@ -118,21 +124,47 @@ const IndustryView = () => {
                 <CListGroupItem>
                   <strong>Purchase Managers:</strong>
                   {(industry.purchaseManagers || []).length > 0 ? (
-                    <ul className="mb-0 mt-2 ps-3">
-                      {industry.purchaseManagers.map((pm) => (
-                        <li key={pm._id || pm.name}>
-                          {pm.name}
-                          {pm.phone ? ` · ${pm.phone}` : ''}
-                          {pm.email ? ` · ${pm.email}` : ''}
-                        </li>
-                      ))}
-                    </ul>
+                    <CTable hover responsive className="mt-2 mb-0">
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell>S No</CTableHeaderCell>
+                          <CTableHeaderCell>Name</CTableHeaderCell>
+                          <CTableHeaderCell>Phone</CTableHeaderCell>
+                          <CTableHeaderCell>Email</CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {industry.purchaseManagers.map((pm, idx) => (
+                          <CTableRow key={pm._id || pm.name || idx}>
+                            <CTableDataCell>{idx + 1}</CTableDataCell>
+                            <CTableDataCell>{pm.name || '-'}</CTableDataCell>
+                            <CTableDataCell>{pm.phone || '-'}</CTableDataCell>
+                            <CTableDataCell>{pm.email || '-'}</CTableDataCell>
+                          </CTableRow>
+                        ))}
+                      </CTableBody>
+                    </CTable>
+                  ) : industry.purchase_manager_name ? (
+                    <CTable hover responsive className="mt-2 mb-0">
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell>S No</CTableHeaderCell>
+                          <CTableHeaderCell>Name</CTableHeaderCell>
+                          <CTableHeaderCell>Phone</CTableHeaderCell>
+                          <CTableHeaderCell>Email</CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        <CTableRow>
+                          <CTableDataCell>1</CTableDataCell>
+                          <CTableDataCell>{industry.purchase_manager_name}</CTableDataCell>
+                          <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
+                          <CTableDataCell>{industry.email || '-'}</CTableDataCell>
+                        </CTableRow>
+                      </CTableBody>
+                    </CTable>
                   ) : (
-                    <span className="d-block mt-2">
-                      {industry.purchase_manager_name
-                        ? `${industry.purchase_manager_name}${industry.purchase_manager_phone ? ` · ${industry.purchase_manager_phone}` : ''}${industry.email ? ` · ${industry.email}` : ''}`
-                        : '-'}
-                    </span>
+                    <span className="d-block mt-2">-</span>
                   )}
                 </CListGroupItem>
                 <CListGroupItem>

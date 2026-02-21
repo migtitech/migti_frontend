@@ -21,7 +21,8 @@ import {
   CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import areaService from '../../services/areaService'
@@ -258,6 +259,7 @@ const SupplierList = () => {
                       <CTableHeaderCell>Other Contact</CTableHeaderCell>
                       <CTableHeaderCell>Label</CTableHeaderCell>
                       <CTableHeaderCell>Shop Location</CTableHeaderCell>
+                      <CTableHeaderCell>GST</CTableHeaderCell>
                       <CTableHeaderCell>Categories</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
@@ -276,6 +278,8 @@ const SupplierList = () => {
                         <CTableDataCell>{supplier.email || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.other_contact || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.label || '-'}</CTableDataCell>
+                        <CTableDataCell>{supplier.shop_location || '-'}</CTableDataCell>
+                        <CTableDataCell>{supplier.gst || '-'}</CTableDataCell>
                         <CTableDataCell
                           style={{ maxWidth: "150px" }}>
                           <div className="text-truncate"
@@ -297,7 +301,7 @@ const SupplierList = () => {
                             onClick={() => navigate(`/suppliers/${supplier._id}`)}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('suppliers') && (
                             <CButton
@@ -332,7 +336,7 @@ const SupplierList = () => {
                     ))}
                     {suppliers.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={12} className="text-center">
+                        <CTableDataCell colSpan={13} className="text-center">
                           {searchTerm || filterCategory || filterSubcategory || filterArea
                             ? 'No suppliers match the current search or filters.'
                             : 'No suppliers found. Click "Add Supplier" to create one.'}

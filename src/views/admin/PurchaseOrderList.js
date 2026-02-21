@@ -26,7 +26,8 @@ import {
   CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilCloudDownload } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilCloudDownload } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useData } from '../../context/DataContext'
 import { ConfirmDialog } from '../../components'
 
@@ -190,7 +191,7 @@ const PurchaseOrderList = () => {
                           onClick={() => navigate(`/purchase-orders/${order.id}`)}
                           title="View"
                         >
-                          <CIcon icon={cilZoom} />
+                          <EyeIcon />
                         </CButton>
                         <CButton
                           color="success"

@@ -18,7 +18,8 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilChevronBottom, cilChevronRight, cilInfo } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilChevronBottom, cilChevronRight } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useNavigate } from 'react-router-dom'
 import categoryService from '../../services/categoryService'
 import Filtered from '../../filtered/Filtered'
@@ -204,7 +205,7 @@ const CategoryList = () => {
                               onClick={() => navigate(`/categories/${cat._id}`)}
                               title="View"
                             >
-                              <CIcon icon={cilInfo} />
+                              <EyeIcon />
                             </CButton>
                             {canCreate('categories') && (
                               <CButton
@@ -274,7 +275,7 @@ const CategoryList = () => {
                                   onClick={() => navigate(`/categories/${sub._id}`)}
                                   title="View"
                                 >
-                                  <CIcon icon={cilInfo} />
+                                  <EyeIcon />
                                 </CButton>
                                 {canUpdate('categories') && (
                                   <CButton

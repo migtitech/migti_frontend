@@ -19,6 +19,12 @@ import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError } from '../../utils/toast'
 
+const formatDate = (value) => {
+  if (value == null || value === '') return '-'
+  const d = new Date(value)
+  return Number.isNaN(d.getTime()) ? '-' : d.toLocaleDateString(undefined, { dateStyle: 'medium' })
+}
+
 const SupplierView = () => {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -126,6 +132,10 @@ const SupplierView = () => {
                   <strong>Shop Location:</strong>
                   <span>{supplier.shop_location || '-'}</span>
                 </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
+                  <strong>GST Number:</strong>
+                  <span>{supplier.gst || '-'}</span>
+                </CListGroupItem>
                 <CListGroupItem>
                   <strong>Categories:</strong>
                   <div className="mt-2 d-flex flex-wrap gap-2">
@@ -150,7 +160,7 @@ const SupplierView = () => {
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
-                  <span>{new Date(supplier.createdAt).toLocaleDateString()}</span>
+                  <span>{formatDate(supplier.createdAt)}</span>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>

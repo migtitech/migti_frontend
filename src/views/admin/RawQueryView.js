@@ -21,7 +21,8 @@ import {
   CFormTextarea,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilUser, cilPencil, cilCheckAlt, cilZoom, cilClock, cilEnvelopeClosed } from '@coreui/icons'
+import { cilArrowLeft, cilUser, cilPencil, cilCheckAlt, cilClock, cilEnvelopeClosed } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useAuth } from '../../context/AuthContext'
 import rawQueryService from '../../services/rawQueryService'
 import employeeService from '../../services/employeeService'
@@ -383,7 +384,7 @@ const RawQueryView = () => {
   const getActivityIcon = (type) => {
     switch (type) {
       case 'viewed':
-        return cilZoom
+        return null
       case 'action':
         return cilPencil
       case 'follow_up':
@@ -616,7 +617,7 @@ const RawQueryView = () => {
                     return (
                       <div key={act._id || act.id || index} className="d-flex align-items-start mb-3">
                         <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40, backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})` }}>
-                          <CIcon icon={getActivityIcon(act.type)} className="text-white" />
+                          {act.type === 'viewed' ? <EyeIcon size={20} className="text-white" /> : <CIcon icon={getActivityIcon(act.type)} className="text-white" />}
                         </div>
                         <div className="flex-grow-1">
                           <div className="d-flex align-items-center gap-2 flex-wrap">

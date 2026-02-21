@@ -20,9 +20,9 @@ import {
   cilPlus,
   cilPencil,
   cilTrash,
-  cilZoom,
   cilCloudDownload,
 } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useData } from '../../context/DataContext'
 import Filtered from '../../filtered/Filtered'
 import { ConfirmDialog } from '../../components'
@@ -144,7 +144,7 @@ const QuotationList = () => {
                             e.stopPropagation()
                             navigate(`/quotations/${quotation.id}`)}}
                         >
-                          <CIcon icon={cilZoom} />
+                          <EyeIcon />
                         </CButton>
 
                         <CButton

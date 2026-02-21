@@ -21,7 +21,8 @@ import {
   CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import industryService from '../../services/industryService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -165,7 +166,7 @@ const IndustryList = () => {
                             onClick={() => navigate(`/industries/${industry._id}`)}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('industries') && (
                             <CButton

@@ -11,7 +11,8 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilZoom, cilPeople, cilPlus } from '@coreui/icons'
+import { cilPencil, cilTrash, cilPeople, cilPlus } from '@coreui/icons'
+import { EyeIcon } from '../../../components'
 import { Loader } from '../../../components'
 
 const BranchCards = ({
@@ -83,7 +84,7 @@ const BranchCards = ({
                     onClick={() => onView(branch.id)}
                     title="View"
                   >
-                    <CIcon icon={cilZoom} />
+                    <EyeIcon />
                   </CButton>
                   <CButton
                     color="primary"
