@@ -38,16 +38,6 @@ import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
-const QUERY_STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'followup01pending', label: 'Follow-up 01 Pending' },
-  { value: 'followup02pending', label: 'Follow-up 02 Pending' },
-  { value: 'followup03pending', label: 'Follow-up 03 Pending' },
-  { value: 'progress', label: 'Progress' },
-  { value: 'convertedToQuotation', label: 'Converted to Quotation' },
-  { value: 'closed', label: 'Closed' },
-]
-
 const formatDateTime = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
@@ -122,12 +112,6 @@ const QueryView = () => {
   const [activities, setActivities] = useState([])
   const [activitiesLoading, setActivitiesLoading] = useState(false)
   const viewRecordedRef = useRef(false)
-  const [showActionModal, setShowActionModal] = useState(false)
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false)
-  const [actionForm, setActionForm] = useState({ action: '' })
-  const [followUpForm, setFollowUpForm] = useState({ followUpStatus: 'pending', note: '' })
-  const [submitting, setSubmitting] = useState(false)
-  const [statusUpdating, setStatusUpdating] = useState(false)
   const [userCache, setUserCache] = useState({})
 
   const fetchActivities = async () => {
@@ -213,70 +197,6 @@ const QueryView = () => {
       navigate('/queries')
     } catch (err) {
       toastError(err?.message || 'Failed to delete query')
-    }
-  }
-
-  const handleStatusChange = async (e) => {
-    const newStatus = e.target.value
-    if (!query || query.status === newStatus) return
-    setStatusUpdating(true)
-    try {
-      await queryService.update(id, { ...query, status: newStatus })
-      setQuery((q) => (q ? { ...q, status: newStatus } : q))
-      toastSuccess('Status updated')
-    } catch (err) {
-      toastError(err?.message || 'Failed to update status')
-    } finally {
-      setStatusUpdating(false)
-    }
-  }
-
-  const handleRecordAction = async (e) => {
-    e.preventDefault()
-    const performedBy = user?.id || user?._id
-    if (!performedBy) {
-      toastError('Please log in to record an action.')
-      return
-    }
-    if (!actionForm.action?.trim()) {
-      toastError('Please enter the action performed.')
-      return
-    }
-    try {
-      setSubmitting(true)
-      await queryService.recordActivity(id, 'action', performedBy, { action: actionForm.action.trim() })
-      toastSuccess('Action recorded.')
-      setActionForm({ action: '' })
-      setShowActionModal(false)
-      await fetchActivities()
-    } catch (err) {
-      toastError(err?.message || 'Failed to record action')
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  const handleSubmitFollowUp = async (e) => {
-    e.preventDefault()
-    const performedBy = user?.id || user?._id
-    if (!performedBy) {
-      toastError('Please log in to submit follow-up.')
-      return
-    }
-    try {
-      setSubmitting(true)
-      await queryService.recordActivity(id, 'follow_up', performedBy, {
-        followUpStatus: followUpForm.followUpStatus,
-        note: followUpForm.note?.trim() || '',
-      })
-      toastSuccess('Follow-up submitted.')
-      setFollowUpForm({ followUpStatus: 'pending', note: '' })
-      setShowFollowUpModal(false)
-      await fetchActivities()
-    } catch (err) {
-      toastError(err?.message || 'Failed to submit follow-up')
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -373,7 +293,12 @@ const QueryView = () => {
 
   const formatVariants = (variants) => {
     if (!variants?.length) return '—'
-    return variants.map((v) => `${v.variantName || '—'} × ${v.quantity ?? 0}`).join(', ')
+    return variants.map((v) => v.variantName || '—').filter(Boolean).join(', ') || '—'
+  }
+
+  const formatSubvariants = (variants) => {
+    if (!variants?.length) return '—'
+    return variants.map((v) => v.quantity ?? 0).join(', ')
   }
 
   return (
@@ -388,17 +313,6 @@ const QueryView = () => {
             {query.queryCode && (
               <CBadge color="info" className="fs-6 px-3 py-2">{query.queryCode}</CBadge>
             )}
-            <CFormSelect
-              value={query.status || 'pending'}
-              onChange={handleStatusChange}
-              disabled={statusUpdating}
-              style={{ width: 'auto', minWidth: 180 }}
-              className="mb-0"
-            >
-              {QUERY_STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </CFormSelect>
           </div>
           <div className="d-flex gap-2">
             <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
@@ -443,6 +357,7 @@ const QueryView = () => {
                       <CTableHeaderCell style={{ width: 100 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 80 }}>Unit</CTableHeaderCell>
                       <CTableHeaderCell>Variants</CTableHeaderCell>
+                      <CTableHeaderCell>Subvariants</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
@@ -454,6 +369,7 @@ const QueryView = () => {
                         <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
                         <CTableDataCell>{p.unit || '—'}</CTableDataCell>
                         <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
+                        <CTableDataCell className="small">{formatSubvariants(p.variants)}</CTableDataCell>
                         <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
                       </CTableRow>
                     ))}
@@ -488,18 +404,8 @@ const QueryView = () => {
         {/* Query Tracking sidebar */}
         <CCol lg={4}>
           <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
+            <CCardHeader>
               <strong>Query Tracking</strong>
-              <div className="d-flex gap-1">
-                <CButton color="primary" size="sm" onClick={() => setShowActionModal(true)}>
-                  <CIcon icon={cilPencil} className="me-1" />
-                  Action
-                </CButton>
-                <CButton color="success" size="sm" onClick={() => setShowFollowUpModal(true)}>
-                  <CIcon icon={cilCheckAlt} className="me-1" />
-                  Follow-up
-                </CButton>
-              </div>
             </CCardHeader>
             <CCardBody className="pt-0">
               <div className="d-flex align-items-start mb-3 pb-3 border-bottom">
@@ -570,45 +476,6 @@ const QueryView = () => {
           </CCard>
         </CCol>
       </CRow>
-
-      <CModal visible={showActionModal} onClose={() => setShowActionModal(false)}>
-        <CModalHeader><CModalTitle>Record Action</CModalTitle></CModalHeader>
-        <CForm onSubmit={handleRecordAction}>
-          <CModalBody>
-            <CFormLabel>Action performed</CFormLabel>
-            <CFormTextarea rows={3} value={actionForm.action} onChange={(e) => setActionForm({ action: e.target.value })} placeholder="Describe the action..." />
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={() => setShowActionModal(false)}>Cancel</CButton>
-            <CButton color="primary" type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
-
-      <CModal visible={showFollowUpModal} onClose={() => setShowFollowUpModal(false)}>
-        <CModalHeader><CModalTitle>Record Follow-up</CModalTitle></CModalHeader>
-        <CForm onSubmit={handleSubmitFollowUp}>
-          <CModalBody>
-            <div className="mb-3">
-              <CFormLabel>Follow-up status</CFormLabel>
-              <CFormSelect value={followUpForm.followUpStatus} onChange={(e) => setFollowUpForm((f) => ({ ...f, followUpStatus: e.target.value }))}>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </CFormSelect>
-            </div>
-            <div>
-              <CFormLabel>Note</CFormLabel>
-              <CFormTextarea rows={3} value={followUpForm.note} onChange={(e) => setFollowUpForm((f) => ({ ...f, note: e.target.value }))} placeholder="Note..." />
-            </div>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={() => setShowFollowUpModal(false)}>Cancel</CButton>
-            <CButton color="primary" type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
 
       <ConfirmDialog visible={confirmDelete.visible} onClose={() => setConfirmDelete({ visible: false })} onConfirm={handleDeleteConfirm} title="Delete Query?" message="Are you sure you want to delete this query? This action cannot be undone." confirmText="Delete" cancelText="Cancel" />
     </>

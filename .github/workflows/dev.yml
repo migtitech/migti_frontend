@@ -34,5 +34,7 @@ jobs:
             cd /var/www/migtidev/migti_frontend
             get fetch --all
             git checkout development
+            git stash 
             git pull origin development
+            git stash pop
             npm run build

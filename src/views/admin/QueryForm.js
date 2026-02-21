@@ -24,7 +24,7 @@ import {
   CTableRow,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPlus, cilTrash, cilPencil } from '@coreui/icons'
+import { cilArrowLeft, cilPlus, cilTrash, cilPencil, cilSearch } from '@coreui/icons'
 import queryService from '../../services/queryService'
 import industryService from '../../services/industryService'
 import productService from '../../services/productService'
@@ -33,6 +33,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import FindProductModal from './FindProductModal'
 
 const INITIAL_COMPANY = {
   name: '',
@@ -91,6 +92,7 @@ const QueryForm = () => {
   const [productDropdownOpen, setProductDropdownOpen] = useState(false)
   const [productSearchResults, setProductSearchResults] = useState([])
   const [productSearchLoading, setProductSearchLoading] = useState(false)
+  const [showFindProductModal, setShowFindProductModal] = useState(false)
 
   // Delivery
   const [delivery, setDelivery] = useState(INITIAL_DELIVERY)
@@ -211,6 +213,26 @@ const QueryForm = () => {
 
   const clearProductForm = () => {
     setFormProduct({ ...INITIAL_PRODUCT })
+    setEditingProductIndex(null)
+    setProductSearch('')
+    setProductDropdownOpen(false)
+    setProductSearchResults([])
+  }
+
+  const handleImportProducts = (importedProducts) => {
+    if (!importedProducts?.length) return
+    const first = importedProducts[0]
+    setFormProduct({
+      productName: first.productName || '',
+      quantity: first.quantity ?? 1,
+      unit: (first.unit && String(first.unit).trim()) || '',
+      variants: (first.variants || []).map((v) => ({
+        variantName: v.variantName || '',
+        quantity: v.quantity ?? 1,
+      })),
+      remark: first.remark || '',
+      product_id: first.product_id || null,
+    })
     setEditingProductIndex(null)
     setProductSearch('')
     setProductDropdownOpen(false)
@@ -609,7 +631,13 @@ const QueryForm = () => {
 
         {/* 2. Products – add/edit form + table */}
         <CCard className="mb-4">
-          <CCardHeader><strong>2. Products</strong></CCardHeader>
+          <CCardHeader className="d-flex justify-content-between align-items-center">
+            <strong>2. Products</strong>
+            <CButton color="primary" size="sm" onClick={() => setShowFindProductModal(true)}>
+              <CIcon icon={cilSearch} className="me-1" />
+              Find Product
+            </CButton>
+          </CCardHeader>
           <CCardBody>
             <CCard className="mb-4">
               <CCardHeader className="py-2">
@@ -880,6 +908,12 @@ const QueryForm = () => {
           </CCardBody>
         </CCard>
       </CForm>
+
+      <FindProductModal
+        visible={showFindProductModal}
+        onClose={() => setShowFindProductModal(false)}
+        onImport={handleImportProducts}
+      />
     </>
   )
 }
