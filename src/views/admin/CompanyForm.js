@@ -31,8 +31,8 @@ const companySchema = () => yup.object({
     .string()
     .optional()
     .nullable()
-    .transform((v, o) => (o === '' ? null : v))
-    .test('gst', 'GST number must be exactly 15 digits', (v) => v == null || v === '' || /^\d{15}$/.test(v)),
+    .length(15, 'GST must be exactly 15 characters')
+    .transform((v, o) => (o === '' ? null : v)),
 })
 
 const defaultValues = {

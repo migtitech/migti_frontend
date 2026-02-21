@@ -167,10 +167,10 @@ const routes = [
   { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, module: 'employees', action: 'read' },
 
   // Zones
-  { path: '/areas', name: 'Zones', element: AreaList, module: 'zones', action: 'read' },
-  { path: '/areas/new', name: 'Add Zone', element: AreaForm, module: 'zones', action: 'create' },
-  { path: '/areas/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
-  { path: '/areas/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
+  { path: '/zones', name: 'Zones', element: AreaList, module: 'zones', action: 'read' },
+  { path: '/zones/new', name: 'Add Zone', element: AreaForm, module: 'zones', action: 'create' },
+  { path: '/zones/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
+  { path: '/zones/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
 
   // Industries
   { path: '/industries', name: 'Industries', element: IndustryList, module: 'industries', action: 'read' },
