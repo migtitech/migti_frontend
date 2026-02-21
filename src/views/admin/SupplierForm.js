@@ -34,6 +34,8 @@ const supplierSchema = yup.object({
   name: yup.string().required('Name is required').min(2).max(100),
   shopname: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
+  shippingAddress: yup.string().optional().max(500),
+  billingAddress: yup.string().optional().max(500),
   phone_1: yup
     .string()
     .optional()
@@ -63,6 +65,8 @@ const defaultValues = {
   name: '',
   shopname: '',
   address: '',
+  shippingAddress: '',
+  billingAddress: '',
   phone_1: '',
   phone_2: '',
   email: '',
@@ -132,6 +136,8 @@ const SupplierForm = () => {
         name: data?.name || '',
         shopname: data?.shopname || '',
         address: data?.address || '',
+        shippingAddress: data?.shippingAddress || '',
+        billingAddress: data?.billingAddress || '',
         phone_1: data?.phone_1 || '',
         phone_2: data?.phone_2 || '',
         email: data?.email || '',
@@ -184,6 +190,8 @@ const SupplierForm = () => {
       if (isEdit) {
         const payload = {
           address: values.address || '',
+          shippingAddress: values.shippingAddress || '',
+          billingAddress: values.billingAddress || '',
           phone_1: values.phone_1 || '',
           phone_2: values.phone_2 || '',
           categories: values.categories || [],
@@ -237,7 +245,7 @@ const SupplierForm = () => {
           <strong>{isEdit ? 'Edit Supplier' : 'Add Supplier'}</strong>
           {isEdit && (
             <small className="text-muted d-block mt-1">
-              Only address, mobile numbers, categories and remark can be updated.
+              Only address, shipping/billing address, mobile numbers, categories and remark can be updated.
             </small>
           )}
         </CCardHeader>
@@ -390,6 +398,27 @@ const SupplierForm = () => {
                 <CFormTextarea rows={3} {...register('address')} />
                 {errors.address && (
                   <div className="text-danger small mt-1">{errors.address.message}</div>
+                )}
+              </div>
+            </CCol>
+          </CRow>
+
+          <CRow>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>Shipping Address</CFormLabel>
+                <CFormTextarea rows={3} {...register('shippingAddress')} />
+                {errors.shippingAddress && (
+                  <div className="text-danger small mt-1">{errors.shippingAddress.message}</div>
+                )}
+              </div>
+            </CCol>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>Billing Address</CFormLabel>
+                <CFormTextarea rows={3} {...register('billingAddress')} />
+                {errors.billingAddress && (
+                  <div className="text-danger small mt-1">{errors.billingAddress.message}</div>
                 )}
               </div>
             </CCol>

@@ -40,16 +40,14 @@ const formatDateTime = (dateStr) => {
   if (!dateStr) return '-'
   const d = new Date(dateStr)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  })
+  const pad = (n) => String(n).padStart(2, '0')
+  const dd = pad(d.getDate())
+  const mm = pad(d.getMonth() + 1)
+  const yy = String(d.getFullYear()).slice(-2)
+  const hh = pad(d.getHours())
+  const min = pad(d.getMinutes())
+  const ss = pad(d.getSeconds())
+  return `${dd}/${mm}/${yy} ${hh}:${min}:${ss}`
 }
 
 const formatDate = (dateStr) => {
@@ -118,6 +116,8 @@ const Tracking = () => {
   const [searchInput, setSearchInput] = useState('')
   const [query, setQuery] = useState(null)
   const [activities, setActivities] = useState([])
+  const [activitiesPagination, setActivitiesPagination] = useState(null)
+  const [activitiesPage, setActivitiesPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const [userCache, setUserCache] = useState({})
@@ -133,6 +133,8 @@ const Tracking = () => {
       setSearched(true)
       setQuery(null)
       setActivities([])
+      setActivitiesPagination(null)
+      setActivitiesPage(1)
 
       let payload = null
       let recordId = null
@@ -177,12 +179,16 @@ const Tracking = () => {
         setQuery(payload)
         recordId = payload._id || payload.id
         try {
-          const actRes = await queryService.getActivities(recordId)
+          const actRes = await queryService.getActivities(recordId, { pageNumber: 1, pageSize: 10 })
           const resData = actRes?.data
-          const arr = Array.isArray(resData) ? resData : (resData?.data ?? [])
-          setActivities(Array.isArray(arr) ? arr : [])
+          const data = resData?.data ?? resData
+          const arr = Array.isArray(data?.activities) ? data.activities : (Array.isArray(data) ? data : [])
+          setActivities(arr)
+          setActivitiesPagination(data?.pagination ?? null)
+          setActivitiesPage(1)
         } catch {
           setActivities([])
+          setActivitiesPagination(null)
         }
       } else {
         // Raw Query Tracking (existing logic)
@@ -231,11 +237,16 @@ const Tracking = () => {
         setQuery(payload)
         recordId = payload._id || payload.id
         try {
-          const actRes = await rawQueryService.getActivities(recordId)
-          const actData = actRes?.data ?? []
-          setActivities(Array.isArray(actData) ? actData : (actRes?.data?.data ?? []))
+          const actRes = await rawQueryService.getActivities(recordId, { pageNumber: 1, pageSize: 10 })
+          const resData = actRes?.data
+          const data = resData?.data ?? resData
+          const arr = Array.isArray(data?.activities) ? data.activities : (Array.isArray(data) ? data : [])
+          setActivities(arr)
+          setActivitiesPagination(data?.pagination ?? null)
+          setActivitiesPage(1)
         } catch {
           setActivities([])
+          setActivitiesPagination(null)
         }
       }
     } catch {
@@ -249,6 +260,31 @@ const Tracking = () => {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
       handleSearch()
+    }
+  }
+
+  const loadActivitiesPage = async (page) => {
+    if (!query?._id && !query?.id) return
+    const recordId = query._id || query.id
+    try {
+      setLoading(true)
+      if (trackingType === 'query') {
+        const actRes = await queryService.getActivities(recordId, { pageNumber: page, pageSize: 10 })
+        const data = actRes?.data?.data ?? actRes?.data
+        setActivities(Array.isArray(data?.activities) ? data.activities : [])
+        setActivitiesPagination(data?.pagination ?? null)
+      } else {
+        const actRes = await rawQueryService.getActivities(recordId, { pageNumber: page, pageSize: 10 })
+        const data = actRes?.data?.data ?? actRes?.data
+        setActivities(Array.isArray(data?.activities) ? data.activities : [])
+        setActivitiesPagination(data?.pagination ?? null)
+      }
+      setActivitiesPage(page)
+    } catch {
+      setActivities([])
+      setActivitiesPagination(null)
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -366,7 +402,7 @@ const Tracking = () => {
     const p = performer || performerAlt
     if (p) {
       return {
-        name: getUserDisplayName(p),
+        name: getUserDisplayName(p) || act.performByName || p.name,
         email: p.email || null,
         phone: p.phone || p.phone_1 || null,
         role: p.role || p.designation || null,
@@ -671,11 +707,36 @@ const Tracking = () => {
           {/* Right side - Full Tracking Timeline */}
           <CCol lg={7}>
             <CCard className="mb-4">
-              <CCardHeader className="d-flex justify-content-between align-items-center">
+              <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <strong>Tracking Timeline</strong>
-                <CBadge color="primary" shape="rounded-pill">
-                  {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
-                </CBadge>
+                <div className="d-flex align-items-center gap-2">
+                  <CBadge color="primary" shape="rounded-pill">
+                    {activitiesPagination?.totalItems ?? activities.length} {activitiesPagination?.totalItems === 1 ? 'activity' : 'activities'}
+                  </CBadge>
+                  {activitiesPagination && activitiesPagination.totalPages > 1 && (
+                    <div className="d-flex align-items-center gap-1">
+                      <CButton
+                        color="light"
+                        size="sm"
+                        disabled={!activitiesPagination.hasPrevPage || loading}
+                        onClick={() => loadActivitiesPage(activitiesPage - 1)}
+                      >
+                        Prev
+                      </CButton>
+                      <span className="small text-muted px-2">
+                        Page {activitiesPagination.currentPage} of {activitiesPagination.totalPages}
+                      </span>
+                      <CButton
+                        color="light"
+                        size="sm"
+                        disabled={!activitiesPagination.hasNextPage || loading}
+                        onClick={() => loadActivitiesPage(activitiesPage + 1)}
+                      >
+                        Next
+                      </CButton>
+                    </div>
+                  )}
+                </div>
               </CCardHeader>
               <CCardBody>
                 {/* Created entry */}
@@ -698,7 +759,7 @@ const Tracking = () => {
                       <div className="d-flex align-items-center gap-1">
                         <CIcon icon={cilUser} size="sm" className="text-muted" />
                         <span className="fw-semibold">
-                          {getUserDisplayName(creator) || 'Unknown user'}
+                          {getUserDisplayName(creator) || '—'}
                         </span>
                         {creator?.role && (
                           <CBadge color="light" textColor="dark" size="sm" className="ms-1">
@@ -752,9 +813,6 @@ const Tracking = () => {
                               <CIcon icon={cilClock} size="sm" className="me-1" />
                               {formatDateTime(timestamp)}
                             </span>
-                            <span className="small text-muted fst-italic">
-                              ({getTimeAgo(timestamp)})
-                            </span>
                           </div>
 
                           {/* Performer details */}
@@ -762,7 +820,7 @@ const Tracking = () => {
                             <div className="d-flex align-items-center gap-2">
                               <CIcon icon={cilUser} size="sm" className="text-muted" />
                               <span className="fw-semibold">
-                                {performer.name || 'Unknown user'}
+                                {performer.name || act.performByName || '—'}
                               </span>
                               {performer.role && (
                                 <CBadge color="light" textColor="dark" size="sm">

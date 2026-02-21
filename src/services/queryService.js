@@ -59,9 +59,9 @@ const queryService = {
     return response
   },
 
-  getActivities: async (queryId) => {
+  getActivities: async (queryId, params = {}) => {
     const response = await api.get(QUERIES.ACTIVITIES, {
-      params: { queryId },
+      params: { queryId, ...params },
     })
     return response
   },

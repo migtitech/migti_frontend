@@ -23,17 +23,25 @@ const App = () => {
   const storedTheme = useSelector((state) => state.theme)
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.href.split('?')[1])
-    const theme = urlParams.get('theme') && urlParams.get('theme').match(/^[A-Za-z0-9\s]+/)[0]
-    if (theme) {
-      setColorMode(theme)
-    }
+    try {
+      const queryString = window.location.href.split('?')[1] || ''
+      const urlParams = new URLSearchParams(queryString)
+      const themeParam = urlParams.get('theme')
+      const theme = (themeParam && themeParam.match(/^[A-Za-z0-9\s\-_]+/)?.[0]) || null
+      if (theme) {
+        setColorMode(theme)
+      }
 
-    if (isColorModeSet()) {
-      return
-    }
+      if (isColorModeSet()) {
+        return
+      }
 
-    setColorMode(storedTheme)
+      if (storedTheme) {
+        setColorMode(storedTheme)
+      }
+    } catch {
+      // Ignore theme parsing errors
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

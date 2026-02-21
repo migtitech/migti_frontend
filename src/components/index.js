@@ -14,6 +14,7 @@ import SearchableDropdown from './SearchableDropdown/SearchableDropdown'
 import ErrorBoundary from './ErrorBoundary/ErrorBoundary'
 import ErrorFallback from './ErrorFallback/ErrorFallback'
 import EyeIcon from './EyeIcon'
+import TrackingTimeline from './TrackingTimeline/TrackingTimeline'
 
 export {
   AppBreadcrumb,
@@ -32,4 +33,5 @@ export {
   ErrorBoundary,
   ErrorFallback,
   EyeIcon,
+  TrackingTimeline,
 }

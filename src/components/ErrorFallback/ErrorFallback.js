@@ -8,7 +8,7 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilReload, cilHome, cilWarning } from '@coreui/icons'
 
-const ErrorFallback = ({ onRetry, onGoHome }) => {
+const ErrorFallback = ({ error, onRetry, onGoHome }) => {
   const handleRetry = () => {
     if (typeof onRetry === 'function') {
       onRetry()
@@ -48,6 +48,11 @@ const ErrorFallback = ({ onRetry, onGoHome }) => {
               <p className="text-body-secondary mb-4">
                 We're sorry, but something unexpected happened. Please try again or go back to the home page.
               </p>
+              {process.env.NODE_ENV === 'development' && error && (
+                <pre className="text-start small bg-light p-3 rounded mb-4" style={{ maxHeight: 200, overflow: 'auto' }}>
+                  {error?.message || String(error)}
+                </pre>
+              )}
             </div>
             <div className="d-flex gap-2 justify-content-center flex-wrap">
               <CButton color="primary" onClick={handleRetry} className="d-inline-flex align-items-center gap-2">

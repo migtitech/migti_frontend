@@ -52,9 +52,9 @@ const rawQueryService = {
     return response
   },
 
-  getActivities: async (rawQueryId) => {
+  getActivities: async (rawQueryId, params = {}) => {
     const response = await api.get(RAW_QUERIES.ACTIVITIES, {
-      params: { rawQueryId },
+      params: { rawQueryId, ...params },
     })
     return response
   },
