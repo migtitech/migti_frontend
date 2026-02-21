@@ -27,7 +27,12 @@ const companySchema = () => yup.object({
   name: yup.string().required('Company name is required').min(2).max(100),
   brandName: yup.string().required('Brand name is required').min(2).max(100),
   email: yup.string().email('Enter a valid email').required('Email is required'),
-  gst: yup.string().max(20),
+  gst: yup
+    .string()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === '' ? null : v))
+    .test('gst', 'GST number must be exactly 15 digits', (v) => v == null || v === '' || /^\d{15}$/.test(v)),
 })
 
 const defaultValues = {

@@ -174,6 +174,11 @@ const RawQueryCreate = () => {
       toastError('Industry name is required')
       return
     }
+    const pm = (industryEditForm?.purchase_manager_phone || '').trim()
+    if (pm && !/^\d{10}$/.test(pm)) {
+      toastError('Purchase manager phone must be exactly 10 digits')
+      return
+    }
     setCreatingIndustry(true)
     try {
       const payload = {

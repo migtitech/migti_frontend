@@ -35,7 +35,7 @@ const EmployeeFormModal = ({
         phone: yup
           .string()
           .required('Phone is required')
-          .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits'),
+          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
         role: yup.string().required('Role is required'),
         designation: yup.string().required('Designation is required').min(2).max(100),
         address: yup.string().required('Address is required').min(2).max(500),
