@@ -181,6 +181,14 @@ const CompanyView = () => {
                   <strong>Address:</strong>
                   <p className="mb-0 mt-2">{company.address || '-'}</p>
                 </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Shipping Address:</strong>
+                  <p className="mb-0 mt-2">{company.shippingAddress || '-'}</p>
+                </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Billing Address:</strong>
+                  <p className="mb-0 mt-2">{company.billingAddress || '-'}</p>
+                </CListGroupItem>
               </CListGroup>
             </CCardBody>
           </CCard>

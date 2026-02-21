@@ -25,11 +25,11 @@ import {
   cilUser,
   cilPencil,
   cilCheckAlt,
-  cilZoom,
   cilClock,
   cilEnvelopeClosed,
   cilPhone,
 } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import rawQueryService from '../../services/rawQueryService'
 import queryService from '../../services/queryService'
 import employeeService from '../../services/employeeService'
@@ -307,7 +307,7 @@ const Tracking = () => {
   const getActivityIcon = (type) => {
     switch (type) {
       case 'viewed':
-        return cilZoom
+        return null
       case 'action':
         return cilPencil
       case 'follow_up':
@@ -741,10 +741,7 @@ const Tracking = () => {
                             backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})`,
                           }}
                         >
-                          <CIcon
-                            icon={getActivityIcon(act.type)}
-                            className="text-white"
-                          />
+                          {act.type === 'viewed' ? <EyeIcon size={20} className="text-white" /> : <CIcon icon={getActivityIcon(act.type)} className="text-white" />}
                         </div>
                         <div className="flex-grow-1">
                           <div className="d-flex align-items-center gap-2 flex-wrap">

@@ -17,7 +17,8 @@ import {
   CAvatar,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../../components'
 import { Loader } from '../../../components'
 
 const EmployeeTable = ({
@@ -113,7 +114,7 @@ const EmployeeTable = ({
                             onClick={() => onView(employee.id)}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate && canUpdate('employees') && (
                             <CButton

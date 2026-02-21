@@ -22,7 +22,8 @@ import {
   CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import industryBranchService from '../../services/industryBranchService'
 import industryService from '../../services/industryService'
 import { Loader, ConfirmDialog } from '../../components'
@@ -158,6 +159,7 @@ const IndustryBranchList = () => {
                       <CTableHeaderCell>Industry</CTableHeaderCell>
                       <CTableHeaderCell>Branch Name</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
+                      <CTableHeaderCell>GST</CTableHeaderCell>
                       <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
@@ -175,6 +177,7 @@ const IndustryBranchList = () => {
                           <strong>{branch.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>{branch.location || '-'}</CTableDataCell>
+                        <CTableDataCell>{branch.gst || '-'}</CTableDataCell>
                         <CTableDataCell>{branch.address || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
@@ -184,7 +187,7 @@ const IndustryBranchList = () => {
                             onClick={() => navigate('/industry-branches/' + branch._id)}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('industry_branches') && (
                             <CButton
@@ -213,7 +216,7 @@ const IndustryBranchList = () => {
                     ))}
                     {branches.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={6} className="text-center">
+                        <CTableDataCell colSpan={7} className="text-center">
                           No industry branches found. Select an industry and create a branch.
                         </CTableDataCell>
                       </CTableRow>

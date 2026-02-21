@@ -17,7 +17,8 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilLocationPin } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilLocationPin } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import Filtered from '../../filtered/Filtered'
 import companyService from '../../services/companyService'
 import { Loader, ConfirmDialog } from '../../components'
@@ -146,7 +147,7 @@ const CompanyList = () => {
                             title="View"
                             onClick={() => navigate(`/companies/${id}`)}
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
 
                           <CButton

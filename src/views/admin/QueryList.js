@@ -18,7 +18,8 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import queryService from '../../services/queryService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
@@ -190,7 +191,7 @@ const QueryList = () => {
                                 onClick={() => navigate(`/queries/${q._id || q.id}`)}
                                 title="View"
                               >
-                                <CIcon icon={cilZoom} />
+                                <EyeIcon />
                               </CButton>
                               <CButton
                                 color="warning"

@@ -34,6 +34,17 @@ const BranchView = () => {
     id: item?.id || item?._id,
   })
 
+  const formatCreatedAt = (item) => {
+    const dt = item?.createdAt ?? item?.created_at
+    if (!dt) return '-'
+    try {
+      const d = new Date(dt)
+      return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+    } catch {
+      return '-'
+    }
+  }
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
@@ -183,7 +194,7 @@ const BranchView = () => {
                 )}
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
-                  <span>{branch.createdAt ? new Date(branch.createdAt).toLocaleDateString() : '-'}</span>
+                  <span>{formatCreatedAt(branch)}</span>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>

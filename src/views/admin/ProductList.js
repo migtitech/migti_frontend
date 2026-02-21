@@ -20,7 +20,8 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilX } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilX } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
@@ -271,7 +272,7 @@ const ProductList = () => {
                             onClick={() => navigate(`/products/${product._id}`)}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('products') && (
                             <CButton

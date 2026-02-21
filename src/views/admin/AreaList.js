@@ -19,7 +19,8 @@ import {
   CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useNavigate } from 'react-router-dom'
 import areaService from '../../services/areaService'
 import companyService from '../../services/companyService'
@@ -197,7 +198,7 @@ const AreaList = () => {
                               className="me-2"
                               onClick={() => navigate(`/areas/${getId(area)}`)}
                             >
-                              <CIcon icon={cilZoom} />
+                              <EyeIcon />
                             </CButton>
                             {canUpdate('zones') && (
                               <CButton

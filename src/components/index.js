@@ -13,6 +13,7 @@ import ConfirmDialog from './ConfirmDialog/ConfirmDialog'
 import SearchableDropdown from './SearchableDropdown/SearchableDropdown'
 import ErrorBoundary from './ErrorBoundary/ErrorBoundary'
 import ErrorFallback from './ErrorFallback/ErrorFallback'
+import EyeIcon from './EyeIcon'
 
 export {
   AppBreadcrumb,
@@ -30,4 +31,5 @@ export {
   SearchableDropdown,
   ErrorBoundary,
   ErrorFallback,
+  EyeIcon,
 }

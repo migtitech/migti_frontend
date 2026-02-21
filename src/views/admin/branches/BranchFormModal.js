@@ -41,7 +41,11 @@ const BranchFormModal = ({
         gstNumber: yup
           .string()
           .required('GST number is required')
-          .matches(/^\d{15}$/, 'GST number must be exactly 15 digits'),
+          .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+          .matches(
+            /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/,
+            'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)'
+          ),
         address: yup.string().required('Address is required').min(2).max(200),
         fullAddress: yup.string().required('Full address is required').min(5).max(500),
         mapLocationUrl: yup

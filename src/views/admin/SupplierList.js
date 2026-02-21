@@ -21,7 +21,8 @@ import {
   CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import areaService from '../../services/areaService'
@@ -296,7 +297,7 @@ const SupplierList = () => {
                             onClick={() => navigate(`/suppliers/${supplier._id}`)}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('suppliers') && (
                             <CButton

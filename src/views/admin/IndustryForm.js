@@ -51,8 +51,12 @@ const industrySchema = yup.object({
     .string()
     .optional()
     .nullable()
-    .transform((v, o) => (o === '' ? null : v))
-    .test('gst', 'GST number must be exactly 15 digits', (v) => v == null || v === '' || /^\d{15}$/.test(v)),
+    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+    .test(
+      'gst',
+      'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)',
+      (v) => !v || v === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)
+    ),
   purchase_manager_name: yup.string().optional().max(100),
   purchase_manager_phone: yup
     .string()
