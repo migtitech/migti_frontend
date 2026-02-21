@@ -127,10 +127,10 @@ const CompanyView = () => {
               </CButton>
             </CCardHeader>
             <CCardBody>
-              {(company.logoUrl || company.logo) && (
+              {(company.logoDisplayUrl || company.logoUrl || company.logo) && (
                 <div className="mb-3 text-center">
                   <img
-                    src={company.logoUrl || company.logo}
+                    src={company.logoDisplayUrl || company.logoUrl || company.logo}
                     alt="Company logo"
                     style={{ maxHeight: 100, maxWidth: 200, objectFit: 'contain' }}
                   />

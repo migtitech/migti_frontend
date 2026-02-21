@@ -48,6 +48,7 @@ const companySchema = () => yup.object({
     .transform((v, o) => (o === '' ? '' : v))
     .test('url', 'Enter a valid URL', (v) => !v || v === '' || /^https?:\/\/.+/.test(v)),
   logoUrl: yup.string().optional().nullable(),
+  logoDisplayUrl: yup.string().optional().nullable(),
   isActive: yup.boolean().optional().default(true),
 })
 
@@ -62,6 +63,7 @@ const defaultValues = {
   billingAddress: '',
   website: '',
   logoUrl: '',
+  logoDisplayUrl: '',
   isActive: true,
 }
 
@@ -89,6 +91,7 @@ const CompanyForm = () => {
   })
 
   const logoUrl = watch('logoUrl')
+  const logoDisplayUrl = watch('logoDisplayUrl')
 
   useEffect(() => {
     if (!isEdit) {
@@ -113,6 +116,7 @@ const CompanyForm = () => {
           billingAddress: data.billingAddress || '',
           website: data.website || '',
           logoUrl: data.logoUrl || '',
+          logoDisplayUrl: data.logoDisplayUrl || data.logoUrl || '',
           isActive: data.isActive !== false,
         })
       } catch (err) {
@@ -135,9 +139,12 @@ const CompanyForm = () => {
     setLogoUploading(true)
     try {
       const res = await companyService.uploadLogo(file)
-      const url = res?.data?.url || res?.data?.data?.url
+      const data = res?.data?.data || res?.data || {}
+      const url = data?.url
+      const displayUrl = data?.displayUrl || url
       if (url) {
         setValue('logoUrl', url, { shouldValidate: true })
+        setValue('logoDisplayUrl', displayUrl || url, { shouldValidate: true })
         toastSuccess('Logo uploaded')
       } else {
         toastError('Upload failed')
@@ -153,8 +160,9 @@ const CompanyForm = () => {
     setSubmitting(true)
     setError('')
     try {
+      const { logoDisplayUrl: _, ...rest } = values
       const payload = {
-        ...values,
+        ...rest,
         logoUrl: values.logoUrl || undefined,
         mobile: values.mobile || '',
         address: values.address || '',
@@ -318,9 +326,9 @@ const CompanyForm = () => {
                   disabled={logoUploading}
                 />
                 {logoUploading && <small className="text-muted">Uploading to S3...</small>}
-                {logoUrl && (
+                {(logoDisplayUrl || logoUrl) && (
                   <div className="mt-2">
-                    <img src={logoUrl} alt="Logo" style={{ maxHeight: 80, maxWidth: 160, objectFit: 'contain' }} />
+                    <img src={logoDisplayUrl || logoUrl} alt="Logo" style={{ maxHeight: 80, maxWidth: 160, objectFit: 'contain' }} />
                   </div>
                 )}
               </div>

@@ -124,9 +124,9 @@ const CompanyList = () => {
                         <CTableDataCell>{company.brandName}</CTableDataCell>
                         <CTableDataCell>{company.email}</CTableDataCell>
                         <CTableDataCell>
-                          {company.logoUrl ? (
+                          {(company.logoDisplayUrl || company.logoUrl) ? (
                             <img
-                              src={company.logoUrl}
+                              src={company.logoDisplayUrl || company.logoUrl}
                               alt="Logo"
                               style={{ height: 32, width: 'auto', maxWidth: 80, objectFit: 'contain' }}
                             />

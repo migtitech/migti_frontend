@@ -1,6 +1,6 @@
 
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4545/api'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7200/api'
 
 /** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
 export const getAssetsBaseUrl = () => {
