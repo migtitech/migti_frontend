@@ -139,7 +139,6 @@ const GroupList = () => {
                         <CTableDataCell>
                           {grp.description?.substring(0, 50) || '—'}
                         </CTableDataCell>
-                        <CTableDataCell>{grp.sortOrder ?? 0}</CTableDataCell>
                         <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
                         <CTableDataCell>
                           {canUpdate('groups') && (

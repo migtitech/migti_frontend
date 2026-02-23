@@ -31,8 +31,7 @@ const purchaseManagerSchema = yup.object({
   phone: yup
     .string()
     .optional()
-    .matches(/^[\d\s-]*$/, 'Phone can only contain digits, spaces, hyphens')
-    .max(20)
+    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
     .nullable()
     .transform((v, o) => (o === '' ? '' : v)),
   email: yup
@@ -48,12 +47,17 @@ const industrySchema = yup.object({
   area: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
-  gstNumber: yup.string().optional().max(50).nullable(),
+  gstNumber: yup
+    .string()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === '' ? null : v))
+    .test('gst', 'GST number must be exactly 15 digits', (v) => v == null || v === '' || /^\d{15}$/.test(v)),
   purchase_manager_name: yup.string().optional().max(100),
   purchase_manager_phone: yup
     .string()
     .optional()
-    .matches(/^\d{5,20}$/, 'Phone must be 5-20 digits')
+    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
     .nullable()
     .transform((value, original) => (original === '' ? null : value)),
   email: yup

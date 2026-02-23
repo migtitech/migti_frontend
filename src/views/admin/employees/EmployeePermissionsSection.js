@@ -10,6 +10,7 @@ import {
   CTableBody,
   CTableDataCell,
   CSpinner,
+  CAlert,
 } from '@coreui/react'
 import { api } from '../../../api/axiosClient'
 import { ADMIN } from '../../../api/endpoints'
@@ -32,7 +33,9 @@ const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }
     const fetchModules = async () => {
       try {
         const response = await api.get(ADMIN.PERMISSIONS_MODULES)
-        setModules(response?.data?.modules || [])
+        // Support both response.data.modules and response.modules
+        const mods = response?.data?.modules ?? response?.modules ?? []
+        setModules(Array.isArray(mods) ? mods : [])
       } catch {
         setModules([])
       } finally {
@@ -42,9 +45,22 @@ const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }
     fetchModules()
   }, [])
 
-  // Don't show for full-access roles
+  // No role selected yet
+  if (!selectedRole) {
+    return (
+      <CAlert color="info" className="mb-0">
+        Select an employee role above (sales, purchase, finance, delivery) to configure granular access permissions.
+      </CAlert>
+    )
+  }
+
+  // Full-access roles don't need permission configuration
   if (FULL_ACCESS_ROLES.includes(selectedRole)) {
-    return null
+    return (
+      <CAlert color="secondary" className="mb-0">
+        This role ({selectedRole}) has full access. No permission configuration needed.
+      </CAlert>
+    )
   }
 
   if (loading) {

@@ -24,7 +24,6 @@ const BranchCards = ({
   onView,
   onEdit,
   onDelete,
-  onViewUsers,
 }) => {
   const companyById = useMemo(() => {
     const map = new Map()
@@ -84,15 +83,6 @@ const BranchCards = ({
                     title="View"
                   >
                     <CIcon icon={cilZoom} />
-                  </CButton>
-                  <CButton
-                    color="primary"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onViewUsers(branch.companyId, branch.id)}
-                    title="Users"
-                  >
-                    <CIcon icon={cilPeople} />
                   </CButton>
                   <CButton
                     color="warning"
