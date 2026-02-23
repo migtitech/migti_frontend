@@ -167,9 +167,9 @@ const IndustryView = () => {
                     <span className="d-block mt-2">-</span>
                   )}
                 </CListGroupItem>
-                <CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Address:</strong>
-                  <p className="mb-0 mt-2">{industry.address || 'No address provided'}</p>
+                  <span>{industry.address || 'No address provided'}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>

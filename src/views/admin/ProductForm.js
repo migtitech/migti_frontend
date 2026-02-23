@@ -62,7 +62,7 @@ const productSchema = yup.object({
   subcategory: yup.string().optional(),
   brand: yup.string().optional(),
   group: yup.string().optional(),
-  hsnNumber: yup.string().optional().max(50),
+  hsnNumber: yup.string().optional().min(4).max(8),
   gstPercentage: numberField('GST %').nullable(true),
   defaultModelNumber: yup.string().optional().max(100),
   hasVariants: yup.boolean().default(false),

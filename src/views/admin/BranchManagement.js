@@ -66,7 +66,7 @@ const BranchManagement = () => {
       <CCard>
         <CCardBody className="text-center">
           <h4>Company not found</h4>
-          <CButton color="primary" onClick={() => navigate('/admin/dashboard')}>
+          <CButton color="primary" onClick={() => navigate('/dashboard')}>
             Back to Dashboard
           </CButton>
         </CCardBody>
@@ -159,7 +159,7 @@ const BranchManagement = () => {
               <CTable hover responsive>
                 <CTableHead>
                   <CTableRow>
-                    <CTableHeaderCell>#</CTableHeaderCell>
+                    <CTableHeaderCell>SNo</CTableHeaderCell>
                     <CTableHeaderCell>Name</CTableHeaderCell>
                     <CTableHeaderCell>Email</CTableHeaderCell>
                     <CTableHeaderCell>Location</CTableHeaderCell>

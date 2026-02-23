@@ -21,6 +21,7 @@ import {
   cilMap,
   cilSearch,
   cilHome,
+  cilLibraryBuilding,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -46,7 +47,7 @@ const _nav = [
     component: CNavItem,
     name: 'Branches',
     to: '/branches',
-    icon: <CIcon icon={cilLocationPin} customClassName="nav-icon" />,
+    icon: <CIcon icon={cilLibraryBuilding} customClassName="nav-icon" />,
     module: 'branches',
   },
   {
