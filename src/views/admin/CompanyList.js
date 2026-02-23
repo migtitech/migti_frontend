@@ -13,7 +13,6 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CBadge,
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
@@ -137,18 +136,6 @@ const CompanyList = () => {
                             onClick={() => navigate(`/companies/${id}`)}
                           >
                             <CIcon icon={cilZoom} />
-                          </CButton>
-
-                          <CButton
-                            color="primary"
-                            variant="ghost"
-                            size="sm"
-                            title="Branches"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/companies/${id}/branches`)}}
-                          >
-                            <CIcon icon={cilLocationPin} />
                           </CButton>
 
                           {canUpdate('companies') && (
