@@ -12,6 +12,7 @@ import {
   CFormLabel,
   CFormSelect,
   CFormTextarea,
+  CFormCheck,
   CListGroup,
   CListGroupItem,
   CSpinner,
@@ -40,17 +41,7 @@ const INITIAL_COMPANY = {
   area: '',
   location: '',
   address: '',
-  purchase_manager_name: '',
-  purchase_manager_phone: '',
-  email: '',
-}
-
-const INITIAL_DELIVERY = {
-  location: '',
-  contactPersonName: '',
-  contactPersonPhone: '',
-  expectedDateByCompany: '',
-  urgent: false,
+  purchaseManagers: [],
 }
 
 const INITIAL_VARIANT = { variantName: '', quantity: 1 }
@@ -62,6 +53,22 @@ const INITIAL_PRODUCT = {
   variants: [],
   remark: '',
   product_id: null,
+}
+
+const getVariantComboDisplay = (combo) => {
+  const parts = (combo?.optionValues || []).map((o) => o?.variantValue || '').filter(Boolean)
+  return parts.join(', ')
+}
+
+const getVariantOptions = (product) => {
+  const list = []
+  ;(product?.variants || []).forEach((v) => {
+    const name = v?.name || ''
+    ;(v?.options || []).forEach((opt) => {
+      if (opt) list.push({ key: `${name}::${opt}`, label: `${name}: ${opt}` })
+    })
+  })
+  return list
 }
 
 const QueryForm = () => {
@@ -94,8 +101,10 @@ const QueryForm = () => {
   const [productSearchLoading, setProductSearchLoading] = useState(false)
   const [showFindProductModal, setShowFindProductModal] = useState(false)
 
-  // Delivery
-  const [delivery, setDelivery] = useState(INITIAL_DELIVERY)
+  // Selected product for variant import (from inline search)
+  const [selectedProductForImport, setSelectedProductForImport] = useState(null)
+  const [selectedVariantComboIds, setSelectedVariantComboIds] = useState(new Set())
+  const [selectedVariantOptionKeys, setSelectedVariantOptionKeys] = useState(new Set())
 
   const getAreaId = (area) => (typeof area === 'object' ? area?._id : area) || ''
 
@@ -196,19 +205,118 @@ const QueryForm = () => {
   }, [productSearch, fetchProductSearch])
 
   const handleSelectProduct = (product) => {
-    const pid = product._id || product.id
-    const existingVariants = formProduct.variants?.length ? formProduct.variants : []
-    setFormProduct({
-      ...formProduct,
-      productName: product?.name || '',
-      variants: product?.hasVariants && product?.variants?.length
-        ? product.variants.map((v) => ({ variantName: v.name || '', quantity: 1 }))
-        : existingVariants,
-      product_id: pid,
-    })
+    setSelectedProductForImport(product)
+    setSelectedVariantComboIds(new Set())
+    setSelectedVariantOptionKeys(new Set())
     setProductSearch('')
     setProductDropdownOpen(false)
     setProductSearchResults([])
+  }
+
+  const toggleVariantCombo = (comboUniqueId) => {
+    setSelectedVariantComboIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(comboUniqueId)) next.delete(comboUniqueId)
+      else next.add(comboUniqueId)
+      return next
+    })
+  }
+
+  const toggleVariantOption = (optionKey) => {
+    setSelectedVariantOptionKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(optionKey)) next.delete(optionKey)
+      else next.add(optionKey)
+      return next
+    })
+  }
+
+  const toggleAllVariantCombos = (combos) => {
+    const uids = (combos || []).map((c) => c.uniqueId || c._id).filter(Boolean)
+    if (!uids.length) return
+    setSelectedVariantComboIds((prev) => {
+      const allSelected = uids.every((uid) => prev.has(uid))
+      if (allSelected) return new Set()
+      return new Set(uids)
+    })
+  }
+
+  const toggleAllVariantOptions = (options) => {
+    const keys = (options || []).map((o) => o.key).filter(Boolean)
+    if (!keys.length) return
+    setSelectedVariantOptionKeys((prev) => {
+      const allSelected = keys.every((k) => prev.has(k))
+      if (allSelected) return new Set()
+      return new Set(keys)
+    })
+  }
+
+  const clearSelectedProductForImport = () => {
+    setSelectedProductForImport(null)
+    setSelectedVariantComboIds(new Set())
+    setSelectedVariantOptionKeys(new Set())
+  }
+
+  const handleImportSelectedVariants = () => {
+    const p = selectedProductForImport
+    if (!p) return
+    const pid = p._id || p.id
+    const productName = p?.name || ''
+    const unit = (p?.unit && String(p.unit).trim()) || 'pcs'
+
+    const newProducts = []
+
+    const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
+    const variantOpts = getVariantOptions(p)
+    const hasVariantOpts = variantOpts.length > 0
+
+    if (hasCombos) {
+      const combos = p.variantCombinations || []
+      const comboIds = selectedVariantComboIds
+      const selectedCombos = combos.filter((c) => comboIds.has(c.uniqueId || c._id))
+      selectedCombos.forEach((c) => {
+        newProducts.push({
+          productName,
+          quantity: Number(c?.quantity) ?? 1,
+          unit,
+          variants: [{ variantName: getVariantComboDisplay(c), quantity: Number(c?.quantity) ?? 1 }],
+          remark: '',
+          product_id: pid,
+        })
+      })
+    } else if (hasVariantOpts) {
+      const optionKeys = selectedVariantOptionKeys
+      variantOpts
+        .filter((o) => optionKeys.has(o.key))
+        .forEach((o) => {
+          newProducts.push({
+            productName,
+            quantity: 1,
+            unit,
+            variants: [{ variantName: o.label, quantity: 1 }],
+            remark: '',
+            product_id: pid,
+          })
+        })
+    } else {
+      newProducts.push({
+        productName,
+        quantity: 1,
+        unit,
+        variants: [],
+        remark: '',
+        product_id: pid,
+      })
+    }
+
+    if (newProducts.length === 0) {
+      toastError('Select at least one variant to import')
+      return
+    }
+
+    setProducts((prev) => [...prev, ...newProducts])
+    toastSuccess(`${newProducts.length} product(s) added to list`)
+    clearSelectedProductForImport()
   }
 
   const clearProductForm = () => {
@@ -330,14 +438,20 @@ const QueryForm = () => {
         if (!q) throw new Error('Query not found')
 
         const ci = q.companyInfo || {}
+        let managers = (ci.purchaseManagers || []).map((m) => ({
+          name: m?.name || '',
+          phone: m?.phone || '',
+          email: m?.email || '',
+        }))
+        if (managers.length === 0 && (ci.purchase_manager_name || ci.purchase_manager_phone)) {
+          managers = [{ name: ci.purchase_manager_name || '', phone: ci.purchase_manager_phone || '', email: ci.email || '' }]
+        }
         setCompanyInfo({
           name: ci.name || '',
           area: getAreaId(ci.area) || ci.area || '',
           location: ci.location || '',
           address: ci.address || '',
-          purchase_manager_name: ci.purchase_manager_name || '',
-          purchase_manager_phone: ci.purchase_manager_phone || '',
-          email: ci.email || '',
+          purchaseManagers: managers,
         })
         setIndustryId(q.industry_id?._id || q.industry_id || null)
         setIndustrySearch(q.industry_id?.name || (ci.name || ''))
@@ -354,19 +468,6 @@ const QueryForm = () => {
           product_id: p.product_id?._id || p.product_id || null,
         })) : []
         setProducts(prods)
-
-        const del = q.delivery || {}
-        setDelivery({
-          location: del.location || '',
-          contactPersonName: del.contactPersonName || '',
-          contactPersonPhone: del.contactPersonPhone || '',
-          expectedDateByCompany: del.expectedDateByCompany
-            ? (typeof del.expectedDateByCompany === 'string'
-                ? del.expectedDateByCompany.slice(0, 10)
-                : new Date(del.expectedDateByCompany).toISOString().slice(0, 10))
-            : '',
-          urgent: Boolean(del.urgent),
-        })
       } catch (err) {
         toastError(err?.message || 'Failed to load query')
         setError(err?.message || 'Failed to load query')
@@ -394,15 +495,13 @@ const QueryForm = () => {
       toastError('Company / Industry name is required')
       return
     }
-    const pm = (companyInfo?.purchase_manager_phone || '').trim()
-    if (pm && !/^\d{10}$/.test(pm)) {
-      toastError('Purchase manager phone must be exactly 10 digits')
-      return
-    }
-    const cpp = (delivery?.contactPersonPhone || '').trim()
-    if (cpp && !/^\d{10}$/.test(cpp)) {
-      toastError('Contact person phone must be exactly 10 digits')
-      return
+    const managers = companyInfo?.purchaseManagers || []
+    for (const m of managers) {
+      const pm = (m?.phone || '').trim()
+      if (pm && !/^\d{10}$/.test(pm)) {
+        toastError(`Purchase manager "${m?.name || 'Unknown'}" phone must be exactly 10 digits`)
+        return
+      }
     }
     const validProducts = products.filter((p) => (p.productName || '').trim())
     if (validProducts.length === 0) {
@@ -416,6 +515,11 @@ const QueryForm = () => {
         companyInfo: {
           ...companyInfo,
           area: companyInfo.area || null,
+          purchaseManagers: (companyInfo.purchaseManagers || []).map((m) => ({
+            name: (m?.name || '').trim(),
+            phone: (m?.phone || '').trim(),
+            email: (m?.email || '').trim(),
+          })).filter((m) => m.name || m.phone),
         },
         industry_id: industryId || null,
         products: products.map((p) => ({
@@ -429,12 +533,6 @@ const QueryForm = () => {
           remark: p.remark?.trim() || '',
           product_id: p.product_id || null,
         })).filter((p) => p.productName),
-        delivery: {
-          ...delivery,
-          expectedDateByCompany: delivery.expectedDateByCompany
-            ? new Date(delivery.expectedDateByCompany).toISOString()
-            : null,
-        },
         created_by: isEdit ? undefined : getCreatedBy(),
       }
       if (isEdit) {
@@ -526,11 +624,9 @@ const QueryForm = () => {
                           }}
                         >
                           <div className="fw-semibold">{ind.name}</div>
-                          {(ind.location || ind.email) && (
-                            <div className="text-muted small">
-                              {[ind.location, ind.email].filter(Boolean).join(' • ')}
-                            </div>
-                          )}
+                          {ind.location && (
+                              <div className="text-muted small">{ind.location}</div>
+                            )}
                         </CListGroupItem>
                       ))}
                   </CListGroup>
@@ -579,40 +675,92 @@ const QueryForm = () => {
                   />
                 </div>
               </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Email</CFormLabel>
-                  <CFormInput
-                    type="email"
-                    value={companyInfo.email}
-                    onChange={(e) => setCompanyInfo((c) => ({ ...c, email: e.target.value }))}
-                    placeholder="Email"
-                  />
-                </div>
-              </CCol>
             </CRow>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Purchase manager name</CFormLabel>
-                  <CFormInput
-                    value={companyInfo.purchase_manager_name}
-                    onChange={(e) => setCompanyInfo((c) => ({ ...c, purchase_manager_name: e.target.value }))}
-                    placeholder="Name"
-                  />
+            <div className="mb-3">
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <CFormLabel className="mb-0">Purchase managers</CFormLabel>
+                <CButton
+                  color="primary"
+                  size="sm"
+                  type="button"
+                  onClick={() =>
+                    setCompanyInfo((c) => ({
+                      ...c,
+                      purchaseManagers: [...(c.purchaseManagers || []), { name: '', phone: '', email: '' }],
+                    }))
+                  }
+                >
+                  <CIcon icon={cilPlus} className="me-1" />
+                  Add purchase manager
+                </CButton>
+              </div>
+              {(companyInfo.purchaseManagers || []).length > 0 ? (
+                <div className="border rounded p-2">
+                  {(companyInfo.purchaseManagers || []).map((m, idx) => (
+                    <CRow key={idx} className="align-items-end mb-2 g-2">
+                      <CCol md={3}>
+                        <CFormInput
+                          value={m.name || ''}
+                          onChange={(e) =>
+                            setCompanyInfo((c) => {
+                              const next = [...(c.purchaseManagers || [])]
+                              next[idx] = { ...next[idx], name: e.target.value }
+                              return { ...c, purchaseManagers: next }
+                            })
+                          }
+                          placeholder="Name"
+                        />
+                      </CCol>
+                      <CCol md={3}>
+                        <CFormInput
+                          value={m.phone || ''}
+                          onChange={(e) =>
+                            setCompanyInfo((c) => {
+                              const next = [...(c.purchaseManagers || [])]
+                              next[idx] = { ...next[idx], phone: e.target.value }
+                              return { ...c, purchaseManagers: next }
+                            })
+                          }
+                          placeholder="Phone"
+                        />
+                      </CCol>
+                      <CCol md={4}>
+                        <CFormInput
+                          type="email"
+                          value={m.email || ''}
+                          onChange={(e) =>
+                            setCompanyInfo((c) => {
+                              const next = [...(c.purchaseManagers || [])]
+                              next[idx] = { ...next[idx], email: e.target.value }
+                              return { ...c, purchaseManagers: next }
+                            })
+                          }
+                          placeholder="Email"
+                        />
+                      </CCol>
+                      <CCol md={2}>
+                        <CButton
+                          color="danger"
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() =>
+                            setCompanyInfo((c) => ({
+                              ...c,
+                              purchaseManagers: (c.purchaseManagers || []).filter((_, i) => i !== idx),
+                            }))
+                          }
+                        >
+                          <CIcon icon={cilTrash} />
+                        </CButton>
+                      </CCol>
+                    </CRow>
+                  ))}
                 </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Purchase manager phone</CFormLabel>
-                  <CFormInput
-                    value={companyInfo.purchase_manager_phone}
-                    onChange={(e) => setCompanyInfo((c) => ({ ...c, purchase_manager_phone: e.target.value }))}
-                    placeholder="Phone"
-                  />
-                </div>
-              </CCol>
-            </CRow>
+              ) : (
+                <p className="text-muted small mb-0">Click &quot;Add purchase manager&quot; to add contact(s). Or select an industry to load from.</p>
+              )}
+            </div>
             <CRow>
               <CCol xs={12}>
                 <div className="mb-3">
@@ -684,6 +832,119 @@ const QueryForm = () => {
                     </div>
                   )}
                 </div>
+
+                {selectedProductForImport && (
+                  <div className="mb-3 p-3 bg-light rounded border">
+                    <div className="d-flex justify-content-between align-items-center mb-2">
+                      <strong>Selected: {selectedProductForImport?.name || '–'}</strong>
+                      <div className="d-flex gap-2 align-items-center">
+                        <CButton color="secondary" size="sm" variant="ghost" onClick={clearSelectedProductForImport}>
+                          Clear
+                        </CButton>
+                        <CButton color="primary" size="sm" onClick={handleImportSelectedVariants}>
+                          Import
+                        </CButton>
+                      </div>
+                    </div>
+                    {(() => {
+                      const p = selectedProductForImport
+                      const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
+                      const combos = p?.variantCombinations || []
+                      const variantOpts = getVariantOptions(p)
+                      const hasVariantOpts = variantOpts.length > 0
+
+                      if (hasCombos) {
+                        const comboSet = selectedVariantComboIds
+                        const allComboIds = combos.map((c) => c.uniqueId || c._id).filter(Boolean)
+                        const allSelected = allComboIds.length > 0 && allComboIds.every((uid) => comboSet.has(uid))
+                        return (
+                          <>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <CFormLabel className="mb-0">Select variant combination(s) to import</CFormLabel>
+                              <CFormCheck
+                                type="checkbox"
+                                label="Select all"
+                                checked={allSelected}
+                                onChange={() => toggleAllVariantCombos(combos)}
+                              />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem 1rem' }}>
+                              {combos.map((c) => {
+                                const uid = c.uniqueId || c._id
+                                const checked = comboSet.has(uid)
+                                const inputId = `combo-${uid}`
+                                return (
+                                  <label
+                                    key={uid}
+                                    htmlFor={inputId}
+                                    className="form-check d-flex align-items-center gap-2 mb-0"
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      id={inputId}
+                                      className="form-check-input"
+                                      checked={checked}
+                                      onChange={() => toggleVariantCombo(uid)}
+                                    />
+                                    <span className="form-check-label">{getVariantComboDisplay(c)}</span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </>
+                        )
+                      }
+                      if (hasVariantOpts) {
+                        const optionSet = selectedVariantOptionKeys
+                        const allKeys = variantOpts.map((o) => o.key)
+                        const allSelected = allKeys.length > 0 && allKeys.every((k) => optionSet.has(k))
+                        return (
+                          <>
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <CFormLabel className="mb-0">Select variant(s) to import</CFormLabel>
+                              <CFormCheck
+                                type="checkbox"
+                                label="Select all"
+                                checked={allSelected}
+                                onChange={() => toggleAllVariantOptions(variantOpts)}
+                              />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem 1rem' }}>
+                              {variantOpts.map((o) => {
+                                const checked = optionSet.has(o.key)
+                                const inputId = `opt-${o.key}`
+                                return (
+                                  <label
+                                    key={o.key}
+                                    htmlFor={inputId}
+                                    className="form-check d-flex align-items-center gap-2 mb-0"
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      id={inputId}
+                                      className="form-check-input"
+                                      checked={checked}
+                                      onChange={() => toggleVariantOption(o.key)}
+                                    />
+                                    <span className="form-check-label">{o.label}</span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </>
+                        )
+                      }
+                      return (
+                        <p className="mb-0 text-muted small">
+                          This product has no variants. Click Import to add it as one product.
+                        </p>
+                      )
+                    })()}
+                  </div>
+                )}
+
                 <CRow>
                   <CCol md={6}>
                     <div className="mb-3">
@@ -831,67 +1092,6 @@ const QueryForm = () => {
                   </CTableBody>
                 </CTable>
               )}
-            </div>
-          </CCardBody>
-        </CCard>
-
-        {/* 3. Delivery & Payment */}
-        <CCard className="mb-4">
-          <CCardHeader><strong>3. Delivery & Payment</strong></CCardHeader>
-          <CCardBody>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Location</CFormLabel>
-                  <CFormInput
-                    value={delivery.location}
-                    onChange={(e) => setDelivery((d) => ({ ...d, location: e.target.value }))}
-                    placeholder="Delivery location"
-                  />
-                </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Contact person name</CFormLabel>
-                  <CFormInput
-                    value={delivery.contactPersonName}
-                    onChange={(e) => setDelivery((d) => ({ ...d, contactPersonName: e.target.value }))}
-                    placeholder="Name"
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Contact person phone</CFormLabel>
-                  <CFormInput
-                    value={delivery.contactPersonPhone}
-                    onChange={(e) => setDelivery((d) => ({ ...d, contactPersonPhone: e.target.value }))}
-                    placeholder="Phone"
-                  />
-                </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Expected date by company</CFormLabel>
-                  <CFormInput
-                    type="date"
-                    value={delivery.expectedDateByCompany}
-                    onChange={(e) => setDelivery((d) => ({ ...d, expectedDateByCompany: e.target.value }))}
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <div className="mb-3">
-              <CFormLabel>Urgent / Non-urgent</CFormLabel>
-              <CFormSelect
-                value={delivery.urgent ? 'urgent' : 'non-urgent'}
-                onChange={(e) => setDelivery((d) => ({ ...d, urgent: e.target.value === 'urgent' }))}
-              >
-                <option value="non-urgent">Non-urgent</option>
-                <option value="urgent">Urgent</option>
-              </CFormSelect>
             </div>
           </CCardBody>
         </CCard>

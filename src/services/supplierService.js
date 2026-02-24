@@ -37,6 +37,17 @@ const supplierService = {
     })
     return response
   },
+
+  uploadCatalog: async (supplierId, file) => {
+    const formData = new FormData()
+    formData.append('catalog', file)
+    const response = await api.post(
+      `${SUPPLIERS.UPLOAD_CATALOG}?supplierId=${supplierId}`,
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    )
+    return response
+  },
 }
 
 export default supplierService

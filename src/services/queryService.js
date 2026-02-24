@@ -3,7 +3,14 @@ import { QUERIES } from '../api/endpoints'
 
 const mapToApiPayload = (data) => ({
   ...(data.status != null && { status: data.status }),
-  companyInfo: data.companyInfo || {},
+  companyInfo: {
+    ...(data.companyInfo || {}),
+    purchaseManagers: (data.companyInfo?.purchaseManagers || []).map((m) => ({
+      name: m?.name || '',
+      phone: m?.phone || '',
+      email: m?.email || '',
+    })),
+  },
   industry_id: data.industry_id || null,
   products: (data.products || []).map((p) => ({
     productName: p.productName,
@@ -16,13 +23,6 @@ const mapToApiPayload = (data) => ({
     remark: p.remark || '',
     product_id: p.product_id || null,
   })),
-  delivery: {
-    location: data.delivery?.location || '',
-    contactPersonName: data.delivery?.contactPersonName || '',
-    contactPersonPhone: data.delivery?.contactPersonPhone || '',
-    expectedDateByCompany: data.delivery?.expectedDateByCompany || null,
-    urgent: Boolean(data.delivery?.urgent),
-  },
   created_by: data.created_by != null ? String(data.created_by) : undefined,
 })
 

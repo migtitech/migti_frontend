@@ -124,6 +124,7 @@ export const SUPPLIERS = {
   GET_BY_ID: '/suppliers/get-by-id',
   UPDATE: '/suppliers/update',
   DELETE: '/suppliers/delete',
+  UPLOAD_CATALOG: '/suppliers/upload-catalog',
 }
 
 export const RATE_CARDS = {

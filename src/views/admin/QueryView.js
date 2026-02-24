@@ -228,7 +228,6 @@ const QueryView = () => {
 
   const ci = query.companyInfo || {}
   const prods = query.products || []
-  const del = query.delivery || {}
 
   let creator = query.created_by && typeof query.created_by === 'object' ? query.created_by : null
   if (!creator && query.created_by) {
@@ -245,11 +244,6 @@ const QueryView = () => {
   const formatVariants = (variants) => {
     if (!variants?.length) return '—'
     return variants.map((v) => v.variantName || '—').filter(Boolean).join(', ') || '—'
-  }
-
-  const formatSubvariants = (variants) => {
-    if (!variants?.length) return '—'
-    return variants.map((v) => v.quantity ?? 0).join(', ')
   }
 
   return (
@@ -287,9 +281,7 @@ const QueryView = () => {
               <CListGroup flush>
                 <CListGroupItem className="d-flex justify-content-between"><strong>Company name</strong><span>{ci.name || '-'}</span></CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between"><strong>Location</strong><span>{ci.location || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Email</strong><span>{ci.email || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Purchase manager name</strong><span>{ci.purchase_manager_name || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Purchase manager phone</strong><span>{ci.purchase_manager_phone || '-'}</span></CListGroupItem>
+                <CListGroupItem><strong>Purchase managers</strong><div className="mt-1">{(ci.purchaseManagers || []).length > 0 ? (ci.purchaseManagers || []).map((m, i) => <div key={i}>{m.name || '–'}{m.phone ? ` • ${m.phone}` : ''}{m.email ? ` • ${m.email}` : ''}</div>) : (ci.purchase_manager_name || ci.purchase_manager_phone) ? `${ci.purchase_manager_name || '–'} • ${ci.purchase_manager_phone || ''}` : '–'}</div></CListGroupItem>
                 <CListGroupItem><strong>Address</strong><div className="mt-1">{ci.address || '-'}</div></CListGroupItem>
               </CListGroup>
             </CCardBody>
@@ -308,46 +300,32 @@ const QueryView = () => {
                       <CTableHeaderCell style={{ width: 100 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 80 }}>Unit</CTableHeaderCell>
                       <CTableHeaderCell>Variants</CTableHeaderCell>
-                      <CTableHeaderCell>Subvariants</CTableHeaderCell>
+                      <CTableHeaderCell>HSN Number</CTableHeaderCell>
+                      <CTableHeaderCell>GST %</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
-                    {prods.map((p, index) => (
+                    {prods.map((p, index) => {
+                      const productRef = typeof p.product_id === 'object' ? p.product_id : null
+                      return (
                       <CTableRow key={p._id || index}>
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>{p.productName || '—'}</CTableDataCell>
                         <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
                         <CTableDataCell>{p.unit || '—'}</CTableDataCell>
                         <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
-                        <CTableDataCell className="small">{formatSubvariants(p.variants)}</CTableDataCell>
+                        <CTableDataCell className="small">{productRef?.hsnNumber || p.hsnNumber || '—'}</CTableDataCell>
+                        <CTableDataCell className="small">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '—')}</CTableDataCell>
                         <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
                       </CTableRow>
-                    ))}
+                    )
+                    })}
                   </CTableBody>
                 </CTable>
               ) : (
                 <p className="text-muted mb-0">No products added.</p>
               )}
-            </CCardBody>
-          </CCard>
-
-          {/* 3. Delivery & Payment */}
-          <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>3. Delivery & Payment</strong>
-              {del.urgent ? <CBadge color="danger">Urgent</CBadge> : <CBadge color="secondary">Non-urgent</CBadge>}
-            </CCardHeader>
-            <CCardBody>
-              <CListGroup flush>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Location</strong><span>{del.location || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Contact person name</strong><span>{del.contactPersonName || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Contact person phone</strong><span>{del.contactPersonPhone || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Expected date by company</strong>
-                  <span>{del.expectedDateByCompany ? new Date(del.expectedDateByCompany).toLocaleDateString() : '-'}</span>
-                </CListGroupItem>
-              </CListGroup>
             </CCardBody>
           </CCard>
         </CCol>

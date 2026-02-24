@@ -551,9 +551,15 @@ const ProductForm = () => {
         toastSuccess('Product updated successfully')
         navigate('/products')
       } else {
-        await productService.create(payload)
-        toastSuccess('Product created successfully')
-        setTimeout(() => navigate('/products'), 1500)
+        const created = await productService.create(payload)
+        const createdProduct = created?.data?.data || created?.data
+        const productCode = createdProduct?.productCode
+        const variantCodes = createdProduct?.variantCombinations?.map((vc) => vc.variantCode).filter(Boolean)
+        let msg = 'Product created successfully.'
+        if (productCode) msg += ` Product Code: ${productCode}`
+        if (variantCodes?.length > 0) msg += ` Variants: ${variantCodes.join(', ')}`
+        toastSuccess(msg)
+        setTimeout(() => navigate(createdProduct?._id ? `/products/${createdProduct._id}` : '/products'), 1500)
       }
     } catch (err) {
       toastError(err?.message || 'Failed to save product')
@@ -978,10 +984,13 @@ const ProductForm = () => {
                     {variantCombinations.map((combo, cIdx) => (
                       <CCard key={combo.uniqueId || cIdx} className="mb-3 border">
                         <CCardBody className="py-2">
-                          <div className="mb-2">
+                          <div className="mb-2 d-flex align-items-center gap-2 flex-wrap">
                             <strong>
                               {combo.optionValues?.map((o) => `${o.variantName}: ${o.variantValue}`).join(' · ') || 'Subvariant'}
                             </strong>
+                            {combo.variantCode && (
+                              <code className="text-primary small">Code: {combo.variantCode}</code>
+                            )}
                           </div>
                           <div className="row g-2 mb-2">
                             <div className="col-md-4">
