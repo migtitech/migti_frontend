@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -88,6 +88,9 @@ const SupplierForm = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [categorySearch, setCategorySearch] = useState('')
+  const [catalogUploading, setCatalogUploading] = useState(false)
+  const [catalogPreview, setCatalogPreview] = useState(null)
+  const catalogInputRef = useRef(null)
 
   const {
     register,
@@ -150,6 +153,11 @@ const SupplierForm = () => {
         ),
         remark: data?.remark || '',
       })
+      if (data?.catalog?.url) {
+        setCatalogPreview(data.catalog)
+      } else {
+        setCatalogPreview(null)
+      }
     } catch (err) {
       toastError(err?.message || 'Failed to fetch supplier')
     } finally {
@@ -174,6 +182,30 @@ const SupplierForm = () => {
       }
     })
   }, [selectedCategories, categories])
+
+  const handleCatalogUpload = useCallback(
+    async (e) => {
+      const file = e?.target?.files?.[0]
+      if (!file || !id) return
+      setCatalogUploading(true)
+      setError('')
+      try {
+        const res = await supplierService.uploadCatalog(id, file)
+        const supplier = res?.data?.data || res?.data || res
+        const cat = supplier?.catalog
+        if (cat?.url) {
+          setCatalogPreview({ url: cat.url, fileName: cat.fileName, uploadedAt: cat.uploadedAt })
+        }
+        toastSuccess('Catalog uploaded successfully')
+      } catch (err) {
+        toastError(err?.response?.data?.message || err?.message || 'Catalog upload failed')
+      } finally {
+        setCatalogUploading(false)
+        if (catalogInputRef.current) catalogInputRef.current.value = ''
+      }
+    },
+    [id],
+  )
 
   const toggleCategory = (categoryId) => {
     const exists = selectedCategories.includes(categoryId)
@@ -362,20 +394,32 @@ const SupplierForm = () => {
                 />
                 <div
                   className="border rounded p-2 mt-2"
-                  style={{ maxHeight: 200, overflowY: 'auto' }}
+                  style={{ maxHeight: 200, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem 1rem' }}
                 >
                   {filteredCategories.length > 0 ? (
-                    filteredCategories.map((cat) => (
-                      <CFormCheck
-                        key={cat._id}
-                        id={`cat-${cat._id}`}
-                        label={cat.name}
-                        checked={selectedCategories.includes(cat._id)}
-                        onChange={() => toggleCategory(cat._id)}
-                      />
-                    ))
+                    filteredCategories.map((cat) => {
+                      const inputId = `cat-${cat._id}`
+                      const checked = selectedCategories.includes(cat._id)
+                      return (
+                        <label
+                          key={cat._id}
+                          htmlFor={inputId}
+                          className="form-check d-flex align-items-center gap-2 mb-0"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <input
+                            type="checkbox"
+                            id={inputId}
+                            className="form-check-input"
+                            checked={checked}
+                            onChange={() => toggleCategory(cat._id)}
+                          />
+                          <span className="form-check-label">{cat.name}</span>
+                        </label>
+                      )
+                    })
                   ) : (
-                    <small className="text-muted">No categories found</small>
+                    <small className="text-muted" style={{ gridColumn: '1 / -1' }}>No categories found</small>
                   )}
                 </div>
                 {selectedCategoryBadges.length > 0 && (
@@ -435,6 +479,41 @@ const SupplierForm = () => {
               </div>
             </CCol>
           </CRow>
+
+          {isEdit && (
+            <CRow>
+              <CCol md={12}>
+                <div className="mb-3">
+                  <CFormLabel>Catalog (PDF, Excel, or Images)</CFormLabel>
+                  <div className="d-flex align-items-center gap-3 flex-wrap">
+                    <input
+                      ref={catalogInputRef}
+                      type="file"
+                      accept=".pdf,.xlsx,.xls,image/*"
+                      onChange={handleCatalogUpload}
+                      disabled={catalogUploading}
+                      className="form-control"
+                      style={{ maxWidth: 280 }}
+                    />
+                    {catalogUploading && <CSpinner size="sm" />}
+                    {catalogPreview?.url && (
+                      <div className="text-muted small">
+                        <a href={catalogPreview.url} target="_blank" rel="noopener noreferrer">
+                          {catalogPreview.fileName || 'View catalog'}
+                        </a>
+                        {catalogPreview.uploadedAt && (
+                          <span className="ms-2">
+                            uploaded {new Date(catalogPreview.uploadedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <small className="text-muted">Stored in S3. Supports PDF, Excel, or images.</small>
+                </div>
+              </CCol>
+            </CRow>
+          )}
         </CCardBody>
       </CCard>
 

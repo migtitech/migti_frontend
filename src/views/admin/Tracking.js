@@ -568,15 +568,15 @@ const Tracking = () => {
                     </CListGroupItem>
                     <CListGroupItem className="d-flex justify-content-between align-items-start">
                       <strong>Location</strong>
-                      <span className="text-end ms-3">{query.companyInfo?.location || query.delivery?.location || '-'}</span>
+                      <span className="text-end ms-3">{query.companyInfo?.location || '-'}</span>
                     </CListGroupItem>
                     <CListGroupItem className="d-flex justify-content-between align-items-start">
                       <strong>Products</strong>
                       <span>{query.products?.length ? `${query.products.length} item(s)` : '—'}</span>
                     </CListGroupItem>
                     <CListGroupItem className="d-flex justify-content-between align-items-start">
-                      <strong>Contact person</strong>
-                      <span className="text-end ms-3">{query.delivery?.contactPersonName || '-'}</span>
+                      <strong>Contact person(s)</strong>
+                      <span className="text-end ms-3">{(query.companyInfo?.purchaseManagers || []).length > 0 ? (query.companyInfo.purchaseManagers || []).map((m) => m.name || m.phone).filter(Boolean).join(', ') || '–' : (query.companyInfo?.purchase_manager_name || query.companyInfo?.purchase_manager_phone) ? `${query.companyInfo?.purchase_manager_name || ''} • ${query.companyInfo?.purchase_manager_phone || ''}` : '–'}</span>
                     </CListGroupItem>
                     <CListGroupItem className="d-flex justify-content-between align-items-center">
                       <strong>Created</strong>

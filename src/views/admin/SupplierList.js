@@ -254,46 +254,31 @@ const SupplierList = () => {
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Shop Name</CTableHeaderCell>
                       <CTableHeaderCell>Phone 1</CTableHeaderCell>
-                      {/* <CTableHeaderCell>Phone 2</CTableHeaderCell> */}
                       <CTableHeaderCell>Email</CTableHeaderCell>
                       <CTableHeaderCell>Other Contact</CTableHeaderCell>
                       <CTableHeaderCell>Label</CTableHeaderCell>
-                      <CTableHeaderCell>Shop Location</CTableHeaderCell>
                       <CTableHeaderCell>GST</CTableHeaderCell>
-                      <CTableHeaderCell>Categories</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {suppliers.map((supplier, index) => (
-                      <CTableRow key={supplier._id}
-                        onClick={() => navigate(`/suppliers/${supplier._id}`)}>
+                      <CTableRow
+                        key={supplier._id}
+                        onClick={() => navigate(`/suppliers/${supplier._id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{supplier.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>{supplier.shopname || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.phone_1 || '-'}</CTableDataCell>
-                        {/* <CTableDataCell>{supplier.phone_2 || '-'}</CTableDataCell> */}
                         <CTableDataCell>{supplier.email || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.other_contact || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.label || '-'}</CTableDataCell>
-                        <CTableDataCell>{supplier.shop_location || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.gst || '-'}</CTableDataCell>
-                        <CTableDataCell
-                          style={{ maxWidth: "150px" }}>
-                          <div className="text-truncate"
-                            title={supplier.shop_location || '-'}
-                          >{supplier.shop_location || '-'}</div></CTableDataCell>
-                        <CTableDataCell>
-                          {supplier.categories?.length
-                            ? supplier.categories
-                              .map((cat) => (typeof cat === 'string' ? cat : cat?.name))
-                              .filter(Boolean)
-                              .join(', ')
-                            : '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
@@ -336,7 +321,7 @@ const SupplierList = () => {
                     ))}
                     {suppliers.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={13} className="text-center">
+                        <CTableDataCell colSpan={9} className="text-center">
                           {searchTerm || filterCategory || filterSubcategory || filterArea
                             ? 'No suppliers match the current search or filters.'
                             : 'No suppliers found. Click "Add Supplier" to create one.'}

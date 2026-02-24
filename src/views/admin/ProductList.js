@@ -236,6 +236,7 @@ const ProductList = () => {
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Code</CTableHeaderCell>
                       <CTableHeaderCell>SKU</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>Brand</CTableHeaderCell>
@@ -259,6 +260,9 @@ const ProductList = () => {
                               </small>
                             </div>
                           )}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <code className="text-primary">{product.productCode || '-'}</code>
                         </CTableDataCell>
                         <CTableDataCell>{product.sku}</CTableDataCell>
                         <CTableDataCell>{product.category?.name || '-'}</CTableDataCell>
@@ -305,7 +309,7 @@ const ProductList = () => {
                     ))}
                     {products.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center">
+                        <CTableDataCell colSpan={8} className="text-center">
                           {searchTerm
                             ? `No products found matching "${searchTerm}"`
                             : 'No products found. Click "Add Product" to create one.'}

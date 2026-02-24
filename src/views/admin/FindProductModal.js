@@ -46,6 +46,31 @@ const getVariantOptions = (product) => {
   return list
 }
 
+const matchesHsn = (val, hsnSearch) => {
+  if (!hsnSearch?.trim()) return true
+  const v = (val || '').toString().trim()
+  return v && new RegExp(hsnSearch.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(v)
+}
+
+const matchesModel = (val, modelSearch) => {
+  if (!modelSearch?.trim()) return true
+  const v = (val || '').toString().trim()
+  return v && new RegExp(modelSearch.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(v)
+}
+
+// Filter variant combos by HSN and/or Model number
+const filterVariantCombos = (product, hsnSearch, modelSearch) => {
+  const combos = product?.variantCombinations || []
+  if (!hsnSearch?.trim() && !modelSearch?.trim()) return combos
+  return combos.filter((c) => {
+    const hsn = c?.hsnNumber ?? product?.hsnNumber ?? ''
+    const model = c?.modelNumber ?? product?.defaultModelNumber ?? ''
+    const hsnOk = matchesHsn(hsn, hsnSearch)
+    const modelOk = matchesModel(model, modelSearch)
+    return hsnOk && modelOk
+  })
+}
+
 const FindProductModal = ({ visible, onClose, onImport }) => {
   const [categorySearch, setCategorySearch] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -63,6 +88,9 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
   const [productDropdownOpen, setProductDropdownOpen] = useState(false)
   const [productResults, setProductResults] = useState([])
   const [productLoading, setProductLoading] = useState(false)
+
+  const [hsnNumber, setHsnNumber] = useState('')
+  const [modelNumber, setModelNumber] = useState('')
 
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -184,6 +212,8 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
         if (term?.trim()) params.search = term.trim()
         if (categoryId) params.category = categoryId
         if (subcategoryId) params.subcategory = subcategoryId
+        if (hsnNumber?.trim()) params.hsnNumber = hsnNumber.trim()
+        if (modelNumber?.trim()) params.modelNumber = modelNumber.trim()
         const res = await productService.getAll(params)
         const data = res?.data || res
         setProductResults(data?.products || [])
@@ -193,7 +223,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
         setProductLoading(false)
       }
     },
-    [categoryId, subcategoryId]
+    [categoryId, subcategoryId, hsnNumber, modelNumber]
   )
 
   useEffect(() => {
@@ -228,6 +258,8 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
       }
       if (categoryId) params.category = categoryId
       if (subcategoryId) params.subcategory = subcategoryId
+      if (hsnNumber?.trim()) params.hsnNumber = hsnNumber.trim()
+      if (modelNumber?.trim()) params.modelNumber = modelNumber.trim()
 
       const res = await productService.getAll(params)
       const data = res?.data || res
@@ -242,12 +274,12 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
     } finally {
       setLoading(false)
     }
-  }, [categoryId, subcategoryId, productSearch])
+  }, [categoryId, subcategoryId, productSearch, hsnNumber, modelNumber])
 
   const handleSearch = (e) => {
     e?.preventDefault()
-    if (!productSearch?.trim() && !categoryId) {
-      toastError('Select category or enter product search term to find products')
+    if (!productSearch?.trim() && !categoryId && !hsnNumber?.trim() && !modelNumber?.trim()) {
+      toastError('Select category, enter product search, HSN or Model number to find products')
       return
     }
     searchProducts()
@@ -315,8 +347,14 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
   const toggleSelectAll = () => {
     const productsWithoutVariants = products.filter((p) => {
       const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
-      const hasVariantOpts = getVariantOptions(p).length > 0
-      return !hasCombos && !hasVariantOpts
+      const combosFiltered = hasCombos ? filterVariantCombos(p, hsnNumber, modelNumber) : []
+      const showCombos = hasCombos && combosFiltered.length > 0
+      const variantOpts = getVariantOptions(p)
+      const productMatchesHsnModel =
+        matchesHsn(p?.hsnNumber, hsnNumber) && matchesModel(p?.defaultModelNumber, modelNumber)
+      const hasVariantOpts = variantOpts.length > 0 && productMatchesHsnModel
+      const isSimpleProduct = !showCombos && !hasVariantOpts
+      return isSimpleProduct && productMatchesHsnModel
     })
     const productIds = productsWithoutVariants.map((p) => p._id || p.id)
     setSelectedIds((prev) => {
@@ -427,6 +465,8 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
     setSubcategorySearch('')
     setSubcategoryId('')
     setProductSearch('')
+    setHsnNumber('')
+    setModelNumber('')
     setProducts([])
     setSelectedIds(new Set())
     setSelectedVariantCombos(new Map())
@@ -581,6 +621,28 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
               </div>
             </CCol>
           </CRow>
+          <CRow className="g-3 mb-3">
+            <CCol md={4}>
+              <CFormLabel>HSN Number</CFormLabel>
+              <CFormInput
+                type="text"
+                value={hsnNumber}
+                onChange={(e) => setHsnNumber(e.target.value)}
+                placeholder="Filter by HSN number"
+                autoComplete="off"
+              />
+            </CCol>
+            <CCol md={4}>
+              <CFormLabel>Model Number</CFormLabel>
+              <CFormInput
+                type="text"
+                value={modelNumber}
+                onChange={(e) => setModelNumber(e.target.value)}
+                placeholder="Filter by model number"
+                autoComplete="off"
+              />
+            </CCol>
+          </CRow>
           <CButton type="submit" color="primary" disabled={loading}>
             {loading ? <CSpinner size="sm" className="me-2" /> : null}
             Search Products
@@ -601,8 +663,14 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                   (() => {
                     const withoutVariants = products.filter((p) => {
                       const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
-                      const hasVariantOpts = getVariantOptions(p).length > 0
-                      return !hasCombos && !hasVariantOpts
+                      const combosFiltered = hasCombos ? filterVariantCombos(p, hsnNumber, modelNumber) : []
+                      const showCombos = hasCombos && combosFiltered.length > 0
+                      const variantOpts = getVariantOptions(p)
+                      const productMatchesHsnModel =
+                        matchesHsn(p?.hsnNumber, hsnNumber) && matchesModel(p?.defaultModelNumber, modelNumber)
+                      const hasVariantOpts = variantOpts.length > 0 && productMatchesHsnModel
+                      const isSimpleProduct = !showCombos && !hasVariantOpts
+                      return isSimpleProduct && productMatchesHsnModel
                     })
                     const ids = withoutVariants.map((p) => p._id || p.id)
                     return ids.length > 0 && ids.every((id) => selectedIds.has(id))
@@ -614,15 +682,18 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
             <div className="table-responsive" style={{ maxHeight: 400, overflowY: 'auto' }}>
               {products.map((p) => {
                 const pid = p._id || p.id
-                const combos = p?.variantCombinations || []
-                const hasCombos = p?.hasVariants && combos.length > 0
+                const combosFiltered = filterVariantCombos(p, hsnNumber, modelNumber)
+                const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
+                const showCombos = hasCombos && combosFiltered.length > 0
 
                 const variantOpts = getVariantOptions(p)
-                const hasVariantOpts = variantOpts.length > 0
+                const productMatchesHsnModel =
+                  matchesHsn(p?.hsnNumber, hsnNumber) && matchesModel(p?.defaultModelNumber, modelNumber)
+                const hasVariantOpts = variantOpts.length > 0 && productMatchesHsnModel
 
-                if (hasCombos) {
+                if (showCombos) {
                   const comboSet = selectedVariantCombos.get(pid) || new Set()
-                  const allComboIds = combos.map((c) => c.uniqueId || c._id).filter(Boolean)
+                  const allComboIds = combosFiltered.map((c) => c.uniqueId || c._id).filter(Boolean)
                   const allSelected = allComboIds.length > 0 && allComboIds.every((uid) => comboSet.has(uid))
 
                   return (
@@ -640,7 +711,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                             type="checkbox"
                             label="Select all"
                             checked={allSelected}
-                            onChange={() => toggleAllVariantCombos(pid, combos)}
+                            onChange={() => toggleAllVariantCombos(pid, combosFiltered)}
                           />
                         </div>
                         <CTable size="sm" hover>
@@ -648,12 +719,14 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                             <CTableRow>
                               <CTableHeaderCell style={{ width: 44 }}></CTableHeaderCell>
                               <CTableHeaderCell>Variant</CTableHeaderCell>
+                              <CTableHeaderCell>HSN</CTableHeaderCell>
+                              <CTableHeaderCell>Model</CTableHeaderCell>
                               <CTableHeaderCell>SKU</CTableHeaderCell>
                               <CTableHeaderCell>Qty</CTableHeaderCell>
                             </CTableRow>
                           </CTableHead>
                           <CTableBody>
-                            {combos.map((c) => {
+                            {combosFiltered.map((c) => {
                               const uid = c.uniqueId || c._id
                               const checked = comboSet.has(uid)
                               return (
@@ -665,6 +738,8 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                                     />
                                   </CTableDataCell>
                                   <CTableDataCell>{getVariantComboDisplay(c)}</CTableDataCell>
+                                  <CTableDataCell>{(c.hsnNumber ?? p.hsnNumber) || '–'}</CTableDataCell>
+                                  <CTableDataCell>{(c.modelNumber ?? p.defaultModelNumber) || '–'}</CTableDataCell>
                                   <CTableDataCell>{c.sku || '–'}</CTableDataCell>
                                   <CTableDataCell>{c.quantity ?? c.price ?? '–'}</CTableDataCell>
                                 </CTableRow>
@@ -733,8 +808,14 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
               })}
               {products.some((p) => {
                 const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
-                const hasVariantOpts = getVariantOptions(p).length > 0
-                return !hasCombos && !hasVariantOpts
+                const combosFiltered = hasCombos ? filterVariantCombos(p, hsnNumber, modelNumber) : []
+                const showCombos = hasCombos && combosFiltered.length > 0
+                const variantOpts = getVariantOptions(p)
+                const productMatchesHsnModel =
+                  matchesHsn(p?.hsnNumber, hsnNumber) && matchesModel(p?.defaultModelNumber, modelNumber)
+                const hasVariantOpts = variantOpts.length > 0 && productMatchesHsnModel
+                const isSimpleProduct = !showCombos && !hasVariantOpts
+                return isSimpleProduct && productMatchesHsnModel
               }) && (
                 <CTable hover>
                   <CTableHead>
@@ -750,8 +831,14 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                     {products
                       .filter((p) => {
                         const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
-                        const hasVariantOpts = getVariantOptions(p).length > 0
-                        return !hasCombos && !hasVariantOpts
+                        const combosFiltered = hasCombos ? filterVariantCombos(p, hsnNumber, modelNumber) : []
+                        const showCombos = hasCombos && combosFiltered.length > 0
+                        const variantOpts = getVariantOptions(p)
+                        const productMatchesHsnModel =
+                          matchesHsn(p?.hsnNumber, hsnNumber) && matchesModel(p?.defaultModelNumber, modelNumber)
+                        const hasVariantOpts = variantOpts.length > 0 && productMatchesHsnModel
+                        const isSimpleProduct = !showCombos && !hasVariantOpts
+                        return isSimpleProduct && productMatchesHsnModel
                       })
                       .map((p) => {
                         const pid = p._id || p.id
@@ -780,7 +867,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
           </>
         )}
 
-        {!loading && products.length === 0 && (productSearch || categoryId) && (
+        {!loading && products.length === 0 && (productSearch || categoryId || hsnNumber || modelNumber) && (
           <p className="text-muted mb-0">
             No products found. Try a different search or filters.
           </p>

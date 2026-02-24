@@ -12,10 +12,12 @@ const rateCardService = {
     return response
   },
 
-  getByProduct: async (productId) => {
-    const response = await api.get(RATE_CARDS.BY_PRODUCT, {
-      params: { productId },
-    })
+  getByProduct: async (productId, combinationUniqueId) => {
+    const params = { productId }
+    if (combinationUniqueId && combinationUniqueId !== 'base') {
+      params.combinationUniqueId = combinationUniqueId
+    }
+    const response = await api.get(RATE_CARDS.BY_PRODUCT, { params })
     return response
   },
 
@@ -31,10 +33,9 @@ const rateCardService = {
     return response
   },
 
-  delete: async (id) => {
-    const response = await api.delete(RATE_CARDS.DELETE, {
-      params: { rateCardId: id },
-    })
+  delete: async (id, isRateCombination = false) => {
+    const params = isRateCombination ? { rateCombinationId: id } : { rateCardId: id }
+    const response = await api.delete(RATE_CARDS.DELETE, { params })
     return response
   },
 }

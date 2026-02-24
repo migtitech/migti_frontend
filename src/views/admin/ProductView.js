@@ -110,6 +110,7 @@ const ProductView = () => {
   }
 
   const keyValueRows = [
+    ...(product.productCode ? [{ key: 'Product Code', value: product.productCode, highlight: true }] : []),
     { key: 'SKU', value: product.sku },
     ...(product.shortDescription ? [{ key: 'Short Description', value: product.shortDescription }] : []),
     { key: 'Category', value: product.category?.name || '-' },
@@ -247,6 +248,9 @@ const ProductView = () => {
                   <CTableBody>
                     {product.variantCombinations.map((combo, cIdx) => (
                       <CTableRow key={combo.uniqueId || cIdx}>
+                        <CTableDataCell className="align-middle">
+                          <code className="text-primary">{combo.variantCode || `—`}</code>
+                        </CTableDataCell>
                         <CTableDataCell className="align-middle">
                           <strong>
                             {combo.optionValues

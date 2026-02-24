@@ -166,6 +166,26 @@ const SupplierView = () => {
                   <strong>Remark:</strong>
                   <p className="mb-0 mt-2">{supplier.remark || 'No remark provided'}</p>
                 </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Catalog:</strong>
+                  {supplier.catalog?.url ? (
+                    <div className="mt-2">
+                      <a href={supplier.catalog.url} target="_blank" rel="noopener noreferrer">
+                        {supplier.catalog.fileName || 'View catalog'}
+                      </a>
+                      {supplier.catalog.uploadedAt && (
+                        <small className="d-block text-muted mt-1">
+                          Uploaded: {new Date(supplier.catalog.uploadedAt).toLocaleString(undefined, {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
+                        </small>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted">No catalog uploaded</span>
+                  )}
+                </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
                   <span>{formatDate(supplier.createdAt)}</span>
