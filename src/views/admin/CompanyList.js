@@ -14,6 +14,7 @@ import {
   CTableRow,
   CButton,
   CAlert,
+  CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilLocationPin } from '@coreui/icons'
