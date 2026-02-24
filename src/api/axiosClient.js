@@ -27,6 +27,16 @@ export const clearTokens = () => {
   localStorage.removeItem(REFRESH_TOKEN_KEY)
 }
 
+const USER_STORAGE_KEY = 'migticrm_user'
+
+/** Clear auth data and redirect to login (e.g. on 401 / token expired) */
+const redirectToLogin = () => {
+  clearTokens()
+  localStorage.removeItem(USER_STORAGE_KEY)
+  const base = `${window.location.origin}${window.location.pathname || '/'}`
+  window.location.replace(`${base}#/login`)
+}
+
 // Request interceptor
 axiosClient.interceptors.request.use(
   (config) => {
@@ -52,9 +62,9 @@ axiosClient.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
-      try {
-        const refreshToken = getRefreshToken()
-        if (refreshToken) {
+      const refreshToken = getRefreshToken()
+      if (refreshToken) {
+        try {
           const response = await axios.post(`${BASE_URL}${API_VERSION}${AUTH.REFRESH_TOKEN}`, {
             refreshToken,
           })
@@ -64,12 +74,15 @@ axiosClient.interceptors.response.use(
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`
           return axiosClient(originalRequest)
+        } catch (refreshError) {
+          redirectToLogin()
+          return Promise.reject(refreshError)
         }
-      } catch (refreshError) {
-        clearTokens()
-        window.location.href = '/login'
-        return Promise.reject(refreshError)
       }
+
+      // No refresh token or token expired: clear auth and redirect to login
+      redirectToLogin()
+      return Promise.reject(error)
     }
 
     // Format error response
