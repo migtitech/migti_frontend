@@ -170,13 +170,13 @@ const BranchView = () => {
                   <strong>GST Number:</strong>
                   <span>{branch.gstNumber || '-'}</span>
                 </CListGroupItem>
-                <CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Address:</strong>
-                  <p className="mb-0 mt-2">{branch.address || '-'}</p>
+                  <span>{branch.address || '-'}</span>
                 </CListGroupItem>
-                <CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Full Address:</strong>
-                  <p className="mb-0 mt-2">{branch.fullAddress || '-'}</p>
+                  <span>{branch.fullAddress || '-'}</span>
                 </CListGroupItem>
                 {branch.mapLocationUrl && (
                   <CListGroupItem className="d-flex justify-content-between align-items-center">

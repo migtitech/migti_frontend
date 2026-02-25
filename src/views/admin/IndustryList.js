@@ -129,19 +129,21 @@ const IndustryList = () => {
                 <CTable hover responsive>
                   <CTableHead>
                     <CTableRow>
-                      <CTableHeaderCell>S No</CTableHeaderCell>
+                      <CTableHeaderCell>SNo</CTableHeaderCell>
                       <CTableHeaderCell>Industry Name</CTableHeaderCell>
                       <CTableHeaderCell>GST No</CTableHeaderCell>
-                      <CTableHeaderCell>Area</CTableHeaderCell>
+                      <CTableHeaderCell>Zone</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
                       <CTableHeaderCell>Purchase Managers</CTableHeaderCell>
+                      <CTableHeaderCell>Phone</CTableHeaderCell>
+                      <CTableHeaderCell>Email</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {industries.map((industry, index) => (
                       <CTableRow key={industry._id}
-                        onClick={() => navigate(`/industries/${industry._id}`)} 
+                        onClick={() => navigate(`/industries/${industry._id}`)}
                         style={{ cursor: 'pointer' }}
                       >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
@@ -149,15 +151,50 @@ const IndustryList = () => {
                           <strong>{industry.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>
+                          <strong>{industry.gstNumber}</strong>
+                        </CTableDataCell>
+                        <CTableDataCell>
                           {typeof industry.area === 'object'
                             ? industry.area?.name || '-'
                             : industry.area || '-'}
                         </CTableDataCell>
                         <CTableDataCell>{industry.location || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.address || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_name || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.email || '-'}</CTableDataCell>
+                        <CTableDataCell>
+                          {industry.purchaseManagers?.length > 0 ? (
+                            industry.purchaseManagers.map((manager) => (
+                              <div key={manager._id}>
+                                {manager.name || '-'}
+                              </div>
+                            ))
+                          ) : (
+                            <div>-</div>
+                          )}
+
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {industry.purchaseManagers?.length > 0 ? (
+                            industry.purchaseManagers.map((manager) => (
+                              <div key={manager._id}>
+                                {manager.phone || '-'}
+                              </div>
+                            ))
+                          ) : (
+                            <div>-</div>
+                          )}
+
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {industry.purchaseManagers?.length > 0 ? (
+                            industry.purchaseManagers.map((manager) => (
+                              <div key={manager._id}>
+                                {manager.email || '-'}
+                              </div>
+                            ))
+                          ) : (
+                            <div>-</div>
+                          )}
+
+                        </CTableDataCell>
                         <CTableDataCell>
                           <CButton
                             color="info"
@@ -175,7 +212,8 @@ const IndustryList = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                navigate(`/industries/edit/${industry._id}`)}}
+                                navigate(`/industries/edit/${industry._id}`)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -188,7 +226,8 @@ const IndustryList = () => {
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                handleDeleteClick(industry._id)}}
+                                handleDeleteClick(industry._id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />

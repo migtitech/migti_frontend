@@ -86,9 +86,9 @@ const IndustryView = () => {
         <CCol className="d-flex gap-2">
           <CCardBody>
             <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
-            <CIcon icon={cilArrowLeft} className="me-1" />
-            Back to Industries
-          </CButton>
+              <CIcon icon={cilArrowLeft} className="me-1" />
+              Back to Industries
+            </CButton>
           </CCardBody>
           <CButton color="warning" onClick={() => navigate(`/industries/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-1" />
@@ -106,7 +106,7 @@ const IndustryView = () => {
             <CCardBody>
               <CListGroup flush>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Area:</strong>
+                  <strong>Zone:</strong>
                   <span>
                     {typeof industry.area === 'object'
                       ? industry.area?.name || '-'
@@ -167,13 +167,15 @@ const IndustryView = () => {
                     <span className="d-block mt-2">-</span>
                   )}
                 </CListGroupItem>
-                <CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Address:</strong>
-                  <p className="mb-0 mt-2">{industry.address || 'No address provided'}</p>
+                  <span className="mb-0 mt-2">{industry.address || 'No address provided'}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
-                  <span>{new Date(industry.createdAt).toLocaleDateString()}</span>
+                  <span>
+                    {new Date(industry.createdAt).toLocaleDateString()}
+                  </span>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>
