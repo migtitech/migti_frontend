@@ -23,6 +23,7 @@ const CategoryView = React.lazy(() => import('./views/admin/CategoryView'))
 // Groups
 const GroupList = React.lazy(() => import('./views/admin/GroupList'))
 const GroupForm = React.lazy(() => import('./views/admin/GroupForm'))
+const GroupView = React.lazy(() => import('./views/admin/GroupView'))
 
 // Brands
 const BrandList2 = React.lazy(() => import('./views/admin/BrandList'))
@@ -113,6 +114,7 @@ const routes = [
   { path: '/groups', name: 'Groups', element: GroupList, module: 'groups', action: 'read' },
   { path: '/groups/new', name: 'Add Group', element: GroupForm, module: 'groups', action: 'create' },
   { path: '/groups/edit/:id', name: 'Edit Group', element: GroupForm, module: 'groups', action: 'update' },
+  { path: '/groups/:id', name: 'Group Details', element: GroupView, module: 'groups', action: 'read' },
 
   // Brands
   { path: '/brands', name: 'Brands', element: BrandList2, module: 'brands', action: 'read' },

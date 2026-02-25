@@ -26,6 +26,8 @@ import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import usePermissions from '../../hooks/usePermissions'
+import { EyeIcon } from '../../components'
+
 
 const GroupList = () => {
   const navigate = useNavigate()
@@ -141,6 +143,15 @@ const GroupList = () => {
                         </CTableDataCell>
                         <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
                         <CTableDataCell>
+                          <CButton
+                            color="info"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => navigate(`/groups/${grp._id}`)}
+                            title="View"
+                          >
+                            <EyeIcon />
+                          </CButton>
                           {canUpdate('groups') && (
                             <CButton
                               color="warning"
