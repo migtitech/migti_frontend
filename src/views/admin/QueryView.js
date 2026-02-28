@@ -20,15 +20,11 @@ import {
   CModalHeader,
   CModalTitle,
   CModalBody,
-  CModalFooter,
-  CForm,
-  CFormInput,
-  CFormLabel,
-  CFormSelect,
-  CFormTextarea,
+  CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil, cilTrash, cilCheckAlt } from '@coreui/icons'
+import { cilArrowLeft, cilArrowRight, cilPencil, cilTrash, cilCheckAlt, cilX } from '@coreui/icons'
+import { getAssetsUrl } from '../../api/endpoints'
 import queryService from '../../services/queryService'
 import employeeService from '../../services/employeeService'
 import userService from '../../services/userService'
@@ -85,6 +81,14 @@ const QueryView = () => {
   const [activitiesLoading, setActivitiesLoading] = useState(false)
   const viewRecordedRef = useRef(false)
   const [userCache, setUserCache] = useState({})
+  const [expandedImages, setExpandedImages] = useState([]) // array of image URLs for slider
+  const [expandedImageIndex, setExpandedImageIndex] = useState(0)
+
+  const getImageUrl = (img) => {
+    if (!img) return ''
+    if (typeof img === 'object' && img?.path) return getAssetsUrl(img.path)
+    return typeof img === 'string' ? img : ''
+  }
 
   const fetchActivities = async (page = 1) => {
     if (!id) return
@@ -341,6 +345,7 @@ const QueryView = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell style={{ width: 60 }}>#</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 90 }}>Image</CTableHeaderCell>
                       <CTableHeaderCell>Product name</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 100 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 80 }}>Unit</CTableHeaderCell>
@@ -353,9 +358,41 @@ const QueryView = () => {
                   <CTableBody>
                     {prods.map((p, index) => {
                       const productRef = typeof p.product_id === 'object' ? p.product_id : null
+                      const images = productRef?.images || []
                       return (
                       <CTableRow key={p._id || index}>
                         <CTableDataCell>{index + 1}</CTableDataCell>
+                        <CTableDataCell>
+                          {images.length > 0 ? (
+                            <div className="d-flex flex-wrap gap-1">
+                              {images.slice(0, 3).map((img, i) => {
+                                const src = getImageUrl(img)
+                                return (
+                                  <div
+                                    key={img?._id || i}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => {
+                                      const urls = images.map((im) => getImageUrl(im))
+                                      setExpandedImages(urls)
+                                      setExpandedImageIndex(i)
+                                    }}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') { setExpandedImages(images.map((im) => getImageUrl(im))); setExpandedImageIndex(i) } }}
+                                    className="rounded border overflow-hidden"
+                                    style={{ width: 48, height: 48, cursor: 'pointer' }}
+                                  >
+                                    <CImage src={src} width={48} height={48} className="object-fit-cover w-100 h-100" />
+                                  </div>
+                                )
+                              })}
+                              {images.length > 3 && (
+                                <span className="small text-muted align-self-center">+{images.length - 3}</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted small">—</span>
+                          )}
+                        </CTableDataCell>
                         <CTableDataCell>{p.productName || '—'}</CTableDataCell>
                         <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
                         <CTableDataCell>{p.unit || '—'}</CTableDataCell>
@@ -389,6 +426,7 @@ const QueryView = () => {
         </CCol>
       </CRow>
 
+<<<<<<< Updated upstream
       <ConfirmDialog
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false })}
@@ -407,6 +445,57 @@ const QueryView = () => {
         confirmText="Yes, convert"
         cancelText="Cancel"
       />
+=======
+      <ConfirmDialog visible={confirmDelete.visible} onClose={() => setConfirmDelete({ visible: false })} onConfirm={handleDeleteConfirm} title="Delete Query?" message="Are you sure you want to delete this query? This action cannot be undone." confirmText="Delete" cancelText="Cancel" />
+
+      {/* Image slider modal */}
+      <CModal alignment="center" visible={expandedImages.length > 0} onClose={() => setExpandedImages([])} className="p-0">
+        <CModalHeader className="border-0 pb-0 d-flex justify-content-between align-items-center">
+          <CModalTitle className="mb-0">
+            Image {expandedImages.length > 1 ? `${expandedImageIndex + 1} / ${expandedImages.length}` : ''}
+          </CModalTitle>
+          <CButton color="secondary" variant="ghost" size="sm" className="rounded-circle" onClick={() => setExpandedImages([])} aria-label="Close">
+            <CIcon icon={cilX} size="lg" />
+          </CButton>
+        </CModalHeader>
+        <CModalBody className="text-center p-3 position-relative">
+          {expandedImages.length > 0 && (
+            <>
+              {expandedImages.length > 1 && (
+                <>
+                  <CButton
+                    color="light"
+                    variant="outline"
+                    className="position-absolute top-50 translate-middle-y rounded-circle ms-2"
+                    style={{ zIndex: 10, width: 48, height: 48, left: 0 }}
+                    onClick={() => setExpandedImageIndex((idx) => (idx <= 0 ? expandedImages.length - 1 : idx - 1))}
+                    aria-label="Previous"
+                  >
+                    <CIcon icon={cilArrowLeft} size="lg" />
+                  </CButton>
+                  <CButton
+                    color="light"
+                    variant="outline"
+                    className="position-absolute top-50 translate-middle-y rounded-circle me-2"
+                    style={{ zIndex: 10, width: 48, height: 48, right: 0 }}
+                    onClick={() => setExpandedImageIndex((idx) => (idx >= expandedImages.length - 1 ? 0 : idx + 1))}
+                    aria-label="Next"
+                  >
+                    <CIcon icon={cilArrowRight} size="lg" />
+                  </CButton>
+                </>
+              )}
+              <img
+                src={expandedImages[expandedImageIndex]}
+                alt={`Product ${expandedImageIndex + 1}`}
+                className="img-fluid rounded"
+                style={{ maxHeight: '80vh', objectFit: 'contain' }}
+              />
+            </>
+          )}
+        </CModalBody>
+      </CModal>
+>>>>>>> Stashed changes
     </>
   )
 }
