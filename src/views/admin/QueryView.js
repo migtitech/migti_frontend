@@ -426,7 +426,6 @@ const QueryView = () => {
         </CCol>
       </CRow>
 
-<<<<<<< Updated upstream
       <ConfirmDialog
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false })}
@@ -445,7 +444,6 @@ const QueryView = () => {
         confirmText="Yes, convert"
         cancelText="Cancel"
       />
-=======
       <ConfirmDialog visible={confirmDelete.visible} onClose={() => setConfirmDelete({ visible: false })} onConfirm={handleDeleteConfirm} title="Delete Query?" message="Are you sure you want to delete this query? This action cannot be undone." confirmText="Delete" cancelText="Cancel" />
 
       {/* Image slider modal */}
@@ -495,7 +493,6 @@ const QueryView = () => {
           )}
         </CModalBody>
       </CModal>
->>>>>>> Stashed changes
     </>
   )
 }
