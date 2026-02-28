@@ -8,7 +8,14 @@ import {
   CRow,
 } from '@coreui/react'
 
-const EmployeeCompanyInfoSection = ({ register, errors, roleOptions, branches }) => (
+const EmployeeCompanyInfoSection = ({
+  register,
+  errors,
+  roleOptions,
+  branches,
+  zones = [],
+  designationOptions = [],
+}) => (
   <>
     <CRow>
       <CCol md={6}>
@@ -71,7 +78,14 @@ const EmployeeCompanyInfoSection = ({ register, errors, roleOptions, branches })
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel htmlFor="designation">Designation *</CFormLabel>
-          <CFormInput id="designation" {...register('designation')} invalid={!!errors.designation} />
+          <CFormSelect id="designation" {...register('designation')} invalid={!!errors.designation}>
+            <option value="">Select Designation</option>
+            {designationOptions.map((designation) => (
+              <option key={designation} value={designation}>
+                {designation}
+              </option>
+            ))}
+          </CFormSelect>
           <CFormFeedback invalid>{errors.designation?.message}</CFormFeedback>
         </div>
       </CCol>
@@ -98,6 +112,22 @@ const EmployeeCompanyInfoSection = ({ register, errors, roleOptions, branches })
             invalid={!!errors.salary}
           />
           <CFormFeedback invalid>{errors.salary?.message}</CFormFeedback>
+        </div>
+      </CCol>
+    </CRow>
+    <CRow>
+      <CCol md={6}>
+        <div className="mb-3">
+          <CFormLabel htmlFor="zoneId">Zone</CFormLabel>
+          <CFormSelect id="zoneId" {...register('zoneId')} invalid={!!errors.zoneId}>
+            <option value="">Select Zone</option>
+            {zones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name}
+              </option>
+            ))}
+          </CFormSelect>
+          <CFormFeedback invalid>{errors.zoneId?.message}</CFormFeedback>
         </div>
       </CCol>
     </CRow>

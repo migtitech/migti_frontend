@@ -134,20 +134,22 @@ const IndustryList = () => {
                       <CTableHeaderCell>GST No</CTableHeaderCell>
                       <CTableHeaderCell>Area</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase Managers</CTableHeaderCell>
+                      <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {industries.map((industry, index) => (
-                      <CTableRow key={industry._id}
-                        onClick={() => navigate(`/industries/${industry._id}`)} 
+                      <CTableRow
+                        key={industry._id}
+                        onClick={() => navigate(`/industries/${industry._id}`)}
                         style={{ cursor: 'pointer' }}
                       >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{industry.name}</strong>
                         </CTableDataCell>
+                        <CTableDataCell>{industry.gstNumber || '-'}</CTableDataCell>
                         <CTableDataCell>
                           {typeof industry.area === 'object'
                             ? industry.area?.name || '-'
@@ -155,9 +157,6 @@ const IndustryList = () => {
                         </CTableDataCell>
                         <CTableDataCell>{industry.location || '-'}</CTableDataCell>
                         <CTableDataCell>{industry.address || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_name || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.email || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
                             color="info"

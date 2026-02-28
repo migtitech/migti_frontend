@@ -13,25 +13,33 @@ const AuthContext = createContext(null)
 export const ROLES = {
   SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
-  HOD: 'hod',
-  SALES: 'sales',
-  PURCHASE: 'purchase',
-  FINANCE: 'finance',
-  DELIVERY: 'delivery',
+  HEAD_OF_DEPARTMENT: 'head_of_department',
+  SALES_MANAGER: 'sales_manager',
+  SALES_EXICUTIVE: 'sales_exicutive',
+  PURCHASE_MANAGER: 'purchase_manager',
+  PURCHASE_EXICUTIVE: 'purchase_exicutive',
+  BACK_OFFICE_EXICUTIVE: 'back_office_exicutive',
+  ADMINISTRATOR: 'administrator',
 }
 
 export const ROLE_LABELS = {
   [ROLES.SUPER_ADMIN]: 'Super Admin',
   [ROLES.ADMIN]: 'Admin',
-  [ROLES.HOD]: 'HOD',
-  [ROLES.SALES]: 'Sales',
-  [ROLES.PURCHASE]: 'Purchase',
-  [ROLES.FINANCE]: 'Finance',
-  [ROLES.DELIVERY]: 'Delivery',
+  [ROLES.HEAD_OF_DEPARTMENT]: 'Head Of Department',
+  [ROLES.SALES_MANAGER]: 'Sales Manager',
+  [ROLES.SALES_EXICUTIVE]: 'Sales Exicutive',
+  [ROLES.PURCHASE_MANAGER]: 'Purchase Manager',
+  [ROLES.PURCHASE_EXICUTIVE]: 'Purchase Exicutive',
+  [ROLES.BACK_OFFICE_EXICUTIVE]: 'Back Office Exicutive',
+  [ROLES.ADMINISTRATOR]: 'Administrator',
 }
 
 // Roles that get full access to everything (no permission checks needed)
-export const FULL_ACCESS_ROLES = [ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.HOD]
+export const FULL_ACCESS_ROLES = [
+  ROLES.SUPER_ADMIN,
+  ROLES.ADMIN,
+  ROLES.HEAD_OF_DEPARTMENT,
+]
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
@@ -97,7 +105,17 @@ export const AuthProvider = ({ children }) => {
       }
     }
 
-    if ([ROLES.HOD, ROLES.SALES, ROLES.PURCHASE, ROLES.FINANCE, ROLES.DELIVERY].includes(role)) {
+    if (
+      [
+        ROLES.HEAD_OF_DEPARTMENT,
+        ROLES.SALES_MANAGER,
+        ROLES.SALES_EXICUTIVE,
+        ROLES.PURCHASE_MANAGER,
+        ROLES.PURCHASE_EXICUTIVE,
+        ROLES.BACK_OFFICE_EXICUTIVE,
+        ROLES.ADMINISTRATOR,
+      ].includes(role)
+    ) {
       try {
         const response = await authService.loginEmployee(email, password, role)
         if (response?.success) {

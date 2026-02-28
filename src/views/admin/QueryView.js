@@ -33,6 +33,7 @@ import queryService from '../../services/queryService'
 import employeeService from '../../services/employeeService'
 import userService from '../../services/userService'
 import { useAuth } from '../../context/AuthContext'
+import usePermissions from '../../hooks/usePermissions'
 import { Loader, ConfirmDialog, TrackingTimeline } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -71,10 +72,13 @@ const QueryView = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { canUpdate, canDelete } = usePermissions()
   const [query, setQuery] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ visible: false })
+  const [confirmConvert, setConfirmConvert] = useState({ visible: false })
+  const [converting, setConverting] = useState(false)
   const [activities, setActivities] = useState([])
   const [activitiesPagination, setActivitiesPagination] = useState(null)
   const [activitiesPage, setActivitiesPage] = useState(1)
@@ -173,6 +177,33 @@ const QueryView = () => {
     }
   }
 
+  const handleConvertClick = () => {
+    setConfirmConvert({ visible: true })
+  }
+
+  const handleConvertConfirm = async () => {
+    if (!query?.queryCode) {
+      toastError('Query code is missing, cannot convert to quotation.')
+      setConfirmConvert({ visible: false })
+      return
+    }
+    setConfirmConvert({ visible: false })
+    setConverting(true)
+    try {
+      await withMinimumDelay(() => queryService.convertToQuotation(query.queryCode))
+      toastSuccess('Query converted to quotation draft')
+      navigate('/quotations/new', {
+        state: {
+          fromQuery: query,
+        },
+      })
+    } catch (err) {
+      toastError(err?.message || 'Failed to convert query to quotation')
+    } finally {
+      setConverting(false)
+    }
+  }
+
   const getPerformerInfo = (act) => {
     const performer = act.performedBy && typeof act.performedBy === 'object' ? act.performedBy : (act.performed_by && typeof act.performed_by === 'object' ? act.performed_by : null)
     if (performer) {
@@ -260,14 +291,28 @@ const QueryView = () => {
             )}
           </div>
           <div className="d-flex gap-2">
-            <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
-              <CIcon icon={cilPencil} className="me-1" />
-              Edit
-            </CButton>
-            <CButton color="danger" onClick={handleDeleteClick}>
-              <CIcon icon={cilTrash} className="me-1" />
-              Delete
-            </CButton>
+            {canUpdate('queries') && (
+              <>
+                <CButton
+                  color="success"
+                  disabled={converting || !query?.queryCode}
+                  onClick={handleConvertClick}
+                >
+                  <CIcon icon={cilCheckAlt} className="me-1" />
+                  Convert to Quotation
+                </CButton>
+                <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
+                  <CIcon icon={cilPencil} className="me-1" />
+                  Edit
+                </CButton>
+              </>
+            )}
+            {canDelete('queries') && (
+              <CButton color="danger" onClick={handleDeleteClick}>
+                <CIcon icon={cilTrash} className="me-1" />
+                Delete
+              </CButton>
+            )}
           </div>
         </CCol>
       </CRow>
@@ -344,7 +389,24 @@ const QueryView = () => {
         </CCol>
       </CRow>
 
-      <ConfirmDialog visible={confirmDelete.visible} onClose={() => setConfirmDelete({ visible: false })} onConfirm={handleDeleteConfirm} title="Delete Query?" message="Are you sure you want to delete this query? This action cannot be undone." confirmText="Delete" cancelText="Cancel" />
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Query?"
+        message="Are you sure you want to delete this query? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+      <ConfirmDialog
+        visible={confirmConvert.visible}
+        onClose={() => setConfirmConvert({ visible: false })}
+        onConfirm={handleConvertConfirm}
+        title="Convert to quotation?"
+        message="Are you sure to convert this query as quotation?"
+        confirmText="Yes, convert"
+        cancelText="Cancel"
+      />
     </>
   )
 }

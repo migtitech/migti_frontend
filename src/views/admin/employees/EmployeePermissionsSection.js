@@ -49,7 +49,7 @@ const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }
   if (!selectedRole) {
     return (
       <CAlert color="info" className="mb-0">
-        Select an employee role above (sales, purchase, finance, delivery) to configure granular access permissions.
+        Select an employee role above (HOD, SM, SE, PM, PE, BOE, ADMIN) to configure granular access permissions.
       </CAlert>
     )
   }

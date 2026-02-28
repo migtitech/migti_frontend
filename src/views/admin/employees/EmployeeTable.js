@@ -43,11 +43,13 @@ const EmployeeTable = ({
 
   const roleBadgeColor = (role) => {
     const colors = {
-      hod: 'primary',
-      sales: 'info',
-      purchase: 'warning',
-      finance: 'success',
-      delivery: 'secondary',
+      head_of_department: 'primary',
+      sales_manager: 'info',
+      sales_exicutive: 'info',
+      purchase_manager: 'warning',
+      purchase_exicutive: 'warning',
+      back_office_exicutive: 'secondary',
+      administrator: 'dark',
     }
     return colors[role] || 'dark'
   }
@@ -100,7 +102,7 @@ const EmployeeTable = ({
                         <CTableDataCell>{employee.phone || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CBadge color={roleBadgeColor(employee.role)}>
-                            {employee.role || '-'}
+                            {(employee.role || '').toUpperCase() || '-'}
                           </CBadge>
                         </CTableDataCell>
                         <CTableDataCell>{branch?.name || 'N/A'}</CTableDataCell>

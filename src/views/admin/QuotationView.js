@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -19,14 +19,48 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilCloudDownload, cilEnvelopeClosed } from '@coreui/icons'
-import { useData } from '../../context/DataContext'
+import quotationService from '../../services/quotationService'
+import { Loader } from '../../components'
+import { toastError } from '../../utils/toast'
 
 const QuotationView = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { quotations } = useData()
+  const [quotation, setQuotation] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const quotation = quotations?.find((q) => q.id === parseInt(id))
+  useEffect(() => {
+    if (!id) {
+      setLoading(false)
+      return
+    }
+    let cancelled = false
+    setLoading(true)
+    setError(null)
+    quotationService
+      .getById(id)
+      .then((res) => {
+        if (cancelled) return
+        const data = res?.data?.data ?? res?.data ?? res
+        const q = data ? { ...data, id: data._id ?? data.id } : null
+        setQuotation(q)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setError(err?.message || 'Failed to load quotation')
+        toastError(err?.message || 'Failed to load quotation')
+        setQuotation(null)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [id])
+
+  const companyInfo = quotation?.companyInfo || null
+  const products = Array.isArray(quotation?.products) ? quotation.products : []
+  const queryId = quotation?.queryId?._id ?? quotation?.queryId
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -89,27 +123,94 @@ const QuotationView = () => {
               {getStatusBadge(quotation.status)}
             </CCardHeader>
             <CCardBody>
-              <CRow className="mb-4">
-                <CCol md={6}>
-                  <h6 className="text-muted">Customer Details</h6>
-                  <p className="mb-1"><strong>{quotation.customerName}</strong></p>
-                  <p className="mb-1">{quotation.customerEmail}</p>
-                </CCol>
-                <CCol md={6} className="text-md-end">
-                  <h6 className="text-muted">Quotation Details</h6>
-                  <p className="mb-1">Date: {new Date(quotation.createdAt).toLocaleDateString()}</p>
-                  <p className="mb-1">Valid Until: {quotation.validUntil ? new Date(quotation.validUntil).toLocaleDateString() : 'N/A'}</p>
-                </CCol>
-              </CRow>
+              {companyInfo ? (
+                <>
+                  <h6 className="mb-3">Company Information</h6>
+                  <CListGroup flush className="mb-4">
+                    <CListGroupItem className="d-flex justify-content-between">
+                      <strong>Company name</strong>
+                      <span>{companyInfo.name || '-'}</span>
+                    </CListGroupItem>
+                    <CListGroupItem className="d-flex justify-content-between">
+                      <strong>Location</strong>
+                      <span>{companyInfo.location || '-'}</span>
+                    </CListGroupItem>
+                    <CListGroupItem className="d-flex justify-content-between">
+                      <strong>Area</strong>
+                      <span>{companyInfo.area || '-'}</span>
+                    </CListGroupItem>
+                    <CListGroupItem>
+                      <strong>Purchase manager</strong>
+                      <div className="mt-1">
+                        {(companyInfo.purchase_manager_name || companyInfo.purchase_manager_phone) ? (
+                          <>
+                            {companyInfo.purchase_manager_name || '–'}
+                            {companyInfo.purchase_manager_phone && ` • ${companyInfo.purchase_manager_phone}`}
+                            {companyInfo.email && ` • ${companyInfo.email}`}
+                          </>
+                        ) : (
+                          '–'
+                        )}
+                      </div>
+                    </CListGroupItem>
+                    <CListGroupItem>
+                      <strong>Address</strong>
+                      <div className="mt-1">{companyInfo.address || '-'}</div>
+                    </CListGroupItem>
+                  </CListGroup>
+                </>
+              ) : (
+                <>
+                  <CRow className="mb-4">
+                    <CCol md={6}>
+                      <h6 className="text-muted">Customer Details</h6>
+                      <p className="mb-1"><strong>{quotation.customerName}</strong></p>
+                      <p className="mb-1">{quotation.customerEmail}</p>
+                    </CCol>
+                    <CCol md={6} className="text-md-end">
+                      <h6 className="text-muted">Quotation Details</h6>
+                      <p className="mb-1">Date: {new Date(quotation.createdAt).toLocaleDateString()}</p>
+                      <p className="mb-1">Valid Until: {quotation.validUntil ? new Date(quotation.validUntil).toLocaleDateString() : 'N/A'}</p>
+                    </CCol>
+                  </CRow>
+                  <hr />
+                  <h6 className="mb-3">Items/Description</h6>
+                  <div className="bg-light p-3 rounded mb-4">
+                    <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{quotation.items || 'No items specified'}</pre>
+                  </div>
+                </>
+              )}
 
-              <hr />
+              {products.length > 0 && (
+                <>
+                  {!companyInfo && <hr />}
+                  <h6 className="mb-3">Products</h6>
+                  <CTable responsive hover>
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>#</CTableHeaderCell>
+                        <CTableHeaderCell>Product name</CTableHeaderCell>
+                        <CTableHeaderCell>Quantity</CTableHeaderCell>
+                        <CTableHeaderCell>Unit</CTableHeaderCell>
+                        <CTableHeaderCell>Quoted rate</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {products.map((p, idx) => (
+                        <CTableRow key={idx}>
+                          <CTableDataCell>{idx + 1}</CTableDataCell>
+                          <CTableDataCell>{p.productName || '–'}</CTableDataCell>
+                          <CTableDataCell>{p.quantity ?? '–'}</CTableDataCell>
+                          <CTableDataCell>{p.unitName || p.unit || '–'}</CTableDataCell>
+                          <CTableDataCell>{(p.rate ?? p.quoted_rate) != null ? `₹${Number(p.rate ?? p.quoted_rate).toLocaleString()}` : '–'}</CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                </>
+              )}
 
-              <h6 className="mb-3">Items/Description</h6>
-              <div className="bg-light p-3 rounded mb-4">
-                <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{quotation.items || 'No items specified'}</pre>
-              </div>
-
-              <CRow>
+              <CRow className="mt-4">
                 <CCol md={6}></CCol>
                 <CCol md={6}>
                   <CTable borderless small>
@@ -124,14 +225,6 @@ const QuotationView = () => {
                   </CTable>
                 </CCol>
               </CRow>
-
-              {quotation.notes && (
-                <>
-                  <hr />
-                  <h6>Notes</h6>
-                  <p className="text-muted">{quotation.notes}</p>
-                </>
-              )}
             </CCardBody>
           </CCard>
         </CCol>
@@ -155,13 +248,13 @@ const QuotationView = () => {
                   <strong>Valid Until:</strong>
                   <span>{quotation.validUntil ? new Date(quotation.validUntil).toLocaleDateString() : 'N/A'}</span>
                 </CListGroupItem>
-                {quotation.queryId && (
+                {queryId && (
                   <CListGroupItem className="d-flex justify-content-between">
                     <strong>Related Query:</strong>
                     <CButton
                       color="link"
                       size="sm"
-                      onClick={() => navigate(`/queries/${quotation.queryId}`)}
+                      onClick={() => navigate(`/queries/${queryId}`)}
                     >
                       View Query
                     </CButton>

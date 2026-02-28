@@ -32,7 +32,15 @@ import { useData } from '../../context/DataContext'
 import { ROLE_LABELS } from '../../context/AuthContext'
 import { ConfirmDialog } from '../../components'
 
-const BRANCH_ROLES = ['hod', 'sales', 'purchase', 'finance', 'delivery']
+const BRANCH_ROLES = [
+  'head_of_department',
+  'sales_manager',
+  'sales_exicutive',
+  'purchase_manager',
+  'purchase_exicutive',
+  'back_office_exicutive',
+  'administrator',
+]
 
 const BranchUserManagement = () => {
   const { companyId, branchId } = useParams()
@@ -115,11 +123,13 @@ const BranchUserManagement = () => {
 
   const getRoleBadgeColor = (role) => {
     const colors = {
-      hod: 'primary',
-      sales: 'success',
-      purchase: 'info',
-      finance: 'warning',
-      delivery: 'secondary',
+      head_of_department: 'primary',
+      sales_manager: 'success',
+      sales_exicutive: 'info',
+      purchase_manager: 'warning',
+      purchase_exicutive: 'info',
+      back_office_exicutive: 'secondary',
+      administrator: 'dark',
     }
     return colors[role] || 'dark'
   }

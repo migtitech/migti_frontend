@@ -84,6 +84,8 @@ const RateCardList = () => {
 
   const [addRate, setAddRate] = useState('')
   const [addingRate, setAddingRate] = useState(false)
+  const [addIncludeGst, setAddIncludeGst] = useState(false)
+  const [addGstPercentage, setAddGstPercentage] = useState('')
   const [addProductDetail, setAddProductDetail] = useState(null)
   const [addSelectedCombination, setAddSelectedCombination] = useState(null)
   const [addCombinationSearch, setAddCombinationSearch] = useState('')
@@ -234,6 +236,8 @@ const RateCardList = () => {
     setAddProductDetail(null)
     setAddSelectedCombination(null)
     setAddCombinationSearch('')
+    setAddIncludeGst(false)
+    setAddGstPercentage('')
   }
 
   const handleClearAddSupplier = () => {
@@ -261,6 +265,14 @@ const RateCardList = () => {
       toastError('Please enter a valid rate')
       return
     }
+    if (addIncludeGst && addGstPercentage !== '' && Number(addGstPercentage) < 0) {
+      toastError('GST percentage cannot be negative')
+      return
+    }
+    if (addIncludeGst && addGstPercentage !== '' && Number(addGstPercentage) > 100) {
+      toastError('GST percentage cannot be more than 100')
+      return
+    }
     setAddingRate(true)
     try {
       const payload = {
@@ -271,6 +283,10 @@ const RateCardList = () => {
       if (addSelectedCombination && addSelectedCombination !== 'base') {
         payload.combinationUniqueId = addSelectedCombination
       }
+       payload.includeGst = !!addIncludeGst
+       if (addGstPercentage !== '' && !isNaN(Number(addGstPercentage))) {
+         payload.gstPercentage = Number(addGstPercentage)
+       }
       await rateCardService.upsertRate(payload)
       toastSuccess('Rate added successfully')
       // Do NOT reset product and supplier - only clear rate for next entry
@@ -421,6 +437,14 @@ const RateCardList = () => {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(amount)
+  }
+
+  const formatRateWithGst = (amount, includeGst, gstPercentage) => {
+    const base = formatCurrency(amount)
+    if (includeGst && gstPercentage && Number(gstPercentage) > 0) {
+      return `${base} + GST (${Number(gstPercentage)}%)`
+    }
+    return base
   }
 
   return (
@@ -668,7 +692,13 @@ const RateCardList = () => {
                                     {entry.supplier?.phone_1 || '-'}
                                   </CTableDataCell>
                                   <CTableDataCell>
-                                    <strong>{formatCurrency(entry.rate)}</strong>
+                                    <strong>
+                                      {formatRateWithGst(
+                                        entry.rate,
+                                        entry.includeGst,
+                                        entry.gstPercentage,
+                                      )}
+                                    </strong>
                                   </CTableDataCell>
                                   <CTableDataCell>
                                     <CFormInput
@@ -878,7 +908,13 @@ const RateCardList = () => {
                                   </CTableDataCell>
                                   <CTableDataCell>{entry.product?.sku || '-'}</CTableDataCell>
                                   <CTableDataCell>
-                                    <strong>{formatCurrency(entry.rate)}</strong>
+                                    <strong>
+                                      {formatRateWithGst(
+                                        entry.rate,
+                                        entry.includeGst,
+                                        entry.gstPercentage,
+                                      )}
+                                    </strong>
                                   </CTableDataCell>
                                   <CTableDataCell>
                                     <CFormInput
@@ -1286,6 +1322,32 @@ const RateCardList = () => {
                         value={addRate}
                         onChange={(e) => setAddRate(e.target.value)}
                       />
+                      <div className="d-flex align-items-end gap-3 mt-2 flex-wrap">
+                        <label
+                          htmlFor="add-include-gst"
+                          className="form-check d-flex align-items-center gap-2 mb-0"
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <CFormCheck
+                            id="add-include-gst"
+                            checked={addIncludeGst}
+                            onChange={(e) => setAddIncludeGst(e.target.checked)}
+                            className="form-check-input"
+                          />
+                          <span className="form-check-label">Include GST</span>
+                        </label>
+                        <div style={{ maxWidth: 180, minWidth: 140 }}>
+                          <CFormInput
+                            type="number"
+                            min={0}
+                            max={100}
+                            size="sm"
+                            placeholder="Included GST % (e.g. 12)"
+                            value={addGstPercentage}
+                            onChange={(e) => setAddGstPercentage(e.target.value)}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Submit Button */}

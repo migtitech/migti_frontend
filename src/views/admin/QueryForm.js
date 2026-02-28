@@ -44,12 +44,22 @@ const INITIAL_COMPANY = {
   purchaseManagers: [],
 }
 
-const INITIAL_VARIANT = { variantName: '', quantity: 1 }
+const mapPurchaseManagers = (list) =>
+  (list || []).map((pm) => ({
+    name: pm?.name || '',
+    phone: pm?.phone || '',
+    email: pm?.email || '',
+  }))
+
+const INITIAL_VARIANT = { variantName: '' }
 
 const INITIAL_PRODUCT = {
   productName: '',
   quantity: 1,
   unit: '',
+  hsnNumber: '',
+  modelNumber: '',
+  gstPercentage: null,
   variants: [],
   remark: '',
   product_id: null,
@@ -105,6 +115,7 @@ const QueryForm = () => {
   const [selectedProductForImport, setSelectedProductForImport] = useState(null)
   const [selectedVariantComboIds, setSelectedVariantComboIds] = useState(new Set())
   const [selectedVariantOptionKeys, setSelectedVariantOptionKeys] = useState(new Set())
+  const [variantSearch, setVariantSearch] = useState('')
 
   const getAreaId = (area) => (typeof area === 'object' ? area?._id : area) || ''
 
@@ -158,9 +169,7 @@ const QueryForm = () => {
         area: getAreaId(areaVal) || '',
         location: data?.location || '',
         address: data?.address || '',
-        purchase_manager_name: data?.purchase_manager_name || '',
-        purchase_manager_phone: data?.purchase_manager_phone || '',
-        email: data?.email || '',
+        purchaseManagers: mapPurchaseManagers(data?.purchaseManagers),
       })
     } catch {
       setCompanyInfo({
@@ -168,9 +177,7 @@ const QueryForm = () => {
         area: getAreaId(industry?.area) || '',
         location: industry?.location || '',
         address: industry?.address || '',
-        purchase_manager_name: industry?.purchase_manager_name || '',
-        purchase_manager_phone: industry?.purchase_manager_phone || '',
-        email: industry?.email || '',
+        purchaseManagers: mapPurchaseManagers(industry?.purchaseManagers),
       })
     }
   }
@@ -204,10 +211,22 @@ const QueryForm = () => {
     return () => clearTimeout(t)
   }, [productSearch, fetchProductSearch])
 
-  const handleSelectProduct = (product) => {
-    setSelectedProductForImport(product)
+  const handleSelectProduct = async (product) => {
+    const id = product?._id || product?.id
+    let fullProduct = product
+    if (id) {
+      try {
+        const res = await productService.getById(id)
+        const data = res?.data || res
+        fullProduct = data?.data || data?.product || data || product
+      } catch {
+        fullProduct = product
+      }
+    }
+    setSelectedProductForImport(fullProduct)
     setSelectedVariantComboIds(new Set())
     setSelectedVariantOptionKeys(new Set())
+    setVariantSearch('')
     setProductSearch('')
     setProductDropdownOpen(false)
     setProductSearchResults([])
@@ -255,6 +274,7 @@ const QueryForm = () => {
     setSelectedProductForImport(null)
     setSelectedVariantComboIds(new Set())
     setSelectedVariantOptionKeys(new Set())
+    setVariantSearch('')
   }
 
   const handleImportSelectedVariants = () => {
@@ -274,48 +294,79 @@ const QueryForm = () => {
       const combos = p.variantCombinations || []
       const comboIds = selectedVariantComboIds
       const selectedCombos = combos.filter((c) => comboIds.has(c.uniqueId || c._id))
-      selectedCombos.forEach((c) => {
-        newProducts.push({
-          productName,
-          quantity: Number(c?.quantity) ?? 1,
-          unit,
-          variants: [{ variantName: getVariantComboDisplay(c), quantity: Number(c?.quantity) ?? 1 }],
-          remark: '',
-          product_id: pid,
-        })
-      })
-    } else if (hasVariantOpts) {
-      const optionKeys = selectedVariantOptionKeys
-      variantOpts
-        .filter((o) => optionKeys.has(o.key))
-        .forEach((o) => {
+
+      if (selectedCombos.length > 0) {
+        selectedCombos.forEach((c) => {
           newProducts.push({
             productName,
-            quantity: 1,
+            quantity: Number(c?.quantity) ?? 1,
             unit,
-            variants: [{ variantName: o.label, quantity: 1 }],
+            hsnNumber: c?.hsnNumber || p?.hsnNumber || '',
+            modelNumber: c?.modelNumber || p?.defaultModelNumber || '',
+            variants: [{ variantName: getVariantComboDisplay(c) }],
             remark: '',
             product_id: pid,
           })
         })
+      } else {
+        // No combo selected – import base product without variants
+        newProducts.push({
+          productName,
+          quantity: 1,
+          unit,
+          hsnNumber: p?.hsnNumber || '',
+          modelNumber: p?.defaultModelNumber || '',
+          variants: [],
+          remark: '',
+          product_id: pid,
+        })
+      }
+    } else if (hasVariantOpts) {
+      const optionKeys = selectedVariantOptionKeys
+      const selectedOptions = variantOpts.filter((o) => optionKeys.has(o.key))
+
+      if (selectedOptions.length > 0) {
+        selectedOptions.forEach((o) => {
+          newProducts.push({
+            productName,
+            quantity: 1,
+            unit,
+            hsnNumber: p?.hsnNumber || '',
+            modelNumber: p?.defaultModelNumber || '',
+            variants: [{ variantName: o.label }],
+            remark: '',
+            product_id: pid,
+          })
+        })
+      } else {
+        // No option selected – import base product without variants
+        newProducts.push({
+          productName,
+          quantity: 1,
+          unit,
+          hsnNumber: p?.hsnNumber || '',
+          modelNumber: p?.defaultModelNumber || '',
+          variants: [],
+          remark: '',
+          product_id: pid,
+        })
+      }
     } else {
+      // Product has no variants – import base product
       newProducts.push({
         productName,
         quantity: 1,
         unit,
+        hsnNumber: p?.hsnNumber || '',
+        modelNumber: p?.defaultModelNumber || '',
         variants: [],
         remark: '',
         product_id: pid,
       })
     }
 
-    if (newProducts.length === 0) {
-      toastError('Select at least one variant to import')
-      return
-    }
-
-    setProducts((prev) => [...prev, ...newProducts])
-    toastSuccess(`${newProducts.length} product(s) added to list`)
+    handleImportProducts(newProducts)
+    toastSuccess('Product section filled. Review and click Save to add.')
     clearSelectedProductForImport()
   }
 
@@ -334,9 +385,11 @@ const QueryForm = () => {
       productName: first.productName || '',
       quantity: first.quantity ?? 1,
       unit: (first.unit && String(first.unit).trim()) || '',
+      hsnNumber: first.hsnNumber || '',
+      modelNumber: first.modelNumber || '',
+      gstPercentage: first.gstPercentage ?? null,
       variants: (first.variants || []).map((v) => ({
         variantName: v.variantName || '',
-        quantity: v.quantity ?? 1,
       })),
       remark: first.remark || '',
       product_id: first.product_id || null,
@@ -377,9 +430,11 @@ const QueryForm = () => {
       productName: p.productName || '',
       quantity: p.quantity ?? 1,
       unit: p.unit || '',
+      hsnNumber: p.hsnNumber || '',
+      modelNumber: p.modelNumber || '',
+      gstPercentage: p.gstPercentage ?? null,
       variants: (p.variants || []).map((v) => ({
         variantName: v.variantName || '',
-        quantity: v.quantity ?? 1,
       })),
       remark: p.remark || '',
       product_id: p.product_id || null,
@@ -456,17 +511,21 @@ const QueryForm = () => {
         setIndustryId(q.industry_id?._id || q.industry_id || null)
         setIndustrySearch(q.industry_id?.name || (ci.name || ''))
 
-        const prods = q.products?.length ? q.products.map((p) => ({
-          productName: p.productName || '',
-          quantity: p.quantity ?? 1,
-          unit: p.unit || '',
-          variants: (p.variants || []).map((v) => ({
-            variantName: v.variantName || '',
-            quantity: v.quantity ?? 1,
-          })),
-          remark: p.remark || '',
-          product_id: p.product_id?._id || p.product_id || null,
-        })) : []
+        const prods = q.products?.length
+          ? q.products.map((p) => ({
+              productName: p.productName || '',
+              quantity: p.quantity ?? 1,
+              unit: p.unit || '',
+              hsnNumber: p.hsnNumber || '',
+              modelNumber: p.modelNumber || '',
+              gstPercentage: p.gstPercentage ?? null,
+              variants: (p.variants || []).map((v) => ({
+                variantName: v.variantName || '',
+              })),
+              remark: p.remark || '',
+              product_id: p.product_id?._id || p.product_id || null,
+            }))
+          : []
         setProducts(prods)
       } catch (err) {
         toastError(err?.message || 'Failed to load query')
@@ -522,17 +581,23 @@ const QueryForm = () => {
           })).filter((m) => m.name || m.phone),
         },
         industry_id: industryId || null,
-        products: products.map((p) => ({
-          productName: p.productName?.trim() || '',
-          quantity: Number(p.quantity) ?? 1,
-          unit: (p.unit && String(p.unit).trim()) || '',
-          variants: (p.variants || []).map((v) => ({
-            variantName: (v.variantName && String(v.variantName).trim()) || '',
-            quantity: Number(v.quantity) ?? 1,
-          })).filter((v) => v.variantName),
-          remark: p.remark?.trim() || '',
-          product_id: p.product_id || null,
-        })).filter((p) => p.productName),
+        products: products
+          .map((p) => ({
+            productName: p.productName?.trim() || '',
+            quantity: Number(p.quantity) ?? 1,
+            unit: (p.unit && String(p.unit).trim()) || '',
+            hsnNumber: (p.hsnNumber && String(p.hsnNumber).trim()) || '',
+            modelNumber: (p.modelNumber && String(p.modelNumber).trim()) || '',
+            gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
+            variants: (p.variants || [])
+              .map((v) => ({
+                variantName: (v.variantName && String(v.variantName).trim()) || '',
+              }))
+              .filter((v) => v.variantName),
+            remark: p.remark?.trim() || '',
+            product_id: p.product_id || null,
+          }))
+          .filter((p) => p.productName),
         created_by: isEdit ? undefined : getCreatedBy(),
       }
       if (isEdit) {
@@ -792,60 +857,73 @@ const QueryForm = () => {
                 <strong>{editingProductIndex != null ? 'Edit product' : 'Add product'}</strong>
               </CCardHeader>
               <CCardBody>
-                <div className="mb-3 position-relative">
-                  <CFormLabel>Type / Name (search – best 5 matches)</CFormLabel>
-                  <CFormInput
-                    type="text"
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    onFocus={() => setProductDropdownOpen(true)}
-                    onBlur={() => setTimeout(() => setProductDropdownOpen(false), 200)}
-                    placeholder="Search product type or name"
-                    autoComplete="off"
-                  />
-                  {productDropdownOpen && (productSearchResults?.length > 0 || productSearchLoading) && (
-                    <div
-                      className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
-                      style={{ zIndex: 10, maxHeight: 220, overflowY: 'auto' }}
-                    >
-                      <CListGroup flush>
-                        {productSearchLoading && (
-                          <CListGroupItem className="text-muted">Searching...</CListGroupItem>
-                        )}
-                        {!productSearchLoading &&
-                          productSearchResults.map((pr) => (
-                            <CListGroupItem
-                              key={pr._id || pr.id}
-                              component="button"
-                              type="button"
-                              className="text-start"
-                              onMouseDown={(e) => {
-                                e.preventDefault()
-                                handleSelectProduct(pr)
-                              }}
-                            >
-                              <div className="fw-semibold">{pr.name}</div>
-                              {pr.sku && <div className="text-muted small">SKU: {pr.sku}</div>}
-                            </CListGroupItem>
-                          ))}
-                      </CListGroup>
-                    </div>
-                  )}
-                </div>
-
-                {selectedProductForImport && (
-                  <div className="mb-3 p-3 bg-light rounded border">
-                    <div className="d-flex justify-content-between align-items-center mb-2">
-                      <strong>Selected: {selectedProductForImport?.name || '–'}</strong>
-                      <div className="d-flex gap-2 align-items-center">
-                        <CButton color="secondary" size="sm" variant="ghost" onClick={clearSelectedProductForImport}>
-                          Clear
-                        </CButton>
-                        <CButton color="primary" size="sm" onClick={handleImportSelectedVariants}>
-                          Import
-                        </CButton>
+                <div className="mb-4 p-3 bg-light rounded border">
+                  <CFormLabel className="fw-semibold d-block mb-2">
+                    Search & import from products
+                  </CFormLabel>
+                  <div className="mb-3 position-relative">
+                    <CFormInput
+                      type="text"
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      onFocus={() => setProductDropdownOpen(true)}
+                      onBlur={() => setTimeout(() => setProductDropdownOpen(false), 200)}
+                      placeholder="Type / name (best 5 matches)"
+                      autoComplete="off"
+                    />
+                    {productDropdownOpen && (productSearchResults?.length > 0 || productSearchLoading) && (
+                      <div
+                        className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                        style={{ zIndex: 10, maxHeight: 220, overflowY: 'auto' }}
+                      >
+                        <CListGroup flush>
+                          {productSearchLoading && (
+                            <CListGroupItem className="text-muted">Searching...</CListGroupItem>
+                          )}
+                          {!productSearchLoading &&
+                            productSearchResults.map((pr) => (
+                              <CListGroupItem
+                                key={pr._id || pr.id}
+                                component="button"
+                                type="button"
+                                className="text-start"
+                                onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  handleSelectProduct(pr)
+                                }}
+                              >
+                                <div className="fw-semibold">{pr.name}</div>
+                                {pr.sku && <div className="text-muted small">SKU: {pr.sku}</div>}
+                              </CListGroupItem>
+                            ))}
+                        </CListGroup>
                       </div>
-                    </div>
+                    )}
+                  </div>
+
+                  {selectedProductForImport && (
+                    <div className="mt-2 p-3 bg-white rounded border">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <strong>Selected: {selectedProductForImport?.name || '–'}</strong>
+                        <div className="d-flex gap-2 align-items-center">
+                          <CButton color="secondary" size="sm" variant="ghost" onClick={clearSelectedProductForImport}>
+                            Clear
+                          </CButton>
+                          <CButton color="primary" size="sm" onClick={handleImportSelectedVariants}>
+                            Import
+                          </CButton>
+                        </div>
+                      </div>
+                      <div className="mb-2">
+                        <CFormLabel className="mb-1 small">Search variants (local filter)</CFormLabel>
+                        <CFormInput
+                          size="sm"
+                          type="text"
+                          value={variantSearch}
+                          onChange={(e) => setVariantSearch(e.target.value)}
+                          placeholder="Type to filter variant combinations..."
+                        />
+                      </div>
                     {(() => {
                       const p = selectedProductForImport
                       const hasCombos = p?.hasVariants && (p?.variantCombinations?.length > 0)
@@ -853,9 +931,23 @@ const QueryForm = () => {
                       const variantOpts = getVariantOptions(p)
                       const hasVariantOpts = variantOpts.length > 0
 
+                      const search = (variantSearch || '').trim().toLowerCase()
+                      const filteredCombos = hasCombos
+                        ? combos.filter((c) =>
+                            !search ||
+                            getVariantComboDisplay(c).toLowerCase().includes(search),
+                          )
+                        : []
+                      const filteredVariantOpts = hasVariantOpts
+                        ? variantOpts.filter((o) =>
+                            !search ||
+                            (o.label || '').toLowerCase().includes(search),
+                          )
+                        : []
+
                       if (hasCombos) {
                         const comboSet = selectedVariantComboIds
-                        const allComboIds = combos.map((c) => c.uniqueId || c._id).filter(Boolean)
+                        const allComboIds = filteredCombos.map((c) => c.uniqueId || c._id).filter(Boolean)
                         const allSelected = allComboIds.length > 0 && allComboIds.every((uid) => comboSet.has(uid))
                         return (
                           <>
@@ -869,7 +961,7 @@ const QueryForm = () => {
                               />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem 1rem' }}>
-                              {combos.map((c) => {
+                              {filteredCombos.map((c) => {
                                 const uid = c.uniqueId || c._id
                                 const checked = comboSet.has(uid)
                                 const inputId = `combo-${uid}`
@@ -897,7 +989,7 @@ const QueryForm = () => {
                       }
                       if (hasVariantOpts) {
                         const optionSet = selectedVariantOptionKeys
-                        const allKeys = variantOpts.map((o) => o.key)
+                        const allKeys = filteredVariantOpts.map((o) => o.key)
                         const allSelected = allKeys.length > 0 && allKeys.every((k) => optionSet.has(k))
                         return (
                           <>
@@ -911,7 +1003,7 @@ const QueryForm = () => {
                               />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem 1rem' }}>
-                              {variantOpts.map((o) => {
+                              {filteredVariantOpts.map((o) => {
                                 const checked = optionSet.has(o.key)
                                 const inputId = `opt-${o.key}`
                                 return (
@@ -942,8 +1034,9 @@ const QueryForm = () => {
                         </p>
                       )
                     })()}
-                  </div>
-                )}
+                    </div>
+                  )}
+                </div>
 
                 <CRow>
                   <CCol md={6}>
@@ -979,9 +1072,31 @@ const QueryForm = () => {
                     </div>
                   </CCol>
                 </CRow>
+                <CRow>
+                  <CCol md={6}>
+                    <div className="mb-3">
+                      <CFormLabel>HSN Number (optional)</CFormLabel>
+                      <CFormInput
+                        value={formProduct.hsnNumber || ''}
+                        onChange={(e) => updateFormProduct('hsnNumber', e.target.value)}
+                        placeholder="HSN Number"
+                      />
+                    </div>
+                  </CCol>
+                  <CCol md={6}>
+                    <div className="mb-3">
+                      <CFormLabel>Model Number (optional)</CFormLabel>
+                      <CFormInput
+                        value={formProduct.modelNumber || ''}
+                        onChange={(e) => updateFormProduct('modelNumber', e.target.value)}
+                        placeholder="Model Number"
+                      />
+                    </div>
+                  </CCol>
+                </CRow>
                 <div className="mb-3">
                   <div className="d-flex justify-content-between align-items-center mb-2">
-                    <CFormLabel className="mb-0">Variants (name + quantity)</CFormLabel>
+                    <CFormLabel className="mb-0">Variants</CFormLabel>
                     <CButton color="primary" size="sm" type="button" onClick={addVariant}>
                       <CIcon icon={cilPlus} className="me-1" />
                       Add variant
@@ -990,20 +1105,11 @@ const QueryForm = () => {
                   {(formProduct.variants || []).length > 0 ? (
                     (formProduct.variants || []).map((v, vIdx) => (
                       <CRow key={vIdx} className="mb-2 align-items-end">
-                        <CCol md={5}>
+                        <CCol md={8}>
                           <CFormInput
                             value={v.variantName || ''}
                             onChange={(e) => updateVariant(vIdx, 'variantName', e.target.value)}
                             placeholder="Variant name"
-                          />
-                        </CCol>
-                        <CCol md={3}>
-                          <CFormInput
-                            type="number"
-                            min={0}
-                            value={v.quantity ?? ''}
-                            onChange={(e) => updateVariant(vIdx, 'quantity', Number(e.target.value) ?? 0)}
-                            placeholder="Qty"
                           />
                         </CCol>
                         <CCol md={2}>
@@ -1032,7 +1138,7 @@ const QueryForm = () => {
                     placeholder="Remark"
                   />
                 </div>
-                <div className="d-flex gap-2">
+                <div className="d-flex justify-content-end gap-2">
                   {editingProductIndex != null ? (
                     <CButton color="primary" type="button" onClick={updateProductInList}>
                       Update
@@ -1063,6 +1169,8 @@ const QueryForm = () => {
                       <CTableHeaderCell>Quantity</CTableHeaderCell>
                       <CTableHeaderCell>Unit</CTableHeaderCell>
                       <CTableHeaderCell>Variants</CTableHeaderCell>
+                      <CTableHeaderCell>HSN Number</CTableHeaderCell>
+                      <CTableHeaderCell>GST %</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
                       <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
                     </CTableRow>
@@ -1075,15 +1183,33 @@ const QueryForm = () => {
                         <CTableDataCell>{p.unit || '–'}</CTableDataCell>
                         <CTableDataCell>
                           {(p.variants || []).length > 0
-                            ? (p.variants || []).map((v, i) => `${v.variantName || '–'}: ${v.quantity ?? 0}`).join(', ')
+                            ? (p.variants || []).map((v, i) => v.variantName || '–').join(', ')
                             : '–'}
                         </CTableDataCell>
-                        <CTableDataCell>{(p.remark || '').slice(0, 40)}{(p.remark || '').length > 40 ? '…' : ''}</CTableDataCell>
+                        <CTableDataCell className="small">{p.hsnNumber || '–'}</CTableDataCell>
+                        <CTableDataCell className="small">
+                          {typeof p.gstPercentage === 'number' ? `${p.gstPercentage}%` : '–'}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {(p.remark || '').slice(0, 40)}
+                          {(p.remark || '').length > 40 ? '…' : ''}
+                        </CTableDataCell>
                         <CTableDataCell className="text-end">
-                          <CButton color="primary" variant="ghost" size="sm" className="me-1" onClick={() => editProductFromTable(index)}>
+                          <CButton
+                            color="primary"
+                            variant="ghost"
+                            size="sm"
+                            className="me-1"
+                            onClick={() => editProductFromTable(index)}
+                          >
                             <CIcon icon={cilPencil} />
                           </CButton>
-                          <CButton color="danger" variant="ghost" size="sm" onClick={() => deleteProductFromTable(index)}>
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteProductFromTable(index)}
+                          >
                             <CIcon icon={cilTrash} />
                           </CButton>
                         </CTableDataCell>

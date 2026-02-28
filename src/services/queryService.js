@@ -16,9 +16,11 @@ const mapToApiPayload = (data) => ({
     productName: p.productName,
     quantity: p.quantity ?? 1,
     unit: p.unit || '',
+    hsnNumber: p.hsnNumber || '',
+    modelNumber: p.modelNumber || '',
+    gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
     variants: (p.variants || []).map((v) => ({
       variantName: v.variantName || '',
-      quantity: v.quantity ?? 1,
     })),
     remark: p.remark || '',
     product_id: p.product_id || null,
@@ -80,6 +82,17 @@ const queryService = {
     const response = await api.get(QUERIES.LIST, {
       params: { search: queryCode, pageSize: 5 },
     })
+    return response
+  },
+
+  convertToQuotation: async (queryCode) => {
+    const response = await api.post(
+      QUERIES.CONVERT_TO_QUOTATION,
+      {},
+      {
+        params: { queryCode },
+      },
+    )
     return response
   },
 }

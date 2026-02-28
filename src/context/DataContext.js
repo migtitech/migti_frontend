@@ -70,39 +70,47 @@ const initialBranchUsers = [
     branchId: 1,
     name: 'John Doe',
     email: 'hod@gmail.com',
-    role: 'hod',
+    role: 'head_of_department',
     createdAt: new Date().toISOString(),
   },
   {
     id: 2,
     branchId: 1,
     name: 'Jane Smith',
-    email: 'sales@gmail.com',
-    role: 'sales',
+    email: 'sales_manager@gmail.com',
+    role: 'sales_manager',
     createdAt: new Date().toISOString(),
   },
   {
     id: 3,
     branchId: 1,
     name: 'Mike Johnson',
-    email: 'purchase@gmail.com',
-    role: 'purchase',
+    email: 'sales_exicutive@gmail.com',
+    role: 'sales_exicutive',
     createdAt: new Date().toISOString(),
   },
   {
     id: 4,
     branchId: 1,
     name: 'Sarah Williams',
-    email: 'finance@gmail.com',
-    role: 'finance',
+    email: 'purchase_manager@gmail.com',
+    role: 'purchase_manager',
     createdAt: new Date().toISOString(),
   },
   {
     id: 5,
     branchId: 1,
     name: 'Tom Brown',
-    email: 'delivery@gmail.com',
-    role: 'delivery',
+    email: 'purchase_exicutive@gmail.com',
+    role: 'purchase_exicutive',
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: 6,
+    branchId: 1,
+    name: 'Bob Martin',
+    email: 'back_office_exicutive@gmail.com',
+    role: 'back_office_exicutive',
     createdAt: new Date().toISOString(),
   },
 ]
@@ -173,32 +181,7 @@ const initialQueries = [
   },
 ]
 
-const initialQuotations = [
-  {
-    id: 1,
-    queryId: 1,
-    customerName: 'ABC Industries',
-    customerEmail: 'purchase@abcindustries.com',
-    items: '50 x Industrial Motor (IM-001) @ ₹25,000 each\nDelivery charges: ₹10,000\nGST @18%',
-    totalAmount: 1485000,
-    validUntil: new Date(Date.now() + 30 * 86400000).toISOString(),
-    notes: 'Payment terms: 50% advance, 50% on delivery',
-    status: 'sent',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 2,
-    queryId: 2,
-    customerName: 'XYZ Manufacturing',
-    customerEmail: 'info@xyzmanufacturing.com',
-    items: '200 x Steel Pipes (SP-010) @ ₹1,500 each\nTransportation: ₹5,000',
-    totalAmount: 305000,
-    validUntil: new Date(Date.now() + 15 * 86400000).toISOString(),
-    notes: 'Delivery in 10 working days',
-    status: 'draft',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-]
+const initialQuotations = []
 
 const initialPurchaseOrders = [
   {

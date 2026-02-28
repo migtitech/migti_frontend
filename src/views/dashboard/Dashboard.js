@@ -5,8 +5,6 @@ import AdminDashboard from './AdminDashboard'
 import HODDashboard from './HODDashboard'
 import SalesDashboard from './SalesDashboard'
 import PurchaseDashboard from './PurchaseDashboard'
-import FinanceDashboard from './FinanceDashboard'
-import DeliveryDashboard from './DeliveryDashboard'
 
 const Dashboard = () => {
   const { user } = useAuth()
@@ -18,16 +16,14 @@ const Dashboard = () => {
         return <SuperAdminDashboard />
       case ROLES.ADMIN:
         return <AdminDashboard />
-      case ROLES.HOD:
+      case ROLES.HEAD_OF_DEPARTMENT:
         return <HODDashboard />
-      case ROLES.SALES:
+      case ROLES.SALES_MANAGER:
+      case ROLES.SALES_EXICUTIVE:
         return <SalesDashboard />
-      case ROLES.PURCHASE:
+      case ROLES.PURCHASE_MANAGER:
+      case ROLES.PURCHASE_EXICUTIVE:
         return <PurchaseDashboard />
-      case ROLES.FINANCE:
-        return <FinanceDashboard />
-      case ROLES.DELIVERY:
-        return <DeliveryDashboard />
       default:
         return <AdminDashboard />
     }

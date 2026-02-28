@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -16,38 +16,69 @@ import {
   CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import {
-  cilPlus,
-  cilPencil,
-  cilTrash,
-  cilCloudDownload,
-} from '@coreui/icons'
+import { cilPlus, cilPencil, cilCloudDownload } from '@coreui/icons'
 import { EyeIcon } from '../../components'
-import { useData } from '../../context/DataContext'
+import quotationService from '../../services/quotationService'
 import Filtered from '../../filtered/Filtered'
-import { ConfirmDialog } from '../../components'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
+
+const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null)
 
 const QuotationList = () => {
   const navigate = useNavigate()
-  const { quotations, deleteQuotation } = useData()
+  const [quotations, setQuotations] = useState([])
+  const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [searchDebounced, setSearchDebounced] = useState('')
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize] = useState(10)
+  const [loading, setLoading] = useState(false)
 
-  const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchTerm), 400)
+    return () => clearTimeout(t)
+  }, [searchTerm])
+
+  useEffect(() => {
+    setPageNumber(1)
+  }, [searchDebounced])
+
+  const fetchQuotations = async () => {
+    setLoading(true)
+    try {
+      const res = await withMinimumDelay(() =>
+        quotationService.getAll({
+          pageNumber,
+          pageSize,
+          search: searchDebounced.trim() || undefined,
+        }),
+      )
+      const data = res?.data || res
+      const result = data?.data ?? data
+      const list = (result?.quotations || []).map(mapQuotation)
+      setQuotations(list)
+      setPagination(result?.pagination || null)
+    } catch (err) {
+      toastError(err?.message || 'Failed to load quotations')
+      setQuotations([])
+      setPagination(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteConfirm = () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (id != null) deleteQuotation(id)
-  }
+  useEffect(() => {
+    fetchQuotations()
+  }, [pageNumber, pageSize, searchDebounced])
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'draft':
         return <CBadge color="secondary">Draft</CBadge>
       case 'sent':
+      case 'sentToClient':
         return <CBadge color="info">Sent</CBadge>
       case 'accepted':
         return <CBadge color="success">Accepted</CBadge>
@@ -56,15 +87,11 @@ const QuotationList = () => {
       case 'expired':
         return <CBadge color="warning">Expired</CBadge>
       default:
-        return <CBadge color="secondary">{status}</CBadge>
+        return <CBadge color="secondary">{status || 'Draft'}</CBadge>
     }
   }
 
-  const filteredQuotations = quotations?.filter((q) =>
-    q.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(q.id).includes(searchTerm)
-  )
+  const filteredQuotations = quotations
 
   return (
     <CRow>
@@ -80,14 +107,14 @@ const QuotationList = () => {
 
           <CCardBody>
             <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-
+            {loading && <Loader />}
             <CTable hover responsive>
               <CTableHead>
                 <CTableRow>
                   <CTableHeaderCell>S No</CTableHeaderCell>
                   <CTableHeaderCell>Quotation No.</CTableHeaderCell>
-                  <CTableHeaderCell>Customer</CTableHeaderCell>
-                  <CTableHeaderCell>Items</CTableHeaderCell>
+                  <CTableHeaderCell>Company</CTableHeaderCell>
+                  <CTableHeaderCell>Products / Items</CTableHeaderCell>
                   <CTableHeaderCell>Total Amount</CTableHeaderCell>
                   <CTableHeaderCell>Valid Until</CTableHeaderCell>
                   <CTableHeaderCell>Status</CTableHeaderCell>
@@ -108,14 +135,22 @@ const QuotationList = () => {
                         <strong>QT-{String(quotation.id).padStart(4, '0')}</strong>
                       </CTableDataCell>
                       <CTableDataCell>
-                        <strong>{quotation.customerName}</strong>
-                        <br />
-                        <small className="text-muted">{quotation.customerEmail}</small>
+                        <strong>{quotation.companyInfo?.name || quotation.customerName || '-'}</strong>
+                        {(quotation.companyInfo?.email || quotation.customerEmail) && (
+                          <>
+                            <br />
+                            <small className="text-muted">
+                              {quotation.companyInfo?.email || quotation.customerEmail}
+                            </small>
+                          </>
+                        )}
                       </CTableDataCell>
                       <CTableDataCell>
                         <small>
-                          {quotation.items?.substring(0, 50)}
-                          {quotation.items?.length > 50 ? '...' : ''}
+                          {Array.isArray(quotation.products) && quotation.products.length > 0
+                            ? `${quotation.products.length} product(s)`
+                            : (quotation.items?.substring(0, 50) || '')}
+                          {quotation.items && quotation.items.length > 50 && !quotation.products?.length ? '...' : ''}
                         </small>
                       </CTableDataCell>
                       <CTableDataCell>
@@ -163,21 +198,10 @@ const QuotationList = () => {
                           title="Edit"
                           onClick={(e) => {
                             e.stopPropagation()
-                            navigate(`/quotations/edit/${quotation.id}`)}}
+                            navigate(`/quotations/edit/${quotation.id}`)
+                          }}
                         >
                           <CIcon icon={cilPencil} />
-                        </CButton>
-
-                        <CButton
-                          color="danger"
-                          variant="ghost"
-                          size="sm"
-                          title="Delete"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteClick(quotation.id)}}
-                        >
-                          <CIcon icon={cilTrash} />
                         </CButton>
                       </CTableDataCell>
                     </CTableRow>
@@ -185,7 +209,9 @@ const QuotationList = () => {
                 ) : (
                   <CTableRow>
                     <CTableDataCell colSpan={9} className="text-center">
-                      No quotations found. Click "Add Quotation" to create one.
+                      {!loading && (quotations?.length === 0
+                        ? 'No quotations available.'
+                        : 'No quotations match your search.')}
                     </CTableDataCell>
                   </CTableRow>
                 )}
@@ -194,16 +220,6 @@ const QuotationList = () => {
           </CCardBody>
         </CCard>
       </CCol>
-
-      <ConfirmDialog
-        visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Quotation?"
-        message="Are you sure you want to delete this quotation? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
     </CRow>
   )
 }

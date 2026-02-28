@@ -399,6 +399,9 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
         productName: p?.name || '',
         quantity: 1,
         unit: (p?.unit && String(p.unit).trim()) || 'pcs',
+        hsnNumber: p?.hsnNumber || '',
+        modelNumber: p?.defaultModelNumber || '',
+        gstPercentage: typeof p?.gstPercentage === 'number' ? p.gstPercentage : null,
         variants: [],
         remark: '',
         product_id: pid,
@@ -418,13 +421,20 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
 
       const variants = selectedCombos.map((c) => ({
         variantName: getVariantComboDisplay(c),
-        quantity: Number(c?.quantity) ?? 1,
       }))
 
       queryProducts.push({
         productName: p?.name || '',
         quantity: 1,
         unit: (p?.unit && String(p.unit).trim()) || 'pcs',
+        hsnNumber: selectedCombos[0]?.hsnNumber || p?.hsnNumber || '',
+        modelNumber: selectedCombos[0]?.modelNumber || p?.defaultModelNumber || '',
+        gstPercentage:
+          typeof selectedCombos[0]?.gstPercentage === 'number'
+            ? selectedCombos[0].gstPercentage
+            : typeof p?.gstPercentage === 'number'
+              ? p.gstPercentage
+              : null,
         variants,
         remark: '',
         product_id: pid,
@@ -440,13 +450,16 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
 
       const variants = variantOpts
         .filter((o) => optionKeys.has(o.key))
-        .map((o) => ({ variantName: o.label, quantity: 1 }))
+        .map((o) => ({ variantName: o.label }))
       if (variants.length === 0) return
 
       queryProducts.push({
         productName: p?.name || '',
         quantity: 1,
         unit: (p?.unit && String(p.unit).trim()) || 'pcs',
+        hsnNumber: p?.hsnNumber || '',
+        modelNumber: p?.defaultModelNumber || '',
+        gstPercentage: typeof p?.gstPercentage === 'number' ? p.gstPercentage : null,
         variants,
         remark: '',
         product_id: pid,

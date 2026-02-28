@@ -166,8 +166,16 @@ export const QUERIES = {
   GET_BY_ID: '/queries/get-by-id',
   UPDATE: '/queries/update',
   DELETE: '/queries/delete',
+  CONVERT_TO_QUOTATION: '/queries/convert-to-quotation',
   ACTIVITIES: '/queries/activities',
   RECORD_ACTIVITY: '/queries/record-activity',
+}
+
+export const QUOTATIONS = {
+  LIST: '/quotations/list',
+  GET_BY_ID: '/quotations/get-by-id',
+  UPDATE: '/quotations/update',
+  UPDATE_STATUS: '/quotations/update-status',
 }
 
 export const ADMIN = {
@@ -195,4 +203,5 @@ export default {
   INDUSTRIES,
   INDUSTRY_BRANCHES,
   QUERIES,
+  QUOTATIONS,
 }
