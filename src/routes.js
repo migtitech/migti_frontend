@@ -62,6 +62,9 @@ const FollowUpDashboard = React.lazy(() => import('./views/admin/FollowUpDashboa
 // Rate Cards
 const RateCardList = React.lazy(() => import('./views/admin/RateCardList'))
 
+// Purchase Tasks (My Task / Rate Bucket / Admin Tracking)
+const PurchaseTasks = React.lazy(() => import('./views/admin/PurchaseTasks'))
+
 // Employees
 const EmployeeList = React.lazy(() => import('./views/admin/EmployeeList'))
 const EmployeeView = React.lazy(() => import('./views/admin/EmployeeView'))
@@ -156,6 +159,9 @@ const routes = [
 
   // Rate Cards
   { path: '/rate-cards', name: 'Rate Cards', element: RateCardList, module: 'rate_cards', action: 'read' },
+
+  // Purchase Tasks
+  { path: '/purchase-tasks', name: 'Purchase Tasks', element: PurchaseTasks, module: 'purchase_tasks', action: 'read' },
 
   // Follow-up Dashboard
   { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, module: 'follow_up', action: 'read' },

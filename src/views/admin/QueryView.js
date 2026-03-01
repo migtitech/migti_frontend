@@ -295,21 +295,21 @@ const QueryView = () => {
             )}
           </div>
           <div className="d-flex gap-2">
+            {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
+              <CButton
+                color="success"
+                disabled={converting || !query?.queryCode}
+                onClick={handleConvertClick}
+              >
+                <CIcon icon={cilCheckAlt} className="me-1" />
+                Convert to Quotation
+              </CButton>
+            )}
             {canUpdate('queries') && (
-              <>
-                <CButton
-                  color="success"
-                  disabled={converting || !query?.queryCode}
-                  onClick={handleConvertClick}
-                >
-                  <CIcon icon={cilCheckAlt} className="me-1" />
-                  Convert to Quotation
-                </CButton>
-                <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
-                  <CIcon icon={cilPencil} className="me-1" />
-                  Edit
-                </CButton>
-              </>
+              <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
+                <CIcon icon={cilPencil} className="me-1" />
+                Edit
+              </CButton>
             )}
             {canDelete('queries') && (
               <CButton color="danger" onClick={handleDeleteClick}>
@@ -345,14 +345,15 @@ const QueryView = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell style={{ width: 60 }}>#</CTableHeaderCell>
-                      <CTableHeaderCell style={{ width: 90 }}>Image</CTableHeaderCell>
                       <CTableHeaderCell>Product name</CTableHeaderCell>
+                      <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 100 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 80 }}>Unit</CTableHeaderCell>
                       <CTableHeaderCell>Variants</CTableHeaderCell>
                       <CTableHeaderCell>HSN Number</CTableHeaderCell>
                       <CTableHeaderCell>GST %</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 120 }}>Images</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
@@ -362,10 +363,20 @@ const QueryView = () => {
                       return (
                       <CTableRow key={p._id || index}>
                         <CTableDataCell>{index + 1}</CTableDataCell>
+                        <CTableDataCell>{p.productName || '—'}</CTableDataCell>
+                        <CTableDataCell className="small">
+                          {productRef?.shortDescription || p.description || '—'}
+                        </CTableDataCell>
+                        <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
+                        <CTableDataCell>{p.unit || '—'}</CTableDataCell>
+                        <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
+                        <CTableDataCell className="small">{productRef?.hsnNumber || p.hsnNumber || '—'}</CTableDataCell>
+                        <CTableDataCell className="small">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '—')}</CTableDataCell>
+                        <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
                         <CTableDataCell>
                           {images.length > 0 ? (
                             <div className="d-flex flex-wrap gap-1">
-                              {images.slice(0, 3).map((img, i) => {
+                              {images.slice(0, 2).map((img, i) => {
                                 const src = getImageUrl(img)
                                 return (
                                   <div
@@ -377,7 +388,13 @@ const QueryView = () => {
                                       setExpandedImages(urls)
                                       setExpandedImageIndex(i)
                                     }}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { setExpandedImages(images.map((im) => getImageUrl(im))); setExpandedImageIndex(i) } }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        const urls = images.map((im) => getImageUrl(im))
+                                        setExpandedImages(urls)
+                                        setExpandedImageIndex(i)
+                                      }
+                                    }}
                                     className="rounded border overflow-hidden"
                                     style={{ width: 48, height: 48, cursor: 'pointer' }}
                                   >
@@ -385,21 +402,14 @@ const QueryView = () => {
                                   </div>
                                 )
                               })}
-                              {images.length > 3 && (
-                                <span className="small text-muted align-self-center">+{images.length - 3}</span>
+                              {images.length > 2 && (
+                                <span className="small text-muted align-self-center">+{images.length - 2}</span>
                               )}
                             </div>
                           ) : (
                             <span className="text-muted small">—</span>
                           )}
                         </CTableDataCell>
-                        <CTableDataCell>{p.productName || '—'}</CTableDataCell>
-                        <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
-                        <CTableDataCell>{p.unit || '—'}</CTableDataCell>
-                        <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
-                        <CTableDataCell className="small">{productRef?.hsnNumber || p.hsnNumber || '—'}</CTableDataCell>
-                        <CTableDataCell className="small">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '—')}</CTableDataCell>
-                        <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
                       </CTableRow>
                     )
                     })}

@@ -165,6 +165,20 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'Rate Bucket',
+    to: '/purchase-tasks?view=rate',
+    icon: <CIcon icon={cilList} customClassName="nav-icon" />,
+    module: 'purchase_tasks',
+  },
+  {
+    component: CNavItem,
+    name: 'Purchase Task',
+    to: '/purchase-tasks?view=purchase',
+    icon: <CIcon icon={cilList} customClassName="nav-icon" />,
+    module: 'purchase_tasks',
+  },
+  {
+    component: CNavItem,
     name: 'Follow-up Dashboard',
     to: '/follow-up',
     icon: <CIcon icon={cilBell} customClassName="nav-icon" />,

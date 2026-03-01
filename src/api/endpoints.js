@@ -178,6 +178,15 @@ export const QUOTATIONS = {
   UPDATE_STATUS: '/quotations/update-status',
 }
 
+export const PURCHASE_TASKS = {
+  ASSIGN: '/purchase-tasks/assign',
+  MY_TASKS: '/purchase-tasks/my-tasks',
+  UPDATE_STATUS: '/purchase-tasks/update-status',
+  UPDATE_REMARK: '/purchase-tasks/update-remark',
+  RATE_BUCKET: '/purchase-tasks/rate-bucket',
+  ADMIN_LIST: '/purchase-tasks/admin-list',
+}
+
 export const ADMIN = {
   PERMISSIONS_MODULES: '/admin/permissions/modules',
 }
@@ -204,4 +213,5 @@ export default {
   INDUSTRY_BRANCHES,
   QUERIES,
   QUOTATIONS,
+  PURCHASE_TASKS,
 }
