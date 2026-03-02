@@ -16,9 +16,15 @@ import {
   CTableHeaderCell,
   CTableDataCell,
   CTableRow,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilCloudDownload, cilEnvelopeClosed } from '@coreui/icons'
+import { cilArrowLeft, cilCloudDownload, cilEnvelopeClosed, cilX, cilArrowRight } from '@coreui/icons'
+import { getAssetsUrl } from '../../api/endpoints'
 import quotationService from '../../services/quotationService'
 import { Loader } from '../../components'
 import { toastError } from '../../utils/toast'
@@ -61,6 +67,15 @@ const QuotationView = () => {
   const companyInfo = quotation?.companyInfo || null
   const products = Array.isArray(quotation?.products) ? quotation.products : []
   const queryId = quotation?.queryId?._id ?? quotation?.queryId
+
+  const [expandedImages, setExpandedImages] = useState([])
+  const [expandedImageIndex, setExpandedImageIndex] = useState(0)
+
+  const getImageUrl = (img) => {
+    if (!img) return ''
+    if (typeof img === 'object' && img?.path) return getAssetsUrl(img.path)
+    return typeof img === 'string' ? img : ''
+  }
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -112,6 +127,54 @@ const QuotationView = () => {
           </div>
         </CCol>
       </CRow>
+
+      {/* Image slider modal */}
+      <CModal alignment="center" visible={expandedImages.length > 0} onClose={() => setExpandedImages([])} className="p-0">
+        <CModalHeader className="border-0 pb-0 d-flex justify-content-between align-items-center">
+          <CModalTitle className="mb-0">
+            Image {expandedImages.length > 1 ? `${expandedImageIndex + 1} / ${expandedImages.length}` : ''}
+          </CModalTitle>
+          <CButton color="secondary" variant="ghost" size="sm" className="rounded-circle" onClick={() => setExpandedImages([])} aria-label="Close">
+            <CIcon icon={cilX} size="lg" />
+          </CButton>
+        </CModalHeader>
+        <CModalBody className="text-center p-3 position-relative">
+          {expandedImages.length > 0 && (
+            <>
+              {expandedImages.length > 1 && (
+                <>
+                  <CButton
+                    color="light"
+                    variant="outline"
+                    className="position-absolute top-50 translate-middle-y rounded-circle ms-2"
+                    style={{ zIndex: 10, width: 48, height: 48, left: 0 }}
+                    onClick={() => setExpandedImageIndex((idx) => (idx <= 0 ? expandedImages.length - 1 : idx - 1))}
+                    aria-label="Previous"
+                  >
+                    <CIcon icon={cilArrowLeft} size="lg" />
+                  </CButton>
+                  <CButton
+                    color="light"
+                    variant="outline"
+                    className="position-absolute top-50 translate-middle-y rounded-circle me-2"
+                    style={{ zIndex: 10, width: 48, height: 48, right: 0 }}
+                    onClick={() => setExpandedImageIndex((idx) => (idx >= expandedImages.length - 1 ? 0 : idx + 1))}
+                    aria-label="Next"
+                  >
+                    <CIcon icon={cilArrowRight} size="lg" />
+                  </CButton>
+                </>
+              )}
+              <img
+                src={expandedImages[expandedImageIndex]}
+                alt={`Product ${expandedImageIndex + 1}`}
+                className="img-fluid rounded"
+                style={{ maxHeight: '80vh', objectFit: 'contain' }}
+              />
+            </>
+          )}
+        </CModalBody>
+      </CModal>
 
       <CRow>
         <CCol md={8}>
@@ -186,25 +249,71 @@ const QuotationView = () => {
                   {!companyInfo && <hr />}
                   <h6 className="mb-3">Products</h6>
                   <CTable responsive hover>
-                    <CTableHead>
-                      <CTableRow>
-                        <CTableHeaderCell>#</CTableHeaderCell>
-                        <CTableHeaderCell>Product name</CTableHeaderCell>
-                        <CTableHeaderCell>Quantity</CTableHeaderCell>
-                        <CTableHeaderCell>Unit</CTableHeaderCell>
-                        <CTableHeaderCell>Quoted rate</CTableHeaderCell>
-                      </CTableRow>
-                    </CTableHead>
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell>#</CTableHeaderCell>
+                          <CTableHeaderCell>Product name</CTableHeaderCell>
+                          <CTableHeaderCell>Description</CTableHeaderCell>
+                          <CTableHeaderCell>Quantity</CTableHeaderCell>
+                          <CTableHeaderCell>Unit</CTableHeaderCell>
+                          <CTableHeaderCell>Quoted rate</CTableHeaderCell>
+                          <CTableHeaderCell>Images</CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
                     <CTableBody>
-                      {products.map((p, idx) => (
+                      {products.map((p, idx) => {
+                        const productRef = typeof p.product_id === 'object' ? p.product_id : null
+                        const images = productRef?.images || []
+                        return (
                         <CTableRow key={idx}>
                           <CTableDataCell>{idx + 1}</CTableDataCell>
                           <CTableDataCell>{p.productName || '–'}</CTableDataCell>
+                          <CTableDataCell className="small">
+                            {productRef?.shortDescription || p.description || '—'}
+                          </CTableDataCell>
                           <CTableDataCell>{p.quantity ?? '–'}</CTableDataCell>
                           <CTableDataCell>{p.unitName || p.unit || '–'}</CTableDataCell>
                           <CTableDataCell>{(p.rate ?? p.quoted_rate) != null ? `₹${Number(p.rate ?? p.quoted_rate).toLocaleString()}` : '–'}</CTableDataCell>
+                          <CTableDataCell>
+                            {images.length > 0 ? (
+                              <div className="d-flex flex-wrap gap-1">
+                                {images.slice(0, 2).map((img, i) => {
+                                  const src = getImageUrl(img)
+                                  return (
+                                    <div
+                                      key={img?._id || i}
+                                      role="button"
+                                      tabIndex={0}
+                                      onClick={() => {
+                                        const urls = images.map((im) => getImageUrl(im))
+                                        setExpandedImages(urls)
+                                        setExpandedImageIndex(i)
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          const urls = images.map((im) => getImageUrl(im))
+                                          setExpandedImages(urls)
+                                          setExpandedImageIndex(i)
+                                        }
+                                      }}
+                                      className="rounded border overflow-hidden"
+                                      style={{ width: 48, height: 48, cursor: 'pointer' }}
+                                    >
+                                      <CImage src={src} width={48} height={48} className="object-fit-cover w-100 h-100" />
+                                    </div>
+                                  )
+                                })}
+                                {images.length > 2 && (
+                                  <span className="small text-muted align-self-center">+{images.length - 2}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted small">—</span>
+                            )}
+                          </CTableDataCell>
                         </CTableRow>
-                      ))}
+                        )
+                      })}
                     </CTableBody>
                   </CTable>
                 </>
