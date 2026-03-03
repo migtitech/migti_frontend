@@ -122,18 +122,18 @@ const Login = () => {
                     <CInputGroupText>
                       <CIcon icon={cilPeople} />
                     </CInputGroupText>
-                    <CFormSelect
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      required
-                    >
-                      <option value="">Select Role</option>
-                      {Object.entries(ROLES).map(([key, value]) => (
-                        <option key={value} value={value}>
-                          {ROLE_LABELS[value]}
-                        </option>
-                      ))}
-                    </CFormSelect>
+                  <CFormSelect
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    required
+                  >
+                    <option value="">Select Role</option>
+                    {Object.entries(ROLES).map(([key, value]) => (
+                      <option key={value} value={value}>
+                        {ROLE_LABELS[value]}
+                      </option>
+                    ))}
+                  </CFormSelect>
                   </CInputGroup>
 
                   <CRow>

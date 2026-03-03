@@ -13,6 +13,7 @@ import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
+import areaService from '../../services/areaService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -34,10 +35,32 @@ const EmployeeForm = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [permissions, setPermissions] = useState([])
+  const [zones, setZones] = useState([])
 
   const roleOptions = useMemo(
-    () => ['hod', 'sales', 'purchase', 'finance', 'delivery'],
-    []
+    () => [
+      'head_of_department',
+      'sales_manager',
+      'sales_exicutive',
+      'purchase_manager',
+      'purchase_exicutive',
+      'back_office_exicutive',
+      'administrator',
+    ],
+    [],
+  )
+
+  const designationOptions = useMemo(
+    () => [
+      'Head Of Department ( HOD )',
+      'Sales Manager ( SM )',
+      'Sales Exicutive ( SE )',
+      'Purchase Manager  ( PM )',
+      'Purchase Exicutive  ( PE )',
+      'Back Office Exicutive ( BOE )',
+      'Administrator ( ADMIN )',
+    ],
+    [],
   )
 
   const schema = useMemo(
@@ -87,6 +110,7 @@ const EmployeeForm = () => {
         }),
         ...(isEdit ? {} : { password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters') }),
         branchId: yup.string().required('Branch is required'),
+        zoneId: yup.string().nullable(),
         assets: yup.object({
           bike: yup.object({
             enabled: yup.boolean().default(false),
@@ -143,6 +167,7 @@ const EmployeeForm = () => {
       companyPhone: '',
       role: '',
       branchId: '',
+      zoneId: '',
       designation: '',
       address: '',
       idnumber: '',
@@ -194,6 +219,7 @@ const EmployeeForm = () => {
   const laptopEnabled = !!watch('assets.laptop.enabled')
   const mobileEnabled = !!watch('assets.mobile.enabled')
   const simCardEnabled = !!watch('assets.simCard.enabled')
+  const selectedBranchId = watch('branchId')
 
   const normalizeId = (item) => ({
     ...item,
@@ -220,6 +246,27 @@ const EmployeeForm = () => {
 
     loadBranches()
   }, [isEdit, reset])
+
+  useEffect(() => {
+    const loadZones = async () => {
+      if (!selectedBranchId) {
+        setZones([])
+        return
+      }
+      try {
+        const response = await areaService.getAll({ branchId: selectedBranchId, pageSize: 100 })
+        const data = response?.data?.data || response?.data || response
+        const list = data?.areas || data || []
+        const normalized = list.map(normalizeId)
+        setZones(normalized)
+      } catch (err) {
+        setZones([])
+        toastError(err?.message || 'Failed to load zones')
+      }
+    }
+
+    loadZones()
+  }, [selectedBranchId])
 
   useEffect(() => {
     const loadEmployee = async () => {
@@ -254,6 +301,7 @@ const EmployeeForm = () => {
           companyPhone: employee.companyPhone || '',
           role: employee.role || '',
           branchId: employee.branchId || '',
+          zoneId: employee.zoneId || '',
           designation: employee.designation || '',
           address: employee.address || '',
           idnumber: employee.idnumber || '',
@@ -381,6 +429,8 @@ const EmployeeForm = () => {
             errors={errors}
             roleOptions={roleOptions}
             branches={branches}
+            zones={zones}
+            designationOptions={designationOptions}
           />
         </CCardBody>
       </CCard>

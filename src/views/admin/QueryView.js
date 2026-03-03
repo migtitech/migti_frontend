@@ -20,65 +20,19 @@ import {
   CModalHeader,
   CModalTitle,
   CModalBody,
-  CModalFooter,
-  CForm,
-  CFormInput,
-  CFormLabel,
-  CFormSelect,
-  CFormTextarea,
+  CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil, cilTrash, cilUser, cilClock, cilCheckAlt, cilZoom, cilEnvelopeClosed } from '@coreui/icons'
+import { cilArrowLeft, cilArrowRight, cilPencil, cilTrash, cilCheckAlt, cilX, cilCloudDownload } from '@coreui/icons'
+import { getAssetsUrl } from '../../api/endpoints'
 import queryService from '../../services/queryService'
 import employeeService from '../../services/employeeService'
 import userService from '../../services/userService'
 import { useAuth } from '../../context/AuthContext'
+import usePermissions from '../../hooks/usePermissions'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
-
-const QUERY_STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pending' },
-  { value: 'followup01pending', label: 'Follow-up 01 Pending' },
-  { value: 'followup02pending', label: 'Follow-up 02 Pending' },
-  { value: 'followup03pending', label: 'Follow-up 03 Pending' },
-  { value: 'progress', label: 'Progress' },
-  { value: 'convertedToQuotation', label: 'Converted to Quotation' },
-  { value: 'closed', label: 'Closed' },
-]
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return '-'
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return '-'
-  return d.toLocaleString('en-IN', {
-    timeZone: 'Asia/Kolkata',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-  })
-}
-
-const getTimeAgo = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return ''
-  const now = new Date()
-  const diffMs = now - d
-  const diffSecs = Math.floor(diffMs / 1000)
-  const diffMins = Math.floor(diffSecs / 60)
-  const diffHrs = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHrs / 24)
-  if (diffSecs < 60) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHrs < 24) return `${diffHrs}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  return ''
-}
 
 const getStoredUser = () => {
   try {
@@ -114,35 +68,47 @@ const QueryView = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { canUpdate, canDelete } = usePermissions()
   const [query, setQuery] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ visible: false })
+  const [confirmConvert, setConfirmConvert] = useState({ visible: false })
   const [activities, setActivities] = useState([])
+  const [activitiesPagination, setActivitiesPagination] = useState(null)
+  const [activitiesPage, setActivitiesPage] = useState(1)
   const [activitiesLoading, setActivitiesLoading] = useState(false)
   const viewRecordedRef = useRef(false)
-  const [showActionModal, setShowActionModal] = useState(false)
-  const [showFollowUpModal, setShowFollowUpModal] = useState(false)
-  const [actionForm, setActionForm] = useState({ action: '' })
-  const [followUpForm, setFollowUpForm] = useState({ followUpStatus: 'pending', note: '' })
-  const [submitting, setSubmitting] = useState(false)
-  const [statusUpdating, setStatusUpdating] = useState(false)
   const [userCache, setUserCache] = useState({})
+  const [expandedImages, setExpandedImages] = useState([]) // array of image URLs for slider
+  const [expandedImageIndex, setExpandedImageIndex] = useState(0)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
-  const fetchActivities = async () => {
+  const getImageUrl = (img) => {
+    if (!img) return ''
+    if (typeof img === 'object' && img?.path) return getAssetsUrl(img.path)
+    return typeof img === 'string' ? img : ''
+  }
+
+  const fetchActivities = async (page = 1) => {
     if (!id) return
     try {
       setActivitiesLoading(true)
-      const res = await queryService.getActivities(id)
-      const resData = res?.data
-      const arr = Array.isArray(resData) ? resData : (resData?.data ?? [])
-      setActivities(Array.isArray(arr) ? arr : [])
+      const res = await queryService.getActivities(id, { pageNumber: page, pageSize: 10 })
+      const data = res?.data?.data ?? res?.data
+      const arr = Array.isArray(data?.activities) ? data.activities : (Array.isArray(data) ? data : [])
+      setActivities(arr)
+      setActivitiesPagination(data?.pagination ?? null)
+      setActivitiesPage(page)
     } catch {
       setActivities([])
+      setActivitiesPagination(null)
     } finally {
       setActivitiesLoading(false)
     }
   }
+
+  const loadActivitiesPage = (page) => fetchActivities(page)
 
   useEffect(() => {
     const load = async () => {
@@ -154,7 +120,7 @@ const QueryView = () => {
         const data = res?.data || res
         const q = data?.data ?? data
         setQuery(q)
-        if (q) await fetchActivities()
+        if (q) await fetchActivities(1)
       } catch (err) {
         toastError(err?.message || 'Failed to load query')
         setError(err?.message || 'Failed to load query')
@@ -215,112 +181,90 @@ const QueryView = () => {
     }
   }
 
-  const handleStatusChange = async (e) => {
-    const newStatus = e.target.value
-    if (!query || query.status === newStatus) return
-    setStatusUpdating(true)
-    try {
-      await queryService.update(id, { ...query, status: newStatus })
-      setQuery((q) => (q ? { ...q, status: newStatus } : q))
-      toastSuccess('Status updated')
-    } catch (err) {
-      toastError(err?.message || 'Failed to update status')
-    } finally {
-      setStatusUpdating(false)
-    }
+  const handleConvertClick = () => {
+    setConfirmConvert({ visible: true })
   }
 
-  const handleRecordAction = async (e) => {
-    e.preventDefault()
-    const performedBy = user?.id || user?._id
-    if (!performedBy) {
-      toastError('Please log in to record an action.')
+  const handleConvertConfirm = () => {
+    if (!query?.queryCode) {
+      toastError('Query code is missing, cannot convert to quotation.')
+      setConfirmConvert({ visible: false })
       return
     }
-    if (!actionForm.action?.trim()) {
-      toastError('Please enter the action performed.')
-      return
-    }
-    try {
-      setSubmitting(true)
-      await queryService.recordActivity(id, 'action', performedBy, { action: actionForm.action.trim() })
-      toastSuccess('Action recorded.')
-      setActionForm({ action: '' })
-      setShowActionModal(false)
-      await fetchActivities()
-    } catch (err) {
-      toastError(err?.message || 'Failed to record action')
-    } finally {
-      setSubmitting(false)
-    }
+    setConfirmConvert({ visible: false })
+    navigate(`/quotations/generate/${id}`, {
+      state: { query },
+    })
   }
 
-  const handleSubmitFollowUp = async (e) => {
-    e.preventDefault()
-    const performedBy = user?.id || user?._id
-    if (!performedBy) {
-      toastError('Please log in to submit follow-up.')
-      return
-    }
+  const formatVariants = (variants) => {
+    if (!variants?.length) return '—'
+    return variants.map((v) => v.variantName || '—').filter(Boolean).join(', ') || '—'
+  }
+
+  const handleExportPDF = async () => {
+    if (!id) return
+    setExportingPdf(true)
     try {
-      setSubmitting(true)
-      await queryService.recordActivity(id, 'follow_up', performedBy, {
-        followUpStatus: followUpForm.followUpStatus,
-        note: followUpForm.note?.trim() || '',
-      })
-      toastSuccess('Follow-up submitted.')
-      setFollowUpForm({ followUpStatus: 'pending', note: '' })
-      setShowFollowUpModal(false)
-      await fetchActivities()
+      const response = await queryService.exportPdf(id)
+      const blob = response?.data
+      if (!blob || !(blob instanceof Blob)) {
+        toastError('Invalid PDF response')
+        return
+      }
+      const contentType = response?.headers?.['content-type'] || blob.type || ''
+      if (blob.size < 100 || contentType.includes('json')) {
+        const text = await blob.text()
+        const err = text
+          ? (() => {
+              try {
+                const j = JSON.parse(text)
+                return j?.message || j?.error?.detail || text
+              } catch {
+                return text
+              }
+            })()
+          : 'Invalid PDF response'
+        toastError(err)
+        return
+      }
+      const pdfBlob = new Blob([blob], { type: 'application/pdf' })
+      const url = URL.createObjectURL(pdfBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `query-${query?.queryCode || id}-${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toastSuccess('PDF exported successfully')
     } catch (err) {
-      toastError(err?.message || 'Failed to submit follow-up')
+      toastError(err?.message || 'Failed to export PDF')
     } finally {
-      setSubmitting(false)
+      setExportingPdf(false)
     }
   }
 
   const getPerformerInfo = (act) => {
     const performer = act.performedBy && typeof act.performedBy === 'object' ? act.performedBy : (act.performed_by && typeof act.performed_by === 'object' ? act.performed_by : null)
     if (performer) {
-      return { name: getUserDisplayName(performer), email: performer.email || null, role: performer.role || performer.designation || null }
+      return {
+        name: getUserDisplayName(performer) || act.performByName || performer.name,
+        email: performer.email || null,
+        phone: performer.phone || performer.phone_1 || null,
+        role: performer.role || performer.designation || null,
+      }
     }
     const performerId = typeof act.performedBy === 'string' ? act.performedBy : (typeof act.performed_by === 'string' ? act.performed_by : null)
     if (performerId) {
       const cached = userCache[performerId]
-      if (cached) return { name: getUserDisplayName(cached), email: cached.email || null, role: cached.role || cached.designation || null }
+      if (cached) return { name: getUserDisplayName(cached), email: cached.email || null, phone: cached.phone || cached.phone_1 || null, role: cached.role || cached.designation || null }
       const storedUser = getStoredUser()
       if (storedUser && (storedUser._id === performerId || storedUser.id === performerId)) {
-        return { name: getUserDisplayName(storedUser), email: storedUser.email || null, role: storedUser.role || storedUser.designation || null }
+        return { name: getUserDisplayName(storedUser), email: storedUser.email || null, phone: storedUser.phone || storedUser.phone_1 || null, role: storedUser.role || storedUser.designation || null }
       }
     }
-    return { name: null, email: null, role: null }
-  }
-
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'viewed': return cilZoom
-      case 'action': return cilPencil
-      case 'follow_up': return cilCheckAlt
-      default: return cilPencil
-    }
-  }
-
-  const getActivityLabel = (type) => {
-    switch (type) {
-      case 'viewed': return 'Viewed'
-      case 'action': return 'Action'
-      case 'follow_up': return 'Follow-up'
-      default: return type || 'Activity'
-    }
-  }
-
-  const getActivityBadgeColor = (type) => {
-    switch (type) {
-      case 'viewed': return 'info'
-      case 'action': return 'warning'
-      case 'follow_up': return 'success'
-      default: return 'secondary'
-    }
+    return { name: act.performByName || null, email: null, phone: null, role: null }
   }
 
   const getStatusBadgeColor = (status) => {
@@ -356,7 +300,6 @@ const QueryView = () => {
 
   const ci = query.companyInfo || {}
   const prods = query.products || []
-  const del = query.delivery || {}
 
   let creator = query.created_by && typeof query.created_by === 'object' ? query.created_by : null
   if (!creator && query.created_by) {
@@ -370,50 +313,53 @@ const QueryView = () => {
     }
   }
 
-  const formatVariants = (variants) => {
-    if (!variants?.length) return '—'
-    return variants.map((v) => `${v.variantName || '—'} × ${v.quantity ?? 0}`).join(', ')
-  }
-
   return (
     <>
       <CRow className="mb-3">
-        <CCol className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-3 flex-wrap">
-            <CButton color="light" onClick={() => navigate('/queries')}>
-              <CIcon icon={cilArrowLeft} className="me-1" />
-              Back to Queries
-            </CButton>
-            {query.queryCode && (
-              <CBadge color="info" className="fs-6 px-3 py-2">{query.queryCode}</CBadge>
-            )}
-            <CFormSelect
-              value={query.status || 'pending'}
-              onChange={handleStatusChange}
-              disabled={statusUpdating}
-              style={{ width: 'auto', minWidth: 180 }}
-              className="mb-0"
+        <CCol xs={12} className="d-flex align-items-center flex-wrap gap-2">
+          <CButton color="light" onClick={() => navigate('/queries')}>
+            <CIcon icon={cilArrowLeft} className="me-1" />
+            Back to Queries
+          </CButton>
+          {query.queryCode && (
+            <CBadge
+              color="info"
+              className="fs-6 px-3 py-2 d-inline-flex align-items-center"
             >
-              {QUERY_STATUS_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </CFormSelect>
-          </div>
-          <div className="d-flex gap-2">
+              {query.queryCode}
+            </CBadge>
+          )}
+          {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
+            <CButton
+              color="success"
+              disabled={!query?.queryCode}
+              onClick={handleConvertClick}
+            >
+              <CIcon icon={cilCheckAlt} className="me-1" />
+              Convert to Quotation
+            </CButton>
+          )}
+          {canUpdate('queries') && (
             <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
               <CIcon icon={cilPencil} className="me-1" />
               Edit
             </CButton>
+          )}
+          {canDelete('queries') && (
             <CButton color="danger" onClick={handleDeleteClick}>
               <CIcon icon={cilTrash} className="me-1" />
               Delete
             </CButton>
-          </div>
+          )}
+          <CButton color="info" onClick={handleExportPDF} disabled={exportingPdf}>
+            <CIcon icon={cilCloudDownload} className="me-1" />
+            {exportingPdf ? 'Exporting...' : 'Export PDF'}
+          </CButton>
         </CCol>
       </CRow>
 
       <CRow>
-        <CCol lg={8}>
+        <CCol xs={12}>
           {/* 1. Company Information */}
           <CCard className="mb-4">
             <CCardHeader><strong>1. Company Information</strong></CCardHeader>
@@ -421,9 +367,7 @@ const QueryView = () => {
               <CListGroup flush>
                 <CListGroupItem className="d-flex justify-content-between"><strong>Company name</strong><span>{ci.name || '-'}</span></CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between"><strong>Location</strong><span>{ci.location || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Email</strong><span>{ci.email || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Purchase manager name</strong><span>{ci.purchase_manager_name || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Purchase manager phone</strong><span>{ci.purchase_manager_phone || '-'}</span></CListGroupItem>
+                <CListGroupItem><strong>Purchase managers</strong><div className="mt-1">{(ci.purchaseManagers || []).length > 0 ? (ci.purchaseManagers || []).map((m, i) => <div key={i}>{m.name || '–'}{m.phone ? ` • ${m.phone}` : ''}{m.email ? ` • ${m.email}` : ''}</div>) : (ci.purchase_manager_name || ci.purchase_manager_phone) ? `${ci.purchase_manager_name || '–'} • ${ci.purchase_manager_phone || ''}` : '–'}</div></CListGroupItem>
                 <CListGroupItem><strong>Address</strong><div className="mt-1">{ci.address || '-'}</div></CListGroupItem>
               </CListGroup>
             </CCardBody>
@@ -434,28 +378,92 @@ const QueryView = () => {
             <CCardHeader><strong>2. Products</strong> {prods.length > 0 && <span className="text-muted fw-normal">({prods.length} item{prods.length !== 1 ? 's' : ''})</span>}</CCardHeader>
             <CCardBody>
               {prods.length > 0 ? (
-                <CTable responsive hover>
+                <CTable responsive hover bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell style={{ width: 60 }}>#</CTableHeaderCell>
                       <CTableHeaderCell>Product name</CTableHeaderCell>
+                      <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 100 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 80 }}>Unit</CTableHeaderCell>
                       <CTableHeaderCell>Variants</CTableHeaderCell>
+                      <CTableHeaderCell>HSN Number</CTableHeaderCell>
+                      <CTableHeaderCell>GST %</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 120 }}>Images</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
-                    {prods.map((p, index) => (
-                      <CTableRow key={p._id || index}>
-                        <CTableDataCell>{index + 1}</CTableDataCell>
-                        <CTableDataCell>{p.productName || '—'}</CTableDataCell>
-                        <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
-                        <CTableDataCell>{p.unit || '—'}</CTableDataCell>
-                        <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
-                        <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
-                      </CTableRow>
-                    ))}
+                    {prods.map((p, index) => {
+                      const productRef = typeof p.product_id === 'object' ? p.product_id : null
+                      const snapshotImages = Array.isArray(p.images) ? p.images : []
+                      const productRefImages = Array.isArray(productRef?.images) ? productRef.images : []
+                      const allImages = (snapshotImages.length ? snapshotImages : productRefImages) || []
+                      const imageUrls = allImages
+                        .map((img) => getImageUrl(img))
+                        .filter((src) => !!src)
+
+                      return (
+                        <CTableRow key={p._id || index}>
+                          <CTableDataCell>{index + 1}</CTableDataCell>
+                          <CTableDataCell>{p.productName || '—'}</CTableDataCell>
+                          <CTableDataCell className="small">
+                            {productRef?.shortDescription || p.description || '—'}
+                          </CTableDataCell>
+                          <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
+                          <CTableDataCell>{p.unit || '—'}</CTableDataCell>
+                          <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
+                          <CTableDataCell className="small">{productRef?.hsnNumber || p.hsnNumber || '—'}</CTableDataCell>
+                          <CTableDataCell className="small">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '—')}</CTableDataCell>
+                          <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
+                          <CTableDataCell>
+                            {imageUrls.length > 0 ? (
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                className="d-inline-flex align-items-center gap-1 flex-wrap"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  setExpandedImages(imageUrls)
+                                  setExpandedImageIndex(0)
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setExpandedImages(imageUrls)
+                                    setExpandedImageIndex(0)
+                                  }
+                                }}
+                              >
+                                {imageUrls.slice(0, 2).map((src, i) => (
+                                  <div
+                                    key={src || i}
+                                    className="rounded border overflow-hidden flex-shrink-0"
+                                    style={{ width: 48, height: 48 }}
+                                  >
+                                    <CImage
+                                      src={src}
+                                      width={48}
+                                      height={48}
+                                      className="object-fit-cover w-100 h-100"
+                                    />
+                                  </div>
+                                ))}
+                                {imageUrls.length > 2 && (
+                                  <div
+                                    className="d-flex align-items-center justify-content-center rounded border bg-light flex-shrink-0 text-primary small fw-bold"
+                                    style={{ width: 40, height: 40, fontSize: '0.75rem' }}
+                                  >
+                                    +{imageUrls.length - 2}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted small">—</span>
+                            )}
+                          </CTableDataCell>
+                        </CTableRow>
+                      )
+                    })}
                   </CTableBody>
                 </CTable>
               ) : (
@@ -463,153 +471,74 @@ const QueryView = () => {
               )}
             </CCardBody>
           </CCard>
-
-          {/* 3. Delivery & Payment */}
-          <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>3. Delivery & Payment</strong>
-              {del.urgent ? <CBadge color="danger">Urgent</CBadge> : <CBadge color="secondary">Non-urgent</CBadge>}
-            </CCardHeader>
-            <CCardBody>
-              <CListGroup flush>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Location</strong><span>{del.location || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Contact person name</strong><span>{del.contactPersonName || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Contact person phone</strong><span>{del.contactPersonPhone || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Expected date by company</strong>
-                  <span>{del.expectedDateByCompany ? new Date(del.expectedDateByCompany).toLocaleDateString() : '-'}</span>
-                </CListGroupItem>
-              </CListGroup>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        {/* Query Tracking sidebar */}
-        <CCol lg={4}>
-          <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Query Tracking</strong>
-              <div className="d-flex gap-1">
-                <CButton color="primary" size="sm" onClick={() => setShowActionModal(true)}>
-                  <CIcon icon={cilPencil} className="me-1" />
-                  Action
-                </CButton>
-                <CButton color="success" size="sm" onClick={() => setShowFollowUpModal(true)}>
-                  <CIcon icon={cilCheckAlt} className="me-1" />
-                  Follow-up
-                </CButton>
-              </div>
-            </CCardHeader>
-            <CCardBody className="pt-0">
-              <div className="d-flex align-items-start mb-3 pb-3 border-bottom">
-                <div className="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40 }}>
-                  <CIcon icon={cilUser} className="text-white" />
-                </div>
-                <div className="flex-grow-1">
-                  <div className="d-flex align-items-center gap-2 flex-wrap">
-                    <CBadge color="primary">Created</CBadge>
-                    <span className="small text-muted">
-                      <CIcon icon={cilClock} size="sm" className="me-1" />
-                      {formatDateTime(query.createdAt || query.created_at)}
-                    </span>
-                  </div>
-                  <div className="mt-1">
-                    <div className="d-flex align-items-center gap-1">
-                      <CIcon icon={cilUser} size="sm" className="text-muted" />
-                      <span className="fw-semibold">{getUserDisplayName(creator) || 'Unknown user'}</span>
-                      {creator?.role && <CBadge color="light" textColor="dark" size="sm" className="ms-1">{creator.role}</CBadge>}
-                    </div>
-                    {creator?.email && <div className="small text-muted ms-3"><CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />{creator.email}</div>}
-                  </div>
-                </div>
-              </div>
-
-              {activitiesLoading ? (
-                <div className="text-center py-3 text-muted small">Loading activities...</div>
-              ) : activities.length === 0 ? (
-                <div className="text-center py-3 text-muted small">No other activity yet.</div>
-              ) : (
-                activities.map((act, index) => {
-                  const performer = getPerformerInfo(act)
-                  const timestamp = act.createdAt || act.created_at || act.timestamp
-                  return (
-                    <div key={act._id || act.id || index} className="d-flex align-items-start mb-3">
-                      <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40, backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})` }}>
-                        <CIcon icon={getActivityIcon(act.type)} className="text-white" />
-                      </div>
-                      <div className="flex-grow-1">
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          <CBadge color={getActivityBadgeColor(act.type)}>{getActivityLabel(act.type)}</CBadge>
-                          <span className="small text-muted"><CIcon icon={cilClock} size="sm" className="me-1" />{formatDateTime(timestamp)}</span>
-                          {getTimeAgo(timestamp) && <span className="small text-muted fst-italic">({getTimeAgo(timestamp)})</span>}
-                        </div>
-                        <div className="mt-1">
-                          <div className="d-flex align-items-center gap-1">
-                            <CIcon icon={cilUser} size="sm" className="text-muted" />
-                            <span className="fw-semibold">{performer.name || 'Unknown user'}</span>
-                            {performer.role && <CBadge color="light" textColor="dark" size="sm" className="ms-1">{performer.role}</CBadge>}
-                          </div>
-                          {performer.email && <div className="small text-muted ms-3"><CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />{performer.email}</div>}
-                        </div>
-                        {act.type === 'action' && (act.meta?.action || act.metadata?.action) && (
-                          <div className="mt-2 p-2 bg-light rounded small"><strong>Action:</strong> {act.meta?.action || act.metadata?.action}</div>
-                        )}
-                        {act.type === 'follow_up' && (
-                          <div className="mt-2 p-2 bg-light rounded small">
-                            {(act.meta?.followUpStatus || act.metadata?.followUpStatus) && <div className="mb-1"><strong>Status:</strong> <CBadge color="secondary">{(act.meta?.followUpStatus || act.metadata?.followUpStatus)}</CBadge></div>}
-                            {(act.meta?.note || act.metadata?.note) && <div><strong>Note:</strong> {act.meta?.note || act.metadata?.note}</div>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })
-              )}
-            </CCardBody>
-          </CCard>
         </CCol>
       </CRow>
 
-      <CModal visible={showActionModal} onClose={() => setShowActionModal(false)}>
-        <CModalHeader><CModalTitle>Record Action</CModalTitle></CModalHeader>
-        <CForm onSubmit={handleRecordAction}>
-          <CModalBody>
-            <CFormLabel>Action performed</CFormLabel>
-            <CFormTextarea rows={3} value={actionForm.action} onChange={(e) => setActionForm({ action: e.target.value })} placeholder="Describe the action..." />
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={() => setShowActionModal(false)}>Cancel</CButton>
-            <CButton color="primary" type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</CButton>
-          </CModalFooter>
-        </CForm>
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Query?"
+        message="Are you sure you want to delete this query? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
+      <ConfirmDialog
+        visible={confirmConvert.visible}
+        onClose={() => setConfirmConvert({ visible: false })}
+        onConfirm={handleConvertConfirm}
+        title="Convert to quotation?"
+        message="Are you sure to convert this query as quotation?"
+        confirmText="Yes, convert"
+        cancelText="Cancel"
+      />
+      {/* Image slider modal */}
+      <CModal alignment="center" visible={expandedImages.length > 0} onClose={() => setExpandedImages([])} className="p-0">
+        <CModalHeader className="border-0 pb-0 d-flex justify-content-between align-items-center">
+          <CModalTitle className="mb-0">
+            Image {expandedImages.length > 1 ? `${expandedImageIndex + 1} / ${expandedImages.length}` : ''}
+          </CModalTitle>
+          <CButton color="secondary" variant="ghost" size="sm" className="rounded-circle" onClick={() => setExpandedImages([])} aria-label="Close">
+            <CIcon icon={cilX} size="lg" />
+          </CButton>
+        </CModalHeader>
+        <CModalBody className="text-center p-3 position-relative">
+          {expandedImages.length > 0 && (
+            <>
+              {expandedImages.length > 1 && (
+                <>
+                  <CButton
+                    color="light"
+                    variant="outline"
+                    className="position-absolute top-50 translate-middle-y rounded-circle ms-2"
+                    style={{ zIndex: 10, width: 48, height: 48, left: 0 }}
+                    onClick={() => setExpandedImageIndex((idx) => (idx <= 0 ? expandedImages.length - 1 : idx - 1))}
+                    aria-label="Previous"
+                  >
+                    <CIcon icon={cilArrowLeft} size="lg" />
+                  </CButton>
+                  <CButton
+                    color="light"
+                    variant="outline"
+                    className="position-absolute top-50 translate-middle-y rounded-circle me-2"
+                    style={{ zIndex: 10, width: 48, height: 48, right: 0 }}
+                    onClick={() => setExpandedImageIndex((idx) => (idx >= expandedImages.length - 1 ? 0 : idx + 1))}
+                    aria-label="Next"
+                  >
+                    <CIcon icon={cilArrowRight} size="lg" />
+                  </CButton>
+                </>
+              )}
+              <img
+                src={expandedImages[expandedImageIndex]}
+                alt={`Product ${expandedImageIndex + 1}`}
+                className="img-fluid rounded"
+                style={{ maxHeight: '80vh', objectFit: 'contain' }}
+              />
+            </>
+          )}
+        </CModalBody>
       </CModal>
-
-      <CModal visible={showFollowUpModal} onClose={() => setShowFollowUpModal(false)}>
-        <CModalHeader><CModalTitle>Record Follow-up</CModalTitle></CModalHeader>
-        <CForm onSubmit={handleSubmitFollowUp}>
-          <CModalBody>
-            <div className="mb-3">
-              <CFormLabel>Follow-up status</CFormLabel>
-              <CFormSelect value={followUpForm.followUpStatus} onChange={(e) => setFollowUpForm((f) => ({ ...f, followUpStatus: e.target.value }))}>
-                <option value="pending">Pending</option>
-                <option value="in_progress">In Progress</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </CFormSelect>
-            </div>
-            <div>
-              <CFormLabel>Note</CFormLabel>
-              <CFormTextarea rows={3} value={followUpForm.note} onChange={(e) => setFollowUpForm((f) => ({ ...f, note: e.target.value }))} placeholder="Note..." />
-            </div>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={() => setShowFollowUpModal(false)}>Cancel</CButton>
-            <CButton color="primary" type="submit" disabled={submitting}>{submitting ? 'Saving...' : 'Save'}</CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
-
-      <ConfirmDialog visible={confirmDelete.visible} onClose={() => setConfirmDelete({ visible: false })} onConfirm={handleDeleteConfirm} title="Delete Query?" message="Are you sure you want to delete this query? This action cannot be undone." confirmText="Delete" cancelText="Cancel" />
     </>
   )
 }

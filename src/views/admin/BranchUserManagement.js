@@ -32,7 +32,15 @@ import { useData } from '../../context/DataContext'
 import { ROLE_LABELS } from '../../context/AuthContext'
 import { ConfirmDialog } from '../../components'
 
-const BRANCH_ROLES = ['hod', 'sales', 'purchase', 'finance', 'delivery']
+const BRANCH_ROLES = [
+  'head_of_department',
+  'sales_manager',
+  'sales_exicutive',
+  'purchase_manager',
+  'purchase_exicutive',
+  'back_office_exicutive',
+  'administrator',
+]
 
 const BranchUserManagement = () => {
   const { companyId, branchId } = useParams()
@@ -115,11 +123,13 @@ const BranchUserManagement = () => {
 
   const getRoleBadgeColor = (role) => {
     const colors = {
-      hod: 'primary',
-      sales: 'success',
-      purchase: 'info',
-      finance: 'warning',
-      delivery: 'secondary',
+      head_of_department: 'primary',
+      sales_manager: 'success',
+      sales_exicutive: 'info',
+      purchase_manager: 'warning',
+      purchase_exicutive: 'info',
+      back_office_exicutive: 'secondary',
+      administrator: 'dark',
     }
     return colors[role] || 'dark'
   }
@@ -172,7 +182,7 @@ const BranchUserManagement = () => {
               </CButton>
             </CCardHeader>
             <CCardBody>
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>#</CTableHeaderCell>
@@ -184,7 +194,11 @@ const BranchUserManagement = () => {
                 </CTableHead>
                 <CTableBody>
                   {users.map((user, index) => (
-                    <CTableRow key={user.id}>
+                    <CTableRow
+                      key={user.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => handleOpenModal(user)}
+                    >
                       <CTableDataCell>{index + 1}</CTableDataCell>
                       <CTableDataCell>{user.name}</CTableDataCell>
                       <CTableDataCell>{user.email}</CTableDataCell>
@@ -193,12 +207,15 @@ const BranchUserManagement = () => {
                           {ROLE_LABELS[user.role] || user.role}
                         </CBadge>
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CButton
                           color="warning"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleOpenModal(user)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenModal(user)
+                          }}
                           title="Edit"
                         >
                           <CIcon icon={cilPencil} />
@@ -207,7 +224,10 @@ const BranchUserManagement = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteClick(user.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteClick(user.id)
+                          }}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />

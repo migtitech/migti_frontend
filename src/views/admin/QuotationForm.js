@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
@@ -16,6 +16,12 @@ import {
   CFormTextarea,
   CFormSelect,
   CRow,
+  CTable,
+  CTableBody,
+  CTableHead,
+  CTableHeaderCell,
+  CTableDataCell,
+  CTableRow,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
@@ -23,7 +29,639 @@ import { useData } from '../../context/DataContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import FindProductModal from './FindProductModal'
 
+const INITIAL_COMPANY = {
+  name: '',
+  area: '',
+  location: '',
+  address: '',
+  purchase_manager_name: '',
+  purchase_manager_phone: '',
+  email: '',
+}
+
+const INITIAL_VARIANT = { variantName: '', quantity: 1 }
+
+const INITIAL_PRODUCT = {
+  productName: '',
+  quantity: 1,
+  unit: '',
+  variants: [],
+  remark: '',
+  product_id: null,
+  quotedRate: '',
+  gstPercentage: '',
+}
+
+const QuotationCreate = () => {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const fromQuery = location.state?.fromQuery || null
+  const { addQuotation } = useData()
+
+  const [companyInfo, setCompanyInfo] = useState(() => {
+    const ci = fromQuery?.companyInfo || {}
+    return {
+      ...INITIAL_COMPANY,
+      name: ci.name || '',
+      area: ci.area || '',
+      location: ci.location || '',
+      address: ci.address || '',
+      purchase_manager_name: ci.purchase_manager_name || '',
+      purchase_manager_phone: ci.purchase_manager_phone || '',
+      email: ci.email || '',
+      industryId: fromQuery?.industry_id?._id || fromQuery?.industry_id || null,
+    }
+  })
+
+  const [status, setStatus] = useState('draft')
+
+  const [products, setProducts] = useState(() => {
+    if (!fromQuery || !Array.isArray(fromQuery.products)) return []
+    return fromQuery.products.map((p) => ({
+      productName: p.productName || '',
+      quantity: p.quantity ?? 1,
+      unit: p.unit || '',
+      variants: (p.variants || []).map((v) => ({
+        variantName: v.variantName || '',
+        quantity: v.quantity ?? 1,
+      })),
+      remark: p.remark || '',
+      product_id: p.product_id?._id || p.product_id || null,
+      quotedRate: '',
+      gstPercentage:
+        typeof p.gstPercentage === 'number' ? p.gstPercentage : p.gstPercentage ?? '',
+    }))
+  })
+
+  const [formProduct, setFormProduct] = useState({ ...INITIAL_PRODUCT })
+  const [editingProductIndex, setEditingProductIndex] = useState(null)
+  const [showFindProductModal, setShowFindProductModal] = useState(false)
+
+  const updateCompanyField = (field, value) => {
+    setCompanyInfo((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const updateFormProduct = (field, value) => {
+    setFormProduct((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const addVariant = () => {
+    setFormProduct((prev) => ({
+      ...prev,
+      variants: [...(prev.variants || []), { ...INITIAL_VARIANT }],
+    }))
+  }
+
+  const removeVariant = (index) => {
+    setFormProduct((prev) => {
+      const variants = [...(prev.variants || [])]
+      variants.splice(index, 1)
+      return { ...prev, variants }
+    })
+  }
+
+  const updateVariant = (index, field, value) => {
+    setFormProduct((prev) => {
+      const variants = [...(prev.variants || [])]
+      variants[index] = { ...variants[index], [field]: value }
+      return { ...prev, variants }
+    })
+  }
+
+  const clearProductForm = () => {
+    setFormProduct({ ...INITIAL_PRODUCT })
+    setEditingProductIndex(null)
+  }
+
+  const saveProduct = () => {
+    if (!formProduct.productName.trim()) {
+      toastError('Product name is required')
+      return
+    }
+    if (!formProduct.quantity || Number(formProduct.quantity) <= 0) {
+      toastError('Quantity must be greater than 0')
+      return
+    }
+    if (formProduct.quotedRate === '' || Number(formProduct.quotedRate) < 0) {
+      toastError('Quoted rate is required')
+      return
+    }
+    setProducts((prev) => [...prev, { ...formProduct }])
+    clearProductForm()
+    toastSuccess('Product added to quotation')
+  }
+
+  const updateProductInList = () => {
+    if (editingProductIndex == null) return
+    if (!formProduct.productName.trim()) {
+      toastError('Product name is required')
+      return
+    }
+    if (!formProduct.quantity || Number(formProduct.quantity) <= 0) {
+      toastError('Quantity must be greater than 0')
+      return
+    }
+    if (formProduct.quotedRate === '' || Number(formProduct.quotedRate) < 0) {
+      toastError('Quoted rate is required')
+      return
+    }
+    setProducts((prev) => {
+      const next = [...prev]
+      next[editingProductIndex] = { ...formProduct }
+      return next
+    })
+    clearProductForm()
+    toastSuccess('Product updated in quotation')
+  }
+
+  const editProductFromTable = (index) => {
+    const p = products[index]
+    setFormProduct({
+      productName: p.productName || '',
+      quantity: p.quantity ?? 1,
+      unit: p.unit || '',
+      variants: (p.variants || []).map((v) => ({
+        variantName: v.variantName || '',
+        quantity: v.quantity ?? 1,
+      })),
+      remark: p.remark || '',
+      product_id: p.product_id || null,
+      quotedRate: p.quotedRate || '',
+      gstPercentage: p.gstPercentage != null && p.gstPercentage !== '' ? p.gstPercentage : '',
+    })
+    setEditingProductIndex(index)
+  }
+
+  const deleteProductFromTable = (index) => {
+    setProducts((prev) => prev.filter((_, i) => i !== index))
+    if (editingProductIndex === index) {
+      clearProductForm()
+    } else if (editingProductIndex != null && editingProductIndex > index) {
+      setEditingProductIndex((prev) => prev - 1)
+    }
+    toastSuccess('Product removed from quotation')
+  }
+
+  const handleImportProducts = (importedProducts) => {
+    if (!importedProducts?.length) return
+    const mapped = importedProducts.map((p) => ({
+      productName: p.productName || '',
+      quantity: p.quantity ?? 1,
+      unit: p.unit || '',
+      variants: (p.variants || []).map((v) => ({
+        variantName: v.variantName || '',
+        quantity: v.quantity ?? 1,
+      })),
+      remark: p.remark || '',
+      product_id: p.product_id || null,
+      quotedRate: '',
+    }))
+    setProducts((prev) => [...prev, ...mapped])
+    toastSuccess(`${mapped.length} product(s) imported`)
+  }
+
+  const getLineTotal = (p) => {
+    const qty = Number(p.quantity) || 0
+    const rate = Number(p.quotedRate) || 0
+    return qty * rate
+  }
+
+  const updateProductField = (index, field, value) => {
+    setProducts((prev) => {
+      const next = [...prev]
+      next[index] = { ...next[index], [field]: value }
+      return next
+    })
+  }
+
+  const handleRateChange = (index, value) => {
+    const rate = value === '' ? '' : String(value)
+    updateProductField(index, 'quotedRate', rate)
+  }
+
+  const handleLineTotalChange = (index, value) => {
+    const p = products[index]
+    const qty = Number(p.quantity) || 0
+    if (!qty) return
+    const lineTotal = parseFloat(value)
+    if (Number.isNaN(lineTotal)) return
+    const rate = (lineTotal / qty).toFixed(2)
+    updateProductField(index, 'quotedRate', rate)
+  }
+
+  const totalAmount = products.reduce((sum, p) => sum + getLineTotal(p), 0)
+
+  const handleSaveQuotation = () => {
+    if (!companyInfo.name.trim()) {
+      toastError('Company name is required')
+      return
+    }
+    if (!products.length) {
+      toastError('Add at least one product to the quotation')
+      return
+    }
+    for (const p of products) {
+      if (!p.productName.trim()) {
+        toastError('Each product must have a name')
+        return
+      }
+      if (!p.quantity || Number(p.quantity) <= 0) {
+        toastError('Each product must have quantity greater than 0')
+        return
+      }
+      if (p.quotedRate === '' || Number(p.quotedRate) < 0) {
+        toastError('Each product must have a quoted rate')
+        return
+      }
+    }
+
+    const payload = {
+      queryId: fromQuery?._id || fromQuery?.id || null,
+      queryCode: fromQuery?.queryCode || '',
+      companyInfo,
+      products: products.map((p) => ({
+        productName: p.productName,
+        quantity: Number(p.quantity) || 0,
+        unit: p.unit || '',
+        variants: (p.variants || []).map((v) => ({
+          variantName: v.variantName || '',
+          quantity: Number(v.quantity) || 0,
+        })),
+        remark: p.remark || '',
+        product_id: p.product_id || null,
+        quoted_rate: Number(p.quotedRate) || 0,
+      })),
+      status,
+      totalAmount,
+    }
+
+    const saved = addQuotation(payload)
+    toastSuccess('Quotation created successfully')
+    navigate(`/quotations/${saved.id}`)
+  }
+
+  return (
+    <>
+      <CRow className="mb-3">
+        <CCol>
+          <CButton color="light" onClick={() => navigate('/quotations')}>
+            <CIcon icon={cilArrowLeft} className="me-1" />
+            Back to Quotations
+          </CButton>
+        </CCol>
+      </CRow>
+
+      {/* 1. Company information */}
+      <CCard className="mb-4">
+        <CCardHeader>
+          <strong>1. Company Information</strong>
+        </CCardHeader>
+        <CCardBody>
+          <CRow className="mb-3">
+            <CCol md={6}>
+              <CFormLabel>Company name</CFormLabel>
+              <CFormInput
+                value={companyInfo.name}
+                onChange={(e) => updateCompanyField('name', e.target.value)}
+                placeholder="Company name"
+              />
+            </CCol>
+            <CCol md={6}>
+              <CFormLabel>Location</CFormLabel>
+              <CFormInput
+                value={companyInfo.location}
+                onChange={(e) => updateCompanyField('location', e.target.value)}
+                placeholder="Location"
+              />
+            </CCol>
+          </CRow>
+
+          <CRow className="mb-3">
+            <CCol md={6}>
+              <CFormLabel>Area</CFormLabel>
+              <CFormInput
+                value={companyInfo.area || ''}
+                onChange={(e) => updateCompanyField('area', e.target.value)}
+                placeholder="Area"
+              />
+            </CCol>
+            <CCol md={6}>
+              <CFormLabel>Email</CFormLabel>
+              <CFormInput
+                type="email"
+                value={companyInfo.email || ''}
+                onChange={(e) => updateCompanyField('email', e.target.value)}
+                placeholder="Email"
+              />
+            </CCol>
+          </CRow>
+
+          <CRow className="mb-3">
+            <CCol md={6}>
+              <CFormLabel>Purchase manager name</CFormLabel>
+              <CFormInput
+                value={companyInfo.purchase_manager_name || ''}
+                onChange={(e) => updateCompanyField('purchase_manager_name', e.target.value)}
+                placeholder="Purchase manager name"
+              />
+            </CCol>
+            <CCol md={6}>
+              <CFormLabel>Purchase manager phone</CFormLabel>
+              <CFormInput
+                value={companyInfo.purchase_manager_phone || ''}
+                onChange={(e) => updateCompanyField('purchase_manager_phone', e.target.value)}
+                placeholder="Phone"
+              />
+            </CCol>
+          </CRow>
+
+          <CRow>
+            <CCol>
+              <CFormLabel>Address</CFormLabel>
+              <CFormTextarea
+                rows={2}
+                value={companyInfo.address || ''}
+                onChange={(e) => updateCompanyField('address', e.target.value)}
+                placeholder="Address"
+              />
+            </CCol>
+          </CRow>
+        </CCardBody>
+      </CCard>
+
+      {/* 2. Product information */}
+      <CCard className="mb-4">
+        <CCardHeader className="d-flex justify-content-between align-items-center">
+          <strong>2. Product Information</strong>
+          <CButton color="primary" size="sm" onClick={() => setShowFindProductModal(true)}>
+            Find Product
+          </CButton>
+        </CCardHeader>
+        <CCardBody>
+          <CCard className="mb-4">
+            <CCardHeader>
+              <strong>{editingProductIndex != null ? 'Edit product' : 'Add product'}</strong>
+            </CCardHeader>
+            <CCardBody>
+              <CRow className="mb-3">
+                <CCol md={6}>
+                  <CFormLabel>Product name</CFormLabel>
+                  <CFormInput
+                    value={formProduct.productName}
+                    onChange={(e) => updateFormProduct('productName', e.target.value)}
+                    placeholder="Product name"
+                  />
+                </CCol>
+                <CCol md={3}>
+                  <CFormLabel>Quantity</CFormLabel>
+                  <CFormInput
+                    type="number"
+                    min={0}
+                    value={formProduct.quantity}
+                    onChange={(e) => updateFormProduct('quantity', Number(e.target.value) || 0)}
+                    placeholder="0"
+                  />
+                </CCol>
+                <CCol md={3}>
+                  <CFormLabel>Unit</CFormLabel>
+                  <CFormInput
+                    value={formProduct.unit}
+                    onChange={(e) => updateFormProduct('unit', e.target.value)}
+                    placeholder="pcs, kg, etc."
+                  />
+                </CCol>
+              </CRow>
+
+              <CRow className="mb-3">
+                <CCol md={4}>
+                  <CFormLabel>Quoted rate</CFormLabel>
+                  <CFormInput
+                    type="number"
+                    min={0}
+                    value={formProduct.quotedRate}
+                    onChange={(e) => updateFormProduct('quotedRate', e.target.value)}
+                    placeholder="0"
+                  />
+                </CCol>
+                <CCol md={8} className="d-flex align-items-end">
+                  <div className="fw-semibold">
+                    Line total:{' '}
+                    {(() => {
+                      const qty = Number(formProduct.quantity) || 0
+                      const rate = Number(formProduct.quotedRate) || 0
+                      return `₹${(qty * rate).toLocaleString()}`
+                    })()}
+                  </div>
+                </CCol>
+              </CRow>
+
+              <div className="mb-3">
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <CFormLabel className="mb-0">Variants (optional)</CFormLabel>
+                  <CButton color="primary" size="sm" type="button" onClick={addVariant}>
+                    Add variant
+                  </CButton>
+                </div>
+                {(formProduct.variants || []).length > 0 ? (
+                  (formProduct.variants || []).map((v, idx) => (
+                    <CRow key={idx} className="mb-2 align-items-end">
+                      <CCol md={6}>
+                        <CFormInput
+                          value={v.variantName || ''}
+                          onChange={(e) => updateVariant(idx, 'variantName', e.target.value)}
+                          placeholder="Variant name"
+                        />
+                      </CCol>
+                      <CCol md={3}>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          value={v.quantity ?? ''}
+                          onChange={(e) => updateVariant(idx, 'quantity', Number(e.target.value) || 0)}
+                          placeholder="Qty"
+                        />
+                      </CCol>
+                      <CCol md={3}>
+                        <CButton
+                          color="danger"
+                          variant="ghost"
+                          size="sm"
+                          type="button"
+                          onClick={() => removeVariant(idx)}
+                        >
+                          Remove
+                        </CButton>
+                      </CCol>
+                    </CRow>
+                  ))
+                ) : (
+                  <p className="text-muted small mb-0">No variants. Click &quot;Add variant&quot; to add.</p>
+                )}
+              </div>
+
+              <div className="mb-3">
+                <CFormLabel>Remark</CFormLabel>
+                <CFormTextarea
+                  rows={2}
+                  value={formProduct.remark}
+                  onChange={(e) => updateFormProduct('remark', e.target.value)}
+                  placeholder="Remark"
+                />
+              </div>
+
+              <div className="d-flex gap-2">
+                {editingProductIndex != null ? (
+                  <>
+                    <CButton color="primary" type="button" onClick={updateProductInList}>
+                      Update product
+                    </CButton>
+                    <CButton color="secondary" type="button" onClick={clearProductForm}>
+                      Cancel
+                    </CButton>
+                  </>
+                ) : (
+                  <CButton color="primary" type="button" onClick={saveProduct}>
+                    Add product
+                  </CButton>
+                )}
+              </div>
+            </CCardBody>
+          </CCard>
+
+          <div>
+            <strong className="d-block mb-2">Added products</strong>
+            {products.length === 0 ? (
+              <p className="text-muted small mb-0">
+                No products added yet. Use the form above or Find Product to add.
+              </p>
+            ) : (
+              <CTable responsive hover>
+                <CTableHead>
+                  <CTableRow>
+                    <CTableHeaderCell>#</CTableHeaderCell>
+                    <CTableHeaderCell>Product name</CTableHeaderCell>
+                    <CTableHeaderCell>Qty</CTableHeaderCell>
+                    <CTableHeaderCell>Unit</CTableHeaderCell>
+                    <CTableHeaderCell>Quoted rate</CTableHeaderCell>
+                    <CTableHeaderCell>Line total</CTableHeaderCell>
+                    <CTableHeaderCell>GST %</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                  {products.map((p, index) => (
+                    <CTableRow key={index}>
+                      <CTableDataCell>{index + 1}</CTableDataCell>
+                      <CTableDataCell>{p.productName || '–'}</CTableDataCell>
+                      <CTableDataCell>{p.quantity ?? '–'}</CTableDataCell>
+                      <CTableDataCell>{p.unit || '–'}</CTableDataCell>
+                      <CTableDataCell>
+                        <CFormInput
+                          type="number"
+                          size="sm"
+                          className="form-control-sm"
+                          style={{ maxWidth: '90px', minWidth: '70px' }}
+                          min={0}
+                          step="0.01"
+                          value={p.quotedRate === '' ? '' : p.quotedRate}
+                          onChange={(e) => handleRateChange(index, e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        <CFormInput
+                          type="number"
+                          size="sm"
+                          className="form-control-sm"
+                          style={{ maxWidth: '90px', minWidth: '70px' }}
+                          min={0}
+                          step="0.01"
+                          value={getLineTotal(p) === 0 && p.quotedRate === '' ? '' : Number(getLineTotal(p)).toFixed(2)}
+                          onChange={(e) => handleLineTotalChange(index, e.target.value)}
+                          placeholder="0.00"
+                        />
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        <CFormInput
+                          type="number"
+                          size="sm"
+                          className="form-control-sm"
+                          style={{ maxWidth: '70px', minWidth: '55px' }}
+                          min={0}
+                          max={100}
+                          step="0.01"
+                          value={p.gstPercentage != null && p.gstPercentage !== '' ? p.gstPercentage : ''}
+                          onChange={(e) => updateProductField(index, 'gstPercentage', e.target.value === '' ? '' : e.target.value)}
+                          placeholder="%"
+                        />
+                      </CTableDataCell>
+                      <CTableDataCell className="text-end">
+                        <CButton
+                          color="primary"
+                          size="sm"
+                          variant="ghost"
+                          className="me-1"
+                          onClick={() => editProductFromTable(index)}
+                        >
+                          Edit
+                        </CButton>
+                        <CButton
+                          color="danger"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteProductFromTable(index)}
+                        >
+                          Delete
+                        </CButton>
+                      </CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
+            )}
+          </div>
+
+          <CRow className="mt-4">
+            <CCol md={6}>
+              <CFormLabel>Status</CFormLabel>
+              <CFormSelect value={status} onChange={(e) => setStatus(e.target.value)}>
+                <option value="draft">Draft</option>
+                <option value="sent">Sent</option>
+                <option value="accepted">Accepted</option>
+                <option value="rejected">Rejected</option>
+                <option value="expired">Expired</option>
+              </CFormSelect>
+            </CCol>
+            <CCol md={6} className="d-flex align-items-end justify-content-end">
+              <div className="fw-semibold">
+                Total: <span className="fs-5">₹{totalAmount.toLocaleString()}</span>
+              </div>
+            </CCol>
+          </CRow>
+        </CCardBody>
+      </CCard>
+
+      <CCard>
+        <CCardBody className="d-flex justify-content-end gap-2">
+          <CButton color="secondary" type="button" onClick={() => navigate('/quotations')}>
+            Cancel
+          </CButton>
+          <CButton color="primary" type="button" onClick={handleSaveQuotation}>
+            Generate Quotation
+          </CButton>
+        </CCardBody>
+      </CCard>
+
+      <FindProductModal
+        visible={showFindProductModal}
+        onClose={() => setShowFindProductModal(false)}
+        onImport={handleImportProducts}
+      />
+    </>
+  )
+}
 
 const quotationSchema = yup.object({
   customerName: yup.string().required('Customer name is required'),
@@ -51,12 +689,19 @@ const defaultValues = {
   status: 'draft',
 }
 
-const QuotationForm = () => {
+const QuotationEdit = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
 
   const { quotations, addQuotation, updateQuotation, queries } = useData()
+
+  const location = useLocation()
+  const fromQuery = !isEdit ? location.state?.fromQuery || null : null
+
+  if (fromQuery && !isEdit) {
+    return <QuotationFromQuery fromQuery={fromQuery} />
+  }
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -239,6 +884,17 @@ const QuotationForm = () => {
       </CCard>
     </CForm>
   )
+}
+
+const QuotationForm = () => {
+  const { id } = useParams()
+  const isEdit = Boolean(id)
+
+  if (isEdit) {
+    return <QuotationEdit />
+  }
+
+  return <QuotationCreate />
 }
 
 export default QuotationForm

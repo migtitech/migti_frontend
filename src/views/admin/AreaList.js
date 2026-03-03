@@ -19,7 +19,8 @@ import {
   CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useNavigate } from 'react-router-dom'
 import areaService from '../../services/areaService'
 import companyService from '../../services/companyService'
@@ -65,7 +66,7 @@ const AreaList = () => {
       setAreas(data?.areas || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch areas')
+      toastError(err?.message || 'Failed to fetch zones')
     } finally {
       setLoading(false)
     }
@@ -105,7 +106,7 @@ const AreaList = () => {
           <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <strong>Zones</strong>
             {canCreate('zones') && (
-              <CButton color="primary" onClick={() => navigate('/areas/new')}>
+              <CButton color="primary" onClick={() => navigate('/zones/new')}>
                 <CIcon icon={cilPlus} className="me-2" />
                 Add Zone
               </CButton>
@@ -180,7 +181,7 @@ const AreaList = () => {
                     ) : (
                       areas.map((area) => (
                         <CTableRow key={getId(area)}
-                          onClick={() => navigate(`/areas/${getId(area)}`)}
+                          onClick={() => navigate(`/zones/${getId(area)}`)}
                           style={{ cursor: 'pointer' }}
 
                         >
@@ -189,15 +190,18 @@ const AreaList = () => {
                           <CTableDataCell>{getAreaTypeBadge(area.areaType)}</CTableDataCell>
                           <CTableDataCell>{area.companyId?.name ?? '—'}</CTableDataCell>
                           <CTableDataCell>{area.branchId?.name ?? '—'}</CTableDataCell>
-                          <CTableDataCell className="text-end">
+                          <CTableDataCell className="text-end" onClick={(e) => e.stopPropagation()}>
                             <CButton
                               color="info"
                               variant="ghost"
                               size="sm"
                               className="me-2"
-                              onClick={() => navigate(`/areas/${getId(area)}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/zones/${getId(area)}`)
+                              }}
                             >
-                              <CIcon icon={cilZoom} />
+                              <EyeIcon />
                             </CButton>
                             {canUpdate('zones') && (
                               <CButton
@@ -207,7 +211,7 @@ const AreaList = () => {
                                 className="me-2"
                                 onClick={(e) => {
                                   e.stopPropagation()
-                                  navigate(`/areas/edit/${getId(area)}`)}}
+                                  navigate(`/zones/edit/${getId(area)}`)}}
                               >
                                 <CIcon icon={cilPencil} />
                               </CButton>

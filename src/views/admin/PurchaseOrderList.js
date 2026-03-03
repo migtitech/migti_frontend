@@ -26,7 +26,8 @@ import {
   CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilCloudDownload } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilCloudDownload } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import { useData } from '../../context/DataContext'
 import { ConfirmDialog } from '../../components'
 
@@ -149,7 +150,7 @@ const PurchaseOrderList = () => {
               </CButton>
             </CCardHeader>
             <CCardBody>
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>S No</CTableHeaderCell>
@@ -165,7 +166,11 @@ const PurchaseOrderList = () => {
                 </CTableHead>
                 <CTableBody>
                   {purchaseOrders && purchaseOrders.map((order, index) => (
-                    <CTableRow key={order.id}>
+                    <CTableRow
+                      key={order.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/purchase-orders/${order.id}`)}
+                    >
                       <CTableDataCell>{index + 1}</CTableDataCell>
                       <CTableDataCell>
                         <strong>PO-{String(order.id).padStart(4, '0')}</strong>
@@ -182,15 +187,18 @@ const PurchaseOrderList = () => {
                       <CTableDataCell>
                         {new Date(order.createdAt).toLocaleDateString()}
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CButton
                           color="info"
                           variant="ghost"
                           size="sm"
-                          onClick={() => navigate(`/purchase-orders/${order.id}`)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/purchase-orders/${order.id}`)
+                          }}
                           title="View"
                         >
-                          <CIcon icon={cilZoom} />
+                          <EyeIcon />
                         </CButton>
                         <CButton
                           color="success"
@@ -204,7 +212,10 @@ const PurchaseOrderList = () => {
                           color="warning"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleOpenModal(order)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenModal(order)
+                          }}
                           title="Edit"
                         >
                           <CIcon icon={cilPencil} />
@@ -213,7 +224,10 @@ const PurchaseOrderList = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(order.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(order.id)
+                          }}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />

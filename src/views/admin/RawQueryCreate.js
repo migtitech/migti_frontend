@@ -70,6 +70,23 @@ const RawQueryCreate = () => {
     audioClipsRef.current = audioClips
   }, [audioClips])
 
+  const fetchIndustrySearch = useCallback(async (term) => {
+    setIndustrySearchLoading(true)
+    try {
+      const params = term.trim().length > 0
+        ? { search: term.trim(), pageSize: 20 }
+        : { pageSize: 100 }
+      const response = await industryService.getAll(params)
+      const payload = response?.data || response
+      const list = payload?.industries ?? payload?.data?.industries ?? []
+      setIndustrySearchResults(list)
+    } catch {
+      setIndustrySearchResults([])
+    } finally {
+      setIndustrySearchLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     const fetchAreas = async () => {
       try {
@@ -83,22 +100,9 @@ const RawQueryCreate = () => {
     fetchAreas()
   }, [])
 
-  const fetchIndustrySearch = useCallback(async (term) => {
-    if (term.trim().length === 0) {
-      setIndustrySearchResults([])
-      return
-    }
-    setIndustrySearchLoading(true)
-    try {
-      const response = await industryService.getAll({ search: term.trim(), pageSize: 5 })
-      const payload = response?.data || response
-      setIndustrySearchResults(payload?.industries || [])
-    } catch {
-      setIndustrySearchResults([])
-    } finally {
-      setIndustrySearchLoading(false)
-    }
-  }, [])
+  useEffect(() => {
+    fetchIndustrySearch('')
+  }, [fetchIndustrySearch])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -509,8 +513,10 @@ const RawQueryCreate = () => {
                           {industrySearchLoading && (
                             <CListGroupItem className="text-muted">Searching...</CListGroupItem>
                           )}
-                          {!industrySearchLoading && industrySearchResults.length === 0 && industrySearch.trim() && (
-                            <CListGroupItem className="text-muted">No industries found. Try "Create new".</CListGroupItem>
+                          {!industrySearchLoading && industrySearchResults.length === 0 && (
+                            <CListGroupItem className="text-muted">
+                              {industrySearch.trim() ? 'No industries found. Try "Create new".' : 'No industries in database. Create one below.'}
+                            </CListGroupItem>
                           )}
                           {!industrySearchLoading &&
                             industrySearchResults.map((industry) => (

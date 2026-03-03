@@ -20,7 +20,8 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilX } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilX } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
@@ -230,11 +231,12 @@ const ProductList = () => {
               <Loader message="Loading products..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Code</CTableHeaderCell>
                       <CTableHeaderCell>SKU</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>Brand</CTableHeaderCell>
@@ -259,19 +261,25 @@ const ProductList = () => {
                             </div>
                           )}
                         </CTableDataCell>
+                        <CTableDataCell>
+                          <code className="text-primary">{product.productCode || '-'}</code>
+                        </CTableDataCell>
                         <CTableDataCell>{product.sku}</CTableDataCell>
                         <CTableDataCell>{product.category?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{product.brand?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{getStatusBadge(product.status)}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/products/${product._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/products/${product._id}`)
+                            }}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('products') && (
                             <CButton
@@ -304,7 +312,7 @@ const ProductList = () => {
                     ))}
                     {products.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center">
+                        <CTableDataCell colSpan={8} className="text-center">
                           {searchTerm
                             ? `No products found matching "${searchTerm}"`
                             : 'No products found. Click "Add Product" to create one.'}

@@ -13,14 +13,14 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CBadge,
   CAlert,
+  CBadge,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilLocationPin } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilLocationPin } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import Filtered from '../../filtered/Filtered'
 import companyService from '../../services/companyService'
-import Badge from '../../badges/Badge'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -98,7 +98,7 @@ const CompanyList = () => {
             {loading ? (
               <Loader message="Loading companies..." />
             ) : (
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>S No</CTableHeaderCell>
@@ -123,32 +123,34 @@ const CompanyList = () => {
                         <CTableDataCell>{company.name}</CTableDataCell>
                         <CTableDataCell>{company.brandName}</CTableDataCell>
                         <CTableDataCell>{company.email}</CTableDataCell>
-                        <CTableDataCell>{company.logoUrl || '-'}</CTableDataCell>
                         <CTableDataCell>
-                          {/* <CBadge color="success">Active</CBadge> */}
-                          <Badge text="active" color='primary'/>
+                          {(company.logoDisplayUrl || company.logoUrl) ? (
+                            <img
+                              src={company.logoDisplayUrl || company.logoUrl}
+                              alt="Logo"
+                              style={{ height: 32, width: 'auto', maxWidth: 80, objectFit: 'contain' }}
+                            />
+                          ) : (
+                            '-'
+                          )}
                         </CTableDataCell>
                         <CTableDataCell>
+                          <CBadge color={company.isActive !== false ? 'success' : 'secondary'}>
+                            {company.isActive !== false ? 'Active' : 'Inactive'}
+                          </CBadge>
+                        </CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
                             title="View"
-                            onClick={() => navigate(`/companies/${id}`)}
-                          >
-                            <CIcon icon={cilZoom} />
-                          </CButton>
-
-                          <CButton
-                            color="primary"
-                            variant="ghost"
-                            size="sm"
-                            title="Branches"
                             onClick={(e) => {
                               e.stopPropagation()
-                              navigate(`/companies/${id}/branches`)}}
+                              navigate(`/companies/${id}`)
+                            }}
                           >
-                            <CIcon icon={cilLocationPin} />
+                            <EyeIcon />
                           </CButton>
 
                           {canUpdate('companies') && (

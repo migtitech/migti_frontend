@@ -31,6 +31,15 @@ const schema = yup.object({
   name: yup.string().required('Branch name is required').min(1).max(100),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
+  gst: yup
+    .string()
+    .optional()
+    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+    .test(
+      'gst',
+      'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)',
+      (v) => !v || v === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)
+    ),
 })
 
 const defaultValues = {
@@ -38,6 +47,7 @@ const defaultValues = {
   name: '',
   location: '',
   address: '',
+  gst: '',
 }
 
 const IndustryBranchForm = () => {
@@ -70,13 +80,24 @@ const IndustryBranchForm = () => {
     }
   }, [id])
 
+  // Refetch industries when form becomes visible (e.g. after adding industry in another tab)
+  useEffect(() => {
+    const onFocus = () => {
+      if (!isEdit) fetchIndustries()
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [isEdit])
+
   const fetchIndustries = async () => {
     try {
       const res = await industryService.getAll({ pageNumber: 1, pageSize: 500 })
-      const data = res?.data?.data || res?.data || res
-      setIndustries(data?.industries || [])
+      const data = res?.data ?? res
+      const list = data?.industries ?? data?.data?.industries ?? []
+      setIndustries(Array.isArray(list) ? list : [])
     } catch (err) {
       console.error('Failed to fetch industries', err)
+      toastError(err?.message || 'Failed to load industries for dropdown')
     }
   }
 
@@ -93,6 +114,7 @@ const IndustryBranchForm = () => {
         name: data?.name || '',
         location: data?.location || '',
         address: data?.address || '',
+        gst: data?.gst || '',
       })
     } catch (err) {
       toastError(err?.message || 'Failed to fetch industry branch')
@@ -110,6 +132,7 @@ const IndustryBranchForm = () => {
         name: values.name?.trim() || '',
         location: values.location?.trim() || '',
         address: values.address?.trim() || '',
+        gst: values.gst?.trim() || '',
       }
       if (isEdit) {
         await industryBranchService.update(id, payload)
@@ -162,11 +185,14 @@ const IndustryBranchForm = () => {
                 <CFormLabel>Industry *</CFormLabel>
                 <CFormSelect {...register('industryId')} disabled={isEdit}>
                   <option value="">Select Industry</option>
-                  {industries.map((ind) => (
-                    <option key={ind._id} value={ind._id}>
-                      {ind.name}
-                    </option>
-                  ))}
+                  {industries.map((ind) => {
+                    const industryId = ind._id ?? ind.id
+                    return (
+                      <option key={industryId} value={industryId}>
+                        {ind.name ?? '-'}
+                      </option>
+                    )
+                  })}
                 </CFormSelect>
                 {errors.industryId && (
                   <div className="text-danger small mt-1">{errors.industryId.message}</div>
@@ -190,6 +216,15 @@ const IndustryBranchForm = () => {
                 <CFormInput {...register('location')} placeholder="Location" />
                 {errors.location && (
                   <div className="text-danger small mt-1">{errors.location.message}</div>
+                )}
+              </div>
+            </CCol>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>GST Number</CFormLabel>
+                <CFormInput {...register('gst')} placeholder="e.g. 22AABCU9603R1ZX" />
+                {errors.gst && (
+                  <div className="text-danger small mt-1">{errors.gst.message}</div>
                 )}
               </div>
             </CCol>

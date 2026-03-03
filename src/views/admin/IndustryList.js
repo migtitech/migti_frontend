@@ -19,9 +19,11 @@ import {
   CFormInput,
   CInputGroup,
   CInputGroupText,
+  CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import industryService from '../../services/industryService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -36,6 +38,7 @@ const IndustryList = () => {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
@@ -48,6 +51,7 @@ const IndustryList = () => {
           pageNumber: page,
           pageSize: 10,
           search: searchTerm || undefined,
+          category: categoryFilter || undefined,
         }),
       )
       const data = res?.data || res
@@ -58,7 +62,7 @@ const IndustryList = () => {
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm])
+  }, [page, searchTerm, categoryFilter])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -120,33 +124,53 @@ const IndustryList = () => {
                   />
                 </CInputGroup>
               </CCol>
+              <CCol md={3}>
+                <CFormSelect
+                  label="Category"
+                  value={categoryFilter}
+                  onChange={(e) => {
+                    setCategoryFilter(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">All Categories</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                </CFormSelect>
+              </CCol>
             </CRow>
             {loading ? (
               <Loader message="Loading industries..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Industry Name</CTableHeaderCell>
+                      <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>GST No</CTableHeaderCell>
                       <CTableHeaderCell>Area</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase Managers</CTableHeaderCell>
+                      <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {industries.map((industry, index) => (
-                      <CTableRow key={industry._id}
-                        onClick={() => navigate(`/industries/${industry._id}`)} 
+                      <CTableRow
+                        key={industry._id}
+                        onClick={() => navigate(`/industries/${industry._id}`)}
                         style={{ cursor: 'pointer' }}
                       >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{industry.name}</strong>
                         </CTableDataCell>
+                        <CTableDataCell>{industry.category || '-'}</CTableDataCell>
+                        <CTableDataCell>{industry.gstNumber || '-'}</CTableDataCell>
                         <CTableDataCell>
                           {typeof industry.area === 'object'
                             ? industry.area?.name || '-'
@@ -154,18 +178,18 @@ const IndustryList = () => {
                         </CTableDataCell>
                         <CTableDataCell>{industry.location || '-'}</CTableDataCell>
                         <CTableDataCell>{industry.address || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_name || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.purchase_manager_phone || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.email || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/industries/${industry._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/industries/${industry._id}`)
+                            }}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('industries') && (
                             <CButton

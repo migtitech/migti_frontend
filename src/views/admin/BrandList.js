@@ -116,7 +116,7 @@ const BrandList = () => {
               <Loader message="Loading brands..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
@@ -128,7 +128,11 @@ const BrandList = () => {
 
                   <CTableBody>
                     {brands.map((brand, index) => (
-                      <CTableRow key={brand._id}>
+                      <CTableRow
+                        key={brand._id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/brands/edit/${brand._id}`)}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{brand.name}</strong>
@@ -137,13 +141,16 @@ const BrandList = () => {
                           {getStatusBadge(brand.status)}
                         </CTableDataCell>
 
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           {canUpdate('brands') && (
                             <CButton
                               size="sm"
                               color="warning"
                               variant="ghost"
-                              onClick={() => navigate(`/brands/edit/${brand._id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/brands/edit/${brand._id}`)
+                              }}
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
@@ -154,7 +161,10 @@ const BrandList = () => {
                               size="sm"
                               color="danger"
                               variant="ghost"
-                              onClick={() => handleDeleteClick(brand._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(brand._id)
+                              }}
                             >
                               <CIcon icon={cilTrash} />
                             </CButton>

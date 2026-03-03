@@ -21,12 +21,12 @@ import {
   CFormTextarea,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilUser, cilPencil, cilCheckAlt, cilZoom, cilClock, cilEnvelopeClosed } from '@coreui/icons'
+import { cilArrowLeft, cilUser, cilPencil, cilCheckAlt } from '@coreui/icons'
+import { Loader, TrackingTimeline } from '../../components'
 import { useAuth } from '../../context/AuthContext'
 import rawQueryService from '../../services/rawQueryService'
 import employeeService from '../../services/employeeService'
 import userService from '../../services/userService'
-import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError, toastSuccess } from '../../utils/toast'
 
@@ -63,61 +63,37 @@ const getUserDisplayName = (userObj) => {
     userObj.email || null
 }
 
-const getTimeAgo = (dateStr) => {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  if (isNaN(d.getTime())) return ''
-  const now = new Date()
-  const diffMs = now - d
-  const diffSecs = Math.floor(diffMs / 1000)
-  const diffMins = Math.floor(diffSecs / 60)
-  const diffHrs = Math.floor(diffMins / 60)
-  const diffDays = Math.floor(diffHrs / 24)
-  if (diffSecs < 60) return 'just now'
-  if (diffMins < 60) return `${diffMins}m ago`
-  if (diffHrs < 24) return `${diffHrs}h ago`
-  if (diffDays < 30) return `${diffDays}d ago`
-  return ''
-}
-
 const getPerformerInfo = (act, cache = {}) => {
   const performer = act.performedBy && typeof act.performedBy === 'object' ? act.performedBy : null
   const performerAlt = act.performed_by && typeof act.performed_by === 'object' ? act.performed_by : null
   const p = performer || performerAlt
   if (p) {
     return {
-      name: getUserDisplayName(p),
+      name: getUserDisplayName(p) || act.performByName || null,
       email: p.email || null,
       role: p.role || p.designation || null,
     }
   }
-  // performedBy is just a string ID
   const performerId = typeof act.performedBy === 'string' ? act.performedBy : (typeof act.performed_by === 'string' ? act.performed_by : null)
   if (performerId) {
-    // Check user cache (fetched from employee/admin API)
     const cached = cache[performerId]
     if (cached) {
       return {
-        name: getUserDisplayName(cached),
+        name: getUserDisplayName(cached) || act.performByName || null,
         email: cached.email || null,
         role: cached.role || cached.designation || null,
       }
     }
-    // Check if it matches the logged-in user
     const storedUser = getStoredUser()
     if (storedUser && (storedUser._id === performerId || storedUser.id === performerId)) {
       return {
-        name: getUserDisplayName(storedUser),
+        name: getUserDisplayName(storedUser) || act.performByName || null,
         email: storedUser.email || null,
         role: storedUser.role || storedUser.designation || null,
       }
     }
   }
-  return { name: null, email: null, role: null }
-}
-
-const getTimestamp = (act) => {
-  return act.createdAt || act.created_at || act.timestamp || null
+  return { name: act.performByName || null, email: null, role: null }
 }
 
 // Fetch user details by ID - check employee table first, then admin/user table
@@ -157,6 +133,8 @@ const RawQueryView = () => {
   const { user } = useAuth()
   const [query, setQuery] = useState(null)
   const [activities, setActivities] = useState([])
+  const [activitiesPagination, setActivitiesPagination] = useState(null)
+  const [activitiesPage, setActivitiesPage] = useState(1)
   const [loading, setLoading] = useState(true)
   const [activitiesLoading, setActivitiesLoading] = useState(false)
   const [error, setError] = useState('')
@@ -182,15 +160,19 @@ const RawQueryView = () => {
     }
   }
 
-  const fetchActivities = async () => {
+  const fetchActivities = async (page = 1) => {
     if (!id) return
     try {
       setActivitiesLoading(true)
-      const res = await rawQueryService.getActivities(id)
-      const data = res?.data ?? []
-      setActivities(Array.isArray(data) ? data : [])
+      const res = await rawQueryService.getActivities(id, { pageNumber: page, pageSize: 10 })
+      const data = res?.data?.data ?? res?.data
+      const arr = Array.isArray(data?.activities) ? data.activities : (Array.isArray(data) ? data : [])
+      setActivities(arr)
+      setActivitiesPagination(data?.pagination ?? null)
+      setActivitiesPage(page)
     } catch {
       setActivities([])
+      setActivitiesPagination(null)
     } finally {
       setActivitiesLoading(false)
     }
@@ -380,44 +362,26 @@ const RawQueryView = () => {
     }
   }
 
-  const getActivityIcon = (type) => {
-    switch (type) {
-      case 'viewed':
-        return cilZoom
-      case 'action':
-        return cilPencil
-      case 'follow_up':
-        return cilCheckAlt
-      default:
-        return cilPencil
-    }
-  }
+  const loadActivitiesPage = (page) => fetchActivities(page)
 
-  const getActivityLabel = (type) => {
-    switch (type) {
-      case 'viewed':
-        return 'Viewed'
-      case 'action':
-        return 'Action'
-      case 'follow_up':
-        return 'Follow-up'
-      default:
-        return type
-    }
-  }
+  const headerActions = (
+    <div className="d-flex gap-1">
+      <CButton color="primary" size="sm" onClick={() => setShowActionModal(true)}>
+        <CIcon icon={cilPencil} className="me-1" />
+        Action
+      </CButton>
+      <CButton color="success" size="sm" onClick={() => setShowFollowUpModal(true)}>
+        <CIcon icon={cilCheckAlt} className="me-1" />
+        Follow-up
+      </CButton>
+    </div>
+  )
 
-  const getActivityBadgeColor = (type) => {
-    switch (type) {
-      case 'viewed':
-        return 'info'
-      case 'action':
-        return 'warning'
-      case 'follow_up':
-        return 'success'
-      default:
-        return 'secondary'
-    }
-  }
+  const creatorForTimeline = creator ? {
+    name: getUserDisplayName(creator) || null,
+    email: creator.email || null,
+    role: creator.role || creator.designation || null,
+  } : null
 
   return (
     <>
@@ -552,131 +516,16 @@ const RawQueryView = () => {
         </CCol>
 
         <CCol md={4}>
-          <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Query Tracking</strong>
-              <div className="d-flex gap-1">
-                <CButton color="primary" size="sm" onClick={() => setShowActionModal(true)}>
-                  <CIcon icon={cilPencil} className="me-1" />
-                  Action
-                </CButton>
-                <CButton color="success" size="sm" onClick={() => setShowFollowUpModal(true)}>
-                  <CIcon icon={cilCheckAlt} className="me-1" />
-                  Follow-up
-                </CButton>
-              </div>
-            </CCardHeader>
-            <CCardBody className="pt-0">
-              <div className="query-tracking-timeline">
-                {/* Created by */}
-                <div className="d-flex align-items-start mb-3 pb-3 border-bottom">
-                  <div className="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40 }}>
-                    <CIcon icon={cilUser} className="text-white" />
-                  </div>
-                  <div className="flex-grow-1">
-                    <div className="d-flex align-items-center gap-2 flex-wrap">
-                      <CBadge color="primary">Created</CBadge>
-                      <span className="small text-muted">
-                        <CIcon icon={cilClock} size="sm" className="me-1" />
-                        {formatDateTime(query.createdAt || query.created_at)}
-                      </span>
-                    </div>
-                    <div className="mt-1">
-                      <div className="d-flex align-items-center gap-1">
-                        <CIcon icon={cilUser} size="sm" className="text-muted" />
-                        <span className="fw-semibold">
-                          {getUserDisplayName(creator) || 'Unknown user'}
-                        </span>
-                        {creator?.role && (
-                          <CBadge color="light" textColor="dark" size="sm" className="ms-1">
-                            {creator.role}
-                          </CBadge>
-                        )}
-                      </div>
-                      {creator?.email && (
-                        <div className="small text-muted ms-3">
-                          <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
-                          {creator.email}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Activity timeline */}
-                {activitiesLoading ? (
-                  <div className="text-center py-3 text-muted small">Loading activities...</div>
-                ) : activities.length === 0 ? (
-                  <div className="text-center py-3 text-muted small">No other activity yet.</div>
-                ) : (
-                  activities.map((act, index) => {
-                    const performer = getPerformerInfo(act, userCache)
-                    const timestamp = getTimestamp(act)
-                    const timeAgo = getTimeAgo(timestamp)
-                    return (
-                      <div key={act._id || act.id || index} className="d-flex align-items-start mb-3">
-                        <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40, backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})` }}>
-                          <CIcon icon={getActivityIcon(act.type)} className="text-white" />
-                        </div>
-                        <div className="flex-grow-1">
-                          <div className="d-flex align-items-center gap-2 flex-wrap">
-                            <CBadge color={getActivityBadgeColor(act.type)}>
-                              {getActivityLabel(act.type)}
-                            </CBadge>
-                            <span className="small text-muted">
-                              <CIcon icon={cilClock} size="sm" className="me-1" />
-                              {formatDateTime(timestamp)}
-                            </span>
-                            {timeAgo && (
-                              <span className="small text-muted fst-italic">({timeAgo})</span>
-                            )}
-                          </div>
-                          <div className="mt-1">
-                            <div className="d-flex align-items-center gap-1">
-                              <CIcon icon={cilUser} size="sm" className="text-muted" />
-                              <span className="fw-semibold">{performer.name || 'Unknown user'}</span>
-                              {performer.role && (
-                                <CBadge color="light" textColor="dark" size="sm" className="ms-1">
-                                  {performer.role}
-                                </CBadge>
-                              )}
-                            </div>
-                            {performer.email && (
-                              <div className="small text-muted ms-3">
-                                <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
-                                {performer.email}
-                              </div>
-                            )}
-                          </div>
-                          {act.type === 'action' && (act.meta?.action || act.metadata?.action) && (
-                            <div className="small text-body-secondary mt-1 p-2 bg-light rounded">
-                              <strong>Action:</strong> {act.meta?.action || act.metadata?.action}
-                            </div>
-                          )}
-                          {act.type === 'follow_up' && (
-                            <div className="small mt-1 p-2 bg-light rounded">
-                              {(act.meta?.followUpStatus || act.metadata?.followUpStatus) && (
-                                <CBadge color={
-                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'completed' ? 'success' :
-                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'in_progress' ? 'primary' :
-                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'cancelled' ? 'danger' : 'warning'
-                                } className="me-1">
-                                  {act.meta?.followUpStatus || act.metadata?.followUpStatus}
-                                </CBadge>
-                              )}
-                              {(act.meta?.note || act.metadata?.note) && (
-                                <span className="text-body-secondary">{act.meta?.note || act.metadata?.note}</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-              </div>
-            </CCardBody>
-          </CCard>
+          <TrackingTimeline
+            query={query}
+            activities={activities}
+            pagination={activitiesPagination}
+            loading={activitiesLoading}
+            onLoadPage={loadActivitiesPage}
+            creator={creatorForTimeline}
+            getPerformerInfo={(act) => getPerformerInfo(act, userCache)}
+            headerActions={headerActions}
+          />
         </CCol>
       </CRow>
 

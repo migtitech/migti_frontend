@@ -1,6 +1,6 @@
 
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crm.migti.com/api'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7200/api'
 
 /** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
 export const getAssetsBaseUrl = () => {
@@ -44,6 +44,7 @@ export const COMPANIES = {
   GET_BY_ID: '/companies/get-by-id',
   UPDATE: '/companies/update',
   DELETE: '/companies/delete',
+  UPLOAD_LOGO: '/companies/upload-logo',
 }
 
 export const BRANCHES = {
@@ -112,8 +113,15 @@ export const PRODUCTS = {
   UPLOAD_IMAGES: '/products/upload-images',
 }
 
+export const QUERY_NEW_PRODUCTS = {
+  CREATE: '/query-new-products/create',
+  LIST: '/query-new-products/list',
+  GET_BY_ID: '/query-new-products/get-by-id',
+}
+
 export const DOCUMENTS = {
   UPLOAD: '/documents/upload',
+  SERVE: (id) => `/documents/serve/${id}`,
 }
 
 export const SUPPLIERS = {
@@ -123,6 +131,7 @@ export const SUPPLIERS = {
   GET_BY_ID: '/suppliers/get-by-id',
   UPDATE: '/suppliers/update',
   DELETE: '/suppliers/delete',
+  UPLOAD_CATALOG: '/suppliers/upload-catalog',
 }
 
 export const RATE_CARDS = {
@@ -164,8 +173,27 @@ export const QUERIES = {
   GET_BY_ID: '/queries/get-by-id',
   UPDATE: '/queries/update',
   DELETE: '/queries/delete',
+  CONVERT_TO_QUOTATION: '/queries/convert-to-quotation',
   ACTIVITIES: '/queries/activities',
   RECORD_ACTIVITY: '/queries/record-activity',
+  EXPORT_PDF: '/queries/export-pdf',
+}
+
+export const QUOTATIONS = {
+  LIST: '/quotations/list',
+  GET_BY_ID: '/quotations/get-by-id',
+  UPDATE: '/quotations/update',
+  UPDATE_STATUS: '/quotations/update-status',
+  EXPORT_PDF: '/quotations/export-pdf',
+}
+
+export const PURCHASE_TASKS = {
+  ASSIGN: '/purchase-tasks/assign',
+  MY_TASKS: '/purchase-tasks/my-tasks',
+  UPDATE_STATUS: '/purchase-tasks/update-status',
+  UPDATE_REMARK: '/purchase-tasks/update-remark',
+  RATE_BUCKET: '/purchase-tasks/rate-bucket',
+  ADMIN_LIST: '/purchase-tasks/admin-list',
 }
 
 export const ADMIN = {
@@ -187,10 +215,13 @@ export default {
   GROUPS,
   BRANDS,
   PRODUCTS,
+  QUERY_NEW_PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
   AREAS,
   INDUSTRIES,
   INDUSTRY_BRANCHES,
   QUERIES,
+  QUOTATIONS,
+  PURCHASE_TASKS,
 }

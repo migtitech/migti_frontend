@@ -21,7 +21,8 @@ import {
   CInputGroupText,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import areaService from '../../services/areaService'
@@ -246,62 +247,59 @@ const SupplierList = () => {
               <Loader message="Loading suppliers..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
-                      <CTableHeaderCell>S No</CTableHeaderCell>
+                      <CTableHeaderCell>SNo</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Shop Name</CTableHeaderCell>
                       <CTableHeaderCell>Phone 1</CTableHeaderCell>
-                      <CTableHeaderCell>Phone 2</CTableHeaderCell>
                       <CTableHeaderCell>Email</CTableHeaderCell>
                       <CTableHeaderCell>Other Contact</CTableHeaderCell>
                       <CTableHeaderCell>Label</CTableHeaderCell>
-                      <CTableHeaderCell>Shop Location</CTableHeaderCell>
-                      <CTableHeaderCell>Categories</CTableHeaderCell>
-                      <CTableHeaderCell>Remark</CTableHeaderCell>
+                      <CTableHeaderCell>GST</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {suppliers.map((supplier, index) => (
-                      <CTableRow key={supplier._id}>
+                      <CTableRow
+                        key={supplier._id}
+                        onClick={() => navigate(`/suppliers/${supplier._id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{supplier.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>{supplier.shopname || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.phone_1 || '-'}</CTableDataCell>
-                        <CTableDataCell>{supplier.phone_2 || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.email || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.other_contact || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.label || '-'}</CTableDataCell>
-                        <CTableDataCell>{supplier.shop_location || '-'}</CTableDataCell>
-                        <CTableDataCell>
-                          {supplier.categories?.length
-                            ? supplier.categories
-                                .map((cat) => (typeof cat === 'string' ? cat : cat?.name))
-                                .filter(Boolean)
-                                .join(', ')
-                            : '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>{supplier.remark || '-'}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell>{supplier.gst || '-'}</CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/suppliers/${supplier._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/suppliers/${supplier._id}`)
+                            }}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('suppliers') && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/suppliers/edit/${supplier._id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/suppliers/edit/${supplier._id}`)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -312,7 +310,10 @@ const SupplierList = () => {
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(supplier._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(supplier._id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />
@@ -323,7 +324,7 @@ const SupplierList = () => {
                     ))}
                     {suppliers.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={12} className="text-center">
+                        <CTableDataCell colSpan={9} className="text-center">
                           {searchTerm || filterCategory || filterSubcategory || filterArea
                             ? 'No suppliers match the current search or filters.'
                             : 'No suppliers found. Click "Add Supplier" to create one.'}

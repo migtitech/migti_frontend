@@ -17,7 +17,8 @@ import {
   CAvatar,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../../components'
 import { Loader } from '../../../components'
 
 const EmployeeTable = ({
@@ -42,11 +43,13 @@ const EmployeeTable = ({
 
   const roleBadgeColor = (role) => {
     const colors = {
-      hod: 'primary',
-      sales: 'info',
-      purchase: 'warning',
-      finance: 'success',
-      delivery: 'secondary',
+      head_of_department: 'primary',
+      sales_manager: 'info',
+      sales_exicutive: 'info',
+      purchase_manager: 'warning',
+      purchase_exicutive: 'warning',
+      back_office_exicutive: 'secondary',
+      administrator: 'dark',
     }
     return colors[role] || 'dark'
   }
@@ -67,7 +70,7 @@ const EmployeeTable = ({
             {loading ? (
               <Loader message="Loading employees..." />
             ) : (
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>SNo</CTableHeaderCell>
@@ -85,7 +88,11 @@ const EmployeeTable = ({
                   {employees.map((employee, index) => {
                     const branch = branchById.get(String(employee.branchId))
                     return (
-                      <CTableRow key={employee.id}>
+                      <CTableRow
+                        key={employee.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onView(employee.id)}
+                      >
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <div className="d-flex align-items-center">
@@ -99,28 +106,34 @@ const EmployeeTable = ({
                         <CTableDataCell>{employee.phone || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CBadge color={roleBadgeColor(employee.role)}>
-                            {employee.role || '-'}
+                            {(employee.role || '').toUpperCase() || '-'}
                           </CBadge>
                         </CTableDataCell>
                         <CTableDataCell>{branch?.name || 'N/A'}</CTableDataCell>
                         <CTableDataCell>{employee.designation || '-'}</CTableDataCell>
                         <CTableDataCell>{employee.idnumber || '-'}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => onView(employee.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onView(employee.id)
+                            }}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate && canUpdate('employees') && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => onEdit(employee)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEdit(employee)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -131,7 +144,10 @@ const EmployeeTable = ({
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => onDelete(employee.id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onDelete(employee.id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />

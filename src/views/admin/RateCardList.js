@@ -19,6 +19,7 @@ import {
   CTabContent,
   CTabPane,
   CFormInput,
+  CFormCheck,
   CInputGroup,
   CInputGroupText,
   CSpinner,
@@ -26,8 +27,9 @@ import {
   CListGroupItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilSearch, cilSave, cilTrash, cilPlus } from '@coreui/icons'
+import { cilSearch, cilSave, cilTrash, cilPlus, cilX } from '@coreui/icons'
 import rateCardService from '../../services/rateCardService'
+import productService from '../../services/productService'
 import { Loader, ConfirmDialog } from '../../components'
 import { toastSuccess, toastError } from '../../utils/toast'
 
@@ -41,6 +43,9 @@ const RateCardList = () => {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [productSuppliers, setProductSuppliers] = useState([])
   const [productInfo, setProductInfo] = useState(null)
+  const [productDetail, setProductDetail] = useState(null)
+  const [combinationIdsWithRates, setCombinationIdsWithRates] = useState([])
+  const [selectedProductCombination, setSelectedProductCombination] = useState(null)
   const [loadingSuppliers, setLoadingSuppliers] = useState(false)
   const [showProductDropdown, setShowProductDropdown] = useState(false)
 
@@ -57,7 +62,12 @@ const RateCardList = () => {
   // --- Rate editing state ---
   const [editingRates, setEditingRates] = useState({})
   const [savingRate, setSavingRate] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null, context: null })
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+    context: null,
+    isRateCombination: false,
+  })
 
   // --- Add Rate tab state ---
   const [addProductSearch, setAddProductSearch] = useState('')
@@ -74,6 +84,12 @@ const RateCardList = () => {
 
   const [addRate, setAddRate] = useState('')
   const [addingRate, setAddingRate] = useState(false)
+  const [addProductDetail, setAddProductDetail] = useState(null)
+  const [addSelectedCombination, setAddSelectedCombination] = useState(null)
+  const [addCombinationSearch, setAddCombinationSearch] = useState('')
+  const [loadingProductDetail, setLoadingProductDetail] = useState(false)
+  const [addNextDueDate, setAddNextDueDate] = useState('')
+  const [addNextDueDateMin, setAddNextDueDateMin] = useState('')
 
   const productDropdownRef = useRef(null)
   const supplierDropdownRef = useRef(null)
@@ -98,6 +114,24 @@ const RateCardList = () => {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Initialize default next due date (today + 3 months) and min date (today)
+  useEffect(() => {
+    const today = new Date()
+    const toInputDate = (d) => {
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    const minDate = toInputDate(today)
+    const defaultDate = new Date(today)
+    defaultDate.setMonth(defaultDate.getMonth() + 3)
+
+    setAddNextDueDateMin(minDate)
+    setAddNextDueDate(toInputDate(defaultDate))
   }, [])
 
   // --- Product search ---
@@ -192,6 +226,41 @@ const RateCardList = () => {
     return () => clearTimeout(timer)
   }, [addSupplierSearch])
 
+  const getVariantComboDisplay = (combo) => {
+    const parts = (combo?.optionValues || []).map((o) => o?.variantValue || '').filter(Boolean)
+    return parts.join(', ')
+  }
+
+  const handleAddProductSelect = async (p) => {
+    setAddSelectedProduct(p)
+    setAddProductSearch(p.name)
+    setShowAddProductDropdown(false)
+    setAddSelectedCombination(null)
+    setLoadingProductDetail(true)
+    try {
+      const res = await productService.getById(p._id)
+      const product = res?.data ?? res
+      setAddProductDetail(product)
+    } catch {
+      setAddProductDetail(null)
+    } finally {
+      setLoadingProductDetail(false)
+    }
+  }
+
+  const handleClearAddProduct = () => {
+    setAddSelectedProduct(null)
+    setAddProductSearch('')
+    setAddProductDetail(null)
+    setAddSelectedCombination(null)
+    setAddCombinationSearch('')
+  }
+
+  const handleClearAddSupplier = () => {
+    setAddSelectedSupplier(null)
+    setAddSupplierSearch('')
+  }
+
   // --- Add Rate tab: submit handler ---
   const handleAddRate = async () => {
     if (!addSelectedProduct) {
@@ -202,23 +271,41 @@ const RateCardList = () => {
       toastError('Please select a supplier')
       return
     }
+    if (addProductDetail && addProductDetail?.hasVariants && addProductDetail?.variantCombinations?.length > 0) {
+      if (!addSelectedCombination) {
+        toastError('Please select a combination')
+        return
+      }
+    }
     if (!addRate || isNaN(Number(addRate)) || Number(addRate) < 0) {
       toastError('Please enter a valid rate')
       return
     }
+    if (!addNextDueDate) {
+      toastError('Please select next due date')
+      return
+    }
+    const selectedDate = new Date(addNextDueDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (selectedDate < today) {
+      toastError('Next due date cannot be in the past')
+      return
+    }
     setAddingRate(true)
     try {
-      await rateCardService.upsertRate({
+      const payload = {
         productId: addSelectedProduct._id,
         supplierId: addSelectedSupplier._id,
         rate: Number(addRate),
-      })
+        nextDueDate: selectedDate.toISOString(),
+      }
+      if (addSelectedCombination && addSelectedCombination !== 'base') {
+        payload.combinationUniqueId = addSelectedCombination
+      }
+      await rateCardService.upsertRate(payload)
       toastSuccess('Rate added successfully')
-      // Reset form
-      setAddSelectedProduct(null)
-      setAddProductSearch('')
-      setAddSelectedSupplier(null)
-      setAddSupplierSearch('')
+      // Do NOT reset product and supplier - only clear rate for next entry
       setAddRate('')
     } catch (err) {
       toastError(err?.message || 'Failed to add rate')
@@ -227,24 +314,62 @@ const RateCardList = () => {
     }
   }
 
+  const fetchProductSuppliers = useCallback(
+    async (productId, combinationUniqueId = null) => {
+      const res = await rateCardService.getByProduct(productId, combinationUniqueId)
+      const data = res?.data || res
+      setProductInfo(data?.product || null)
+      setProductSuppliers(data?.rates || [])
+      if (Array.isArray(data?.combinationIdsWithRates)) {
+        setCombinationIdsWithRates(data.combinationIdsWithRates)
+      }
+    },
+    [],
+  )
+
   // --- Select product & load suppliers ---
   const handleSelectProduct = useCallback(async (product) => {
     setSelectedProduct(product)
     setProductSearch(product.name)
     setShowProductDropdown(false)
+    setSelectedProductCombination(null)
     setLoadingSuppliers(true)
     setEditingRates({})
     try {
-      const res = await rateCardService.getByProduct(product._id)
-      const data = res?.data || res
-      setProductInfo(data?.product || product)
-      setProductSuppliers(data?.rates || [])
+      let fullProduct = null
+      try {
+        const pres = await productService.getById(product._id)
+        fullProduct = pres?.data ?? pres
+        setProductDetail(fullProduct)
+      } catch {
+        setProductDetail(null)
+      }
+      await fetchProductSuppliers(product._id)
     } catch (err) {
       toastError(err?.message || 'Failed to load suppliers')
     } finally {
       setLoadingSuppliers(false)
     }
-  }, [])
+  }, [fetchProductSuppliers])
+
+  const handleSelectProductCombination = useCallback(
+    async (comboId) => {
+      setSelectedProductCombination(comboId)
+      if (!selectedProduct?._id) return
+      setLoadingSuppliers(true)
+      try {
+        await fetchProductSuppliers(
+          selectedProduct._id,
+          comboId === 'base' ? null : comboId,
+        )
+      } catch (err) {
+        toastError(err?.message || 'Failed to load suppliers')
+      } finally {
+        setLoadingSuppliers(false)
+      }
+    },
+    [selectedProduct, fetchProductSuppliers],
+  )
 
   // --- Select supplier & load products ---
   const handleSelectSupplier = useCallback(async (supplier) => {
@@ -266,23 +391,27 @@ const RateCardList = () => {
   }, [])
 
   // --- Save rate ---
-  const handleSaveRate = async (productId, supplierId, rate) => {
+  const handleSaveRate = async (productId, supplierId, rate, combinationUniqueId = null) => {
     if (rate === '' || rate === undefined || isNaN(Number(rate))) {
       toastError('Please enter a valid rate')
       return
     }
-    const key = `${productId}_${supplierId}`
+    const key = combinationUniqueId
+      ? `${productId}_${supplierId}_${combinationUniqueId}`
+      : `${productId}_${supplierId}`
     setSavingRate(key)
     try {
-      await rateCardService.upsertRate({
-        productId,
-        supplierId,
-        rate: Number(rate),
-      })
+      const payload = { productId, supplierId, rate: Number(rate) }
+      if (combinationUniqueId && combinationUniqueId !== 'base') {
+        payload.combinationUniqueId = combinationUniqueId
+      }
+      await rateCardService.upsertRate(payload)
       toastSuccess('Rate saved successfully')
-      // Refresh data
       if (activeTab === 'product' && selectedProduct) {
-        await handleSelectProduct(selectedProduct)
+        await fetchProductSuppliers(
+          selectedProduct._id,
+          selectedProductCombination === 'base' ? null : selectedProductCombination,
+        )
       } else if (activeTab === 'supplier' && selectedSupplier) {
         await handleSelectSupplier(selectedSupplier)
       }
@@ -295,14 +424,17 @@ const RateCardList = () => {
 
   // --- Delete rate card entry ---
   const handleDeleteConfirm = async () => {
-    const { id, context } = confirmDelete
-    setConfirmDelete({ visible: false, id: null, context: null })
+    const { id, context, isRateCombination } = confirmDelete
+    setConfirmDelete({ visible: false, id: null, context: null, isRateCombination: false })
     if (!id) return
     try {
-      await rateCardService.delete(id)
+      await rateCardService.delete(id, isRateCombination)
       toastSuccess('Rate entry deleted successfully')
       if (context === 'product' && selectedProduct) {
-        await handleSelectProduct(selectedProduct)
+        await fetchProductSuppliers(
+          selectedProduct._id,
+          selectedProductCombination === 'base' ? null : selectedProductCombination,
+        )
       } else if (context === 'supplier' && selectedSupplier) {
         await handleSelectSupplier(selectedSupplier)
       }
@@ -321,6 +453,14 @@ const RateCardList = () => {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(amount)
+  }
+
+  const formatRateWithGst = (amount, includeGst, gstPercentage) => {
+    const base = formatCurrency(amount)
+    if (includeGst && gstPercentage && Number(gstPercentage) > 0) {
+      return `${base} + GST (${Number(gstPercentage)}%)`
+    }
+    return base
   }
 
   return (
@@ -467,6 +607,56 @@ const RateCardList = () => {
                       </div>
                     )}
 
+                    {productDetail?.hasVariants && productDetail?.variantCombinations?.length > 0 && (
+                      <div className="mb-3">
+                        <h6 className="mb-2">Filter by combination</h6>
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                            gap: '0.5rem 1rem',
+                          }}
+                        >
+                          <label
+                            className="form-check d-flex align-items-center gap-2 mb-0"
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <CFormCheck
+                              type="radio"
+                              name="productCombo"
+                              checked={selectedProductCombination === null}
+                              onChange={() => handleSelectProductCombination(null)}
+                            />
+                            <span>All (Product level)</span>
+                          </label>
+                          {productDetail.variantCombinations
+                            .filter((c) => c?.isActive !== false)
+                            .filter((c) => {
+                              const uid = c.uniqueId || c._id
+                              return combinationIdsWithRates.includes(uid)
+                            })
+                            .map((c) => {
+                              const uid = c.uniqueId || c._id
+                              return (
+                                <label
+                                  key={uid}
+                                  className="form-check d-flex align-items-center gap-2 mb-0"
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <CFormCheck
+                                    type="radio"
+                                    name="productCombo"
+                                    checked={selectedProductCombination === uid}
+                                    onChange={() => handleSelectProductCombination(uid)}
+                                  />
+                                  <span>{getVariantComboDisplay(c)}</span>
+                                </label>
+                              )
+                            })}
+                        </div>
+                      </div>
+                    )}
+
                     {loadingSuppliers ? (
                       <Loader message="Loading suppliers..." />
                     ) : (
@@ -488,7 +678,11 @@ const RateCardList = () => {
                           </CTableHead>
                           <CTableBody>
                             {productSuppliers.map((entry, index) => {
-                              const key = `${selectedProduct._id}_${entry.supplier?._id}`
+                              const comboId = entry.combinationUniqueId ?? selectedProductCombination
+                              const key = comboId
+                                ? `${selectedProduct._id}_${entry.supplier?._id}_${comboId}`
+                                : `${selectedProduct._id}_${entry.supplier?._id}`
+                              const isComboEntry = !!entry.combinationUniqueId
                               return (
                                 <CTableRow
                                   key={entry._id}
@@ -514,7 +708,13 @@ const RateCardList = () => {
                                     {entry.supplier?.phone_1 || '-'}
                                   </CTableDataCell>
                                   <CTableDataCell>
-                                    <strong>{formatCurrency(entry.rate)}</strong>
+                                    <strong>
+                                      {formatRateWithGst(
+                                        entry.rate,
+                                        entry.includeGst,
+                                        entry.gstPercentage,
+                                      )}
+                                    </strong>
                                   </CTableDataCell>
                                   <CTableDataCell>
                                     <CFormInput
@@ -560,6 +760,7 @@ const RateCardList = () => {
                                           visible: true,
                                           id: entry._id,
                                           context: 'product',
+                                          isRateCombination: isComboEntry,
                                         })
                                       }
                                       title="Delete"
@@ -723,7 +924,13 @@ const RateCardList = () => {
                                   </CTableDataCell>
                                   <CTableDataCell>{entry.product?.sku || '-'}</CTableDataCell>
                                   <CTableDataCell>
-                                    <strong>{formatCurrency(entry.rate)}</strong>
+                                    <strong>
+                                      {formatRateWithGst(
+                                        entry.rate,
+                                        entry.includeGst,
+                                        entry.gstPercentage,
+                                      )}
+                                    </strong>
                                   </CTableDataCell>
                                   <CTableDataCell>
                                     <CFormInput
@@ -796,12 +1003,19 @@ const RateCardList = () => {
 
               {/* ========== TAB 3: Add Rate ========== */}
               <CTabPane visible={activeTab === 'addRate'}>
-                <CRow>
-                  <CCol md={6}>
-                    <h6 className="mb-3">Add a new rate for a Product + Supplier</h6>
+                <CRow className="mb-3">
+                  <CCol xs={12}>
+                    <h6 className="mb-0">Add a new rate for a Product + Supplier</h6>
+                    <div className="text-muted small">
+                      First choose the product and supplier, then set the rate and next due date.
+                    </div>
+                  </CCol>
+                </CRow>
 
-                    {/* Select Product */}
-                    <div className="mb-3">
+                {/* Top two-column layout: Product (left) and Supplier (right) */}
+                <CRow className="mb-4">
+                  <CCol xs={12} md={6} className="mb-3 mb-md-0">
+                    <div className="border rounded p-3 h-100">
                       <label className="form-label fw-semibold">Product *</label>
                       <div ref={addProductDropdownRef} style={{ position: 'relative' }}>
                         <CInputGroup>
@@ -814,7 +1028,7 @@ const RateCardList = () => {
                             onChange={(e) => {
                               setAddProductSearch(e.target.value)
                               if (!e.target.value.trim()) {
-                                setAddSelectedProduct(null)
+                                handleClearAddProduct()
                               }
                             }}
                           />
@@ -824,6 +1038,9 @@ const RateCardList = () => {
                             </CInputGroupText>
                           )}
                         </CInputGroup>
+                        <div className="text-muted small mt-1">
+                          Start typing to search products by name or SKU, then choose from the dropdown.
+                        </div>
 
                         {showAddProductDropdown && addProductResults.length > 0 && (
                           <CListGroup
@@ -841,11 +1058,7 @@ const RateCardList = () => {
                             {addProductResults.map((p) => (
                               <CListGroupItem
                                 key={p._id}
-                                onClick={() => {
-                                  setAddSelectedProduct(p)
-                                  setAddProductSearch(p.name)
-                                  setShowAddProductDropdown(false)
-                                }}
+                                onClick={() => handleAddProductSelect(p)}
                                 style={{ cursor: 'pointer' }}
                                 className="d-flex justify-content-between align-items-center"
                               >
@@ -888,21 +1101,127 @@ const RateCardList = () => {
                             </CListGroup>
                           )}
                       </div>
+
                       {addSelectedProduct && (
-                        <div className="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
-                          <CBadge color="success">Selected</CBadge>
-                          <strong>{addSelectedProduct.name}</strong>
-                          {addSelectedProduct.sku && (
-                            <span className="text-muted small">
-                              (SKU: {addSelectedProduct.sku})
-                            </span>
-                          )}
+                        <div className="mt-2 p-2 bg-light rounded d-flex align-items-center justify-content-between gap-2">
+                          <div className="d-flex align-items-center gap-2">
+                            <CBadge color="success">Selected</CBadge>
+                            <strong>{addSelectedProduct.name}</strong>
+                            {addSelectedProduct.sku && (
+                              <span className="text-muted small">
+                                (SKU: {addSelectedProduct.sku})
+                              </span>
+                            )}
+                          </div>
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClearAddProduct}
+                            title="Remove product"
+                          >
+                            <CIcon icon={cilX} />
+                          </CButton>
+                        </div>
+                      )}
+
+                      {loadingProductDetail && (
+                        <div className="mt-2">
+                          <CSpinner size="sm" className="me-2" />
+                          Loading combinations...
+                        </div>
+                      )}
+
+                      {addProductDetail && !loadingProductDetail && (
+                        <div className="mt-3 w-100">
+                          <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
+                            <h6 className="mb-0">Select combination</h6>
+                            <CInputGroup className="flex-grow-1" style={{ maxWidth: 280 }}>
+                              <CInputGroupText>
+                                <CIcon icon={cilSearch} />
+                              </CInputGroupText>
+                              <CFormInput
+                                placeholder="Search combination..."
+                                value={addCombinationSearch}
+                                onChange={(e) => setAddCombinationSearch(e.target.value)}
+                                className="form-control-sm"
+                              />
+                            </CInputGroup>
+                          </div>
+                          <div className="border rounded p-3 w-100" style={{ minWidth: 0 }}>
+                            {(addProductDetail?.hasVariants && addProductDetail?.variantCombinations?.length > 0) ? (
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                  gap: '0.5rem 1rem',
+                                  alignItems: 'center',
+                                  width: '100%',
+                                }}
+                              >
+                                {(() => {
+                                  const filtered = addProductDetail.variantCombinations
+                                    .filter((c) => c?.isActive !== false)
+                                    .filter((c) => {
+                                      const q = addCombinationSearch.trim().toLowerCase()
+                                      if (!q) return true
+                                      const comboText = (getVariantComboDisplay(c) + ' ' + (c.sku || '')).toLowerCase()
+                                      return comboText.includes(q)
+                                    })
+                                  if (filtered.length === 0) {
+                                    return (
+                                      <div className="text-muted small py-2" style={{ gridColumn: '1 / -1' }}>
+                                        No combinations match your search. Try a different term.
+                                      </div>
+                                    )
+                                  }
+                                  return filtered.map((c) => {
+                                    const uid = c.uniqueId || c._id
+                                    const selected = addSelectedCombination === uid
+                                    return (
+                                      <label
+                                        key={uid}
+                                        htmlFor={`combo-${uid}`}
+                                        className="form-check d-flex align-items-center gap-2 mb-0"
+                                        style={{ cursor: 'pointer' }}
+                                      >
+                                        <CFormCheck
+                                          type="radio"
+                                          id={`combo-${uid}`}
+                                          name="addRateCombo"
+                                          checked={selected}
+                                          onChange={() => setAddSelectedCombination(uid)}
+                                        />
+                                        <span>{getVariantComboDisplay(c)}</span>
+                                      </label>
+                                    )
+                                  })
+                                })()}
+                              </div>
+                            ) : (
+                              <label
+                                htmlFor="combo-base"
+                                className="form-check d-flex align-items-center gap-2 mb-0"
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <CFormCheck
+                                  type="radio"
+                                  id="combo-base"
+                                  name="addRateCombo"
+                                  checked={addSelectedCombination === 'base'}
+                                  onChange={() => setAddSelectedCombination('base')}
+                                />
+                                <span>Base Product</span>
+                              </label>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
+                  </CCol>
 
-                    {/* Select Supplier */}
-                    <div className="mb-3">
+                  <CCol xs={12} md={6}>
+                    <div className="border rounded p-3 h-100">
                       <label className="form-label fw-semibold">Supplier *</label>
                       <div ref={addSupplierDropdownRef} style={{ position: 'relative' }}>
                         <CInputGroup>
@@ -915,7 +1234,7 @@ const RateCardList = () => {
                             onChange={(e) => {
                               setAddSupplierSearch(e.target.value)
                               if (!e.target.value.trim()) {
-                                setAddSelectedSupplier(null)
+                                handleClearAddSupplier()
                               }
                             }}
                           />
@@ -925,6 +1244,9 @@ const RateCardList = () => {
                             </CInputGroupText>
                           )}
                         </CInputGroup>
+                        <div className="text-muted small mt-1">
+                          Search by supplier name, shop or phone, then pick one from the suggestions.
+                        </div>
 
                         {showAddSupplierDropdown && addSupplierResults.length > 0 && (
                           <CListGroup
@@ -951,6 +1273,11 @@ const RateCardList = () => {
                                 className="d-flex justify-content-between align-items-center"
                               >
                                 <div>
+                                  {s.shop_location && (
+                                    <span className="text-muted me-2" style={{ fontSize: '0.9em' }}>
+                                      [{s.shop_location}]{' '}
+                                    </span>
+                                  )}
                                   <strong>{s.name}</strong>
                                   {s.shopname && (
                                     <span
@@ -989,36 +1316,104 @@ const RateCardList = () => {
                             </CListGroup>
                           )}
                       </div>
+
                       {addSelectedSupplier && (
-                        <div className="mt-2 p-2 bg-light rounded d-flex align-items-center gap-2">
-                          <CBadge color="success">Selected</CBadge>
+                        <div className="mt-2 p-2 bg-light rounded d-flex align-items-center justify-content-between gap-2">
+                          <div className="d-flex align-items-center gap-2">
+                            <CBadge color="success">Selected</CBadge>
+                            {addSelectedSupplier.shop_location && (
+                              <span className="text-muted" style={{ fontSize: '0.9em' }}>
+                                {addSelectedSupplier.shop_location} -{' '}
+                              </span>
+                            )}
                           <strong>{addSelectedSupplier.name}</strong>
-                          {addSelectedSupplier.shopname && (
-                            <span className="text-muted small">
-                              ({addSelectedSupplier.shopname})
-                            </span>
-                          )}
+                            {addSelectedSupplier.shopname && (
+                              <span className="text-muted small">
+                                ({addSelectedSupplier.shopname})
+                              </span>
+                            )}
+                          </div>
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleClearAddSupplier}
+                            title="Remove supplier"
+                          >
+                            <CIcon icon={cilX} />
+                          </CButton>
                         </div>
                       )}
                     </div>
+                  </CCol>
+                </CRow>
 
-                    {/* Rate Input */}
-                    <div className="mb-4">
-                      <label className="form-label fw-semibold">Rate (INR) *</label>
-                      <CFormInput
-                        type="number"
-                        min={0}
-                        placeholder="Enter rate e.g. 25000"
-                        value={addRate}
-                        onChange={(e) => setAddRate(e.target.value)}
-                      />
+                {/* Bottom box: Rate and Next Due Date in two columns */}
+                <CRow className="mb-4">
+                  <CCol xs={12}>
+                    <div className="border rounded p-3">
+                      <CRow>
+                        <CCol xs={12} md={6}>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold">Rate (INR) *</label>
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              placeholder="Enter rate e.g. 25000"
+                              value={addRate}
+                              onChange={(e) => setAddRate(e.target.value)}
+                            />
+                            <div className="text-muted small mt-1">
+                              Enter the agreed base rate in Indian Rupees for this product and supplier.
+                            </div>
+                          </div>
+                        </CCol>
+                        <CCol xs={12} md={6}>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold">Next Due Date *</label>
+                            <CFormInput
+                              type="date"
+                              value={addNextDueDate}
+                              onChange={(e) => setAddNextDueDate(e.target.value)}
+                              min={addNextDueDateMin}
+                            />
+                            <div className="text-muted small mt-1">
+                              Default is 3 months from today. You can move it forward, but past dates are disabled.
+                            </div>
+                          </div>
+                        </CCol>
+                      </CRow>
+
+                      {addSelectedProduct && addSelectedSupplier && addRate && addNextDueDate && (
+                        <div className="mt-2 p-2 bg-light rounded">
+                          <div className="fw-semibold mb-1">Summary</div>
+                          <div className="text-muted small">
+                            You will add a rate of{' '}
+                            <span className="fw-bold">
+                              ₹{Number(addRate).toLocaleString('en-IN')}
+                            </span>{' '}
+                            for <span className="fw-bold">{addSelectedProduct.name}</span> from{' '}
+                            <span className="fw-bold">{addSelectedSupplier.name}</span>, with next due
+                            date <span className="fw-bold">{addNextDueDate}</span>.
+                          </div>
+                        </div>
+                      )}
                     </div>
+                  </CCol>
+                </CRow>
 
-                    {/* Submit Button */}
+                <CRow>
+                  <CCol xs={12}>
                     <CButton
                       color="primary"
                       onClick={handleAddRate}
-                      disabled={addingRate || !addSelectedProduct || !addSelectedSupplier || !addRate}
+                      disabled={
+                        addingRate ||
+                        !addSelectedProduct ||
+                        !addSelectedSupplier ||
+                        !addRate ||
+                        !addNextDueDate
+                      }
                     >
                       {addingRate ? (
                         <>
@@ -1042,7 +1437,7 @@ const RateCardList = () => {
 
       <ConfirmDialog
         visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null, context: null })}
+        onClose={() => setConfirmDelete({ visible: false, id: null, context: null, isRateCombination: false })}
         onConfirm={handleDeleteConfirm}
         title="Delete Rate Entry?"
         message="Are you sure you want to remove this rate entry? This action cannot be undone."

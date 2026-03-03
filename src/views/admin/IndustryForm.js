@@ -17,6 +17,7 @@ import {
   CFormTextarea,
   CRow,
   CSpinner,
+  CFormCheck,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
@@ -44,6 +45,11 @@ const purchaseManagerSchema = yup.object({
 
 const industrySchema = yup.object({
   name: yup.string().required('Industry name is required').min(2).max(100),
+  category: yup
+    .string()
+    .oneOf(['A', 'B', 'C', 'D', ''], 'Invalid category')
+    .optional()
+    .nullable(),
   area: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
@@ -51,8 +57,12 @@ const industrySchema = yup.object({
     .string()
     .optional()
     .nullable()
-    .transform((v, o) => (o === '' ? null : v))
-    .test('gst', 'GST number must be exactly 15 digits', (v) => v == null || v === '' || /^\d{15}$/.test(v)),
+    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+    .test(
+      'gst',
+      'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)',
+      (v) => !v || v === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)
+    ),
   purchase_manager_name: yup.string().optional().max(100),
   purchase_manager_phone: yup
     .string()
@@ -71,6 +81,7 @@ const industrySchema = yup.object({
 
 const defaultValues = {
   name: '',
+  category: '',
   area: '',
   location: '',
   address: '',
@@ -140,6 +151,7 @@ const IndustryForm = () => {
       }))
       reset({
         name: data?.name || '',
+        category: data?.category || '',
         area: typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || '',
         location: data?.location || '',
         address: data?.address || '',
@@ -160,22 +172,33 @@ const IndustryForm = () => {
     setSubmitting(true)
     setError('')
     try {
-      const payload = {
-        ...values,
-        area: values.area || null,
-        gstNumber: values.gstNumber || '',
-        purchaseManagers: (values.purchaseManagers || []).filter(
-          (pm) => (pm.name || '').trim(),
-        ).map((pm) => ({
-          name: (pm.name || '').trim(),
-          phone: (pm.phone || '').trim(),
-          email: (pm.email || '').trim(),
-        })),
-      }
       if (isEdit) {
+        const payload = {
+          location: values.location || '',
+          address: values.address || '',
+          purchaseManagers: (values.purchaseManagers || []).filter(
+            (pm) => (pm.name || '').trim(),
+          ).map((pm) => ({
+            name: (pm.name || '').trim(),
+            phone: (pm.phone || '').trim(),
+            email: (pm.email || '').trim(),
+          })),
+        }
         await industryService.update(id, payload)
         toastSuccess('Industry updated successfully')
       } else {
+        const payload = {
+          ...values,
+          area: values.area || null,
+          gstNumber: values.gstNumber || '',
+          purchaseManagers: (values.purchaseManagers || []).filter(
+            (pm) => (pm.name || '').trim(),
+          ).map((pm) => ({
+            name: (pm.name || '').trim(),
+            phone: (pm.phone || '').trim(),
+            email: (pm.email || '').trim(),
+          })),
+        }
         await industryService.create(payload)
         toastSuccess('Industry created successfully')
       }
@@ -215,13 +238,23 @@ const IndustryForm = () => {
       <CCard className="mb-4">
         <CCardHeader>
           <strong>{isEdit ? 'Edit Industry' : 'Add Industry'}</strong>
+          {isEdit && (
+            <small className="text-muted d-block mt-1">
+              Only location, purchase managers and address can be updated.
+            </small>
+          )}
         </CCardHeader>
         <CCardBody>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Industry Name *</CFormLabel>
-                <CFormInput {...register('name')} />
+                <CFormInput
+                  {...register('name')}
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={isEdit ? 'bg-light' : ''}
+                />
                 {errors.name && (
                   <div className="text-danger small mt-1">{errors.name.message}</div>
                 )}
@@ -230,9 +263,41 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>GST Number</CFormLabel>
-                <CFormInput {...register('gstNumber')} placeholder="e.g. 27AABCU9603R1ZM" />
+                <CFormInput
+                  {...register('gstNumber')}
+                  placeholder="e.g. 27AABCU9603R1ZM"
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={isEdit ? 'bg-light' : ''}
+                />
                 {errors.gstNumber && (
                   <div className="text-danger small mt-1">{errors.gstNumber.message}</div>
+                )}
+              </div>
+            </CCol>
+          </CRow>
+
+          <CRow>
+            <CCol md={12}>
+              <div className="mb-3">
+                <CFormLabel>Company Category</CFormLabel>
+                <div className="d-flex gap-3">
+                  {['A', 'B', 'C', 'D'].map((cat) => (
+                    <CFormCheck
+                      key={cat}
+                      type="radio"
+                      id={`category-${cat}`}
+                      label={cat}
+                      value={cat}
+                      className="cursor-pointer"
+                      style={{ cursor: 'pointer' }}
+                      {...register('category')}
+                      disabled={isEdit}
+                    />
+                  ))}
+                </div>
+                {errors.category && (
+                  <div className="text-danger small mt-1">{errors.category.message}</div>
                 )}
               </div>
             </CCol>
@@ -242,7 +307,7 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Zone</CFormLabel>
-                <CFormSelect {...register('area')}>
+                <CFormSelect {...register('area')} disabled={isEdit} className={isEdit ? 'bg-light' : ''}>
                   <option value="">Select Zone</option>
                   {areas.map((a) => (
                     <option key={a._id} value={a._id}>

@@ -22,6 +22,7 @@ import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPencil, cilHome, cilPeople, cilContact, cilCreditCard, cilDevices } from '@coreui/icons'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
+import areaService from '../../services/areaService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError } from '../../utils/toast'
@@ -34,15 +35,18 @@ const EmployeeView = () => {
   const navigate = useNavigate()
   const [employee, setEmployee] = useState(null)
   const [branch, setBranch] = useState(null)
+  const [zone, setZone] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const ROLES = {
-    hod: 'HOD',
-    sales: 'Sales',
-    purchase: 'Purchase',
-    finance: 'Finance',
-    delivery: 'Delivery',
+    head_of_department: 'Head Of Department',
+    sales_manager: 'Sales Manager',
+    sales_exicutive: 'Sales Exicutive',
+    purchase_manager: 'Purchase Manager',
+    purchase_exicutive: 'Purchase Exicutive',
+    back_office_exicutive: 'Back Office Exicutive',
+    administrator: 'Administrator',
   }
 
   const getStatusBadge = (isActive) => {
@@ -52,11 +56,13 @@ const EmployeeView = () => {
 
   const getRoleBadge = (role) => {
     const colors = {
-      hod: 'primary',
-      sales: 'info',
-      purchase: 'warning',
-      finance: 'success',
-      delivery: 'secondary',
+      head_of_department: 'primary',
+      sales_manager: 'info',
+      sales_exicutive: 'info',
+      purchase_manager: 'warning',
+      purchase_exicutive: 'warning',
+      back_office_exicutive: 'secondary',
+      administrator: 'dark',
     }
     return <CBadge color={colors[role] || 'secondary'}>{ROLES[role] || role}</CBadge>
   }
@@ -132,6 +138,21 @@ const EmployeeView = () => {
           setBranch(normalizedBranch)
         } else {
           setBranch(null)
+        }
+
+        if (normalizedEmployee?.zoneId) {
+          try {
+            const zoneResponse = await areaService.getById(normalizedEmployee.zoneId)
+            const zonePayload =
+              zoneResponse?.data?.data ||
+              zoneResponse?.data ||
+              zoneResponse
+            setZone(zonePayload || null)
+          } catch {
+            setZone(null)
+          }
+        } else {
+          setZone(null)
         }
       } catch (err) {
         toastError(err?.message || 'Failed to load employee')
@@ -279,6 +300,7 @@ const EmployeeView = () => {
                 <InfoRow label="Designation" value={e.designation} />
                 <InfoRow label="ID Number" value={e.idnumber} />
                 <InfoRow label="Branch" value={branch?.name} />
+                <InfoRow label="Zone" value={zone?.name} />
                 <InfoRow label="Salary Type" value={e.salaryType} />
                 <CListGroupItem className="d-flex justify-content-between align-items-center">
                   <strong>Salary</strong>

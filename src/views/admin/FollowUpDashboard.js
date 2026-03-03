@@ -39,7 +39,6 @@ import {
   cilClock,
   cilWarning,
   cilPlus,
-  cilZoom,
   cilPencil,
 } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
@@ -175,7 +174,7 @@ const FollowUpDashboard = () => {
   }
 
   const renderFollowUpTable = (items) => (
-    <CTable hover responsive>
+    <CTable hover responsive bordered>
       <CTableHead>
         <CTableRow>
           <CTableHeaderCell>Title</CTableHeaderCell>

@@ -29,6 +29,8 @@ const BrandList2 = React.lazy(() => import('./views/admin/BrandList'))
 const BrandForm = React.lazy(() => import('./views/admin/BrandForm'))
 // Products
 const ProductList = React.lazy(() => import('./views/admin/ProductList'))
+const ProductLead = React.lazy(() => import('./views/admin/ProductLead'))
+const ProductLeadView = React.lazy(() => import('./views/admin/ProductLeadView'))
 const ProductForm = React.lazy(() => import('./views/admin/ProductForm'))
 const ProductView = React.lazy(() => import('./views/admin/ProductView'))
 
@@ -44,7 +46,8 @@ const Tracking = React.lazy(() => import('./views/admin/Tracking'))
 // Quotations
 const QuotationList = React.lazy(() => import('./views/admin/QuotationList'))
 const QuotationView = React.lazy(() => import('./views/admin/QuotationView'))
-const QuotationForm = React.lazy(() => import('./views/admin/QuotationForm')) 
+const QuotationForm = React.lazy(() => import('./views/admin/QuotationForm'))
+const QuotationGenerate = React.lazy(() => import('./views/admin/QuotationGenerate')) 
 // Purchase Orders
 const PurchaseOrderList = React.lazy(() => import('./views/admin/PurchaseOrderList'))
 const PurchaseOrderView = React.lazy(() => import('./views/admin/PurchaseOrderView'))
@@ -61,6 +64,9 @@ const FollowUpDashboard = React.lazy(() => import('./views/admin/FollowUpDashboa
 
 // Rate Cards
 const RateCardList = React.lazy(() => import('./views/admin/RateCardList'))
+
+// Purchase Tasks (My Task / Rate Bucket / Admin Tracking)
+const PurchaseTasks = React.lazy(() => import('./views/admin/PurchaseTasks'))
 
 // Employees
 const EmployeeList = React.lazy(() => import('./views/admin/EmployeeList'))
@@ -124,6 +130,8 @@ const routes = [
   { path: '/products/new', name: 'Add Product', element: ProductForm, module: 'products', action: 'create' },
   { path: '/products/edit/:id', name: 'Edit Product', element: ProductForm, module: 'products', action: 'update' },
   { path: '/products/:id', name: 'Product Details', element: ProductView, module: 'products', action: 'read' },
+  { path: '/product-lead', name: 'Product Lead', element: ProductLead, module: 'products', action: 'read' },
+  { path: '/product-lead/:id', name: 'Product Lead Details', element: ProductLeadView, module: 'products', action: 'read' },
 
   // Queries
   { path: '/queries', name: 'Queries', element: QueryList, module: 'queries', action: 'read' },
@@ -137,9 +145,10 @@ const routes = [
 
   // Quotations
   { path: '/quotations', name: 'Quotations', element: QuotationList, module: 'quotations', action: 'read' },
-  { path: '/quotations/:id', name: 'Quotation Details', element: QuotationView, module: 'quotations', action: 'read' },
+  { path: '/quotations/generate/:queryId', name: 'Generate Quotation', element: QuotationGenerate, module: 'quotations', action: 'create' },
   { path: '/quotations/new', name: 'Add Quotations', element: QuotationForm, module: 'quotations', action: 'create' },
   { path: '/quotations/edit/:id', name: 'Edit Quotations', element: QuotationForm, module: 'quotations', action: 'update' },
+  { path: '/quotations/:id', name: 'Quotation Details', element: QuotationView, module: 'quotations', action: 'read' },
 
   // Purchase Orders
   { path: '/purchase-orders', name: 'Purchase Orders', element: PurchaseOrderList, module: 'purchase_orders', action: 'read' },
@@ -157,6 +166,9 @@ const routes = [
   // Rate Cards
   { path: '/rate-cards', name: 'Rate Cards', element: RateCardList, module: 'rate_cards', action: 'read' },
 
+  // Purchase Tasks
+  { path: '/purchase-tasks', name: 'Purchase Tasks', element: PurchaseTasks, module: 'purchase_tasks', action: 'read' },
+
   // Follow-up Dashboard
   { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, module: 'follow_up', action: 'read' },
 
@@ -167,10 +179,10 @@ const routes = [
   { path: '/employees/:id', name: 'Employee Details', element: EmployeeView, module: 'employees', action: 'read' },
 
   // Zones
-  { path: '/areas', name: 'Zones', element: AreaList, module: 'zones', action: 'read' },
-  { path: '/areas/new', name: 'Add Zone', element: AreaForm, module: 'zones', action: 'create' },
-  { path: '/areas/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
-  { path: '/areas/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
+  { path: '/zones', name: 'Zones', element: AreaList, module: 'zones', action: 'read' },
+  { path: '/zones/new', name: 'Add Zone', element: AreaForm, module: 'zones', action: 'create' },
+  { path: '/zones/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
+  { path: '/zones/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
 
   // Industries
   { path: '/industries', name: 'Industries', element: IndustryList, module: 'industries', action: 'read' },

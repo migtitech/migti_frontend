@@ -28,7 +28,8 @@ import {
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import rawQueryService from '../../services/rawQueryService'
 import industryService from '../../services/industryService'
 import Filtered from '../../filtered/Filtered'
@@ -207,7 +208,7 @@ const RawQuery = () => {
                 setSearchTerm={setSearchTerm}
               />
               {error && <div className="text-danger mb-2">{error}</div>}
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>SNo</CTableHeaderCell>
@@ -258,7 +259,7 @@ const RawQuery = () => {
                           onClick={() => navigate(`/raw-query/${query._id || query.id}`)}
                           title="View"
                         >
-                          <CIcon icon={cilZoom} />
+                          <EyeIcon />
                         </CButton>
                         <CButton
                           color="warning"

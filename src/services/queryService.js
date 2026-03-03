@@ -3,26 +3,29 @@ import { QUERIES } from '../api/endpoints'
 
 const mapToApiPayload = (data) => ({
   ...(data.status != null && { status: data.status }),
-  companyInfo: data.companyInfo || {},
+  companyInfo: {
+    ...(data.companyInfo || {}),
+    purchaseManagers: (data.companyInfo?.purchaseManagers || []).map((m) => ({
+      name: m?.name || '',
+      phone: m?.phone || '',
+      email: m?.email || '',
+    })),
+  },
   industry_id: data.industry_id || null,
   products: (data.products || []).map((p) => ({
     productName: p.productName,
     quantity: p.quantity ?? 1,
     unit: p.unit || '',
+    hsnNumber: p.hsnNumber || '',
+    modelNumber: p.modelNumber || '',
+    gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
     variants: (p.variants || []).map((v) => ({
       variantName: v.variantName || '',
-      quantity: v.quantity ?? 1,
     })),
     remark: p.remark || '',
     product_id: p.product_id || null,
+    images: Array.isArray(p.images) ? p.images : [],
   })),
-  delivery: {
-    location: data.delivery?.location || '',
-    contactPersonName: data.delivery?.contactPersonName || '',
-    contactPersonPhone: data.delivery?.contactPersonPhone || '',
-    expectedDateByCompany: data.delivery?.expectedDateByCompany || null,
-    urgent: Boolean(data.delivery?.urgent),
-  },
   created_by: data.created_by != null ? String(data.created_by) : undefined,
 })
 
@@ -59,9 +62,9 @@ const queryService = {
     return response
   },
 
-  getActivities: async (queryId) => {
+  getActivities: async (queryId, params = {}) => {
     const response = await api.get(QUERIES.ACTIVITIES, {
-      params: { queryId },
+      params: { queryId, ...params },
     })
     return response
   },
@@ -79,6 +82,25 @@ const queryService = {
   searchByCode: async (queryCode) => {
     const response = await api.get(QUERIES.LIST, {
       params: { search: queryCode, pageSize: 5 },
+    })
+    return response
+  },
+
+  convertToQuotation: async (queryCode, body = {}) => {
+    const response = await api.post(
+      QUERIES.CONVERT_TO_QUOTATION,
+      body,
+      {
+        params: { queryCode },
+      },
+    )
+    return response
+  },
+
+  exportPdf: async (queryId) => {
+    const response = await api.get(QUERIES.EXPORT_PDF, {
+      params: { queryId },
+      responseType: 'blob',
     })
     return response
   },

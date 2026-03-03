@@ -11,7 +11,8 @@ import {
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilZoom, cilPeople, cilPlus } from '@coreui/icons'
+import { cilPencil, cilTrash, cilPeople, cilPlus } from '@coreui/icons'
+import { EyeIcon } from '../../../components'
 import { Loader } from '../../../components'
 
 const BranchCards = ({
@@ -24,7 +25,6 @@ const BranchCards = ({
   onView,
   onEdit,
   onDelete,
-  onViewUsers,
 }) => {
   const companyById = useMemo(() => {
     const map = new Map()
@@ -83,16 +83,7 @@ const BranchCards = ({
                     onClick={() => onView(branch.id)}
                     title="View"
                   >
-                    <CIcon icon={cilZoom} />
-                  </CButton>
-                  <CButton
-                    color="primary"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onViewUsers(branch.companyId, branch.id)}
-                    title="Users"
-                  >
-                    <CIcon icon={cilPeople} />
+                    <EyeIcon />
                   </CButton>
                   <CButton
                     color="warning"

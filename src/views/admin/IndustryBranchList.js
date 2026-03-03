@@ -22,7 +22,8 @@ import {
   CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom, cilSearch } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import industryBranchService from '../../services/industryBranchService'
 import industryService from '../../services/industryService'
 import { Loader, ConfirmDialog } from '../../components'
@@ -46,8 +47,9 @@ const IndustryBranchList = () => {
   const fetchIndustries = async () => {
     try {
       const res = await industryService.getAll({ pageNumber: 1, pageSize: 500 })
-      const data = res?.data?.data || res?.data || res
-      setIndustries(data?.industries || [])
+      const data = res?.data ?? res
+      const list = data?.industries ?? data?.data?.industries ?? []
+      setIndustries(Array.isArray(list) ? list : [])
     } catch (err) {
       console.error('Failed to fetch industries', err)
     }
@@ -150,20 +152,25 @@ const IndustryBranchList = () => {
               <Loader message="Loading industry branches..." />
             ) : (
               <>
-                <CTable hover responsive>
+              <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Industry</CTableHeaderCell>
                       <CTableHeaderCell>Branch Name</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
+                      <CTableHeaderCell>GST</CTableHeaderCell>
                       <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {branches.map((branch, index) => (
-                      <CTableRow key={branch._id}>
+                      <CTableRow
+                        key={branch._id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate('/industry-branches/' + branch._id)}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           {typeof branch.industryId === 'object'
@@ -174,23 +181,30 @@ const IndustryBranchList = () => {
                           <strong>{branch.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>{branch.location || '-'}</CTableDataCell>
+                        <CTableDataCell>{branch.gst || '-'}</CTableDataCell>
                         <CTableDataCell>{branch.address || '-'}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate('/industry-branches/' + branch._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate('/industry-branches/' + branch._id)
+                            }}
                             title="View"
                           >
-                            <CIcon icon={cilZoom} />
+                            <EyeIcon />
                           </CButton>
                           {canUpdate('industry_branches') && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate('/industry-branches/edit/' + branch._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate('/industry-branches/edit/' + branch._id)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -201,7 +215,10 @@ const IndustryBranchList = () => {
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(branch._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(branch._id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />
@@ -212,7 +229,7 @@ const IndustryBranchList = () => {
                     ))}
                     {branches.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={6} className="text-center">
+                        <CTableDataCell colSpan={7} className="text-center">
                           No industry branches found. Select an industry and create a branch.
                         </CTableDataCell>
                       </CTableRow>

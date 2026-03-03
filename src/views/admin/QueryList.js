@@ -16,9 +16,11 @@ import {
   CBadge,
   CPagination,
   CPaginationItem,
+  CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { EyeIcon } from '../../components'
 import queryService from '../../services/queryService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
@@ -30,7 +32,18 @@ const QueryList = () => {
   const [queries, setQueries] = useState([])
   const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [pageNumber, setPageNumber] = useState(1)
+
+  const STATUS_OPTIONS = [
+    { value: '', label: 'All' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'closed', label: 'Closed' },
+    { value: 'convertedToQuotation', label: 'Completed' },
+    { value: 'followup01pending', label: 'Follow-up 1' },
+    { value: 'followup02pending', label: 'Follow-up 2' },
+    { value: 'followup03pending', label: 'Follow-up 3' },
+  ]
   const [pageSize] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,6 +58,7 @@ const QueryList = () => {
           pageNumber,
           pageSize,
           search: searchDebounced.trim() || undefined,
+          status: statusFilter || undefined,
         }),
       )
       const data = res?.data || res
@@ -69,11 +83,11 @@ const QueryList = () => {
 
   useEffect(() => {
     setPageNumber(1)
-  }, [searchDebounced])
+  }, [searchDebounced, statusFilter])
 
   useEffect(() => {
     fetchQueries()
-  }, [pageNumber, pageSize, searchDebounced])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter])
 
   const handleDeleteClick = (queryId) => {
     setConfirmDelete({ visible: true, id: queryId })
@@ -110,10 +124,26 @@ const QueryList = () => {
             </CCardHeader>
 
             <CCardBody>
-              <Filtered
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-              />
+              <CRow className="mb-3 g-2">
+                <CCol md={4}>
+                  <Filtered
+                    searchTerm={searchTerm}
+                    setSearchTerm={setSearchTerm}
+                  />
+                </CCol>
+                <CCol md={4}>
+                  <CFormSelect
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    {STATUS_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </CCol>
+              </CRow>
 
               {error && (
                 <div className="text-danger small mb-2">{error}</div>
@@ -125,17 +155,14 @@ const QueryList = () => {
                 </div>
               ) : (
                 <>
-                  <CTable hover responsive>
+                  <CTable hover responsive bordered>
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
                         <CTableHeaderCell>Query code</CTableHeaderCell>
                         <CTableHeaderCell>Status</CTableHeaderCell>
                         <CTableHeaderCell>Company</CTableHeaderCell>
-                        <CTableHeaderCell>Location</CTableHeaderCell>
                         <CTableHeaderCell>Products</CTableHeaderCell>
-                        <CTableHeaderCell>Delivery</CTableHeaderCell>
-                        <CTableHeaderCell>Urgent</CTableHeaderCell>
                         <CTableHeaderCell>Date</CTableHeaderCell>
                         <CTableHeaderCell>Actions</CTableHeaderCell>
                       </CTableRow>
@@ -143,7 +170,11 @@ const QueryList = () => {
                     <CTableBody>
                       {queries?.length > 0 ? (
                         queries.map((q, index) => (
-                          <CTableRow key={q._id || q.id}>
+                          <CTableRow
+                            key={q._id || q.id}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => navigate(`/queries/${q._id || q.id}`)}
+                          >
                             <CTableDataCell>{(currentPage - 1) * pageSize + index + 1}</CTableDataCell>
                             <CTableDataCell>
                               <strong>{q.queryCode || '—'}</strong>
@@ -155,48 +186,59 @@ const QueryList = () => {
                             </CTableDataCell>
                             <CTableDataCell>
                               <strong>{q.companyInfo?.name || '-'}</strong>
-                              {q.companyInfo?.email && (
-                                <div className="text-muted small">{q.companyInfo.email}</div>
+                              {(q.companyInfo?.purchaseManagers?.length > 0
+                                ? (q.companyInfo.purchaseManagers || []).map((m) => m.name || m.phone).filter(Boolean).join(', ')
+                                : q.companyInfo?.purchase_manager_name || q.companyInfo?.purchase_manager_phone
+                              ) && (
+                                <div className="text-muted small">
+                                  {q.companyInfo?.purchaseManagers?.length > 0
+                                    ? (q.companyInfo.purchaseManagers || []).map((m) => m.name || m.phone).filter(Boolean).join(', ')
+                                    : `${q.companyInfo?.purchase_manager_name || ''}${q.companyInfo?.purchase_manager_phone ? ` • ${q.companyInfo.purchase_manager_phone}` : ''}`}
+                                </div>
                               )}
                             </CTableDataCell>
-                            <CTableDataCell>{q.companyInfo?.location || q.delivery?.location || '-'}</CTableDataCell>
                             <CTableDataCell>
                               {q.products?.length
                                 ? `${q.products.length} item(s)`
                                 : '-'}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {q.delivery?.contactPersonName
-                                ? `${q.delivery.contactPersonName}${q.delivery.contactPersonPhone ? ` • ${q.delivery.contactPersonPhone}` : ''}`
-                                : '-'}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              {q.delivery?.urgent ? (
-                                <CBadge color="danger">Urgent</CBadge>
+                              {q.createdAt ? (
+                                <>
+                                  {new Date(q.createdAt).toLocaleDateString()}
+                                  <div className="text-muted small">
+                                    {new Date(q.createdAt).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                    })}
+                                  </div>
+                                </>
                               ) : (
-                                <CBadge color="secondary">Non-urgent</CBadge>
+                                '-'
                               )}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              {q.createdAt
-                                ? new Date(q.createdAt).toLocaleDateString()
-                                : '-'}
                             </CTableDataCell>
                             <CTableDataCell>
                               <CButton
                                 color="info"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/queries/${q._id || q.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/queries/${q._id || q.id}`)
+                                }}
                                 title="View"
                               >
-                                <CIcon icon={cilZoom} />
+                                <EyeIcon />
                               </CButton>
                               <CButton
                                 color="warning"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/queries/edit/${q._id || q.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/queries/edit/${q._id || q.id}`)
+                                }}
                                 title="Edit"
                               >
                                 <CIcon icon={cilPencil} />
@@ -205,7 +247,10 @@ const QueryList = () => {
                                 color="danger"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDeleteClick(q._id || q.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(q._id || q.id)
+                                }}
                                 title="Delete"
                               >
                                 <CIcon icon={cilTrash} />
@@ -215,7 +260,7 @@ const QueryList = () => {
                         ))
                       ) : (
                     <CTableRow>
-                      <CTableDataCell colSpan={10} className="text-center">
+                      <CTableDataCell colSpan={9} className="text-center">
                         No queries found.
                       </CTableDataCell>
                     </CTableRow>

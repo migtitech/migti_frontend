@@ -156,7 +156,7 @@ const BranchManagement = () => {
               </CButton>
             </CCardHeader>
             <CCardBody>
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>#</CTableHeaderCell>
@@ -169,26 +169,36 @@ const BranchManagement = () => {
                 </CTableHead>
                 <CTableBody>
                   {branches.map((branch, index) => (
-                    <CTableRow key={branch.id}>
+                    <CTableRow
+                      key={branch.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => navigate(`/branches/${branch.id}`)}
+                    >
                       <CTableDataCell>{index + 1}</CTableDataCell>
                       <CTableDataCell>{branch.name}</CTableDataCell>
                       <CTableDataCell>{branch.email}</CTableDataCell>
                       <CTableDataCell>{branch.location}</CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CBadge
                           color="success"
                           style={{ cursor: 'pointer' }}
-                          onClick={() => handleViewUsers(branch.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewUsers(branch.id)
+                          }}
                         >
                           {getUsersByBranch(branch.id).length} Users
                         </CBadge>
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CButton
                           color="info"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleViewUsers(branch.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewUsers(branch.id)
+                          }}
                           title="Manage Users"
                         >
                           <CIcon icon={cilPeople} />
@@ -197,7 +207,10 @@ const BranchManagement = () => {
                           color="warning"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleOpenModal(branch)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenModal(branch)
+                          }}
                           title="Edit"
                         >
                           <CIcon icon={cilPencil} />
@@ -206,7 +219,10 @@ const BranchManagement = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteClick(branch.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteClick(branch.id)
+                          }}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />

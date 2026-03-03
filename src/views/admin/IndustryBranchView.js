@@ -111,6 +111,10 @@ const IndustryBranchView = () => {
                   <strong>Location:</strong>
                   <span>{branch.location || '-'}</span>
                 </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
+                  <strong>GST Number:</strong>
+                  <span>{branch.gst || '-'}</span>
+                </CListGroupItem>
                 <CListGroupItem>
                   <strong>Address:</strong>
                   <p className="mb-0 mt-2">

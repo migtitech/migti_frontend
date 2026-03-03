@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -14,40 +14,80 @@ import {
   CTableRow,
   CButton,
   CBadge,
+  CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import {
-  cilPlus,
-  cilPencil,
-  cilTrash,
-  cilZoom,
-  cilCloudDownload,
-} from '@coreui/icons'
-import { useData } from '../../context/DataContext'
+import { cilPlus, cilPencil, cilCloudDownload } from '@coreui/icons'
+import { EyeIcon } from '../../components'
+import quotationService from '../../services/quotationService'
 import Filtered from '../../filtered/Filtered'
-import { ConfirmDialog } from '../../components'
+import { Loader } from '../../components'
+import { withMinimumDelay } from '../../utils/withMinimumDelay'
+import { toastError } from '../../utils/toast'
+
+const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null)
 
 const QuotationList = () => {
   const navigate = useNavigate()
-  const { quotations, deleteQuotation } = useData()
+  const [quotations, setQuotations] = useState([])
+  const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [searchDebounced, setSearchDebounced] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [pageNumber, setPageNumber] = useState(1)
+  const [pageSize] = useState(10)
+  const [loading, setLoading] = useState(false)
 
-  const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchTerm), 400)
+    return () => clearTimeout(t)
+  }, [searchTerm])
+
+  useEffect(() => {
+    setPageNumber(1)
+  }, [searchDebounced, statusFilter])
+
+  const fetchQuotations = async () => {
+    setLoading(true)
+    try {
+      const res = await withMinimumDelay(() =>
+        quotationService.getAll({
+          pageNumber,
+          pageSize,
+          search: searchDebounced.trim() || undefined,
+          status: statusFilter || undefined,
+        }),
+      )
+      const data = res?.data || res
+      const result = data?.data ?? data
+      const list = (result?.quotations || []).map(mapQuotation)
+      setQuotations(list)
+      setPagination(result?.pagination || null)
+    } catch (err) {
+      toastError(err?.message || 'Failed to load quotations')
+      setQuotations([])
+      setPagination(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDeleteConfirm = () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (id != null) deleteQuotation(id)
-  }
+  useEffect(() => {
+    fetchQuotations()
+  }, [pageNumber, pageSize, searchDebounced])
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'draft':
         return <CBadge color="secondary">Draft</CBadge>
+      case 'partial':
+        return <CBadge color="warning">Partially Fulfilled</CBadge>
+      case 'fulfilled':
+        return <CBadge color="info">Fulfilled</CBadge>
+      case 'hod_approved':
+        return <CBadge color="success">HOD Approved</CBadge>
       case 'sent':
+      case 'sentToClient':
         return <CBadge color="info">Sent</CBadge>
       case 'accepted':
         return <CBadge color="success">Accepted</CBadge>
@@ -56,15 +96,11 @@ const QuotationList = () => {
       case 'expired':
         return <CBadge color="warning">Expired</CBadge>
       default:
-        return <CBadge color="secondary">{status}</CBadge>
+        return <CBadge color="secondary">{status || 'Draft'}</CBadge>
     }
   }
 
-  const filteredQuotations = quotations?.filter((q) =>
-    q.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    q.customerEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(q.id).includes(searchTerm)
-  )
+  const filteredQuotations = quotations
 
   return (
     <CRow>
@@ -72,24 +108,41 @@ const QuotationList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Quotations</strong>
-            <CButton color="primary" onClick={() => navigate('/quotations/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Quotation
-            </CButton>
+            <div className="d-flex gap-2">
+              <CButton color="primary" onClick={() => navigate('/quotations/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Quotation
+              </CButton>
+            </div>
           </CCardHeader>
 
-          <CCardBody>
-            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-
-            <CTable hover responsive>
+            <CCardBody>
+            <div className="d-flex flex-wrap gap-3 align-items-center mb-3">
+              <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              <div className="d-flex align-items-center gap-2">
+                <label className="form-label mb-0 small fw-semibold">Status</label>
+                <CFormSelect
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  style={{ width: 'auto', minWidth: 180 }}
+                >
+                  <option value="">All</option>
+                  <option value="draft">Draft</option>
+                  <option value="partial">Partially Fulfilled</option>
+                  <option value="fulfilled">Fulfilled</option>
+                  <option value="hod_approved">HOD Approved</option>
+                </CFormSelect>
+              </div>
+            </div>
+            {loading && <Loader />}
+            <CTable hover responsive bordered>
               <CTableHead>
                 <CTableRow>
                   <CTableHeaderCell>S No</CTableHeaderCell>
                   <CTableHeaderCell>Quotation No.</CTableHeaderCell>
-                  <CTableHeaderCell>Customer</CTableHeaderCell>
-                  <CTableHeaderCell>Items</CTableHeaderCell>
+                  <CTableHeaderCell>Company</CTableHeaderCell>
+                  <CTableHeaderCell>Products / Items</CTableHeaderCell>
                   <CTableHeaderCell>Total Amount</CTableHeaderCell>
-                  <CTableHeaderCell>Valid Until</CTableHeaderCell>
                   <CTableHeaderCell>Status</CTableHeaderCell>
                   <CTableHeaderCell>Date</CTableHeaderCell>
                   <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -98,43 +151,55 @@ const QuotationList = () => {
 
               <CTableBody>
                 {filteredQuotations && filteredQuotations.length > 0 ? (
-                  filteredQuotations.map((quotation, index) => (
-                    <CTableRow key={quotation.id}
-                    onClick={() => navigate(`/quotations/${quotation.id}`)}
-                    style={{ cursor: 'pointer' }}
+                  filteredQuotations.map((quotation, index) => {
+                    const isHodApproved = quotation.status === 'hod_approved'
+                    const rowBg = isHodApproved ? { backgroundColor: '#d4edda' } : {}
+                    return (
+                    <CTableRow
+                      key={quotation.id}
+                      onClick={() => navigate(`/quotations/${quotation.id}`)}
+                      style={{ cursor: 'pointer', ...rowBg }}
                     >
-                      <CTableDataCell>{index + 1}</CTableDataCell>
-                      <CTableDataCell>
-                        <strong>QT-{String(quotation.id).padStart(4, '0')}</strong>
+                      <CTableDataCell style={rowBg}>{index + 1}</CTableDataCell>
+                      <CTableDataCell style={rowBg}>
+                        <strong>{quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}</strong>
                       </CTableDataCell>
-                      <CTableDataCell>
-                        <strong>{quotation.customerName}</strong>
-                        <br />
-                        <small className="text-muted">{quotation.customerEmail}</small>
+                      <CTableDataCell style={rowBg}>
+                        <strong>{quotation.companyInfo?.name || quotation.customerName || '-'}</strong>
+                        {(quotation.companyInfo?.email || quotation.customerEmail) && (
+                          <>
+                            <br />
+                            <small className="text-muted">
+                              {quotation.companyInfo?.email || quotation.customerEmail}
+                            </small>
+                          </>
+                        )}
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell style={rowBg}>
                         <small>
-                          {quotation.items?.substring(0, 50)}
-                          {quotation.items?.length > 50 ? '...' : ''}
+                          {Array.isArray(quotation.products) && quotation.products.length > 0
+                            ? `${quotation.products.length} product(s)`
+                            : (quotation.items?.substring(0, 50) || '')}
+                          {quotation.items && quotation.items.length > 50 && !quotation.products?.length ? '...' : ''}
                         </small>
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell style={rowBg}>
                         ₹{quotation.totalAmount?.toLocaleString() || '0'}
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell style={rowBg}>
                         {quotation.validUntil
                           ? new Date(quotation.validUntil).toLocaleDateString()
                           : '-'}
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell style={rowBg}>
                         {getStatusBadge(quotation.status)}
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell style={rowBg}>
                         {quotation.createdAt
                           ? new Date(quotation.createdAt).toLocaleDateString()
                           : '-'}
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell style={rowBg} onClick={(e) => e.stopPropagation()}>
                         <CButton
                           color="info"
                           variant="ghost"
@@ -144,7 +209,7 @@ const QuotationList = () => {
                             e.stopPropagation()
                             navigate(`/quotations/${quotation.id}`)}}
                         >
-                          <CIcon icon={cilZoom} />
+                          <EyeIcon />
                         </CButton>
 
                         <CButton
@@ -163,29 +228,21 @@ const QuotationList = () => {
                           title="Edit"
                           onClick={(e) => {
                             e.stopPropagation()
-                            navigate(`/quotations/edit/${quotation.id}`)}}
+                            navigate(`/quotations/edit/${quotation.id}`)
+                          }}
                         >
                           <CIcon icon={cilPencil} />
                         </CButton>
-
-                        <CButton
-                          color="danger"
-                          variant="ghost"
-                          size="sm"
-                          title="Delete"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteClick(quotation.id)}}
-                        >
-                          <CIcon icon={cilTrash} />
-                        </CButton>
                       </CTableDataCell>
                     </CTableRow>
-                  ))
+                    )
+                  })
                 ) : (
                   <CTableRow>
-                    <CTableDataCell colSpan={9} className="text-center">
-                      No quotations found. Click "Add Quotation" to create one.
+                    <CTableDataCell colSpan={8} className="text-center">
+                      {!loading && (quotations?.length === 0
+                        ? 'No quotations available.'
+                        : 'No quotations match your search.')}
                     </CTableDataCell>
                   </CTableRow>
                 )}
@@ -194,16 +251,6 @@ const QuotationList = () => {
           </CCardBody>
         </CCard>
       </CCol>
-
-      <ConfirmDialog
-        visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Quotation?"
-        message="Are you sure you want to delete this quotation? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
     </CRow>
   )
 }
