@@ -115,7 +115,7 @@ const GroupList = () => {
               <Loader message="Loading groups..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
@@ -128,7 +128,11 @@ const GroupList = () => {
                   </CTableHead>
                   <CTableBody>
                     {groups.map((grp, index) => (
-                      <CTableRow key={grp._id}>
+                      <CTableRow
+                        key={grp._id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/groups/edit/${grp._id}`)}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <code>{grp.code || '—'}</code>
@@ -140,13 +144,16 @@ const GroupList = () => {
                           {grp.description?.substring(0, 50) || '—'}
                         </CTableDataCell>
                         <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           {canUpdate('groups') && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/groups/edit/${grp._id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/groups/edit/${grp._id}`)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -157,7 +164,10 @@ const GroupList = () => {
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(grp._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(grp._id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />

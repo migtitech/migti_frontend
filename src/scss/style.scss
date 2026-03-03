@@ -6,6 +6,8 @@
 
 body {
   background-color: var(--cui-tertiary-bg);
+  // Scale up base font size moderately (~1.2x)
+  font-size: 1.2rem;
 }
 
 .wrapper {
@@ -13,6 +15,47 @@ body {
   padding-inline: var(--cui-sidebar-occupy-start, 0) var(--cui-sidebar-occupy-end, 0);
   will-change: auto;
   @include transition(padding .15s);
+}
+
+// Make common controls scale with body font size
+button,
+input,
+select,
+textarea {
+  font-size: inherit;
+}
+
+.btn {
+  font-size: inherit;
+  padding: 0.6rem 1.2rem;
+}
+
+.form-control,
+.form-select {
+  font-size: inherit;
+  padding: 0.6rem 0.9rem;
+  min-height: 2.6rem;
+}
+
+.form-check-label,
+.form-check-input {
+  font-size: inherit;
+}
+
+.table {
+  font-size: inherit;
+}
+
+// Light theme: visually separate header and main content
+@include color-mode(light) {
+  .header {
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--cui-border-color);
+  }
+
+  .body {
+    background-color: #f5f6f8;
+  }
 }
 
 .header > .container-fluid,

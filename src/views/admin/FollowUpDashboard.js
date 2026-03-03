@@ -174,7 +174,7 @@ const FollowUpDashboard = () => {
   }
 
   const renderFollowUpTable = (items) => (
-    <CTable hover responsive>
+    <CTable hover responsive bordered>
       <CTableHead>
         <CTableRow>
           <CTableHeaderCell>Title</CTableHeaderCell>

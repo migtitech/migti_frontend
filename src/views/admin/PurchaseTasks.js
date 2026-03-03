@@ -206,7 +206,7 @@ const PurchaseTasks = () => {
 
   const loadEmployees = async () => {
     try {
-      const res = await employeeService.getAll({ pageNumber: 1, pageSize: 200 })
+      const res = await employeeService.getAll({ pageNumber: 1, pageSize: 100 })
       const data = res?.data || res
       const result = data?.data ?? data
       const list = result?.employees || result?.items || result || []
@@ -428,7 +428,7 @@ const PurchaseTasks = () => {
   }
 
   const renderTasksTable = (items, showAssignee = false) => (
-    <CTable hover responsive>
+    <CTable hover responsive bordered>
       <CTableHead>
           <CTableRow>
           <CTableHeaderCell>S No</CTableHeaderCell>

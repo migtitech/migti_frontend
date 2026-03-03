@@ -114,6 +114,10 @@ const IndustryView = () => {
                   </span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
+                  <strong>Category:</strong>
+                  <span>{industry.category || '-'}</span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Location:</strong>
                   <span>{industry.location || '-'}</span>
                 </CListGroupItem>
@@ -124,7 +128,7 @@ const IndustryView = () => {
                 <CListGroupItem>
                   <strong>Purchase Managers:</strong>
                   {(industry.purchaseManagers || []).length > 0 ? (
-                    <CTable hover responsive className="mt-2 mb-0">
+                    <CTable hover responsive bordered className="mt-2 mb-0">
                       <CTableHead>
                         <CTableRow>
                           <CTableHeaderCell>S No</CTableHeaderCell>
@@ -145,7 +149,7 @@ const IndustryView = () => {
                       </CTableBody>
                     </CTable>
                   ) : industry.purchase_manager_name ? (
-                    <CTable hover responsive className="mt-2 mb-0">
+                    <CTable hover responsive bordered className="mt-2 mb-0">
                       <CTableHead>
                         <CTableRow>
                           <CTableHeaderCell>S No</CTableHeaderCell>

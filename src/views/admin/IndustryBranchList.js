@@ -152,7 +152,7 @@ const IndustryBranchList = () => {
               <Loader message="Loading industry branches..." />
             ) : (
               <>
-                <CTable hover responsive>
+              <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
@@ -166,7 +166,11 @@ const IndustryBranchList = () => {
                   </CTableHead>
                   <CTableBody>
                     {branches.map((branch, index) => (
-                      <CTableRow key={branch._id}>
+                      <CTableRow
+                        key={branch._id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => navigate('/industry-branches/' + branch._id)}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           {typeof branch.industryId === 'object'
@@ -179,12 +183,15 @@ const IndustryBranchList = () => {
                         <CTableDataCell>{branch.location || '-'}</CTableDataCell>
                         <CTableDataCell>{branch.gst || '-'}</CTableDataCell>
                         <CTableDataCell>{branch.address || '-'}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate('/industry-branches/' + branch._id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate('/industry-branches/' + branch._id)
+                            }}
                             title="View"
                           >
                             <EyeIcon />
@@ -194,7 +201,10 @@ const IndustryBranchList = () => {
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate('/industry-branches/edit/' + branch._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate('/industry-branches/edit/' + branch._id)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -205,7 +215,10 @@ const IndustryBranchList = () => {
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleDeleteClick(branch._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(branch._id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />

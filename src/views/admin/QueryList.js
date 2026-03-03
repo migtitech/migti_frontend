@@ -155,7 +155,7 @@ const QueryList = () => {
                 </div>
               ) : (
                 <>
-                  <CTable hover responsive>
+                  <CTable hover responsive bordered>
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
@@ -170,7 +170,11 @@ const QueryList = () => {
                     <CTableBody>
                       {queries?.length > 0 ? (
                         queries.map((q, index) => (
-                          <CTableRow key={q._id || q.id}>
+                          <CTableRow
+                            key={q._id || q.id}
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => navigate(`/queries/${q._id || q.id}`)}
+                          >
                             <CTableDataCell>{(currentPage - 1) * pageSize + index + 1}</CTableDataCell>
                             <CTableDataCell>
                               <strong>{q.queryCode || '—'}</strong>
@@ -199,16 +203,30 @@ const QueryList = () => {
                                 : '-'}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {q.createdAt
-                                ? new Date(q.createdAt).toLocaleDateString()
-                                : '-'}
+                              {q.createdAt ? (
+                                <>
+                                  {new Date(q.createdAt).toLocaleDateString()}
+                                  <div className="text-muted small">
+                                    {new Date(q.createdAt).toLocaleTimeString([], {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                      second: '2-digit',
+                                    })}
+                                  </div>
+                                </>
+                              ) : (
+                                '-'
+                              )}
                             </CTableDataCell>
                             <CTableDataCell>
                               <CButton
                                 color="info"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/queries/${q._id || q.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/queries/${q._id || q.id}`)
+                                }}
                                 title="View"
                               >
                                 <EyeIcon />
@@ -217,7 +235,10 @@ const QueryList = () => {
                                 color="warning"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => navigate(`/queries/edit/${q._id || q.id}`)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/queries/edit/${q._id || q.id}`)
+                                }}
                                 title="Edit"
                               >
                                 <CIcon icon={cilPencil} />
@@ -226,7 +247,10 @@ const QueryList = () => {
                                 color="danger"
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleDeleteClick(q._id || q.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(q._id || q.id)
+                                }}
                                 title="Delete"
                               >
                                 <CIcon icon={cilTrash} />

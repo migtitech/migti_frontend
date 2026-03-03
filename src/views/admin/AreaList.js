@@ -190,13 +190,16 @@ const AreaList = () => {
                           <CTableDataCell>{getAreaTypeBadge(area.areaType)}</CTableDataCell>
                           <CTableDataCell>{area.companyId?.name ?? '—'}</CTableDataCell>
                           <CTableDataCell>{area.branchId?.name ?? '—'}</CTableDataCell>
-                          <CTableDataCell className="text-end">
+                          <CTableDataCell className="text-end" onClick={(e) => e.stopPropagation()}>
                             <CButton
                               color="info"
                               variant="ghost"
                               size="sm"
                               className="me-2"
-                              onClick={() => navigate(`/zones/${getId(area)}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/zones/${getId(area)}`)
+                              }}
                             >
                               <EyeIcon />
                             </CButton>

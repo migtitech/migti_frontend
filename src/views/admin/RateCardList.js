@@ -84,12 +84,12 @@ const RateCardList = () => {
 
   const [addRate, setAddRate] = useState('')
   const [addingRate, setAddingRate] = useState(false)
-  const [addIncludeGst, setAddIncludeGst] = useState(false)
-  const [addGstPercentage, setAddGstPercentage] = useState('')
   const [addProductDetail, setAddProductDetail] = useState(null)
   const [addSelectedCombination, setAddSelectedCombination] = useState(null)
   const [addCombinationSearch, setAddCombinationSearch] = useState('')
   const [loadingProductDetail, setLoadingProductDetail] = useState(false)
+  const [addNextDueDate, setAddNextDueDate] = useState('')
+  const [addNextDueDateMin, setAddNextDueDateMin] = useState('')
 
   const productDropdownRef = useRef(null)
   const supplierDropdownRef = useRef(null)
@@ -114,6 +114,24 @@ const RateCardList = () => {
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Initialize default next due date (today + 3 months) and min date (today)
+  useEffect(() => {
+    const today = new Date()
+    const toInputDate = (d) => {
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+
+    const minDate = toInputDate(today)
+    const defaultDate = new Date(today)
+    defaultDate.setMonth(defaultDate.getMonth() + 3)
+
+    setAddNextDueDateMin(minDate)
+    setAddNextDueDate(toInputDate(defaultDate))
   }, [])
 
   // --- Product search ---
@@ -236,8 +254,6 @@ const RateCardList = () => {
     setAddProductDetail(null)
     setAddSelectedCombination(null)
     setAddCombinationSearch('')
-    setAddIncludeGst(false)
-    setAddGstPercentage('')
   }
 
   const handleClearAddSupplier = () => {
@@ -265,12 +281,15 @@ const RateCardList = () => {
       toastError('Please enter a valid rate')
       return
     }
-    if (addIncludeGst && addGstPercentage !== '' && Number(addGstPercentage) < 0) {
-      toastError('GST percentage cannot be negative')
+    if (!addNextDueDate) {
+      toastError('Please select next due date')
       return
     }
-    if (addIncludeGst && addGstPercentage !== '' && Number(addGstPercentage) > 100) {
-      toastError('GST percentage cannot be more than 100')
+    const selectedDate = new Date(addNextDueDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    if (selectedDate < today) {
+      toastError('Next due date cannot be in the past')
       return
     }
     setAddingRate(true)
@@ -279,14 +298,11 @@ const RateCardList = () => {
         productId: addSelectedProduct._id,
         supplierId: addSelectedSupplier._id,
         rate: Number(addRate),
+        nextDueDate: selectedDate.toISOString(),
       }
       if (addSelectedCombination && addSelectedCombination !== 'base') {
         payload.combinationUniqueId = addSelectedCombination
       }
-       payload.includeGst = !!addIncludeGst
-       if (addGstPercentage !== '' && !isNaN(Number(addGstPercentage))) {
-         payload.gstPercentage = Number(addGstPercentage)
-       }
       await rateCardService.upsertRate(payload)
       toastSuccess('Rate added successfully')
       // Do NOT reset product and supplier - only clear rate for next entry
@@ -987,12 +1003,19 @@ const RateCardList = () => {
 
               {/* ========== TAB 3: Add Rate ========== */}
               <CTabPane visible={activeTab === 'addRate'}>
-                <CRow>
+                <CRow className="mb-3">
                   <CCol xs={12}>
-                    <h6 className="mb-3">Add a new rate for a Product + Supplier</h6>
+                    <h6 className="mb-0">Add a new rate for a Product + Supplier</h6>
+                    <div className="text-muted small">
+                      First choose the product and supplier, then set the rate and next due date.
+                    </div>
+                  </CCol>
+                </CRow>
 
-                    {/* Select Product */}
-                    <div className="mb-3">
+                {/* Top two-column layout: Product (left) and Supplier (right) */}
+                <CRow className="mb-4">
+                  <CCol xs={12} md={6} className="mb-3 mb-md-0">
+                    <div className="border rounded p-3 h-100">
                       <label className="form-label fw-semibold">Product *</label>
                       <div ref={addProductDropdownRef} style={{ position: 'relative' }}>
                         <CInputGroup>
@@ -1015,6 +1038,9 @@ const RateCardList = () => {
                             </CInputGroupText>
                           )}
                         </CInputGroup>
+                        <div className="text-muted small mt-1">
+                          Start typing to search products by name or SKU, then choose from the dropdown.
+                        </div>
 
                         {showAddProductDropdown && addProductResults.length > 0 && (
                           <CListGroup
@@ -1075,6 +1101,7 @@ const RateCardList = () => {
                             </CListGroup>
                           )}
                       </div>
+
                       {addSelectedProduct && (
                         <div className="mt-2 p-2 bg-light rounded d-flex align-items-center justify-content-between gap-2">
                           <div className="d-flex align-items-center gap-2">
@@ -1097,12 +1124,14 @@ const RateCardList = () => {
                           </CButton>
                         </div>
                       )}
+
                       {loadingProductDetail && (
                         <div className="mt-2">
                           <CSpinner size="sm" className="me-2" />
                           Loading combinations...
                         </div>
                       )}
+
                       {addProductDetail && !loadingProductDetail && (
                         <div className="mt-3 w-100">
                           <div className="d-flex align-items-center gap-3 mb-2 flex-wrap">
@@ -1189,9 +1218,10 @@ const RateCardList = () => {
                         </div>
                       )}
                     </div>
+                  </CCol>
 
-                    {/* Select Supplier */}
-                    <div className="mb-3">
+                  <CCol xs={12} md={6}>
+                    <div className="border rounded p-3 h-100">
                       <label className="form-label fw-semibold">Supplier *</label>
                       <div ref={addSupplierDropdownRef} style={{ position: 'relative' }}>
                         <CInputGroup>
@@ -1214,6 +1244,9 @@ const RateCardList = () => {
                             </CInputGroupText>
                           )}
                         </CInputGroup>
+                        <div className="text-muted small mt-1">
+                          Search by supplier name, shop or phone, then pick one from the suggestions.
+                        </div>
 
                         {showAddSupplierDropdown && addSupplierResults.length > 0 && (
                           <CListGroup
@@ -1283,6 +1316,7 @@ const RateCardList = () => {
                             </CListGroup>
                           )}
                       </div>
+
                       {addSelectedSupplier && (
                         <div className="mt-2 p-2 bg-light rounded d-flex align-items-center justify-content-between gap-2">
                           <div className="d-flex align-items-center gap-2">
@@ -1292,7 +1326,7 @@ const RateCardList = () => {
                                 {addSelectedSupplier.shop_location} -{' '}
                               </span>
                             )}
-                            <strong>{addSelectedSupplier.name}</strong>
+                          <strong>{addSelectedSupplier.name}</strong>
                             {addSelectedSupplier.shopname && (
                               <span className="text-muted small">
                                 ({addSelectedSupplier.shopname})
@@ -1311,50 +1345,75 @@ const RateCardList = () => {
                         </div>
                       )}
                     </div>
+                  </CCol>
+                </CRow>
 
-                    {/* Rate Input */}
-                    <div className="mb-4">
-                      <label className="form-label fw-semibold">Rate (INR) *</label>
-                      <CFormInput
-                        type="number"
-                        min={0}
-                        placeholder="Enter rate e.g. 25000"
-                        value={addRate}
-                        onChange={(e) => setAddRate(e.target.value)}
-                      />
-                      <div className="d-flex align-items-end gap-3 mt-2 flex-wrap">
-                        <label
-                          htmlFor="add-include-gst"
-                          className="form-check d-flex align-items-center gap-2 mb-0"
-                          style={{ cursor: 'pointer' }}
-                        >
-                          <CFormCheck
-                            id="add-include-gst"
-                            checked={addIncludeGst}
-                            onChange={(e) => setAddIncludeGst(e.target.checked)}
-                            className="form-check-input"
-                          />
-                          <span className="form-check-label">Include GST</span>
-                        </label>
-                        <div style={{ maxWidth: 180, minWidth: 140 }}>
-                          <CFormInput
-                            type="number"
-                            min={0}
-                            max={100}
-                            size="sm"
-                            placeholder="Included GST % (e.g. 12)"
-                            value={addGstPercentage}
-                            onChange={(e) => setAddGstPercentage(e.target.value)}
-                          />
+                {/* Bottom box: Rate and Next Due Date in two columns */}
+                <CRow className="mb-4">
+                  <CCol xs={12}>
+                    <div className="border rounded p-3">
+                      <CRow>
+                        <CCol xs={12} md={6}>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold">Rate (INR) *</label>
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              placeholder="Enter rate e.g. 25000"
+                              value={addRate}
+                              onChange={(e) => setAddRate(e.target.value)}
+                            />
+                            <div className="text-muted small mt-1">
+                              Enter the agreed base rate in Indian Rupees for this product and supplier.
+                            </div>
+                          </div>
+                        </CCol>
+                        <CCol xs={12} md={6}>
+                          <div className="mb-3">
+                            <label className="form-label fw-semibold">Next Due Date *</label>
+                            <CFormInput
+                              type="date"
+                              value={addNextDueDate}
+                              onChange={(e) => setAddNextDueDate(e.target.value)}
+                              min={addNextDueDateMin}
+                            />
+                            <div className="text-muted small mt-1">
+                              Default is 3 months from today. You can move it forward, but past dates are disabled.
+                            </div>
+                          </div>
+                        </CCol>
+                      </CRow>
+
+                      {addSelectedProduct && addSelectedSupplier && addRate && addNextDueDate && (
+                        <div className="mt-2 p-2 bg-light rounded">
+                          <div className="fw-semibold mb-1">Summary</div>
+                          <div className="text-muted small">
+                            You will add a rate of{' '}
+                            <span className="fw-bold">
+                              ₹{Number(addRate).toLocaleString('en-IN')}
+                            </span>{' '}
+                            for <span className="fw-bold">{addSelectedProduct.name}</span> from{' '}
+                            <span className="fw-bold">{addSelectedSupplier.name}</span>, with next due
+                            date <span className="fw-bold">{addNextDueDate}</span>.
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
+                  </CCol>
+                </CRow>
 
-                    {/* Submit Button */}
+                <CRow>
+                  <CCol xs={12}>
                     <CButton
                       color="primary"
                       onClick={handleAddRate}
-                      disabled={addingRate || !addSelectedProduct || !addSelectedSupplier || !addRate}
+                      disabled={
+                        addingRate ||
+                        !addSelectedProduct ||
+                        !addSelectedSupplier ||
+                        !addRate ||
+                        !addNextDueDate
+                      }
                     >
                       {addingRate ? (
                         <>

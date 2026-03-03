@@ -20,30 +20,60 @@ import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
+const GROUP_FORM_DRAFT_KEY = 'group_form_draft'
+
 const GroupForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
 
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    description: '',
-    status: 'active',
+  const [formData, setFormData] = useState(() => {
+    // For "new" group, try to restore draft from localStorage
+    if (typeof window !== 'undefined' && !id) {
+      try {
+        const stored = window.localStorage.getItem(GROUP_FORM_DRAFT_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          return {
+            name: parsed.name || '',
+            code: parsed.code || '',
+            description: parsed.description || '',
+            status: parsed.status || 'active',
+          }
+        }
+      } catch (e) {
+        // ignore parse errors and fall back to defaults
+      }
+    }
+
+    return {
+      name: '',
+      code: '',
+      description: '',
+      status: 'active',
+    }
   })
 
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  // Load data for edit mode
   useEffect(() => {
     if (!isEdit) {
-      setFormData({
+      const baseData = {
         name: '',
         code: '',
         description: '',
         status: 'active',
-      })
+      }
+
+      // Clear any saved draft when starting a fresh "new" form
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(GROUP_FORM_DRAFT_KEY)
+      }
+
+      setFormData(baseData)
       return
     }
 
@@ -71,10 +101,31 @@ const GroupForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({
+    setFormData((prev) => {
+      const updated = {
       ...prev,
       [name]: name === 'sortOrder' ? (value === '' ? 0 : parseInt(value, 10)) : value,
-    }))
+      }
+
+      // Persist draft only for "new" group (no id)
+      if (typeof window !== 'undefined' && !id) {
+        try {
+          window.localStorage.setItem(
+            GROUP_FORM_DRAFT_KEY,
+            JSON.stringify({
+              name: updated.name || '',
+              code: updated.code || '',
+              description: updated.description || '',
+              status: updated.status || 'active',
+            }),
+          )
+        } catch (e) {
+          // ignore storage errors
+        }
+      }
+
+      return updated
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -91,6 +142,10 @@ const GroupForm = () => {
       } else {
         await groupService.create(payload)
         toastSuccess('Group created successfully')
+      }
+      // On successful save, clear any draft and navigate
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem(GROUP_FORM_DRAFT_KEY)
       }
       navigate('/groups')
     } catch (err) {
@@ -114,8 +169,29 @@ const GroupForm = () => {
     <CRow>
       <CCol xs={12}>
         <CCard>
-          <CCardHeader>
+          <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>{title}</strong>
+            {!isEdit && (
+              <CButton
+                color="secondary"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setFormData({
+                    name: '',
+                    code: '',
+                    description: '',
+                    status: 'active',
+                  })
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.removeItem(GROUP_FORM_DRAFT_KEY)
+                  }
+                  toastSuccess('Saved group form data cleared')
+                }}
+              >
+                Clear saved data
+              </CButton>
+            )}
           </CCardHeader>
 
           <CCardBody>

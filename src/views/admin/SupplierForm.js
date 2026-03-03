@@ -78,6 +78,8 @@ const defaultValues = {
   remark: '',
 }
 
+const SUPPLIER_FORM_DRAFT_KEY = 'supplier_form_draft'
+
 const SupplierForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -90,6 +92,7 @@ const SupplierForm = () => {
   const [categorySearch, setCategorySearch] = useState('')
   const [catalogUploading, setCatalogUploading] = useState(false)
   const [catalogPreview, setCatalogPreview] = useState(null)
+  const [newCatalogFile, setNewCatalogFile] = useState(null)
   const catalogInputRef = useRef(null)
 
   const {
@@ -112,9 +115,33 @@ const SupplierForm = () => {
     if (isEdit) {
       fetchSupplier()
     } else {
-      reset(defaultValues)
+      // Load draft for new supplier form, if present
+      try {
+        const raw = localStorage.getItem(SUPPLIER_FORM_DRAFT_KEY)
+        if (raw) {
+          const stored = JSON.parse(raw)
+          reset({ ...defaultValues, ...stored })
+        } else {
+          reset(defaultValues)
+        }
+      } catch {
+        reset(defaultValues)
+      }
     }
-  }, [id])
+  }, [id, isEdit, reset])
+
+  // Autosave draft for new supplier
+  useEffect(() => {
+    if (isEdit) return
+    const subscription = watch((values) => {
+      try {
+        localStorage.setItem(SUPPLIER_FORM_DRAFT_KEY, JSON.stringify(values))
+      } catch {
+        // ignore storage errors
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, isEdit])
 
   const fetchCategories = async () => {
     try {
@@ -215,6 +242,16 @@ const SupplierForm = () => {
     setValue('categories', next, { shouldValidate: true })
   }
 
+  const handleClearDraft = () => {
+    try {
+      localStorage.removeItem(SUPPLIER_FORM_DRAFT_KEY)
+    } catch {
+      // ignore
+    }
+    reset(defaultValues)
+    toastSuccess('Saved supplier form data cleared')
+  }
+
   const onSubmit = async (values) => {
     setSubmitting(true)
     setError('')
@@ -236,8 +273,28 @@ const SupplierForm = () => {
           ...values,
           categories: values.categories || [],
         }
-        await supplierService.create(payload)
+        const res = await supplierService.create(payload)
+        const created = res?.data?.data || res?.data || res
+        const supplierId = created?._id || created?.id
+
+        if (newCatalogFile && supplierId) {
+          try {
+            setCatalogUploading(true)
+            await supplierService.uploadCatalog(supplierId, newCatalogFile)
+            toastSuccess('Catalog uploaded successfully')
+          } catch (err) {
+            toastError(err?.response?.data?.message || err?.message || 'Catalog upload failed')
+          } finally {
+            setCatalogUploading(false)
+          }
+        }
+
         toastSuccess('Supplier created successfully')
+      }
+      if (!isEdit) {
+        try {
+          localStorage.removeItem(SUPPLIER_FORM_DRAFT_KEY)
+        } catch {}
       }
       navigate('/suppliers')
     } catch (err) {
@@ -273,12 +330,19 @@ const SupplierForm = () => {
       )}
 
       <CCard className="mb-4">
-        <CCardHeader>
-          <strong>{isEdit ? 'Edit Supplier' : 'Add Supplier'}</strong>
-          {isEdit && (
-            <small className="text-muted d-block mt-1">
-              Only address, shipping/billing address, mobile numbers, categories and remark can be updated.
-            </small>
+        <CCardHeader className="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>{isEdit ? 'Edit Supplier' : 'Add Supplier'}</strong>
+            {isEdit && (
+              <small className="text-muted d-block mt-1">
+                Only address, shipping/billing address, mobile numbers, categories and remark can be updated.
+              </small>
+            )}
+          </div>
+          {!isEdit && (
+            <CButton color="secondary" size="sm" variant="outline" onClick={handleClearDraft}>
+              Clear saved data
+            </CButton>
           )}
         </CCardHeader>
         <CCardBody>
@@ -480,40 +544,57 @@ const SupplierForm = () => {
             </CCol>
           </CRow>
 
-          {isEdit && (
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel>Catalog (PDF, Excel, or Images)</CFormLabel>
-                  <div className="d-flex align-items-center gap-3 flex-wrap">
-                    <input
-                      ref={catalogInputRef}
-                      type="file"
-                      accept=".pdf,.xlsx,.xls,image/*"
-                      onChange={handleCatalogUpload}
-                      disabled={catalogUploading}
-                      className="form-control"
-                      style={{ maxWidth: 280 }}
-                    />
-                    {catalogUploading && <CSpinner size="sm" />}
-                    {catalogPreview?.url && (
-                      <div className="text-muted small">
-                        <a href={catalogPreview.url} target="_blank" rel="noopener noreferrer">
-                          {catalogPreview.fileName || 'View catalog'}
-                        </a>
-                        {catalogPreview.uploadedAt && (
-                          <span className="ms-2">
-                            uploaded {new Date(catalogPreview.uploadedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <small className="text-muted">Stored in S3. Supports PDF, Excel, or images.</small>
+          <CRow>
+            <CCol md={12}>
+              <div className="mb-3">
+                <CFormLabel>Catalog (PDF, Excel, or Images)</CFormLabel>
+                <div className="d-flex align-items-center gap-3 flex-wrap">
+                  <input
+                    ref={catalogInputRef}
+                    type="file"
+                    accept=".pdf,.xlsx,.xls,image/*"
+                    onChange={
+                      isEdit
+                        ? handleCatalogUpload
+                        : (e) => {
+                            const file = e?.target?.files?.[0] || null
+                            setNewCatalogFile(file)
+                          }
+                    }
+                    disabled={catalogUploading || submitting}
+                    className="form-control"
+                    style={{ maxWidth: 280 }}
+                  />
+                  {catalogUploading && <CSpinner size="sm" />}
+                  {isEdit && catalogPreview?.url && (
+                    <div className="text-muted small">
+                      <a href={catalogPreview.url} target="_blank" rel="noopener noreferrer">
+                        {catalogPreview.fileName || 'View catalog'}
+                      </a>
+                      {catalogPreview.uploadedAt && (
+                        <span className="ms-2">
+                          uploaded{' '}
+                          {new Date(catalogPreview.uploadedAt).toLocaleString(undefined, {
+                            dateStyle: 'short',
+                            timeStyle: 'short',
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {!isEdit && newCatalogFile && (
+                    <div className="text-muted small">
+                      Selected file: <strong>{newCatalogFile.name}</strong>
+                    </div>
+                  )}
                 </div>
-              </CCol>
-            </CRow>
-          )}
+                <small className="text-muted">
+                  Stored in S3. Supports PDF, Excel, or images. For new suppliers, the catalog is
+                  uploaded after the supplier is created.
+                </small>
+              </div>
+            </CCol>
+          </CRow>
         </CCardBody>
       </CCard>
 

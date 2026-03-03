@@ -113,8 +113,15 @@ export const PRODUCTS = {
   UPLOAD_IMAGES: '/products/upload-images',
 }
 
+export const QUERY_NEW_PRODUCTS = {
+  CREATE: '/query-new-products/create',
+  LIST: '/query-new-products/list',
+  GET_BY_ID: '/query-new-products/get-by-id',
+}
+
 export const DOCUMENTS = {
   UPLOAD: '/documents/upload',
+  SERVE: (id) => `/documents/serve/${id}`,
 }
 
 export const SUPPLIERS = {
@@ -169,6 +176,7 @@ export const QUERIES = {
   CONVERT_TO_QUOTATION: '/queries/convert-to-quotation',
   ACTIVITIES: '/queries/activities',
   RECORD_ACTIVITY: '/queries/record-activity',
+  EXPORT_PDF: '/queries/export-pdf',
 }
 
 export const QUOTATIONS = {
@@ -176,6 +184,7 @@ export const QUOTATIONS = {
   GET_BY_ID: '/quotations/get-by-id',
   UPDATE: '/quotations/update',
   UPDATE_STATUS: '/quotations/update-status',
+  EXPORT_PDF: '/quotations/export-pdf',
 }
 
 export const PURCHASE_TASKS = {
@@ -206,6 +215,7 @@ export default {
   GROUPS,
   BRANDS,
   PRODUCTS,
+  QUERY_NEW_PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
   AREAS,

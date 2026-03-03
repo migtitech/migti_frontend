@@ -23,14 +23,14 @@ import {
   CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilArrowRight, cilPencil, cilTrash, cilCheckAlt, cilX } from '@coreui/icons'
+import { cilArrowLeft, cilArrowRight, cilPencil, cilTrash, cilCheckAlt, cilX, cilCloudDownload } from '@coreui/icons'
 import { getAssetsUrl } from '../../api/endpoints'
 import queryService from '../../services/queryService'
 import employeeService from '../../services/employeeService'
 import userService from '../../services/userService'
 import { useAuth } from '../../context/AuthContext'
 import usePermissions from '../../hooks/usePermissions'
-import { Loader, ConfirmDialog, TrackingTimeline } from '../../components'
+import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
@@ -74,7 +74,6 @@ const QueryView = () => {
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ visible: false })
   const [confirmConvert, setConfirmConvert] = useState({ visible: false })
-  const [converting, setConverting] = useState(false)
   const [activities, setActivities] = useState([])
   const [activitiesPagination, setActivitiesPagination] = useState(null)
   const [activitiesPage, setActivitiesPage] = useState(1)
@@ -83,6 +82,7 @@ const QueryView = () => {
   const [userCache, setUserCache] = useState({})
   const [expandedImages, setExpandedImages] = useState([]) // array of image URLs for slider
   const [expandedImageIndex, setExpandedImageIndex] = useState(0)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   const getImageUrl = (img) => {
     if (!img) return ''
@@ -185,26 +185,63 @@ const QueryView = () => {
     setConfirmConvert({ visible: true })
   }
 
-  const handleConvertConfirm = async () => {
+  const handleConvertConfirm = () => {
     if (!query?.queryCode) {
       toastError('Query code is missing, cannot convert to quotation.')
       setConfirmConvert({ visible: false })
       return
     }
     setConfirmConvert({ visible: false })
-    setConverting(true)
+    navigate(`/quotations/generate/${id}`, {
+      state: { query },
+    })
+  }
+
+  const formatVariants = (variants) => {
+    if (!variants?.length) return '—'
+    return variants.map((v) => v.variantName || '—').filter(Boolean).join(', ') || '—'
+  }
+
+  const handleExportPDF = async () => {
+    if (!id) return
+    setExportingPdf(true)
     try {
-      await withMinimumDelay(() => queryService.convertToQuotation(query.queryCode))
-      toastSuccess('Query converted to quotation draft')
-      navigate('/quotations/new', {
-        state: {
-          fromQuery: query,
-        },
-      })
+      const response = await queryService.exportPdf(id)
+      const blob = response?.data
+      if (!blob || !(blob instanceof Blob)) {
+        toastError('Invalid PDF response')
+        return
+      }
+      const contentType = response?.headers?.['content-type'] || blob.type || ''
+      if (blob.size < 100 || contentType.includes('json')) {
+        const text = await blob.text()
+        const err = text
+          ? (() => {
+              try {
+                const j = JSON.parse(text)
+                return j?.message || j?.error?.detail || text
+              } catch {
+                return text
+              }
+            })()
+          : 'Invalid PDF response'
+        toastError(err)
+        return
+      }
+      const pdfBlob = new Blob([blob], { type: 'application/pdf' })
+      const url = URL.createObjectURL(pdfBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `query-${query?.queryCode || id}-${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toastSuccess('PDF exported successfully')
     } catch (err) {
-      toastError(err?.message || 'Failed to convert query to quotation')
+      toastError(err?.message || 'Failed to export PDF')
     } finally {
-      setConverting(false)
+      setExportingPdf(false)
     }
   }
 
@@ -276,53 +313,53 @@ const QueryView = () => {
     }
   }
 
-  const formatVariants = (variants) => {
-    if (!variants?.length) return '—'
-    return variants.map((v) => v.variantName || '—').filter(Boolean).join(', ') || '—'
-  }
-
   return (
     <>
       <CRow className="mb-3">
-        <CCol className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-3 flex-wrap">
-            <CButton color="light" onClick={() => navigate('/queries')}>
-              <CIcon icon={cilArrowLeft} className="me-1" />
-              Back to Queries
+        <CCol xs={12} className="d-flex align-items-center flex-wrap gap-2">
+          <CButton color="light" onClick={() => navigate('/queries')}>
+            <CIcon icon={cilArrowLeft} className="me-1" />
+            Back to Queries
+          </CButton>
+          {query.queryCode && (
+            <CBadge
+              color="info"
+              className="fs-6 px-3 py-2 d-inline-flex align-items-center"
+            >
+              {query.queryCode}
+            </CBadge>
+          )}
+          {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
+            <CButton
+              color="success"
+              disabled={!query?.queryCode}
+              onClick={handleConvertClick}
+            >
+              <CIcon icon={cilCheckAlt} className="me-1" />
+              Convert to Quotation
             </CButton>
-            {query.queryCode && (
-              <CBadge color="info" className="fs-6 px-3 py-2">{query.queryCode}</CBadge>
-            )}
-          </div>
-          <div className="d-flex gap-2">
-            {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
-              <CButton
-                color="success"
-                disabled={converting || !query?.queryCode}
-                onClick={handleConvertClick}
-              >
-                <CIcon icon={cilCheckAlt} className="me-1" />
-                Convert to Quotation
-              </CButton>
-            )}
-            {canUpdate('queries') && (
-              <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
-                <CIcon icon={cilPencil} className="me-1" />
-                Edit
-              </CButton>
-            )}
-            {canDelete('queries') && (
-              <CButton color="danger" onClick={handleDeleteClick}>
-                <CIcon icon={cilTrash} className="me-1" />
-                Delete
-              </CButton>
-            )}
-          </div>
+          )}
+          {canUpdate('queries') && (
+            <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
+              <CIcon icon={cilPencil} className="me-1" />
+              Edit
+            </CButton>
+          )}
+          {canDelete('queries') && (
+            <CButton color="danger" onClick={handleDeleteClick}>
+              <CIcon icon={cilTrash} className="me-1" />
+              Delete
+            </CButton>
+          )}
+          <CButton color="info" onClick={handleExportPDF} disabled={exportingPdf}>
+            <CIcon icon={cilCloudDownload} className="me-1" />
+            {exportingPdf ? 'Exporting...' : 'Export PDF'}
+          </CButton>
         </CCol>
       </CRow>
 
       <CRow>
-        <CCol lg={8}>
+        <CCol xs={12}>
           {/* 1. Company Information */}
           <CCard className="mb-4">
             <CCardHeader><strong>1. Company Information</strong></CCardHeader>
@@ -341,7 +378,7 @@ const QueryView = () => {
             <CCardHeader><strong>2. Products</strong> {prods.length > 0 && <span className="text-muted fw-normal">({prods.length} item{prods.length !== 1 ? 's' : ''})</span>}</CCardHeader>
             <CCardBody>
               {prods.length > 0 ? (
-                <CTable responsive hover>
+                <CTable responsive hover bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell style={{ width: 60 }}>#</CTableHeaderCell>
@@ -359,59 +396,73 @@ const QueryView = () => {
                   <CTableBody>
                     {prods.map((p, index) => {
                       const productRef = typeof p.product_id === 'object' ? p.product_id : null
-                      const images = productRef?.images || []
+                      const snapshotImages = Array.isArray(p.images) ? p.images : []
+                      const productRefImages = Array.isArray(productRef?.images) ? productRef.images : []
+                      const allImages = (snapshotImages.length ? snapshotImages : productRefImages) || []
+                      const imageUrls = allImages
+                        .map((img) => getImageUrl(img))
+                        .filter((src) => !!src)
+
                       return (
-                      <CTableRow key={p._id || index}>
-                        <CTableDataCell>{index + 1}</CTableDataCell>
-                        <CTableDataCell>{p.productName || '—'}</CTableDataCell>
-                        <CTableDataCell className="small">
-                          {productRef?.shortDescription || p.description || '—'}
-                        </CTableDataCell>
-                        <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
-                        <CTableDataCell>{p.unit || '—'}</CTableDataCell>
-                        <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
-                        <CTableDataCell className="small">{productRef?.hsnNumber || p.hsnNumber || '—'}</CTableDataCell>
-                        <CTableDataCell className="small">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '—')}</CTableDataCell>
-                        <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
-                        <CTableDataCell>
-                          {images.length > 0 ? (
-                            <div className="d-flex flex-wrap gap-1">
-                              {images.slice(0, 2).map((img, i) => {
-                                const src = getImageUrl(img)
-                                return (
+                        <CTableRow key={p._id || index}>
+                          <CTableDataCell>{index + 1}</CTableDataCell>
+                          <CTableDataCell>{p.productName || '—'}</CTableDataCell>
+                          <CTableDataCell className="small">
+                            {productRef?.shortDescription || p.description || '—'}
+                          </CTableDataCell>
+                          <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
+                          <CTableDataCell>{p.unit || '—'}</CTableDataCell>
+                          <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
+                          <CTableDataCell className="small">{productRef?.hsnNumber || p.hsnNumber || '—'}</CTableDataCell>
+                          <CTableDataCell className="small">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '—')}</CTableDataCell>
+                          <CTableDataCell className="small">{p.remark || '—'}</CTableDataCell>
+                          <CTableDataCell>
+                            {imageUrls.length > 0 ? (
+                              <div
+                                role="button"
+                                tabIndex={0}
+                                className="d-inline-flex align-items-center gap-1 flex-wrap"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => {
+                                  setExpandedImages(imageUrls)
+                                  setExpandedImageIndex(0)
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    setExpandedImages(imageUrls)
+                                    setExpandedImageIndex(0)
+                                  }
+                                }}
+                              >
+                                {imageUrls.slice(0, 2).map((src, i) => (
                                   <div
-                                    key={img?._id || i}
-                                    role="button"
-                                    tabIndex={0}
-                                    onClick={() => {
-                                      const urls = images.map((im) => getImageUrl(im))
-                                      setExpandedImages(urls)
-                                      setExpandedImageIndex(i)
-                                    }}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        const urls = images.map((im) => getImageUrl(im))
-                                        setExpandedImages(urls)
-                                        setExpandedImageIndex(i)
-                                      }
-                                    }}
-                                    className="rounded border overflow-hidden"
-                                    style={{ width: 48, height: 48, cursor: 'pointer' }}
+                                    key={src || i}
+                                    className="rounded border overflow-hidden flex-shrink-0"
+                                    style={{ width: 48, height: 48 }}
                                   >
-                                    <CImage src={src} width={48} height={48} className="object-fit-cover w-100 h-100" />
+                                    <CImage
+                                      src={src}
+                                      width={48}
+                                      height={48}
+                                      className="object-fit-cover w-100 h-100"
+                                    />
                                   </div>
-                                )
-                              })}
-                              {images.length > 2 && (
-                                <span className="small text-muted align-self-center">+{images.length - 2}</span>
-                              )}
-                            </div>
-                          ) : (
-                            <span className="text-muted small">—</span>
-                          )}
-                        </CTableDataCell>
-                      </CTableRow>
-                    )
+                                ))}
+                                {imageUrls.length > 2 && (
+                                  <div
+                                    className="d-flex align-items-center justify-content-center rounded border bg-light flex-shrink-0 text-primary small fw-bold"
+                                    style={{ width: 40, height: 40, fontSize: '0.75rem' }}
+                                  >
+                                    +{imageUrls.length - 2}
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted small">—</span>
+                            )}
+                          </CTableDataCell>
+                        </CTableRow>
+                      )
                     })}
                   </CTableBody>
                 </CTable>
@@ -420,19 +471,6 @@ const QueryView = () => {
               )}
             </CCardBody>
           </CCard>
-        </CCol>
-
-        {/* Query Tracking sidebar */}
-        <CCol lg={4}>
-          <TrackingTimeline
-            query={query}
-            activities={activities}
-            pagination={activitiesPagination}
-            loading={activitiesLoading}
-            onLoadPage={loadActivitiesPage}
-            creator={creator}
-            getPerformerInfo={getPerformerInfo}
-          />
         </CCol>
       </CRow>
 
@@ -454,8 +492,6 @@ const QueryView = () => {
         confirmText="Yes, convert"
         cancelText="Cancel"
       />
-      <ConfirmDialog visible={confirmDelete.visible} onClose={() => setConfirmDelete({ visible: false })} onConfirm={handleDeleteConfirm} title="Delete Query?" message="Are you sure you want to delete this query? This action cannot be undone." confirmText="Delete" cancelText="Cancel" />
-
       {/* Image slider modal */}
       <CModal alignment="center" visible={expandedImages.length > 0} onClose={() => setExpandedImages([])} className="p-0">
         <CModalHeader className="border-0 pb-0 d-flex justify-content-between align-items-center">

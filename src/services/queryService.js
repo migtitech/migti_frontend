@@ -24,6 +24,7 @@ const mapToApiPayload = (data) => ({
     })),
     remark: p.remark || '',
     product_id: p.product_id || null,
+    images: Array.isArray(p.images) ? p.images : [],
   })),
   created_by: data.created_by != null ? String(data.created_by) : undefined,
 })
@@ -85,14 +86,22 @@ const queryService = {
     return response
   },
 
-  convertToQuotation: async (queryCode) => {
+  convertToQuotation: async (queryCode, body = {}) => {
     const response = await api.post(
       QUERIES.CONVERT_TO_QUOTATION,
-      {},
+      body,
       {
         params: { queryCode },
       },
     )
+    return response
+  },
+
+  exportPdf: async (queryId) => {
+    const response = await api.get(QUERIES.EXPORT_PDF, {
+      params: { queryId },
+      responseType: 'blob',
+    })
     return response
   },
 }

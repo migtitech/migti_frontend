@@ -1,6 +1,4 @@
-    node_modules
-build
-dist
+node_modules
 npm-debug.log
 .env
 .env.*
@@ -8,5 +6,5 @@ npm-debug.log
 .git
 .gitignore
 *.md
+build
 .DS_Store
-*.log

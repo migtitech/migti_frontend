@@ -25,6 +25,27 @@ const ACTION_LABELS = {
   delete: 'Delete',
 }
 
+const ALLOWED_MODULE_LABELS = new Set([
+  'MigtiCRM',
+  'Dashboard',
+  'Companies',
+  'Branches',
+  'Zones',
+  'Industries',
+  'Industry Branches',
+  'Product Management',
+  'Groups',
+  'Categories',
+  'Brands',
+  'Products',
+  'Product Lead',
+  'Queries',
+  'Quotations',
+  'Suppliers',
+  'Rate Card',
+  'Employees',
+])
+
 const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }) => {
   const [modules, setModules] = useState([])
   const [loading, setLoading] = useState(true)
@@ -35,7 +56,9 @@ const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }
         const response = await api.get(ADMIN.PERMISSIONS_MODULES)
         // Support both response.data.modules and response.modules
         const mods = response?.data?.modules ?? response?.modules ?? []
-        setModules(Array.isArray(mods) ? mods : [])
+        const normalized = Array.isArray(mods) ? mods : []
+        const filtered = normalized.filter((mod) => mod?.label && ALLOWED_MODULE_LABELS.has(mod.label))
+        setModules(filtered)
       } catch {
         setModules([])
       } finally {

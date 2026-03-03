@@ -6,10 +6,8 @@ import {
   cilLocationPin,
   cilCart,
   cilCommentSquare,
-  cilCode,
   cilDescription,
   cilFile,
-  cilDollar,
   cilPeople,
   cilFactory,
   cilIndustry,
@@ -19,8 +17,8 @@ import {
   cilTags,
   cilList,
   cilMap,
-  cilSearch,
   cilHome,
+  cilStar,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -109,6 +107,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'Product Lead',
+    to: '/product-lead',
+    icon: <CIcon icon={cilStar} customClassName="nav-icon" />,
+    module: 'products',
+  },
+  {
+    component: CNavItem,
     name: 'Queries',
     to: '/queries',
     icon: <CIcon icon={cilCommentSquare} customClassName="nav-icon" />,
@@ -116,38 +121,10 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Raw Query',
-    to: '/raw-query',
-    icon: <CIcon icon={cilCode} customClassName="nav-icon" />,
-    module: 'raw_queries',
-  },
-  {
-    component: CNavItem,
-    name: 'Tracking',
-    to: '/tracking',
-    icon: <CIcon icon={cilSearch} customClassName="nav-icon" />,
-    module: 'tracking',
-  },
-  {
-    component: CNavItem,
     name: 'Quotations',
     to: '/quotations',
     icon: <CIcon icon={cilDescription} customClassName="nav-icon" />,
     module: 'quotations',
-  },
-  {
-    component: CNavItem,
-    name: 'Purchase Orders',
-    to: '/purchase-orders',
-    icon: <CIcon icon={cilFile} customClassName="nav-icon" />,
-    module: 'purchase_orders',
-  },
-  {
-    component: CNavItem,
-    name: 'Finance',
-    to: '/finance',
-    icon: <CIcon icon={cilDollar} customClassName="nav-icon" />,
-    module: 'finance',
   },
   {
     component: CNavItem,
@@ -162,27 +139,6 @@ const _nav = [
     to: '/rate-cards',
     icon: <CIcon icon={cilList} customClassName="nav-icon" />,
     module: 'rate_cards',
-  },
-  {
-    component: CNavItem,
-    name: 'Rate Bucket',
-    to: '/purchase-tasks?view=rate',
-    icon: <CIcon icon={cilList} customClassName="nav-icon" />,
-    module: 'purchase_tasks',
-  },
-  {
-    component: CNavItem,
-    name: 'Purchase Task',
-    to: '/purchase-tasks?view=purchase',
-    icon: <CIcon icon={cilList} customClassName="nav-icon" />,
-    module: 'purchase_tasks',
-  },
-  {
-    component: CNavItem,
-    name: 'Follow-up Dashboard',
-    to: '/follow-up',
-    icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
-    module: 'follow_up',
   },
   {
     component: CNavItem,

@@ -247,7 +247,7 @@ const SupplierList = () => {
               <Loader message="Loading suppliers..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>SNo</CTableHeaderCell>
@@ -283,7 +283,10 @@ const SupplierList = () => {
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/suppliers/${supplier._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/suppliers/${supplier._id}`)
+                            }}
                             title="View"
                           >
                             <EyeIcon />

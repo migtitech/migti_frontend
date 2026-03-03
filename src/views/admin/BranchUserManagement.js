@@ -182,7 +182,7 @@ const BranchUserManagement = () => {
               </CButton>
             </CCardHeader>
             <CCardBody>
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>#</CTableHeaderCell>
@@ -194,7 +194,11 @@ const BranchUserManagement = () => {
                 </CTableHead>
                 <CTableBody>
                   {users.map((user, index) => (
-                    <CTableRow key={user.id}>
+                    <CTableRow
+                      key={user.id}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => handleOpenModal(user)}
+                    >
                       <CTableDataCell>{index + 1}</CTableDataCell>
                       <CTableDataCell>{user.name}</CTableDataCell>
                       <CTableDataCell>{user.email}</CTableDataCell>
@@ -203,12 +207,15 @@ const BranchUserManagement = () => {
                           {ROLE_LABELS[user.role] || user.role}
                         </CBadge>
                       </CTableDataCell>
-                      <CTableDataCell>
+                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CButton
                           color="warning"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleOpenModal(user)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleOpenModal(user)
+                          }}
                           title="Edit"
                         >
                           <CIcon icon={cilPencil} />
@@ -217,7 +224,10 @@ const BranchUserManagement = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDeleteClick(user.id)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteClick(user.id)
+                          }}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />

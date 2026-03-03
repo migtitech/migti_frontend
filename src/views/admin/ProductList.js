@@ -231,7 +231,7 @@ const ProductList = () => {
               <Loader message="Loading products..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
@@ -268,12 +268,15 @@ const ProductList = () => {
                         <CTableDataCell>{product.category?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{product.brand?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{getStatusBadge(product.status)}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => navigate(`/products/${product._id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/products/${product._id}`)
+                            }}
                             title="View"
                           >
                             <EyeIcon />

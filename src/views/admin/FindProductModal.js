@@ -393,6 +393,9 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
 
     // Products without variants (whole product selected)
     const selectedWhole = products.filter((p) => selectedIds.has(p._id || p.id))
+    const toImageRefs = (imgs) =>
+      (imgs || []).map((img) => (typeof img === 'object' && img?._id ? img : img)).filter(Boolean)
+
     selectedWhole.forEach((p) => {
       const pid = p._id || p.id
       queryProducts.push({
@@ -405,6 +408,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
         variants: [],
         remark: '',
         product_id: pid,
+        images: toImageRefs(p?.images),
       })
     })
 
@@ -438,6 +442,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
         variants,
         remark: '',
         product_id: pid,
+        images: toImageRefs(p?.images),
       })
     })
 
@@ -463,6 +468,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
         variants,
         remark: '',
         product_id: pid,
+        images: toImageRefs(p?.images),
       })
     })
 

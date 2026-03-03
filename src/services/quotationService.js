@@ -29,6 +29,14 @@ const quotationService = {
     })
     return response
   },
+
+  exportPdf: async (id) => {
+    const response = await api.get(QUOTATIONS.EXPORT_PDF, {
+      params: { quotationId: id },
+      responseType: 'blob',
+    })
+    return response
+  },
 }
 
 export default quotationService

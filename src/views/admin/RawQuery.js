@@ -208,7 +208,7 @@ const RawQuery = () => {
                 setSearchTerm={setSearchTerm}
               />
               {error && <div className="text-danger mb-2">{error}</div>}
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>SNo</CTableHeaderCell>

@@ -148,7 +148,7 @@ const CategoryList = () => {
               <Loader message="Loading categories..." />
             ) : (
               <>
-                <CTable hover responsive>
+                <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell style={{ width: 40 }}></CTableHeaderCell>
@@ -166,11 +166,14 @@ const CategoryList = () => {
                     {categories.map((cat, index) => (
                       <React.Fragment key={cat._id}>
                         <CTableRow onClick={() => navigate(`/categories/${cat._id}`)} style={{ cursor: 'pointer' }}>
-                          <CTableDataCell>
+                          <CTableDataCell onClick={(e) => e.stopPropagation()}>
                             <CButton
                               color="light"
                               size="sm"
-                              onClick={() => toggleExpand(cat._id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                toggleExpand(cat._id)
+                              }}
                             >
                               <CIcon
                                 icon={
@@ -197,12 +200,15 @@ const CategoryList = () => {
                           </CTableDataCell>
                           <CTableDataCell>{cat.sortOrder}</CTableDataCell>
                           <CTableDataCell>{getStatusBadge(cat.status)}</CTableDataCell>
-                          <CTableDataCell>
+                          <CTableDataCell onClick={(e) => e.stopPropagation()}>
                             <CButton
                               color="info"
                               variant="ghost"
                               size="sm"
-                              onClick={() => navigate(`/categories/${cat._id}`)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/categories/${cat._id}`)
+                              }}
                               title="View"
                             >
                               <EyeIcon />
@@ -250,7 +256,12 @@ const CategoryList = () => {
                         </CTableRow>
                         {expandedCategories[cat._id] &&
                           subcategories[cat._id]?.map((sub) => (
-                            <CTableRow key={sub._id} className="table-light">
+                            <CTableRow
+                              key={sub._id}
+                              className="table-light"
+                              style={{ cursor: 'pointer' }}
+                              onClick={() => navigate(`/categories/${sub._id}`)}
+                            >
                               <CTableDataCell></CTableDataCell>
                               <CTableDataCell></CTableDataCell>
                               <CTableDataCell>
@@ -267,12 +278,15 @@ const CategoryList = () => {
                               </CTableDataCell>
                               <CTableDataCell>{sub.sortOrder}</CTableDataCell>
                               <CTableDataCell>{getStatusBadge(sub.status)}</CTableDataCell>
-                              <CTableDataCell>
+                              <CTableDataCell onClick={(e) => e.stopPropagation()}>
                                 <CButton
                                   color="info"
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => navigate(`/categories/${sub._id}`)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigate(`/categories/${sub._id}`)
+                                  }}
                                   title="View"
                                 >
                                   <EyeIcon />
@@ -282,7 +296,10 @@ const CategoryList = () => {
                                     color="warning"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => navigate(`/categories/edit/${sub._id}`)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      navigate(`/categories/edit/${sub._id}`)
+                                    }}
                                     title="Edit"
                                   >
                                     <CIcon icon={cilPencil} />
@@ -293,7 +310,10 @@ const CategoryList = () => {
                                     color="danger"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => handleDeleteClick(sub._id, cat._id)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleDeleteClick(sub._id, cat._id)
+                                    }}
                                     title="Delete"
                                   >
                                     <CIcon icon={cilTrash} />

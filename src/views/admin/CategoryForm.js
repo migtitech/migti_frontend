@@ -23,6 +23,8 @@ import { Loader, SearchableDropdown } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
+const CATEGORY_FORM_DRAFT_KEY = 'category_form_draft'
+
 const CategoryForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -30,13 +32,34 @@ const CategoryForm = () => {
   const parentFromQuery = searchParams.get('parent') || ''
   const isEdit = Boolean(id)
 
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    group: '',
-    parent: '',
-    status: 'active',
-    categoryCode: '',
+  const [formData, setFormData] = useState(() => {
+    if (typeof window !== 'undefined' && !id) {
+      try {
+        const stored = window.localStorage.getItem(CATEGORY_FORM_DRAFT_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          return {
+            name: parsed.name || '',
+            description: parsed.description || '',
+            group: parsed.group || '',
+            parent: parsed.parent || parentFromQuery || '',
+            status: parsed.status || 'active',
+            categoryCode: parsed.categoryCode || '',
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    return {
+      name: '',
+      description: '',
+      group: '',
+      parent: parentFromQuery || '',
+      status: 'active',
+      categoryCode: '',
+    }
   })
 
   const [groups, setGroups] = useState([])
@@ -92,7 +115,11 @@ const CategoryForm = () => {
 
   useEffect(() => {
     if (!isEdit) {
-      setFormData((prev) => ({ ...prev, parent: parentFromQuery }))
+      // For new category, ensure parent from query param is respected if no draft
+      setFormData((prev) => ({
+        ...prev,
+        parent: prev.parent || parentFromQuery || '',
+      }))
       return
     }
 
@@ -123,7 +150,27 @@ const CategoryForm = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value }
+      if (!id && typeof window !== 'undefined') {
+        try {
+          window.localStorage.setItem(
+            CATEGORY_FORM_DRAFT_KEY,
+            JSON.stringify({
+              name: next.name || '',
+              description: next.description || '',
+              group: next.group || '',
+              parent: next.parent || '',
+              status: next.status || 'active',
+              categoryCode: next.categoryCode || '',
+            }),
+          )
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return next
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -144,6 +191,9 @@ const CategoryForm = () => {
       } else {
         await categoryService.create(payload)
         toastSuccess('Category created successfully')
+      }
+      if (!isEdit && typeof window !== 'undefined') {
+        window.localStorage.removeItem(CATEGORY_FORM_DRAFT_KEY)
       }
       navigate('/categories')
     } catch (err) {
@@ -171,8 +221,30 @@ const CategoryForm = () => {
     <CRow>
       <CCol xs={12}>
         <CCard>
-          <CCardHeader>
+          <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>{title}</strong>
+            {!isEdit && (
+              <CButton
+                color="secondary"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setFormData({
+                    name: '',
+                    description: '',
+                    group: '',
+                    parent: parentFromQuery || '',
+                    status: 'active',
+                    categoryCode: '',
+                  })
+                  if (typeof window !== 'undefined') {
+                    window.localStorage.removeItem(CATEGORY_FORM_DRAFT_KEY)
+                  }
+                }}
+              >
+                Clear saved data
+              </CButton>
+            )}
           </CCardHeader>
 
           <CCardBody>
@@ -183,33 +255,22 @@ const CategoryForm = () => {
             )}
 
             <CForm onSubmit={handleSubmit}>
-              {/* Row 0: Category Code (read-only, auto-generated) */}
-              <CRow className="mb-3">
-                <CCol md={6}>
-                  <CFormLabel>Category Code</CFormLabel>
-                  <CFormInput
-                    name="categoryCode"
-                    value={formData.categoryCode || ''}
-                    placeholder={
-                      isEdit
-                        ? (formData.categoryCode ? '' : '—')
-                        : formData.parent
-                          ? 'Auto-generated (e.g. MIG01SUB01)'
-                          : 'Auto-generated (e.g. MIG01)'
-                    }
-                    readOnly
-                    disabled
-                    className="bg-light"
-                  />
-                  {!isEdit && (
-                    <small className="text-muted">
-                      {formData.parent
-                        ? 'Subcategory code will be e.g. MIG01SUB01, MIG01SUB02...'
-                        : 'Root category code will be e.g. MIG01, MIG02...'}
-                    </small>
-                  )}
-                </CCol>
-              </CRow>
+              {/* Row 0: Category Code (read-only, auto-generated) - visible only on edit */}
+              {isEdit && (
+                <CRow className="mb-3">
+                  <CCol md={6}>
+                    <CFormLabel>Category Code</CFormLabel>
+                    <CFormInput
+                      name="categoryCode"
+                      value={formData.categoryCode || ''}
+                      placeholder={formData.categoryCode ? '' : '—'}
+                      readOnly
+                      disabled
+                      className="bg-light"
+                    />
+                  </CCol>
+                </CRow>
+              )}
 
               {/* Row 0.5: Group (select first before category) */}
               <CRow className="mb-3">
@@ -258,18 +319,24 @@ const CategoryForm = () => {
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>Parent Category</CFormLabel>
-                  <CFormSelect
-                    name="parent"
+                  <SearchableDropdown
+                    options={rootCategories}
                     value={formData.parent}
-                    onChange={handleChange}
-                  >
-                    <option value="">None (Root Category)</option>
-                    {rootCategories.map((cat) => (
-                      <option key={cat._id} value={cat._id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </CFormSelect>
+                    onChange={(val) =>
+                      setFormData((prev) => ({ ...prev, parent: val || '' }))
+                    }
+                    placeholder="None (Root Category)"
+                    maxDisplayCount={5}
+                    getOptionLabel={(cat) =>
+                      `${cat.name || ''}${
+                        cat.categoryCode ? ` (${cat.categoryCode})` : ''
+                      }`
+                    }
+                    getOptionValue={(cat) => cat._id}
+                  />
+                  <small className="text-muted">
+                    Search within root categories. Leave empty for a root category.
+                  </small>
                 </CCol>
               </CRow>
 

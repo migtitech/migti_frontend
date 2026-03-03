@@ -8,7 +8,7 @@ import Loader from './Loader/Loader'
 
 const AppContent = () => {
   return (
-    <CContainer className="px-4" lg>
+    <CContainer fluid className="px-3 px-md-4">
       <Suspense fallback={<Loader message="Loading..." />}>
         <Routes>
           {routes.map((route, idx) => {

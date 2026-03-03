@@ -70,7 +70,7 @@ const EmployeeTable = ({
             {loading ? (
               <Loader message="Loading employees..." />
             ) : (
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>SNo</CTableHeaderCell>
@@ -88,7 +88,11 @@ const EmployeeTable = ({
                   {employees.map((employee, index) => {
                     const branch = branchById.get(String(employee.branchId))
                     return (
-                      <CTableRow key={employee.id}>
+                      <CTableRow
+                        key={employee.id}
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onView(employee.id)}
+                      >
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <div className="d-flex align-items-center">
@@ -108,12 +112,15 @@ const EmployeeTable = ({
                         <CTableDataCell>{branch?.name || 'N/A'}</CTableDataCell>
                         <CTableDataCell>{employee.designation || '-'}</CTableDataCell>
                         <CTableDataCell>{employee.idnumber || '-'}</CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
-                            onClick={() => onView(employee.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onView(employee.id)
+                            }}
                             title="View"
                           >
                             <EyeIcon />
@@ -123,7 +130,10 @@ const EmployeeTable = ({
                               color="warning"
                               variant="ghost"
                               size="sm"
-                              onClick={() => onEdit(employee)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onEdit(employee)
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
@@ -134,7 +144,10 @@ const EmployeeTable = ({
                               color="danger"
                               variant="ghost"
                               size="sm"
-                              onClick={() => onDelete(employee.id)}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                onDelete(employee.id)
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />

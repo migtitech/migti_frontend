@@ -67,6 +67,8 @@ const defaultValues = {
   isActive: true,
 }
 
+const COMPANY_FORM_DRAFT_KEY = 'company_form_draft'
+
 const CompanyForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -95,7 +97,18 @@ const CompanyForm = () => {
 
   useEffect(() => {
     if (!isEdit) {
-      reset(defaultValues)
+      // Load draft for new company form, if present
+      try {
+        const raw = localStorage.getItem(COMPANY_FORM_DRAFT_KEY)
+        if (raw) {
+          const stored = JSON.parse(raw)
+          reset({ ...defaultValues, ...stored })
+        } else {
+          reset(defaultValues)
+        }
+      } catch {
+        reset(defaultValues)
+      }
       return
     }
 
@@ -127,7 +140,20 @@ const CompanyForm = () => {
     }
 
     fetchCompany()
-  }, [id])
+  }, [id, isEdit, reset])
+
+  // Autosave draft for new company
+  useEffect(() => {
+    if (isEdit) return
+    const subscription = watch((values) => {
+      try {
+        localStorage.setItem(COMPANY_FORM_DRAFT_KEY, JSON.stringify(values))
+      } catch {
+        // ignore storage errors
+      }
+    })
+    return () => subscription.unsubscribe()
+  }, [watch, isEdit])
 
   const handleLogoChange = async (e) => {
     const file = e.target.files?.[0]
@@ -156,6 +182,16 @@ const CompanyForm = () => {
     }
   }
 
+  const handleClearDraft = () => {
+    try {
+      localStorage.removeItem(COMPANY_FORM_DRAFT_KEY)
+    } catch {
+      // ignore
+    }
+    reset(defaultValues)
+    toastSuccess('Saved company form data cleared')
+  }
+
   const onSubmit = async (values) => {
     setSubmitting(true)
     setError('')
@@ -178,6 +214,11 @@ const CompanyForm = () => {
       } else {
         await companyService.create(payload)
         toastSuccess('Company created successfully')
+      }
+      if (!isEdit) {
+        try {
+          localStorage.removeItem(COMPANY_FORM_DRAFT_KEY)
+        } catch {}
       }
       navigate('/companies')
     } catch (err) {
@@ -213,8 +254,13 @@ const CompanyForm = () => {
       )}
 
       <CCard className="mb-4">
-        <CCardHeader>
+        <CCardHeader className="d-flex justify-content-between align-items-center">
           <strong>{isEdit ? 'Edit Company' : 'Add Company'}</strong>
+          {!isEdit && (
+            <CButton color="secondary" size="sm" variant="outline" onClick={handleClearDraft}>
+              Clear saved data
+            </CButton>
+          )}
         </CCardHeader>
         <CCardBody>
           <CRow>

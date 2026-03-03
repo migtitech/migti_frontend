@@ -98,7 +98,7 @@ const CompanyList = () => {
             {loading ? (
               <Loader message="Loading companies..." />
             ) : (
-              <CTable hover responsive>
+              <CTable hover responsive bordered>
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>S No</CTableHeaderCell>
@@ -139,13 +139,16 @@ const CompanyList = () => {
                             {company.isActive !== false ? 'Active' : 'Inactive'}
                           </CBadge>
                         </CTableDataCell>
-                        <CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
                             title="View"
-                            onClick={() => navigate(`/companies/${id}`)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigate(`/companies/${id}`)
+                            }}
                           >
                             <EyeIcon />
                           </CButton>

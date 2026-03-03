@@ -17,6 +17,7 @@ import {
   CFormTextarea,
   CRow,
   CSpinner,
+  CFormCheck,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
@@ -44,6 +45,11 @@ const purchaseManagerSchema = yup.object({
 
 const industrySchema = yup.object({
   name: yup.string().required('Industry name is required').min(2).max(100),
+  category: yup
+    .string()
+    .oneOf(['A', 'B', 'C', 'D', ''], 'Invalid category')
+    .optional()
+    .nullable(),
   area: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
@@ -75,6 +81,7 @@ const industrySchema = yup.object({
 
 const defaultValues = {
   name: '',
+  category: '',
   area: '',
   location: '',
   address: '',
@@ -144,6 +151,7 @@ const IndustryForm = () => {
       }))
       reset({
         name: data?.name || '',
+        category: data?.category || '',
         area: typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || '',
         location: data?.location || '',
         address: data?.address || '',
@@ -241,7 +249,12 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Industry Name *</CFormLabel>
-                <CFormInput {...register('name')} readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
+                <CFormInput
+                  {...register('name')}
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={isEdit ? 'bg-light' : ''}
+                />
                 {errors.name && (
                   <div className="text-danger small mt-1">{errors.name.message}</div>
                 )}
@@ -250,9 +263,41 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>GST Number</CFormLabel>
-                <CFormInput {...register('gstNumber')} placeholder="e.g. 27AABCU9603R1ZM" readOnly={isEdit} disabled={isEdit} className={isEdit ? 'bg-light' : ''} />
+                <CFormInput
+                  {...register('gstNumber')}
+                  placeholder="e.g. 27AABCU9603R1ZM"
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={isEdit ? 'bg-light' : ''}
+                />
                 {errors.gstNumber && (
                   <div className="text-danger small mt-1">{errors.gstNumber.message}</div>
+                )}
+              </div>
+            </CCol>
+          </CRow>
+
+          <CRow>
+            <CCol md={12}>
+              <div className="mb-3">
+                <CFormLabel>Company Category</CFormLabel>
+                <div className="d-flex gap-3">
+                  {['A', 'B', 'C', 'D'].map((cat) => (
+                    <CFormCheck
+                      key={cat}
+                      type="radio"
+                      id={`category-${cat}`}
+                      label={cat}
+                      value={cat}
+                      className="cursor-pointer"
+                      style={{ cursor: 'pointer' }}
+                      {...register('category')}
+                      disabled={isEdit}
+                    />
+                  ))}
+                </div>
+                {errors.category && (
+                  <div className="text-danger small mt-1">{errors.category.message}</div>
                 )}
               </div>
             </CCol>
