@@ -124,6 +124,65 @@ const CategoryList = () => {
     )
   }
 
+  const renderPageNumbers = () => {
+    const totalPages = pagination.totalPages || 0
+    const currentPage = page
+
+    if (!totalPages) return null
+
+    const items = []
+
+    const createPageItem = (pageNumber, label) => (
+      <CPaginationItem
+        key={label}
+        active={pageNumber === currentPage}
+        disabled={!pageNumber}
+        onClick={
+          pageNumber
+            ? () => {
+                if (pageNumber !== currentPage) {
+                  setPage(pageNumber)
+                }
+              }
+            : undefined
+        }
+      >
+        {label}
+      </CPaginationItem>
+    )
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) {
+        items.push(createPageItem(i, i))
+      }
+      return items
+    }
+
+    items.push(createPageItem(1, 1))
+
+    const showLeftEllipsis = currentPage > 3
+    const showRightEllipsis = currentPage < totalPages - 2
+
+    if (showLeftEllipsis) {
+      items.push(createPageItem(null, '...'))
+    }
+
+    const startPage = Math.max(2, currentPage - 1)
+    const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+    for (let i = startPage; i <= endPage; i += 1) {
+      items.push(createPageItem(i, i))
+    }
+
+    if (showRightEllipsis) {
+      items.push(createPageItem(null, '...'))
+    }
+
+    items.push(createPageItem(totalPages, totalPages))
+
+    return items
+  }
+
   return (
     <CRow>
       <CCol xs={12}>
@@ -336,25 +395,25 @@ const CategoryList = () => {
                   </CTableBody>
                 </CTable>
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center">
+                  <CPagination className="justify-content-center mt-3">
                     <CPaginationItem
                       disabled={!pagination.hasPrevPage}
-                      onClick={() => setPage(page - 1)}
+                      onClick={() => {
+                        if (pagination.hasPrevPage) {
+                          setPage(page - 1)
+                        }
+                      }}
                     >
                       Previous
                     </CPaginationItem>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => (
-                      <CPaginationItem
-                        key={i + 1}
-                        active={page === i + 1}
-                        onClick={() => setPage(i + 1)}
-                      >
-                        {i + 1}
-                      </CPaginationItem>
-                    ))}
+                    {renderPageNumbers()}
                     <CPaginationItem
                       disabled={!pagination.hasNextPage}
-                      onClick={() => setPage(page + 1)}
+                      onClick={() => {
+                        if (pagination.hasNextPage) {
+                          setPage(page + 1)
+                        }
+                      }}
                     >
                       Next
                     </CPaginationItem>

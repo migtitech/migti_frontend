@@ -299,7 +299,8 @@ const QuotationCreate = () => {
 
     const saved = addQuotation(payload)
     toastSuccess('Quotation created successfully')
-    navigate(`/quotations/${saved.id}`)
+    // Navigate back to quotations list instead of a numeric local id detail route
+    navigate('/quotations')
   }
 
   return (

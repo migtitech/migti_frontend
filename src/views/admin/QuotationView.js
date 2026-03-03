@@ -120,9 +120,13 @@ const QuotationView = () => {
   })
   const [savingCompany, setSavingCompany] = useState(false)
 
+  const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
+
   useEffect(() => {
-    if (!id) {
+    if (!id || !OBJECT_ID_REGEX.test(id)) {
       setLoading(false)
+      setError('Invalid quotation id')
+      setQuotation(null)
       return
     }
     let cancelled = false
