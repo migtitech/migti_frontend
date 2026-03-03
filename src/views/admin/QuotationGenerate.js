@@ -232,18 +232,22 @@ const QuotationGenerate = () => {
     }
     setSubmitting(true)
     try {
-      const productsPayload = products.map((p) => ({
-        productName: p.productName || '',
-        quantity: Number(p.quantity) ?? 1,
-        unit: p.unit || '',
-        hsnNumber: p.hsnNumber || '',
-        modelNumber: p.modelNumber || '',
-        gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
-        variants: (p.variants || []).map((v) => ({ variantName: v.variantName || v || '' })),
-        remark: p.remark || '',
-        product_id: p.product_id || null,
-        images: (p.images || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean),
-      }))
+      const productsPayload = products.map((p) => {
+        const pid = p.product_id
+        const productId = !pid ? null : typeof pid === 'object' && pid._id ? String(pid._id) : String(pid)
+        return {
+          productName: p.productName || '',
+          quantity: Number(p.quantity) ?? 1,
+          unit: p.unit || '',
+          hsnNumber: p.hsnNumber || '',
+          modelNumber: p.modelNumber || '',
+          gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
+          variants: (p.variants || []).map((v) => ({ variantName: v.variantName || v || '' })),
+          remark: p.remark || '',
+          product_id: productId,
+          images: (p.images || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean),
+        }
+      })
       const res = await queryService.convertToQuotation(query.queryCode, { remark, products: productsPayload })
       const data = res?.data || res
       const quotation = data?.data?.quotation || data?.quotation
