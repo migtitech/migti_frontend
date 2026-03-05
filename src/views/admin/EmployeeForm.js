@@ -249,12 +249,10 @@ const EmployeeForm = () => {
 
   useEffect(() => {
     const loadZones = async () => {
-      if (!selectedBranchId) {
-        setZones([])
-        return
-      }
       try {
-        const response = await areaService.getAll({ branchId: selectedBranchId, pageSize: 100 })
+        const params = { pageSize: 100 }
+        if (selectedBranchId) params.branchId = selectedBranchId
+        const response = await areaService.getAll(params)
         const data = response?.data?.data || response?.data || response
         const list = data?.areas || data || []
         const normalized = list.map(normalizeId)

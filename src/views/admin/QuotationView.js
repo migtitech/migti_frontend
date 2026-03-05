@@ -39,6 +39,7 @@ import { cilArrowLeft, cilArrowRight, cilCloudDownload, cilEnvelopeClosed } from
 import quotationService from '../../services/quotationService'
 import employeeService from '../../services/employeeService'
 import purchaseTaskService from '../../services/purchaseTaskService'
+import areaService from '../../services/areaService'
 import documentService from '../../services/documentService'
 import queryNewProductService from '../../services/queryNewProductService'
 import { getAssetsUrl } from '../../api/endpoints'
@@ -119,6 +120,7 @@ const QuotationView = () => {
     purchaseManagerEmail: '',
   })
   const [savingCompany, setSavingCompany] = useState(false)
+  const [zoneNameDisplay, setZoneNameDisplay] = useState(null)
 
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
 
@@ -185,7 +187,34 @@ const QuotationView = () => {
     }
   }, [quotation])
 
+  // Resolve zone ID to name for display in Company Information
+  useEffect(() => {
+    const areaVal = companyForm.area?.trim?.() || ''
+    if (!areaVal) {
+      setZoneNameDisplay(null)
+      return
+    }
+    if (!OBJECT_ID_REGEX.test(areaVal)) {
+      setZoneNameDisplay(null)
+      return
+    }
+    let cancelled = false
+    areaService
+      .getById(areaVal)
+      .then((res) => {
+        if (cancelled) return
+        const data = res?.data?.data ?? res?.data ?? res
+        const name = data?.name ?? null
+        setZoneNameDisplay(name || areaVal)
+      })
+      .catch(() => {
+        if (!cancelled) setZoneNameDisplay(null)
+      })
+    return () => { cancelled = true }
+  }, [companyForm.area])
+
   const updateCompanyForm = (field, value) => {
+    if (field === 'area') setZoneNameDisplay(null)
     setCompanyForm((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -874,7 +903,11 @@ const QuotationView = () => {
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Zone</CFormLabel>
-                        <CFormInput value={companyForm.area} onChange={(e) => updateCompanyForm('area', e.target.value)} placeholder="Zone" />
+                        <CFormInput
+                          value={zoneNameDisplay ?? companyForm.area}
+                          onChange={(e) => updateCompanyForm('area', e.target.value)}
+                          placeholder="Zone"
+                        />
                       </div>
                     </CCol>
                     <CCol md={4}>
