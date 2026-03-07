@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -17,6 +17,7 @@ import {
   CPagination,
   CPaginationItem,
   CFormInput,
+  CFormLabel,
   CInputGroup,
   CInputGroupText,
   CFormSelect,
@@ -25,35 +26,70 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import industryService from '../../services/industryService'
+import branchService from '../../services/branchService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import usePermissions from '../../hooks/usePermissions'
+import useBranchContext from '../../hooks/useBranchContext'
 
 const IndustryList = () => {
   const navigate = useNavigate()
   const { canCreate, canUpdate, canDelete } = usePermissions()
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
   const [industries, setIndustries] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [branchFilter, setBranchFilter] = useState('')
+  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false)
+  const [branches, setBranches] = useState([])
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+
+  useEffect(() => {
+    let cancelled = false
+    const loadBranches = async () => {
+      try {
+        const response = await branchService.getAll({ pageNumber: 1, pageSize: 100 })
+        if (cancelled) return
+        const list = response?.data?.branches ?? response?.data?.data?.branches ?? response?.branches ?? (Array.isArray(response?.data) ? response.data : [])
+        const arr = Array.isArray(list) ? list : []
+        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })))
+      } catch {
+        if (!cancelled) setBranches([])
+      }
+    }
+    loadBranches()
+    return () => { cancelled = true }
+  }, [])
+
+  // Branch isolation: default to user's branch so list shows only that branch's data
+  useEffect(() => {
+    if (branchDefaultApplied || !userBranchId || branches.length === 0) return
+    const id = String(userBranchId)
+    if (branches.some((b) => String(b.id || b._id) === id)) {
+      setBranchFilter(id)
+      setBranchDefaultApplied(true)
+    }
+  }, [userBranchId, branches, branchDefaultApplied])
 
   const fetchIndustries = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const res = await withMinimumDelay(() =>
-        industryService.getAll({
-          pageNumber: page,
-          pageSize: 10,
-          search: searchTerm || undefined,
-          category: categoryFilter || undefined,
-        }),
-      )
+      const params = {
+        pageNumber: page,
+        pageSize: 10,
+        search: searchTerm || undefined,
+        category: categoryFilter || undefined,
+      }
+      // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
+      const effectiveBranchId = branchFilter || userBranchId
+      if (effectiveBranchId) params.branchId = effectiveBranchId
+      const res = await withMinimumDelay(() => industryService.getAll(params))
       const data = res?.data || res
       setIndustries(data?.industries || [])
       setPagination(data?.pagination || {})
@@ -62,7 +98,7 @@ const IndustryList = () => {
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm, categoryFilter])
+  }, [page, searchTerm, categoryFilter, branchFilter, userBranchId])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -70,6 +106,15 @@ const IndustryList = () => {
     }, 300)
     return () => clearTimeout(timer)
   }, [fetchIndustries])
+
+  const branchById = useMemo(() => {
+    const map = new Map()
+    branches.forEach((b) => {
+      const id = b.id || b._id
+      if (id) map.set(String(id), b.name || b.branchcode || id)
+    })
+    return map
+  }, [branches])
 
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id })
@@ -124,7 +169,25 @@ const IndustryList = () => {
                   />
                 </CInputGroup>
               </CCol>
-              <CCol md={3}>
+              <CCol md={2}>
+                <CFormLabel className="small text-muted">Branch</CFormLabel>
+                <CFormSelect
+                  value={branchFilter}
+                  onChange={(e) => {
+                    setBranchFilter(e.target.value)
+                    setPage(1)
+                  }}
+                  aria-label="Branch filter"
+                >
+                  <option value="">All branches</option>
+                  {branches.map((b) => (
+                    <option key={b.id || b._id} value={b.id || b._id}>
+                      {b.name || b.branchcode || b.id}
+                    </option>
+                  ))}
+                </CFormSelect>
+              </CCol>
+              <CCol md={2}>
                 <CFormSelect
                   label="Category"
                   value={categoryFilter}
@@ -150,6 +213,7 @@ const IndustryList = () => {
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Industry Name</CTableHeaderCell>
+                      <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>GST No</CTableHeaderCell>
                       <CTableHeaderCell>Area</CTableHeaderCell>
@@ -168,6 +232,13 @@ const IndustryList = () => {
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{industry.name}</strong>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {typeof industry.branchId === 'object' && industry.branchId?.name
+                            ? industry.branchId.name
+                            : industry.branchId
+                              ? branchById.get(String(industry.branchId)) || industry.branchId
+                              : '-'}
                         </CTableDataCell>
                         <CTableDataCell>{industry.category || '-'}</CTableDataCell>
                         <CTableDataCell>{industry.gstNumber || '-'}</CTableDataCell>
@@ -222,7 +293,7 @@ const IndustryList = () => {
                     ))}
                     {industries.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center">
+                        <CTableDataCell colSpan={9} className="text-center">
                           {searchTerm
                             ? 'No industries match the current search.'
                             : 'No industries found. Click "Add Industry" to create one.'}

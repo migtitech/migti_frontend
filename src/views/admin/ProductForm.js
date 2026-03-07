@@ -193,15 +193,12 @@ const ProductForm = () => {
 
   const fetchDropdownData = async () => {
     try {
-      const [catRes, brandRes, groupRes] = await Promise.all([
-        categoryService.getAll({ pageNumber: 1, pageSize: 100, parent: 'null' }),
+      const [brandRes, groupRes] = await Promise.all([
         brandService.getAll({ pageNumber: 1, pageSize: 100 }),
         groupService.getAll({ pageNumber: 1, pageSize: 100 }),
       ])
-      const catData = catRes?.data || catRes
       const brandData = brandRes?.data || brandRes
       const groupData = groupRes?.data || groupRes
-      setCategories(catData?.categories || [])
       setBrands(brandData?.brands || [])
       setGroups(groupData?.groups || [])
     } catch (err) {
@@ -237,6 +234,25 @@ const ProductForm = () => {
     }
   }
 
+  // When group changes, fetch categories for that group so category dropdown shows correctly
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const params = { pageNumber: 1, pageSize: 100, parent: 'null' }
+        if (selectedGroup) params.group = selectedGroup
+        const res = await categoryService.getAll(params)
+        if (cancelled) return
+        const data = res?.data || res
+        setCategories(data?.categories || [])
+      } catch (err) {
+        if (!cancelled) console.error('Failed to fetch categories by group', err)
+      }
+    }
+    load()
+    return () => { cancelled = true }
+  }, [selectedGroup])
+
   const filteredGroups = groups.filter((g) =>
     (g.name || '').toLowerCase().includes((groupSearch || '').toLowerCase()),
   )
@@ -247,7 +263,9 @@ const ProductForm = () => {
       .includes((categorySearch || '').toLowerCase())
     const categoryGroupId =
       c.group && (c.group._id || c.group) ? (c.group._id || c.group) : ''
-    const matchesGroup = !selectedGroup || categoryGroupId === selectedGroup
+    const matchesGroup =
+      !selectedGroup ||
+      String(categoryGroupId) === String(selectedGroup)
     return nameMatches && matchesGroup
   })
 
@@ -716,13 +734,15 @@ const ProductForm = () => {
                   value={categorySearch}
                   onChange={(e) => setCategorySearch(e.target.value)}
                 />
-                {categorySearch && (
+                {(categorySearch || selectedGroup) && (
                   <div
                     className="border rounded mt-1 bg-white"
                     style={{ maxHeight: '200px', overflowY: 'auto' }}
                   >
                     {filteredCategories.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">No matches</div>
+                      <div className="px-2 py-1 text-muted small">
+                        {selectedGroup ? 'No categories in this group' : 'No matches'}
+                      </div>
                     )}
                     {filteredCategories.map((cat) => {
                       const id = cat._id || cat.id

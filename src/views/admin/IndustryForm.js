@@ -23,9 +23,11 @@ import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
 import industryService from '../../services/industryService'
 import areaService from '../../services/areaService'
+import branchService from '../../services/branchService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import useBranchContext from '../../hooks/useBranchContext'
 
 const purchaseManagerSchema = yup.object({
   name: yup.string().required('Name is required').max(100),
@@ -77,6 +79,7 @@ const industrySchema = yup.object({
     .nullable()
     .transform((v, o) => (o === '' ? null : v)),
   purchaseManagers: yup.array().of(purchaseManagerSchema).optional().default([]),
+  branchId: yup.string().optional().nullable(),
 })
 
 const defaultValues = {
@@ -90,14 +93,17 @@ const defaultValues = {
   purchase_manager_phone: '',
   email: '',
   purchaseManagers: [],
+  branchId: '',
 }
 
 const IndustryForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
 
   const [loading, setLoading] = useState(false)
+  const [branches, setBranches] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [areas, setAreas] = useState([])
@@ -106,6 +112,8 @@ const IndustryForm = () => {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     control,
     formState: { errors },
   } = useForm({
@@ -128,6 +136,35 @@ const IndustryForm = () => {
     }
   }, [id])
 
+  useEffect(() => {
+    let cancelled = false
+    const loadBranches = async () => {
+      try {
+        const response = await branchService.getAll({ pageNumber: 1, pageSize: 100 })
+        if (cancelled) return
+        const list = response?.data?.branches ?? response?.data?.data?.branches ?? response?.branches ?? (Array.isArray(response?.data) ? response.data : [])
+        const arr = Array.isArray(list) ? list : []
+        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })))
+      } catch (err) {
+        if (!cancelled) {
+          setBranches([])
+          toastError(err?.message || 'Failed to load branches')
+        }
+      }
+    }
+    loadBranches()
+    return () => { cancelled = true }
+  }, [isEdit])
+
+  const currentBranchId = watch('branchId')
+  useEffect(() => {
+    if (isEdit || branches.length === 0 || currentBranchId) return
+    const defaultId = userBranchId && branches.some((b) => (b.id || b._id) === userBranchId)
+      ? userBranchId
+      : (branches[0] && (branches[0].id || branches[0]._id)) || ''
+    if (defaultId) setValue('branchId', defaultId)
+  }, [branches, isEdit, userBranchId, setValue, currentBranchId])
+
   const fetchAreas = async () => {
     try {
       const res = await areaService.getAll({ pageSize: 100 })
@@ -149,6 +186,7 @@ const IndustryForm = () => {
         phone: pm.phone || '',
         email: pm.email || '',
       }))
+      const branchId = data?.branchId || (data?.branch && (data.branch._id || data.branch.id)) || ''
       reset({
         name: data?.name || '',
         category: data?.category || '',
@@ -160,6 +198,7 @@ const IndustryForm = () => {
         purchase_manager_phone: data?.purchase_manager_phone || '',
         email: data?.email || '',
         purchaseManagers: purchaseManagers.length ? purchaseManagers : [],
+        branchId: branchId || '',
       })
     } catch (err) {
       toastError(err?.message || 'Failed to fetch industry')
@@ -169,6 +208,10 @@ const IndustryForm = () => {
   }
 
   const onSubmit = async (values) => {
+    if (!isEdit && !values.branchId) {
+      setError('Please select a branch for the industry.')
+      return
+    }
     setSubmitting(true)
     setError('')
     try {
@@ -176,6 +219,7 @@ const IndustryForm = () => {
         const payload = {
           location: values.location || '',
           address: values.address || '',
+          branchId: values.branchId || undefined,
           purchaseManagers: (values.purchaseManagers || []).filter(
             (pm) => (pm.name || '').trim(),
           ).map((pm) => ({
@@ -191,6 +235,7 @@ const IndustryForm = () => {
           ...values,
           area: values.area || null,
           gstNumber: values.gstNumber || '',
+          branchId: values.branchId || undefined,
           purchaseManagers: (values.purchaseManagers || []).filter(
             (pm) => (pm.name || '').trim(),
           ).map((pm) => ({
@@ -238,13 +283,33 @@ const IndustryForm = () => {
       <CCard className="mb-4">
         <CCardHeader>
           <strong>{isEdit ? 'Edit Industry' : 'Add Industry'}</strong>
-          {isEdit && (
-            <small className="text-muted d-block mt-1">
-              Only location, purchase managers and address can be updated.
-            </small>
-          )}
+          <small className="text-muted d-block mt-1">
+            {isEdit ? 'You can update branch, location, purchase managers and address.' : 'Select the branch this industry belongs to.'}
+          </small>
         </CCardHeader>
         <CCardBody>
+          <CRow>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>Branch {!isEdit ? '*' : ''}</CFormLabel>
+                <CFormSelect
+                  {...register('branchId')}
+                  disabled={!canSelectBranch && !!userBranchId}
+                  className={!canSelectBranch && userBranchId ? 'bg-light' : ''}
+                >
+                  <option value="">Select branch</option>
+                  {branches.map((b) => (
+                    <option key={b.id || b._id} value={b.id || b._id}>
+                      {b.name || b.branchcode || b.id}
+                    </option>
+                  ))}
+                </CFormSelect>
+                {!canSelectBranch && userBranchId && (
+                  <small className="text-muted">Your branch is pre-selected.</small>
+                )}
+              </div>
+            </CCol>
+          </CRow>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">

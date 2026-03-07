@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -17,6 +17,7 @@ import {
   CPagination,
   CPaginationItem,
   CFormInput,
+  CFormSelect,
   CInputGroup,
   CInputGroupText,
 } from '@coreui/react'
@@ -26,14 +27,17 @@ import { EyeIcon } from '../../components'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import areaService from '../../services/areaService'
+import branchService from '../../services/branchService'
 import { Loader, ConfirmDialog, SearchableDropdown } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import usePermissions from '../../hooks/usePermissions'
+import useBranchContext from '../../hooks/useBranchContext'
 
 const SupplierList = () => {
   const navigate = useNavigate()
   const { canCreate, canUpdate, canDelete } = usePermissions()
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -45,9 +49,39 @@ const SupplierList = () => {
   const [filterCategory, setFilterCategory] = useState('')
   const [filterSubcategory, setFilterSubcategory] = useState('')
   const [filterArea, setFilterArea] = useState('')
+  const [branchFilterId, setBranchFilterId] = useState('')
+  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false)
+  const [companyBranches, setCompanyBranches] = useState([])
   const [categories, setCategories] = useState([])
   const [subcategories, setSubcategories] = useState([])
   const [areas, setAreas] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadBranches = async () => {
+      try {
+        const response = await branchService.getAll({ pageNumber: 1, pageSize: 100 })
+        if (cancelled) return
+        const list = response?.data?.branches ?? response?.data?.data?.branches ?? response?.branches ?? (Array.isArray(response?.data) ? response.data : [])
+        const arr = Array.isArray(list) ? list : []
+        setCompanyBranches(arr.map((b) => ({ ...b, id: b.id || b._id })))
+      } catch {
+        if (!cancelled) setCompanyBranches([])
+      }
+    }
+    loadBranches()
+    return () => { cancelled = true }
+  }, [])
+
+  // Branch isolation: default to user's branch so list shows only that branch's data
+  useEffect(() => {
+    if (branchDefaultApplied || !userBranchId || companyBranches.length === 0) return
+    const id = String(userBranchId)
+    if (companyBranches.some((b) => String(b.id || b._id) === id)) {
+      setBranchFilterId(id)
+      setBranchDefaultApplied(true)
+    }
+  }, [userBranchId, companyBranches, branchDefaultApplied])
 
   const fetchSuppliers = useCallback(async () => {
     setLoading(true)
@@ -67,6 +101,9 @@ const SupplierList = () => {
         const areaObj = areas.find((a) => (a._id || a.id) === filterArea)
         if (areaObj?.name) params.area = areaObj.name
       }
+      // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
+      const effectiveBranchId = branchFilterId || userBranchId
+      if (effectiveBranchId) params.branchId = effectiveBranchId
       const res = await withMinimumDelay(() => supplierService.getAll(params))
       const data = res?.data || res
       setSuppliers(data?.suppliers || [])
@@ -76,7 +113,7 @@ const SupplierList = () => {
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm, filterCategory, filterSubcategory, filterArea, areas])
+  }, [page, searchTerm, filterCategory, filterSubcategory, filterArea, areas, branchFilterId, userBranchId])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -151,6 +188,15 @@ const SupplierList = () => {
     setPage(1)
   }
 
+  const branchById = useMemo(() => {
+    const map = new Map()
+    companyBranches.forEach((b) => {
+      const id = b.id || b._id
+      if (id) map.set(String(id), b.name || b.branchcode || id)
+    })
+    return map
+  }, [companyBranches])
+
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id })
   }
@@ -204,6 +250,24 @@ const SupplierList = () => {
               <CCol md={6}>
                 <CRow className="g-2">
                   <CCol xs={12} sm={4}>
+                    <label className="form-label small text-muted">Branch</label>
+                    <CFormSelect
+                      value={branchFilterId}
+                      onChange={(e) => {
+                        setBranchFilterId(e.target.value)
+                        setPage(1)
+                      }}
+                      aria-label="Branch filter"
+                    >
+                      <option value="">All branches</option>
+                      {companyBranches.map((b) => (
+                        <option key={b.id || b._id} value={b.id || b._id}>
+                          {b.name || b.branchcode || b.id}
+                        </option>
+                      ))}
+                    </CFormSelect>
+                  </CCol>
+                  <CCol xs={12} sm={4}>
                     <SearchableDropdown
                       label="Category"
                       options={categories}
@@ -252,6 +316,7 @@ const SupplierList = () => {
                     <CTableRow>
                       <CTableHeaderCell>SNo</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell>Shop Name</CTableHeaderCell>
                       <CTableHeaderCell>Phone 1</CTableHeaderCell>
                       <CTableHeaderCell>Email</CTableHeaderCell>
@@ -271,6 +336,13 @@ const SupplierList = () => {
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{supplier.name}</strong>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {typeof supplier.branchId === 'object' && supplier.branchId?.name
+                            ? supplier.branchId.name
+                            : supplier.branchId
+                              ? branchById.get(String(supplier.branchId)) || supplier.branchId
+                              : '-'}
                         </CTableDataCell>
                         <CTableDataCell>{supplier.shopname || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.phone_1 || '-'}</CTableDataCell>
@@ -324,7 +396,7 @@ const SupplierList = () => {
                     ))}
                     {suppliers.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={9} className="text-center">
+                        <CTableDataCell colSpan={10} className="text-center">
                           {searchTerm || filterCategory || filterSubcategory || filterArea
                             ? 'No suppliers match the current search or filters.'
                             : 'No suppliers found. Click "Add Supplier" to create one.'}

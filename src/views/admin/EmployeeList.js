@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CCol, CRow, CFormSelect } from '@coreui/react'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -8,28 +9,34 @@ import { ConfirmDialog } from '../../components'
 import EmployeeHeader from './employees/EmployeeHeader'
 import EmployeeTable from './employees/EmployeeTable'
 import usePermissions from '../../hooks/usePermissions'
+import useBranchContext from '../../hooks/useBranchContext'
 
 const EmployeeList = () => {
   const navigate = useNavigate()
   const { canCreate, canUpdate, canDelete } = usePermissions()
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
   const [employees, setEmployees] = useState([])
   const [branches, setBranches] = useState([])
+  const [branchFilterId, setBranchFilterId] = useState('')
+  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
-
 
   const normalizeId = (item) => ({
     ...item,
     id: item?.id || item?._id,
   })
 
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const response = await withMinimumDelay(() => employeeService.getAll())
+      const params = {}
+      const effectiveBranchId = branchFilterId || userBranchId
+      if (effectiveBranchId) params.branchId = effectiveBranchId
+      const response = await withMinimumDelay(() => employeeService.getAll(params))
       const list = response?.data?.employees || response?.data || []
       setEmployees(list.map(normalizeId))
     } catch (err) {
@@ -37,9 +44,9 @@ const EmployeeList = () => {
     } finally {
       setLoading(false)
     }
-  }
+  }, [branchFilterId, userBranchId])
 
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     try {
       const response = await branchService.getAll()
       const list = response?.data?.branches || response?.data || []
@@ -47,12 +54,25 @@ const EmployeeList = () => {
     } catch (err) {
       toastError(err?.message || 'Failed to load branches')
     }
-  }
+  }, [])
 
   useEffect(() => {
     loadEmployees()
+  }, [loadEmployees])
+
+  useEffect(() => {
     loadBranches()
-  }, [])
+  }, [loadBranches])
+
+  // Branch isolation: default to user's branch so list shows only that branch's data
+  useEffect(() => {
+    if (branchDefaultApplied || !userBranchId || branches.length === 0) return
+    const id = String(userBranchId)
+    if (branches.some((b) => String(b.id || b._id) === id)) {
+      setBranchFilterId(id)
+      setBranchDefaultApplied(true)
+    }
+  }, [userBranchId, branches, branchDefaultApplied])
 
 
   const handleDeleteClick = (id) => {
@@ -79,6 +99,23 @@ const EmployeeList = () => {
   return (
     <>
       <EmployeeHeader onAdd={() => navigate('/employees/new')} canCreate={canCreate} />
+      {canSelectBranch && branches.length > 0 && (
+        <CRow className="mb-3">
+          <CCol md={4}>
+            <CFormSelect
+              value={branchFilterId}
+              onChange={(e) => setBranchFilterId(e.target.value)}
+            >
+              <option value="">All branches</option>
+              {branches.map((b) => (
+                <option key={b.id || b._id} value={b.id || b._id}>
+                  {b.name || b.branchcode || b.id}
+                </option>
+              ))}
+            </CFormSelect>
+          </CCol>
+        </CRow>
+      )}
       <EmployeeTable
         employees={employees}
         branches={branches}

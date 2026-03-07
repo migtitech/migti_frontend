@@ -15,6 +15,7 @@ const EmployeeCompanyInfoSection = ({
   branches,
   zones = [],
   designationOptions = [],
+  lockBranch = false,
 }) => (
   <>
     <CRow>
@@ -62,7 +63,7 @@ const EmployeeCompanyInfoSection = ({
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel htmlFor="branchId">Branch *</CFormLabel>
-          <CFormSelect id="branchId" {...register('branchId')} invalid={!!errors.branchId}>
+          <CFormSelect id="branchId" {...register('branchId')} invalid={!!errors.branchId} disabled={lockBranch}>
             <option value="">Select Branch</option>
             {branches.map((branch) => (
               <option key={branch.id} value={branch.id}>

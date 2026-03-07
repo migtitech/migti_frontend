@@ -177,7 +177,7 @@ const CategoryView = () => {
                       <div>
                         <code className="text-primary">{sub.categoryCode || '—'}</code>
                         <br />
-                        <strong>{sub.name}</strong>
+                        <strong>{sub.name ?? sub.categoryName ?? '—'}</strong>
                       </div>
                       <CIcon icon={cilPencil} size="sm" />
                     </CListGroupItem>
@@ -216,7 +216,7 @@ const CategoryView = () => {
                     <CTableDataCell>
                       <code>{sub.categoryCode || '—'}</code>
                     </CTableDataCell>
-                    <CTableDataCell>{sub.name}</CTableDataCell>
+                    <CTableDataCell>{sub.name ?? sub.categoryName ?? '—'}</CTableDataCell>
                     <CTableDataCell>
                       <CBadge color={sub.status === 'active' ? 'success' : 'secondary'}>
                         {sub.status}

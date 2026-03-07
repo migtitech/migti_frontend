@@ -17,6 +17,7 @@ import {
   CPagination,
   CPaginationItem,
   CFormInput,
+  CFormLabel,
   CInputGroup,
   CInputGroupText,
   CFormSelect,
@@ -115,7 +116,7 @@ const IndustryBranchList = () => {
               </CAlert>
             )}
             <CRow className="mb-3 align-items-end">
-              <CCol md={4}>
+              <CCol md={6}>
                 <CInputGroup>
                   <CInputGroupText>
                     <CIcon icon={cilSearch} />
@@ -131,7 +132,7 @@ const IndustryBranchList = () => {
                   />
                 </CInputGroup>
               </CCol>
-              <CCol md={4}>
+              <CCol md={6}>
                 <CFormSelect
                   value={filterIndustryId}
                   onChange={(e) => {

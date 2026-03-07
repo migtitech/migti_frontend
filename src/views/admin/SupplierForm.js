@@ -14,6 +14,7 @@ import {
   CFormCheck,
   CFormInput,
   CFormLabel,
+  CFormSelect,
   CFormTextarea,
   CRow,
   CBadge,
@@ -23,9 +24,11 @@ import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
+import branchService from '../../services/branchService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import useBranchContext from '../../hooks/useBranchContext'
 
 // Indian GSTIN: 15 chars - 2 digit state + 5 letter + 4 digit + 1 letter (PAN) + 1 entity + Z + 1 checksum (empty allowed)
 const GSTIN_REGEX = /^(|[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z])$/
@@ -59,6 +62,7 @@ const supplierSchema = yup.object({
     .matches(GSTIN_REGEX, 'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)'),
   categories: yup.array().of(yup.string()).default([]),
   remark: yup.string().optional().max(500),
+  branchId: yup.string().optional().nullable(),
 })
 
 const defaultValues = {
@@ -76,6 +80,7 @@ const defaultValues = {
   gst: '',
   categories: [],
   remark: '',
+  branchId: '',
 }
 
 const SUPPLIER_FORM_DRAFT_KEY = 'supplier_form_draft'
@@ -84,8 +89,10 @@ const SupplierForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
 
   const [categories, setCategories] = useState([])
+  const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -112,6 +119,26 @@ const SupplierForm = () => {
 
   useEffect(() => {
     fetchCategories()
+    let cancelled = false
+    const loadBranches = async () => {
+      try {
+        const response = await branchService.getAll({ pageNumber: 1, pageSize: 100 })
+        if (cancelled) return
+        const list = response?.data?.branches ?? response?.data?.data?.branches ?? response?.branches ?? (Array.isArray(response?.data) ? response.data : [])
+        const arr = Array.isArray(list) ? list : []
+        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })))
+      } catch (err) {
+        if (!cancelled) {
+          setBranches([])
+          toastError(err?.message || 'Failed to load branches')
+        }
+      }
+    }
+    loadBranches()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     if (isEdit) {
       fetchSupplier()
     } else {
@@ -129,6 +156,15 @@ const SupplierForm = () => {
       }
     }
   }, [id, isEdit, reset])
+
+  const currentBranchId = watch('branchId')
+  useEffect(() => {
+    if (isEdit || branches.length === 0 || currentBranchId) return
+    const defaultId = userBranchId && branches.some((b) => (b.id || b._id) === userBranchId)
+      ? userBranchId
+      : (branches[0] && (branches[0].id || branches[0]._id)) || ''
+    if (defaultId) setValue('branchId', defaultId)
+  }, [branches, isEdit, userBranchId, setValue, currentBranchId])
 
   // Autosave draft for new supplier
   useEffect(() => {
@@ -253,6 +289,10 @@ const SupplierForm = () => {
   }
 
   const onSubmit = async (values) => {
+    if (!isEdit && !values.branchId) {
+      setError('Please select a branch for the supplier.')
+      return
+    }
     setSubmitting(true)
     setError('')
     try {
@@ -273,6 +313,7 @@ const SupplierForm = () => {
           ...values,
           categories: values.categories || [],
         }
+        if (values.branchId) payload.branchId = values.branchId
         const res = await supplierService.create(payload)
         const created = res?.data?.data || res?.data || res
         const supplierId = created?._id || created?.id
@@ -333,6 +374,11 @@ const SupplierForm = () => {
         <CCardHeader className="d-flex justify-content-between align-items-center">
           <div>
             <strong>{isEdit ? 'Edit Supplier' : 'Add Supplier'}</strong>
+            {!isEdit && (
+              <small className="text-muted d-block mt-1">
+                Select the branch this supplier belongs to.
+              </small>
+            )}
             {isEdit && (
               <small className="text-muted d-block mt-1">
                 Only address, shipping/billing address, mobile numbers, categories and remark can be updated.
@@ -346,6 +392,30 @@ const SupplierForm = () => {
           )}
         </CCardHeader>
         <CCardBody>
+          {!isEdit && (
+            <CRow>
+              <CCol md={6}>
+                <div className="mb-3">
+                  <CFormLabel>Branch *</CFormLabel>
+                  <CFormSelect
+                    {...register('branchId')}
+                    disabled={!canSelectBranch && !!userBranchId}
+                    className={!canSelectBranch && userBranchId ? 'bg-light' : ''}
+                  >
+                    <option value="">Select branch</option>
+                    {branches.map((b) => (
+                      <option key={b.id || b._id} value={b.id || b._id}>
+                        {b.name || b.branchcode || b.id}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                  {!canSelectBranch && userBranchId && (
+                    <small className="text-muted">Your branch is pre-selected.</small>
+                  )}
+                </div>
+              </CCol>
+            </CRow>
+          )}
           <CRow>
             <CCol md={6}>
               <div className="mb-3">

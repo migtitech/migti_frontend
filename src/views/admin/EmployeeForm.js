@@ -24,11 +24,13 @@ import EmployeeFormActions from './employees/EmployeeFormActions'
 import EmployeeAccountDetailsSection from './employees/EmployeeAccountDetailsSection'
 import EmployeePermissionsSection from './employees/EmployeePermissionsSection'
 import { FULL_ACCESS_ROLES } from '../../context/AuthContext'
+import useBranchContext from '../../hooks/useBranchContext'
 
 const EmployeeForm = () => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
 
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
@@ -234,9 +236,13 @@ const EmployeeForm = () => {
         const normalized = list.map(normalizeId)
         setBranches(normalized)
         if (!isEdit && normalized.length > 0) {
+          const defaultBranchId = userBranchId || normalized[0].id
+          const effectiveDefault = normalized.some((b) => (b.id || b._id) === defaultBranchId)
+            ? defaultBranchId
+            : normalized[0].id
           reset((prev) => ({
             ...prev,
-            branchId: prev.branchId || normalized[0].id,
+            branchId: prev.branchId || effectiveDefault,
           }))
         }
       } catch (err) {
@@ -245,7 +251,7 @@ const EmployeeForm = () => {
     }
 
     loadBranches()
-  }, [isEdit, reset])
+  }, [isEdit, reset, userBranchId])
 
   useEffect(() => {
     const loadZones = async () => {
@@ -429,6 +435,7 @@ const EmployeeForm = () => {
             branches={branches}
             zones={zones}
             designationOptions={designationOptions}
+            lockBranch={!canSelectBranch && !!userBranchId}
           />
         </CCardBody>
       </CCard>

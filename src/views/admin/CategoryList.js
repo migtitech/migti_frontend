@@ -55,8 +55,9 @@ const CategoryList = () => {
         })
       )
       const data = res?.data || res
-      setCategories(data?.categories || [])
-      setPagination(data?.pagination || {})
+      const inner = data?.data ?? data
+      setCategories(inner?.categories || [])
+      setPagination(inner?.pagination || {})
     } catch (err) {
       setError(err?.message || 'Failed to fetch categories')
     } finally {
@@ -83,7 +84,8 @@ const CategoryList = () => {
         parent: categoryId,
       })
       const data = res?.data || res
-      setSubcategories((prev) => ({ ...prev, [categoryId]: data?.categories || [] }))
+      const list = data?.data?.categories ?? data?.categories ?? []
+      setSubcategories((prev) => ({ ...prev, [categoryId]: list }))
       setExpandedCategories((prev) => ({ ...prev, [categoryId]: true }))
     } catch (err) {
       console.error('Failed to fetch subcategories', err)
@@ -109,7 +111,8 @@ const CategoryList = () => {
           parent: parentId,
         })
         const data = res?.data || res
-        setSubcategories((prev) => ({ ...prev, [parentId]: data?.categories || [] }))
+        const list = data?.data?.categories ?? data?.categories ?? []
+        setSubcategories((prev) => ({ ...prev, [parentId]: list }))
       }
     } catch (err) {
       toastError(err?.message || 'Failed to delete category')
@@ -330,7 +333,7 @@ const CategoryList = () => {
                                 {typeof sub.group === 'object' ? sub.group?.name || '—' : '—'}
                               </CTableDataCell>
                               <CTableDataCell className="ps-4">
-                                &#8627; {sub.name}
+                                &#8627; {sub.name ?? sub.categoryName ?? '—'}
                               </CTableDataCell>
                               <CTableDataCell>
                                 {sub.description?.substring(0, 50) || '-'}
