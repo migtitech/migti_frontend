@@ -12,18 +12,32 @@ import {
 
 import { AppSidebarNav } from './AppSidebarNav'
 import usePermissions from '../hooks/usePermissions'
+import { useAuth } from '../context/AuthContext'
 
 // sidebar nav config
-import navigation from '../_nav'
+import navigation, { PURCHASE_ROLE_NAV } from '../_nav'
+
+const PURCHASE_ROLES = ['purchase_manager', 'purchase_exicutive']
 
 const AppSidebar = () => {
   const dispatch = useDispatch()
   const unfoldable = useSelector((state) => state.sidebarUnfoldable)
   const sidebarShow = useSelector((state) => state.sidebarShow)
+  const { user } = useAuth()
   const { hasAnyPermission, isFullAccess } = usePermissions()
 
-  // Filter navigation items based on permissions
+  const isPurchaseRole = useMemo(
+    () => !!user?.role && PURCHASE_ROLES.includes(user.role),
+    [user?.role],
+  )
+
+  // Filter navigation items based on permissions (or use purchase-only nav for PM/PE)
   const filteredNavigation = useMemo(() => {
+    // Purchase Manager / Purchase Executive: show only Dashboard + Procurement, Follow up, DMG buckets
+    if (isPurchaseRole) {
+      return PURCHASE_ROLE_NAV
+    }
+
     const filterItem = (item) => {
       // No module = accessible to all (e.g., Dashboard)
       if (!item.module) return true
@@ -49,7 +63,7 @@ const AppSidebar = () => {
         return item
       })
       .filter(Boolean)
-  }, [hasAnyPermission, isFullAccess])
+  }, [isPurchaseRole, hasAnyPermission, isFullAccess])
 
   return (
     <CSidebar

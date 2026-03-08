@@ -19,8 +19,18 @@ import {
   cilMap,
   cilHome,
   cilStar,
+  cilClipboard,
+  cilFolder,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
+
+// Purchase Manager / Purchase Executive – show only these bucket items (used in AppSidebar)
+export const PURCHASE_ROLE_NAV = [
+  { component: CNavItem, name: 'Dashboard', to: '/dashboard', icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />, module: null },
+  { component: CNavItem, name: 'Procurement Bucket', to: '/purchase-tasks', icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />, module: 'purchase_tasks', roles: ['purchase_manager', 'purchase_exicutive'] },
+  { component: CNavItem, name: 'Follow up Bucket', to: '/follow-up', icon: <CIcon icon={cilBell} customClassName="nav-icon" />, module: 'follow_up', roles: ['purchase_manager', 'purchase_exicutive'] },
+  { component: CNavItem, name: 'DMG Bucket', to: '/dmg', icon: <CIcon icon={cilFolder} customClassName="nav-icon" />, module: 'dmg', roles: ['purchase_manager', 'purchase_exicutive'] },
+]
 
 // Define which roles can access each menu item
 // 'module' maps to the RBAC permission module key for granular access control

@@ -1,4 +1,5 @@
-  import React from 'react'
+import React from 'react'
+import { Link } from 'react-router-dom'
 import {
   CCard,
   CCardBody,
@@ -14,6 +15,7 @@ import {
   CTableDataCell,
   CBadge,
   CProgress,
+  CButton,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import {
@@ -21,6 +23,9 @@ import {
   cilFactory,
   cilClipboard,
   cilDollar,
+  cilBell,
+  cilFolder,
+  cilArrowRight,
 } from '@coreui/icons'
 import { useAuth } from '../../context/AuthContext'
 
@@ -67,6 +72,58 @@ const PurchaseDashboard = () => {
         <CCol>
           <h2>Welcome, {user?.name}</h2>
           <p className="text-body-secondary">Purchase Dashboard - Manage procurement activities</p>
+        </CCol>
+      </CRow>
+
+      {/* Procurement, Follow up, DMG buckets */}
+      <CRow className="mb-4">
+        <CCol md={4}>
+          <CCard className="h-100 border-primary border-2">
+            <CCardHeader className="bg-primary text-white d-flex align-items-center">
+              <CIcon icon={cilCart} className="me-2" />
+              <strong>Procurement Bucket</strong>
+            </CCardHeader>
+            <CCardBody className="d-flex flex-column">
+              <p className="text-body-secondary flex-grow-1 mb-3">
+                View and manage purchase tasks, rates, and procurement activities.
+              </p>
+              <CButton color="primary" component={Link} to="/purchase-tasks" className="align-self-start">
+                Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
+              </CButton>
+            </CCardBody>
+          </CCard>
+        </CCol>
+        <CCol md={4}>
+          <CCard className="h-100 border-info border-2">
+            <CCardHeader className="bg-info text-white d-flex align-items-center">
+              <CIcon icon={cilBell} className="me-2" />
+              <strong>Follow up Bucket</strong>
+            </CCardHeader>
+            <CCardBody className="d-flex flex-column">
+              <p className="text-body-secondary flex-grow-1 mb-3">
+                Track and manage follow-ups on queries, quotations, and orders.
+              </p>
+              <CButton color="info" component={Link} to="/follow-up" className="align-self-start">
+                Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
+              </CButton>
+            </CCardBody>
+          </CCard>
+        </CCol>
+        <CCol md={4}>
+          <CCard className="h-100 border-success border-2">
+            <CCardHeader className="bg-success text-white d-flex align-items-center">
+              <CIcon icon={cilFolder} className="me-2" />
+              <strong>DMG Bucket</strong>
+            </CCardHeader>
+            <CCardBody className="d-flex flex-column">
+              <p className="text-body-secondary flex-grow-1 mb-3">
+                DMG-related items and direct material group activities.
+              </p>
+              <CButton color="success" component={Link} to="/dmg" className="align-self-start">
+                Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
+              </CButton>
+            </CCardBody>
+          </CCard>
         </CCol>
       </CRow>
 

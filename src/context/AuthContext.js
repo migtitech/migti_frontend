@@ -7,6 +7,7 @@ import React, {
   useMemo,
 } from 'react'
 import authService from '../services/authService'
+import { getAccessToken, clearTokens } from '../api/axiosClient'
 
 const AuthContext = createContext(null)
 
@@ -46,10 +47,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Check for existing session
+    // Check for existing session: require BOTH user and access token
     const storedUser = localStorage.getItem('migticrm_user')
-    if (storedUser) {
+    const token = getAccessToken()
+    if (storedUser && token) {
       setUser(JSON.parse(storedUser))
+    } else if (storedUser && !token) {
+      // Token missing or cleared (e.g. expired) – clear stale user
+      localStorage.removeItem('migticrm_user')
     }
     setLoading(false)
   }, [])
@@ -146,6 +151,7 @@ export const AuthProvider = ({ children }) => {
   const logout = useCallback(() => {
     setUser(null)
     localStorage.removeItem('migticrm_user')
+    clearTokens()
   }, [])
 
   const value = useMemo(
@@ -154,7 +160,7 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       loading,
-      isAuthenticated: !!user,
+      isAuthenticated: !!user && !!getAccessToken(),
     }),
     [user, login, logout, loading]
   )
