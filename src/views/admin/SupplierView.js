@@ -181,18 +181,6 @@ const SupplierView = () => {
                       <p className="mb-0 mt-2">{supplier.address || 'No address provided'}</p>
                     </CListGroupItem>
                     <CListGroupItem>
-                      <strong>Shipping Address:</strong>
-                      <p className="mb-0 mt-2">
-                        {supplier.shippingAddress || 'No shipping address provided'}
-                      </p>
-                    </CListGroupItem>
-                    <CListGroupItem>
-                      <strong>Billing Address:</strong>
-                      <p className="mb-0 mt-2">
-                        {supplier.billingAddress || 'No billing address provided'}
-                      </p>
-                    </CListGroupItem>
-                    <CListGroupItem>
                       <strong>Remark:</strong>
                       <p className="mb-0 mt-2">{supplier.remark || 'No remark provided'}</p>
                     </CListGroupItem>

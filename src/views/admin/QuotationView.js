@@ -76,11 +76,12 @@ const QuotationView = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(false)
-  const [activeTab, setActiveTab] = useState('company')
+  const [activeTab, setActiveTab] = useState('preview')
   const [productIndex, setProductIndex] = useState(0)
   const [editingProduct, setEditingProduct] = useState(null)
   const [updating, setUpdating] = useState(false)
   const [productListRateEdits, setProductListRateEdits] = useState({})
+  const [productListGstEdits, setProductListGstEdits] = useState({})
   const [purchaseEmployees, setPurchaseEmployees] = useState([])
   const [assignTaskSelected, setAssignTaskSelected] = useState({})
   const [assigningTask, setAssigningTask] = useState(false)
@@ -423,6 +424,14 @@ const QuotationView = () => {
   }
 
   const getListRate = (idx) => (productListRateEdits[idx] !== undefined ? productListRateEdits[idx] : (products[idx]?.rate ?? ''))
+  const getListGst = (idx) => {
+    if (productListGstEdits[idx] !== undefined && productListGstEdits[idx] !== '') return productListGstEdits[idx]
+    const p = products[idx]
+    const productRef = typeof p?.product_id === 'object' ? p.product_id : null
+    const val = p?.gstPercentage ?? productRef?.gstPercentage
+    return val != null ? String(val) : ''
+  }
+  const setListGst = (idx, val) => setProductListGstEdits((prev) => ({ ...prev, [idx]: val }))
   const getListTotal = (idx) => {
     const p = products[idx]
     const qty = Number(p?.quantity) ?? 0
@@ -450,9 +459,19 @@ const QuotationView = () => {
   const handleUpdateProductFromList = async (idx) => {
     if (!quotation?.id || !products[idx]) return
     const rateVal = getListRate(idx)
+    const gstVal = getListGst(idx)
+    const gstNum = gstVal !== '' && !Number.isNaN(Number(gstVal)) ? Number(gstVal) : null
+    if (gstVal === '' || gstNum === null) {
+      toastError('GST % is required. Enter a value between 0 and 100.')
+      return
+    }
+    if (gstNum < 0 || gstNum > 100) {
+      toastError('GST % must be between 0 and 100.')
+      return
+    }
     const r = rateVal !== '' && !Number.isNaN(Number(rateVal)) ? Number(rateVal) : (products[idx]?.rate ?? null)
     const toImgIds = (imgs) => (imgs || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean)
-    const toProductPayload = (p) => ({
+    const toProductPayload = (p, override = {}) => ({
       productName: p.productName || '',
       quantity: Number(p.quantity) ?? 1,
       unit: p.unit || '',
@@ -464,8 +483,11 @@ const QuotationView = () => {
       rate: p.rate ?? null,
       variants: p.variants || [],
       images: toImgIds(p.images),
+      ...override,
     })
-    const updatedProducts = products.map((p, i) => toProductPayload(i === idx ? { ...p, rate: r } : p))
+    const updatedProducts = products.map((p, i) =>
+      i === idx ? toProductPayload(p, { rate: r, gstPercentage: gstNum }) : toProductPayload(p)
+    )
     setUpdating(true)
     try {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
@@ -473,10 +495,11 @@ const QuotationView = () => {
       if (data?.products) {
         setQuotation((prev) => (prev ? { ...prev, products: data.products } : null))
         setProductListRateEdits((prev) => { const next = { ...prev }; delete next[idx]; return next })
+        setProductListGstEdits((prev) => { const next = { ...prev }; delete next[idx]; return next })
       } else {
         setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
       }
-      toastSuccess('Rate updated')
+      toastSuccess('Rate and GST updated')
     } catch (err) {
       toastError(err?.message || 'Failed to update rate')
     } finally {
@@ -853,6 +876,11 @@ const QuotationView = () => {
         <CCardHeader>
           <CNav variant="tabs" role="tablist">
             <CNavItem>
+              <CNavLink active={activeTab === 'preview'} onClick={() => setActiveTab('preview')} style={{ cursor: 'pointer' }}>
+                Preview
+              </CNavLink>
+            </CNavItem>
+            <CNavItem>
               <CNavLink active={activeTab === 'company'} onClick={() => setActiveTab('company')} style={{ cursor: 'pointer' }}>
                 Company Information
               </CNavLink>
@@ -886,6 +914,162 @@ const QuotationView = () => {
         </CCardHeader>
         <CCardBody>
           <CTabContent>
+            {/* Tab 0: Preview - read-only full quotation */}
+            <CTabPane visible={activeTab === 'preview'}>
+              <CCard className="mb-4">
+                <CCardHeader className="bg-light"><strong>Quotation Preview</strong> — All information at a glance (read-only)</CCardHeader>
+                <CCardBody>
+                  {/* Quotation meta */}
+                  <div className="mb-4 pb-3 border-bottom">
+                    <h6 className="text-muted text-uppercase small mb-2">Quotation Details</h6>
+                    <CRow>
+                      <CCol md={3}><strong>Quotation No.</strong></CCol>
+                      <CCol md={9}>{quotation?.quotationCode || `QT-${String(quotation?.id || '').slice(-6)}` || '–'}</CCol>
+                      <CCol md={3}><strong>Status</strong></CCol>
+                      <CCol md={9}><CBadge color="info">{quotation?.status || '–'}</CBadge></CCol>
+                      <CCol md={3}><strong>Quotation Date</strong></CCol>
+                      <CCol md={9}>{quotation?.createdAt ? new Date(quotation.createdAt).toLocaleDateString() : '–'}</CCol>
+                      {queryId && (
+                        <>
+                          <CCol md={3}><strong>Related Query</strong></CCol>
+                          <CCol md={9}>
+                            <CButton color="link" className="p-0" onClick={() => navigate(`/queries/${queryId}`)}>View Query</CButton>
+                          </CCol>
+                        </>
+                      )}
+                      {quotation?.remark && (
+                        <>
+                          <CCol md={3}><strong>Remark</strong></CCol>
+                          <CCol md={9}>{quotation.remark}</CCol>
+                        </>
+                      )}
+                    </CRow>
+                  </div>
+
+                  {/* Company information */}
+                  <div className="mb-4 pb-3 border-bottom">
+                    <h6 className="text-muted text-uppercase small mb-2">Company Information</h6>
+                    <CRow>
+                      <CCol md={4}>
+                        <p className="mb-1"><strong>Company name</strong></p>
+                        <p className="text-body mb-3">{companyForm.name || '–'}</p>
+                        <p className="mb-1"><strong>Location</strong></p>
+                        <p className="text-body mb-3">{companyForm.location || '–'}</p>
+                        <p className="mb-1"><strong>Zone</strong></p>
+                        <p className="text-body mb-0">{(zoneNameDisplay ?? companyForm.area) || '–'}</p>
+                      </CCol>
+                      <CCol md={4}>
+                        <p className="mb-1"><strong>Address</strong></p>
+                        <p className="text-body mb-3" style={{ whiteSpace: 'pre-wrap' }}>{companyForm.address || '–'}</p>
+                      </CCol>
+                      <CCol md={4}>
+                        <p className="mb-1"><strong>Purchase manager name</strong></p>
+                        <p className="text-body mb-3">{companyForm.purchaseManagerName || '–'}</p>
+                        <p className="mb-1"><strong>Purchase manager phone</strong></p>
+                        <p className="text-body mb-3">{companyForm.purchaseManagerPhone || '–'}</p>
+                        <p className="mb-1"><strong>Purchase manager email</strong></p>
+                        <p className="text-body mb-0">{companyForm.purchaseManagerEmail || '–'}</p>
+                      </CCol>
+                    </CRow>
+                  </div>
+
+                  {/* Contact (Migti) */}
+                  <div className="mb-4 pb-3 border-bottom">
+                    <h6 className="text-muted text-uppercase small mb-2">Contact</h6>
+                    <CRow>
+                      <CCol md={6}>
+                        <p className="mb-1"><strong>Email</strong></p>
+                        <p className="text-body mb-0">info@migti.co.in</p>
+                      </CCol>
+                      <CCol md={6}>
+                        <p className="mb-1"><strong>Phone</strong></p>
+                        <p className="text-body mb-0">+91 9220199533<br />+91 9971117391</p>
+                      </CCol>
+                    </CRow>
+                  </div>
+
+                  {/* Products table */}
+                  <div className="mb-4">
+                    <h6 className="text-muted text-uppercase small mb-2">Products</h6>
+                    {products.length > 0 ? (
+                      <>
+                        <CTable responsive hover bordered size="sm">
+                          <CTableHead>
+                            <CTableRow>
+                              <CTableHeaderCell className="text-center">#</CTableHeaderCell>
+                              <CTableHeaderCell>Product name</CTableHeaderCell>
+                              <CTableHeaderCell className="text-center">Qty</CTableHeaderCell>
+                              <CTableHeaderCell className="text-center">Unit</CTableHeaderCell>
+                              <CTableHeaderCell className="text-center">HSN</CTableHeaderCell>
+                              <CTableHeaderCell className="text-center">Model</CTableHeaderCell>
+                              <CTableHeaderCell className="text-center">GST %</CTableHeaderCell>
+                              <CTableHeaderCell className="text-end">Rate (₹)</CTableHeaderCell>
+                              <CTableHeaderCell className="text-end">Total (₹)</CTableHeaderCell>
+                              <CTableHeaderCell className="text-end">GST Amount (₹)</CTableHeaderCell>
+                            </CTableRow>
+                          </CTableHead>
+                          <CTableBody>
+                            {products.map((p, idx) => {
+                              const productRef = typeof p.product_id === 'object' ? p.product_id : null
+                              const rateVal = getListRate(idx)
+                              const gstVal = getListGst(idx)
+                              const rate = rateVal !== '' && rateVal != null && !Number.isNaN(Number(rateVal)) ? Number(rateVal) : (Number(p?.rate) || 0)
+                              const gstPct = gstVal !== '' && !Number.isNaN(Number(gstVal)) ? Number(gstVal) : (p?.gstPercentage ?? productRef?.gstPercentage ?? 0)
+                              const qty = Number(p?.quantity) || 0
+                              const total = qty * rate
+                              const gstAmount = total * (gstPct / 100)
+                              return (
+                                <CTableRow key={idx}>
+                                  <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
+                                  <CTableDataCell>
+                                    <div>{p.productName || '–'}</div>
+                                    {p.remark ? <div className="small text-muted">{p.remark}</div> : null}
+                                  </CTableDataCell>
+                                  <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-center">{productRef?.hsnNumber || p.hsnNumber || '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-center">{productRef?.modelNumber || productRef?.defaultModelNumber || p.modelNumber || '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-center">{gstPct != null ? `${Number(gstPct).toFixed(2)}%` : '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-end">{rate ? rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-end">{total ? total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–'}</CTableDataCell>
+                                  <CTableDataCell className="text-end">{gstAmount ? gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–'}</CTableDataCell>
+                                </CTableRow>
+                              )
+                            })}
+                          </CTableBody>
+                        </CTable>
+                        {(() => {
+                          const totTaxable = products.reduce((sum, p, i) => {
+                            const r = getListRate(i)
+                            const rate = r !== '' && r != null && !Number.isNaN(Number(r)) ? Number(r) : (Number(products[i]?.rate) || 0)
+                            return sum + (Number(p?.quantity) || 0) * rate
+                          }, 0)
+                          const totGst = products.reduce((sum, p, i) => {
+                            const r = getListRate(i)
+                            const g = getListGst(i)
+                            const rate = r !== '' && r != null && !Number.isNaN(Number(r)) ? Number(r) : (Number(products[i]?.rate) || 0)
+                            const gstPct = g !== '' && !Number.isNaN(Number(g)) ? Number(g) : (p?.gstPercentage ?? (typeof p.product_id === 'object' ? p.product_id?.gstPercentage : null) ?? 0)
+                            const lineTotal = (Number(p?.quantity) || 0) * rate
+                            return sum + lineTotal * (gstPct / 100)
+                          }, 0)
+                          const grandTotal = totTaxable + totGst
+                          return (
+                            <div className="mt-3 text-end border-top pt-3">
+                              <p className="mb-1"><strong>Total (Taxable):</strong> ₹{totTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              <p className="mb-1"><strong>GST Amount:</strong> ₹{totGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                              <p className="mb-0 fs-5"><strong>Total Amount:</strong> ₹{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                            </div>
+                          )
+                        })()}
+                      </>
+                    ) : (
+                      <p className="text-muted mb-0">No products in this quotation.</p>
+                    )}
+                  </div>
+                </CCardBody>
+              </CCard>
+            </CTabPane>
+
             {/* Tab 1: Company Information */}
             <CTabPane visible={activeTab === 'company'}>
               <CCard className="mb-4">
@@ -1271,7 +1455,19 @@ const QuotationView = () => {
                             <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
                             <CTableDataCell className="small text-center">{productRef?.hsnNumber || p.hsnNumber || '–'}</CTableDataCell>
                             <CTableDataCell className="small text-center">{productRef?.modelNumber || productRef?.defaultModelNumber || p.modelNumber || '–'}</CTableDataCell>
-                            <CTableDataCell className="text-center">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '–')}</CTableDataCell>
+                            <CTableDataCell className="text-center">
+                              <CFormInput
+                                type="number"
+                                min={0}
+                                max={100}
+                                step="0.01"
+                                size="sm"
+                                value={getListGst(idx)}
+                                onChange={(e) => setListGst(idx, e.target.value)}
+                                placeholder="GST %"
+                                title="GST % (required, 0–100)"
+                              />
+                            </CTableDataCell>
                             <CTableDataCell className="text-center">
                               {allImages.length > 0 ? (
                                 <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">
@@ -1392,7 +1588,19 @@ const QuotationView = () => {
                           <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
                           <CTableDataCell className="small text-center">{productRef?.hsnNumber || p.hsnNumber || '–'}</CTableDataCell>
                           <CTableDataCell className="small text-center">{productRef?.modelNumber || productRef?.defaultModelNumber || p.modelNumber || '–'}</CTableDataCell>
-                          <CTableDataCell className="text-center">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '–')}</CTableDataCell>
+                          <CTableDataCell className="text-center">
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              size="sm"
+                              value={getListGst(realIdx)}
+                              onChange={(e) => setListGst(realIdx, e.target.value)}
+                              placeholder="GST %"
+                              title="GST % (required, 0–100)"
+                            />
+                          </CTableDataCell>
                           <CTableDataCell className="text-center">
                             {allImages.length > 0 ? (
                               <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">
@@ -1507,7 +1715,19 @@ const QuotationView = () => {
                           <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
                           <CTableDataCell className="small text-center">{productRef?.hsnNumber || p.hsnNumber || '–'}</CTableDataCell>
                           <CTableDataCell className="small text-center">{productRef?.modelNumber || productRef?.defaultModelNumber || p.modelNumber || '–'}</CTableDataCell>
-                          <CTableDataCell className="text-center">{productRef?.gstPercentage != null ? `${productRef.gstPercentage}%` : (p.gstPercentage != null ? `${p.gstPercentage}%` : '–')}</CTableDataCell>
+                          <CTableDataCell className="text-center">
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              size="sm"
+                              value={getListGst(realIdx)}
+                              onChange={(e) => setListGst(realIdx, e.target.value)}
+                              placeholder="GST %"
+                              title="GST % (required, 0–100)"
+                            />
+                          </CTableDataCell>
                           <CTableDataCell className="text-center">
                             {allImages.length > 0 ? (
                               <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">

@@ -93,8 +93,9 @@ const BranchList = () => {
     setError('')
     try {
       const adminId = getAdminIdFromToken()
+      const { branchId: _b, billingAddress: _a, ...rest } = data
       const payload = {
-        ...data,
+        ...rest,
         ...(adminId ? { adminId } : {}),
       }
 

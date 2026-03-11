@@ -39,8 +39,6 @@ const companySchema = () => yup.object({
     ),
   mobile: yup.string().optional().max(20),
   address: yup.string().optional().max(500),
-  shippingAddress: yup.string().optional().max(500),
-  billingAddress: yup.string().optional().max(500),
   website: yup
     .string()
     .optional()
@@ -59,8 +57,6 @@ const defaultValues = {
   gst: '',
   mobile: '',
   address: '',
-  shippingAddress: '',
-  billingAddress: '',
   website: '',
   logoUrl: '',
   logoDisplayUrl: '',
@@ -124,9 +120,7 @@ const CompanyForm = () => {
           email: data.email || '',
           gst: data.gst || '',
           mobile: data.mobile || '',
-          address: data.address || '',
-          shippingAddress: data.shippingAddress || '',
-          billingAddress: data.billingAddress || '',
+          address: data.address || data.shippingAddress || data.billingAddress || '',
           website: data.website || '',
           logoUrl: data.logoUrl || '',
           logoDisplayUrl: data.logoDisplayUrl || data.logoUrl || '',
@@ -196,14 +190,15 @@ const CompanyForm = () => {
     setSubmitting(true)
     setError('')
     try {
-      const { logoDisplayUrl: _, ...rest } = values
+      const { logoDisplayUrl: _, branchId: __, ...rest } = values
       const payload = {
         ...rest,
         logoUrl: values.logoUrl || undefined,
         mobile: values.mobile || '',
         address: values.address || '',
-        shippingAddress: values.shippingAddress || '',
-        billingAddress: values.billingAddress || '',
+        // Keep backend compatibility: store single address into both fields.
+        shippingAddress: values.address || '',
+        billingAddress: values.address || '',
         website: values.website || '',
         isActive: values.isActive !== false,
       }
@@ -338,25 +333,8 @@ const CompanyForm = () => {
             <CCol md={12}>
               <div className="mb-3">
                 <CFormLabel>Address</CFormLabel>
-                <CFormTextarea rows={2} {...register('address')} placeholder="Company address (optional)" />
+                <CFormTextarea rows={3} {...register('address')} placeholder="Address (optional)" />
                 {errors.address && <div className="text-danger small">{errors.address.message}</div>}
-              </div>
-            </CCol>
-          </CRow>
-
-          <CRow>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel>Shipping Address</CFormLabel>
-                <CFormTextarea rows={3} {...register('shippingAddress')} placeholder="Shipping address" />
-                {errors.shippingAddress && <div className="text-danger small">{errors.shippingAddress.message}</div>}
-              </div>
-            </CCol>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel>Billing Address</CFormLabel>
-                <CFormTextarea rows={3} {...register('billingAddress')} placeholder="Billing address" />
-                {errors.billingAddress && <div className="text-danger small">{errors.billingAddress.message}</div>}
               </div>
             </CCol>
           </CRow>
