@@ -36,4 +36,6 @@ jobs:
             git stash 
             git pull origin prod
             git stash pop
+            git reset --hard origin/prod
+            git clean -fd
             npm run build
