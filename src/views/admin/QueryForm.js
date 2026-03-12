@@ -73,6 +73,7 @@ const INITIAL_PRODUCT = {
   gstPercentage: null,
   variants: [],
   remark: '',
+  description: '',
   product_id: null,
   productCode: '',
   isNewProduct: true,
@@ -382,6 +383,7 @@ const QueryForm = () => {
             modelNumber: c?.modelNumber || p?.defaultModelNumber || '',
             variants: [{ variantName: getVariantComboDisplay(c) }],
             remark: '',
+            description: p?.shortDescription || '',
             product_id: pid,
             productCode: baseProductCode,
             isNewProduct: false,
@@ -398,6 +400,7 @@ const QueryForm = () => {
           modelNumber: p?.defaultModelNumber || '',
           variants: [],
           remark: '',
+          description: p?.shortDescription || '',
           product_id: pid,
           productCode: baseProductCode,
           isNewProduct: false,
@@ -418,6 +421,7 @@ const QueryForm = () => {
             modelNumber: p?.defaultModelNumber || '',
             variants: [{ variantName: o.label }],
             remark: '',
+            description: p?.shortDescription || '',
             product_id: pid,
             productCode: baseProductCode,
             isNewProduct: false,
@@ -434,6 +438,7 @@ const QueryForm = () => {
           modelNumber: p?.defaultModelNumber || '',
           variants: [],
           remark: '',
+          description: p?.shortDescription || '',
           product_id: pid,
           productCode: baseProductCode,
           isNewProduct: false,
@@ -450,6 +455,7 @@ const QueryForm = () => {
         modelNumber: p?.defaultModelNumber || '',
         variants: [],
         remark: '',
+        description: p?.shortDescription || '',
         product_id: pid,
         productCode: baseProductCode,
         isNewProduct: false,
@@ -491,6 +497,7 @@ const QueryForm = () => {
         variantName: v.variantName || '',
       })),
       remark: first.remark || '',
+      description: first.description || '',
       product_id: first.product_id || null,
       productCode: first.productCode || '',
       isNewProduct: false,
@@ -628,6 +635,7 @@ const QueryForm = () => {
         variantName: v.variantName || '',
       })),
       remark: p.remark || '',
+      description: p.description || '',
       product_id: p.product_id || null,
       productCode: p.productCode || '',
       isNewProduct: p.isNewProduct ?? !p.productCode,
@@ -717,6 +725,7 @@ const QueryForm = () => {
                 variantName: v.variantName || '',
               })),
               remark: p.remark || '',
+              description: p.description || '',
               product_id: p.product_id?._id || p.product_id || null,
               productCode: p.productCode || '',
               isNewProduct: p.isNewProduct ?? !p.productCode,
@@ -750,13 +759,25 @@ const QueryForm = () => {
       toastError('Company / Industry name is required')
       return
     }
+    if ((companyInfo.name || '').length > 100) {
+      toastError('Company name must be at most 100 characters')
+      return
+    }
     const managers = companyInfo?.purchaseManagers || []
     for (const m of managers) {
+      if ((m?.name || '').length > 100) {
+        toastError('Purchase manager name must be at most 100 characters')
+        return
+      }
       const pm = (m?.phone || '').trim()
       if (pm && !/^\d{10}$/.test(pm)) {
         toastError(`Purchase manager "${m?.name || 'Unknown'}" phone must be exactly 10 digits`)
         return
       }
+    }
+    if ((companyInfo.address || '').length > 500) {
+      toastError('Address must be at most 500 characters')
+      return
     }
     goToStep(2)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -841,13 +862,25 @@ const QueryForm = () => {
       toastError('Company / Industry name is required')
       return
     }
+    if ((companyInfo.name || '').length > 100) {
+      toastError('Company name must be at most 100 characters')
+      return
+    }
     const managers = companyInfo?.purchaseManagers || []
     for (const m of managers) {
+      if ((m?.name || '').length > 100) {
+        toastError('Purchase manager name must be at most 100 characters')
+        return
+      }
       const pm = (m?.phone || '').trim()
       if (pm && !/^\d{10}$/.test(pm)) {
         toastError(`Purchase manager "${m?.name || 'Unknown'}" phone must be exactly 10 digits`)
         return
       }
+    }
+    if ((companyInfo.address || '').length > 500) {
+      toastError('Address must be at most 500 characters')
+      return
     }
     const validProducts = products.filter((p) => (p.productName || '').trim())
     if (validProducts.length === 0) {
@@ -882,6 +915,7 @@ const QueryForm = () => {
               }))
               .filter((v) => v.variantName),
             remark: p.remark?.trim() || '',
+            description: p.description?.trim() || '',
             product_id: p.product_id || null,
             images: (p.images || []).map((img) => {
               if (typeof img === 'object' && img?._id) return img._id
@@ -1083,14 +1117,18 @@ const QueryForm = () => {
                 <CRow>
                   <CCol md={6}>
                     <div className="mb-3">
-                      <CFormLabel>Company name</CFormLabel>
+                      <CFormLabel>Company name (max 100 characters)</CFormLabel>
                       <CFormInput
                         value={companyInfo.name}
                         onChange={(e) =>
-                          setCompanyInfo((c) => ({ ...c, name: e.target.value }))
+                          setCompanyInfo((c) => ({ ...c, name: e.target.value.slice(0, 100) }))
                         }
                         placeholder="Company / Industry name"
+                        maxLength={100}
                       />
+                      <div className="form-text text-muted small">
+                        {(companyInfo.name || '').length}/100
+                      </div>
                     </div>
                   </CCol>
                   <CCol md={6}>
@@ -1116,13 +1154,13 @@ const QueryForm = () => {
                 <CRow>
                   <CCol md={6}>
                     <div className="mb-3">
-                      <CFormLabel>Location</CFormLabel>
+                      <CFormLabel>Location URL</CFormLabel>
                       <CFormInput
                         value={companyInfo.location}
                         onChange={(e) =>
                           setCompanyInfo((c) => ({ ...c, location: e.target.value }))
                         }
-                        placeholder="Location"
+                        placeholder="Location URL"
                       />
                     </div>
                   </CCol>
@@ -1158,11 +1196,12 @@ const QueryForm = () => {
                               onChange={(e) =>
                                 setCompanyInfo((c) => {
                                   const next = [...(c.purchaseManagers || [])]
-                                  next[idx] = { ...next[idx], name: e.target.value }
+                                  next[idx] = { ...next[idx], name: e.target.value.slice(0, 100) }
                                   return { ...c, purchaseManagers: next }
                                 })
                               }
-                              placeholder="Name"
+                              placeholder="Name (max 100)"
+                              maxLength={100}
                             />
                           </CCol>
                           <CCol md={3}>
@@ -1223,15 +1262,19 @@ const QueryForm = () => {
                 <CRow>
                   <CCol xs={12}>
                     <div className="mb-3">
-                      <CFormLabel>Address</CFormLabel>
+                      <CFormLabel>Address (max 500 characters)</CFormLabel>
                       <CFormTextarea
                         rows={2}
                         value={companyInfo.address}
                         onChange={(e) =>
-                          setCompanyInfo((c) => ({ ...c, address: e.target.value }))
+                          setCompanyInfo((c) => ({ ...c, address: e.target.value.slice(0, 500) }))
                         }
                         placeholder="Address"
+                        maxLength={500}
                       />
+                      <div className="form-text text-muted small">
+                        {(companyInfo.address || '').length}/500
+                      </div>
                     </div>
                   </CCol>
                 </CRow>
@@ -1310,6 +1353,11 @@ const QueryForm = () => {
                                       <div className="fw-semibold">{pr.name}</div>
                                       {pr.sku && (
                                         <div className="text-muted small">SKU: {pr.sku}</div>
+                                      )}
+                                      {pr.shortDescription && (
+                                        <div className="text-muted small mt-1">
+                                          {pr.shortDescription}
+                                        </div>
                                       )}
                                     </CListGroupItem>
                                   ))}
@@ -1641,6 +1689,15 @@ const QueryForm = () => {
                       />
                     </div>
                     <div className="mb-3">
+                      <CFormLabel>Product description</CFormLabel>
+                      <CFormTextarea
+                        rows={2}
+                        value={formProduct.description}
+                        onChange={(e) => updateFormProduct('description', e.target.value)}
+                        placeholder="Product description (e.g. from catalog)"
+                      />
+                    </div>
+                    <div className="mb-3">
                       <CFormLabel>Images (optional)</CFormLabel>
                       <CFormInput
                         type="file"
@@ -1715,6 +1772,7 @@ const QueryForm = () => {
                           <CTableHeaderCell>Variants</CTableHeaderCell>
                           <CTableHeaderCell>HSN Number</CTableHeaderCell>
                           <CTableHeaderCell>GST %</CTableHeaderCell>
+                          <CTableHeaderCell>Description</CTableHeaderCell>
                           <CTableHeaderCell>Remark</CTableHeaderCell>
                           <CTableHeaderCell>Images</CTableHeaderCell>
                           <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
@@ -1741,6 +1799,10 @@ const QueryForm = () => {
                               {typeof p.gstPercentage === 'number'
                                 ? `${p.gstPercentage}%`
                                 : '–'}
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              {(p.description || '').slice(0, 40)}
+                              {(p.description || '').length > 40 ? '…' : ''}
                             </CTableDataCell>
                             <CTableDataCell>
                               {(p.remark || '').slice(0, 40)}
@@ -1821,7 +1883,7 @@ const QueryForm = () => {
                     <CRow>
                       <CCol md={6}>
                         <div className="mb-2">
-                          <strong>Location</strong>
+                          <strong>Location URL</strong>
                           <div>{companyInfo.location || '–'}</div>
                         </div>
                       </CCol>
@@ -1877,6 +1939,7 @@ const QueryForm = () => {
                         <CTableHeaderCell>Variants</CTableHeaderCell>
                         <CTableHeaderCell>HSN Number</CTableHeaderCell>
                         <CTableHeaderCell>GST %</CTableHeaderCell>
+                        <CTableHeaderCell>Description</CTableHeaderCell>
                         <CTableHeaderCell>Remark</CTableHeaderCell>
                         <CTableHeaderCell>Images</CTableHeaderCell>
                       </CTableRow>
@@ -1902,6 +1965,10 @@ const QueryForm = () => {
                             {typeof p.gstPercentage === 'number'
                               ? `${p.gstPercentage}%`
                               : '–'}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {(p.description || '').slice(0, 80)}
+                            {(p.description || '').length > 80 ? '…' : ''}
                           </CTableDataCell>
                           <CTableDataCell>
                             {(p.remark || '').slice(0, 80)}

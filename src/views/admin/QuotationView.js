@@ -122,6 +122,12 @@ const QuotationView = () => {
   })
   const [savingCompany, setSavingCompany] = useState(false)
   const [zoneNameDisplay, setZoneNameDisplay] = useState(null)
+  const [packingDeliveryForm, setPackingDeliveryForm] = useState({
+    freightCharge: 0,
+    packingCharge: 0,
+    expectedDeliveryDate: '',
+  })
+  const [savingPackingDelivery, setSavingPackingDelivery] = useState(false)
 
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
 
@@ -188,6 +194,19 @@ const QuotationView = () => {
     }
   }, [quotation])
 
+  useEffect(() => {
+    if (quotation) {
+      const freight = quotation.freightCharge
+      const packing = quotation.packingCharge
+      const expDate = quotation.expectedDeliveryDate
+      setPackingDeliveryForm({
+        freightCharge: typeof freight === 'number' ? freight : (Number(freight) || 0),
+        packingCharge: typeof packing === 'number' ? packing : (Number(packing) || 0),
+        expectedDeliveryDate: expDate ? new Date(expDate).toISOString().slice(0, 10) : '',
+      })
+    }
+  }, [quotation])
+
   // Resolve zone ID to name for display in Company Information
   useEffect(() => {
     const areaVal = companyForm.area?.trim?.() || ''
@@ -217,6 +236,32 @@ const QuotationView = () => {
   const updateCompanyForm = (field, value) => {
     if (field === 'area') setZoneNameDisplay(null)
     setCompanyForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const handleSavePackingDelivery = async () => {
+    if (!quotation?.id) return
+    setSavingPackingDelivery(true)
+    try {
+      const res = await quotationService.update(quotation.id, {
+        freightCharge: Number(packingDeliveryForm.freightCharge) >= 0 ? Number(packingDeliveryForm.freightCharge) : 0,
+        packingCharge: Number(packingDeliveryForm.packingCharge) >= 0 ? Number(packingDeliveryForm.packingCharge) : 0,
+        expectedDeliveryDate: packingDeliveryForm.expectedDeliveryDate ? new Date(packingDeliveryForm.expectedDeliveryDate).toISOString() : null,
+      })
+      const data = res?.data?.data ?? res?.data ?? res
+      if (data) {
+        setQuotation((prev) => (prev ? {
+          ...prev,
+          freightCharge: data.freightCharge ?? packingDeliveryForm.freightCharge,
+          packingCharge: data.packingCharge ?? packingDeliveryForm.packingCharge,
+          expectedDeliveryDate: data.expectedDeliveryDate ?? (packingDeliveryForm.expectedDeliveryDate || null),
+        } : null))
+      }
+      toastSuccess('Packing & delivery updated')
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to update packing & delivery')
+    } finally {
+      setSavingPackingDelivery(false)
+    }
   }
 
   const handleSaveCompanyInfo = async () => {
@@ -370,7 +415,7 @@ const QuotationView = () => {
   }
 
   const handleUpdateProduct = async () => {
-    if (!quotation?.id || !editingProduct) return
+    if (!quotation?.id || !editingProduct) return false
     const idx = Math.min(productIndex, products.length - 1)
     const qty = Number(editingProduct.quantity)
     const rateVal = editingProduct.rate !== '' && !Number.isNaN(Number(editingProduct.rate)) ? Number(editingProduct.rate) : null
@@ -379,6 +424,7 @@ const QuotationView = () => {
     const toImgIds = (imgs) => (imgs || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean)
     const toProductPayload = (p) => ({
       productName: p.productName || '',
+      description: p.description || '',
       quantity: Number(p.quantity) ?? 1,
       unit: p.unit || '',
       hsnNumber: p.hsnNumber || '',
@@ -395,6 +441,7 @@ const QuotationView = () => {
       return toProductPayload({
         ...p,
         productName: editingProduct.productName || p.productName,
+        description: editingProduct.description ?? p.description ?? '',
         quantity: !Number.isNaN(qty) && qty >= 0 ? qty : p.quantity,
         unit: editingProduct.unit ?? p.unit ?? '',
         hsnNumber: editingProduct.hsnNumber ?? p.hsnNumber ?? '',
@@ -416,10 +463,19 @@ const QuotationView = () => {
         setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
       }
       toastSuccess('Product updated')
+      return true
     } catch (err) {
       toastError(err?.message || 'Failed to update product')
+      return false
     } finally {
       setUpdating(false)
+    }
+  }
+
+  const handleNextProduct = async () => {
+    const saved = await handleUpdateProduct()
+    if (saved) {
+      setProductIndex((i) => Math.min(products.length - 1, i + 1))
     }
   }
 
@@ -441,12 +497,22 @@ const QuotationView = () => {
   }
   const setListRate = (idx, val) => setProductListRateEdits((prev) => ({ ...prev, [idx]: val }))
 
-  const calculatedTotalAmount = products.reduce((sum, p, idx) => {
+  const calculatedTotalTaxable = products.reduce((sum, p, idx) => {
     const qty = Number(p?.quantity) ?? 0
     const rateVal = getListRate(idx)
     const rate = rateVal !== '' && rateVal != null && !Number.isNaN(Number(rateVal)) ? Number(rateVal) : 0
     return sum + qty * rate
   }, 0)
+  const calculatedTotalGst = products.reduce((sum, p, idx) => {
+    const qty = Number(p?.quantity) ?? 0
+    const rateVal = getListRate(idx)
+    const gstVal = getListGst(idx)
+    const rate = rateVal !== '' && rateVal != null && !Number.isNaN(Number(rateVal)) ? Number(rateVal) : 0
+    const gstPct = gstVal !== '' && !Number.isNaN(Number(gstVal)) ? Number(gstVal) : (p?.gstPercentage ?? (typeof p.product_id === 'object' ? p.product_id?.gstPercentage : null) ?? 0)
+    const lineTotal = qty * rate
+    return sum + lineTotal * (gstPct / 100)
+  }, 0)
+  const calculatedTotalAmount = calculatedTotalTaxable + calculatedTotalGst
   const setListTotal = (idx, totalVal) => {
     const p = products[idx]
     const qty = Number(p?.quantity) ?? 0
@@ -473,6 +539,7 @@ const QuotationView = () => {
     const toImgIds = (imgs) => (imgs || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean)
     const toProductPayload = (p, override = {}) => ({
       productName: p.productName || '',
+      description: p.description || '',
       quantity: Number(p.quantity) ?? 1,
       unit: p.unit || '',
       hsnNumber: p.hsnNumber || '',
@@ -647,6 +714,7 @@ const QuotationView = () => {
       const toImgIds = (imgs) => (imgs || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean)
       const toProductPayload = (p) => ({
         productName: p.productName || '',
+        description: p.description || '',
         quantity: Number(p.quantity) ?? 1,
         unit: p.unit || '',
         hsnNumber: p.hsnNumber || '',
@@ -750,29 +818,29 @@ const QuotationView = () => {
     }
   }
 
-  const openImageGallery = (urls, startIndex = 0) => {
-    if (!urls?.length) return
-    setImageGalleryUrls(urls)
-    setImageGalleryIndex(Math.min(startIndex, urls.length - 1))
+  const openImageGallery = (images, startIndex = 0) => {
+    if (!images?.length) return
+    setImageGalleryImages(images)
+    setImageGalleryIndex(Math.min(startIndex, images.length - 1))
     setImageGalleryVisible(true)
   }
 
   const closeImageGallery = () => {
     setImageGalleryVisible(false)
-    setImageGalleryUrls([])
+    setImageGalleryImages([])
     setImageGalleryIndex(0)
   }
 
   const imageGalleryPrev = () => {
-    setImageGalleryIndex((i) => (i <= 0 ? imageGalleryUrls.length - 1 : i - 1))
+    setImageGalleryIndex((i) => (i <= 0 ? imageGalleryImages.length - 1 : i - 1))
   }
 
   const imageGalleryNext = () => {
-    setImageGalleryIndex((i) => (i >= imageGalleryUrls.length - 1 ? 0 : i + 1))
+    setImageGalleryIndex((i) => (i >= imageGalleryImages.length - 1 ? 0 : i + 1))
   }
 
   useEffect(() => {
-    if (!imageGalleryVisible || imageGalleryUrls.length === 0) return
+    if (!imageGalleryVisible || imageGalleryImages.length === 0) return
     const onKey = (e) => {
       if (e.key === 'ArrowLeft') {
         e.preventDefault()
@@ -883,6 +951,11 @@ const QuotationView = () => {
             <CNavItem>
               <CNavLink active={activeTab === 'company'} onClick={() => setActiveTab('company')} style={{ cursor: 'pointer' }}>
                 Company Information
+              </CNavLink>
+            </CNavItem>
+            <CNavItem>
+              <CNavLink active={activeTab === 'packingDelivery'} onClick={() => setActiveTab('packingDelivery')} style={{ cursor: 'pointer' }}>
+                Packing &amp; Delivery
               </CNavLink>
             </CNavItem>
             <CNavItem>
@@ -998,19 +1071,20 @@ const QuotationView = () => {
                             <CTableRow>
                               <CTableHeaderCell className="text-center">#</CTableHeaderCell>
                               <CTableHeaderCell>Product name</CTableHeaderCell>
+                              <CTableHeaderCell className="text-center" style={{ width: 100 }}>Images</CTableHeaderCell>
                               <CTableHeaderCell className="text-center">Qty</CTableHeaderCell>
                               <CTableHeaderCell className="text-center">Unit</CTableHeaderCell>
                               <CTableHeaderCell className="text-center">HSN</CTableHeaderCell>
                               <CTableHeaderCell className="text-center">Model</CTableHeaderCell>
                               <CTableHeaderCell className="text-center">GST %</CTableHeaderCell>
                               <CTableHeaderCell className="text-end">Rate (₹)</CTableHeaderCell>
-                              <CTableHeaderCell className="text-end">Total (₹)</CTableHeaderCell>
-                              <CTableHeaderCell className="text-end">GST Amount (₹)</CTableHeaderCell>
+                              <CTableHeaderCell className="text-end">Total Amount (₹)</CTableHeaderCell>
                             </CTableRow>
                           </CTableHead>
                           <CTableBody>
                             {products.map((p, idx) => {
                               const productRef = typeof p.product_id === 'object' ? p.product_id : null
+                              const allImages = Array.isArray(p?.images) ? p.images : (productRef?.images || [])
                               const rateVal = getListRate(idx)
                               const gstVal = getListGst(idx)
                               const rate = rateVal !== '' && rateVal != null && !Number.isNaN(Number(rateVal)) ? Number(rateVal) : (Number(p?.rate) || 0)
@@ -1023,7 +1097,48 @@ const QuotationView = () => {
                                   <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
                                   <CTableDataCell>
                                     <div>{p.productName || '–'}</div>
+                                    {(p.description || productRef?.shortDescription) ? (
+                                      <div className="small text-muted" style={{ whiteSpace: 'pre-wrap' }}>{p.description || productRef?.shortDescription || ''}</div>
+                                    ) : null}
                                     {p.remark ? <div className="small text-muted">{p.remark}</div> : null}
+                                  </CTableDataCell>
+                                  <CTableDataCell className="text-center align-middle">
+                                    {allImages.length > 0 ? (
+                                      <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">
+                                        {allImages.slice(0, 2).map((img, i) => (
+                                          <div
+                                            key={i}
+                                            role="button"
+                                            tabIndex={0}
+                                            className="rounded overflow-hidden border"
+                                            style={{ width: 48, height: 48, cursor: 'pointer' }}
+                                            onClick={() => openImageGallery(allImages, i)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, i) } }}
+                                          >
+                                            {getDocumentId(img) ? (
+                                              <AuthImage documentId={getDocumentId(img)} fallbackUrl={getImageUrl(img)} alt="" className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                                            ) : (
+                                              <CImage src={getImageUrl(img)} alt="" className="w-100 h-100" style={{ objectFit: 'cover' }} />
+                                            )}
+                                          </div>
+                                        ))}
+                                        {allImages.length > 2 && (
+                                          <div
+                                            role="button"
+                                            tabIndex={0}
+                                            className="d-flex align-items-center justify-content-center rounded border bg-light text-primary small fw-bold"
+                                            style={{ width: 48, height: 48, cursor: 'pointer', fontSize: '0.75rem' }}
+                                            onClick={() => openImageGallery(allImages, 2)}
+                                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, 2) } }}
+                                            title={`${allImages.length - 2} more`}
+                                          >
+                                            +{allImages.length - 2}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-muted small">–</span>
+                                    )}
                                   </CTableDataCell>
                                   <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
                                   <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
@@ -1032,7 +1147,6 @@ const QuotationView = () => {
                                   <CTableDataCell className="text-center">{gstPct != null ? `${Number(gstPct).toFixed(2)}%` : '–'}</CTableDataCell>
                                   <CTableDataCell className="text-end">{rate ? rate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–'}</CTableDataCell>
                                   <CTableDataCell className="text-end">{total ? total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–'}</CTableDataCell>
-                                  <CTableDataCell className="text-end">{gstAmount ? gstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–'}</CTableDataCell>
                                 </CTableRow>
                               )
                             })}
@@ -1146,6 +1260,59 @@ const QuotationView = () => {
               </CCard>
             </CTabPane>
 
+            {/* Tab: Packing & Delivery */}
+            <CTabPane visible={activeTab === 'packingDelivery'}>
+              <CCard className="mb-4">
+                <CCardHeader><strong>Packing &amp; Delivery</strong></CCardHeader>
+                <CCardBody>
+                  <CRow>
+                    <CCol md={4}>
+                      <div className="mb-3">
+                        <CFormLabel>Freight Charge (₹)</CFormLabel>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={packingDeliveryForm.freightCharge}
+                          onChange={(e) => setPackingDeliveryForm((prev) => ({ ...prev, freightCharge: e.target.value === '' ? 0 : e.target.value }))}
+                          placeholder="0"
+                        />
+                      </div>
+                    </CCol>
+                    <CCol md={4}>
+                      <div className="mb-3">
+                        <CFormLabel>Packing Charge (₹)</CFormLabel>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={packingDeliveryForm.packingCharge}
+                          onChange={(e) => setPackingDeliveryForm((prev) => ({ ...prev, packingCharge: e.target.value === '' ? 0 : e.target.value }))}
+                          placeholder="0"
+                        />
+                      </div>
+                    </CCol>
+                    <CCol md={4}>
+                      <div className="mb-3">
+                        <CFormLabel>Expected Delivery Date</CFormLabel>
+                        <CFormInput
+                          type="date"
+                          min={new Date().toISOString().slice(0, 10)}
+                          value={packingDeliveryForm.expectedDeliveryDate}
+                          onChange={(e) => setPackingDeliveryForm((prev) => ({ ...prev, expectedDeliveryDate: e.target.value }))}
+                          title="Leave empty for NA"
+                        />
+                        <div className="small text-muted mt-1">Leave empty to show NA in PDF</div>
+                      </div>
+                    </CCol>
+                  </CRow>
+                  <CButton color="primary" onClick={handleSavePackingDelivery} disabled={savingPackingDelivery}>
+                    {savingPackingDelivery ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
+                  </CButton>
+                </CCardBody>
+              </CCard>
+            </CTabPane>
+
             {/* Tab 2: Products - one at a time, editable, 3 columns */}
             <CTabPane visible={activeTab === 'products'}>
               {products.length > 0 && editingProduct ? (
@@ -1166,10 +1333,10 @@ const QuotationView = () => {
                     <CButton
                       color="secondary"
                       variant="outline"
-                      disabled={productIndex >= products.length - 1}
-                      onClick={() => setProductIndex((i) => Math.min(products.length - 1, i + 1))}
+                      disabled={productIndex >= products.length - 1 || updating}
+                      onClick={handleNextProduct}
                     >
-                      Next
+                      {updating ? 'Saving...' : 'Next'}
                       <CIcon icon={cilArrowRight} className="ms-1" />
                     </CButton>
                   </div>
@@ -1422,7 +1589,7 @@ const QuotationView = () => {
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell className="text-center" style={{ width: 50 }}>#</CTableHeaderCell>
-                        <CTableHeaderCell style={{ width: 120, maxWidth: 120 }}>Product name</CTableHeaderCell>
+                        <CTableHeaderCell style={{ width: 140, maxWidth: 180 }}>Product name / Description</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 90 }}>Quantity</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 80 }}>Unit</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 100 }}>HSN Number</CTableHeaderCell>
@@ -1430,7 +1597,7 @@ const QuotationView = () => {
                         <CTableHeaderCell className="text-center" style={{ width: 70 }}>GST %</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 120 }}>Images</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 100 }}>Rate (₹)</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total (₹)</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total Amount (₹)</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 90 }}>Actions</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -1439,7 +1606,7 @@ const QuotationView = () => {
                         const productRef = typeof p.product_id === 'object' ? p.product_id : null
                         const allImages = Array.isArray(p.images) ? p.images : (productRef?.images || [])
                         const imageUrls = allImages.map((img) => getImageUrl(img)).filter((src) => !!src)
-                        const desc = productRef?.shortDescription || p.description || p.remark || ''
+                        const desc = (p.description || productRef?.shortDescription || p.remark || '').trim()
                         const rateVal = getListRate(idx)
                         const totalVal = getListTotal(idx)
                         const hasRate = rateVal !== '' && rateVal != null && !Number.isNaN(Number(rateVal))
@@ -1447,9 +1614,9 @@ const QuotationView = () => {
                         return (
                           <CTableRow key={idx} style={rowBg}>
                             <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
-                            <CTableDataCell style={{ width: 120, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <CTableDataCell style={{ width: 140, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               <div className="text-truncate" title={p.productName || ''}>{p.productName || '–'}</div>
-                              {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em' }} title={String(desc)}>{String(desc).slice(0, 80)}{desc.length > 80 ? '…' : ''}</div> : null}
+                              {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap' }} title={String(desc)}>{String(desc).slice(0, 120)}{desc.length > 120 ? '…' : ''}</div> : null}
                             </CTableDataCell>
                             <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
                             <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
@@ -1539,8 +1706,10 @@ const QuotationView = () => {
                     </CTableBody>
                   </CTable>
                   {products.length > 0 && (
-                    <div className="mt-3 text-end">
-                      <strong>Total Amount: ₹{calculatedTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                    <div className="mt-3 text-end border-top pt-3">
+                      <p className="mb-1"><strong>Total (Taxable):</strong> ₹{calculatedTotalTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="mb-1"><strong>GST Amount:</strong> ₹{calculatedTotalGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="mb-0 fs-5"><strong>Total Amount:</strong> ₹{calculatedTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                     </div>
                   )}
                 </>
@@ -1552,11 +1721,12 @@ const QuotationView = () => {
             {/* Tab 4: Products with Rate */}
             <CTabPane visible={activeTab === 'withRate'}>
               {productsWithRate.length > 0 ? (
+                <>
                 <CTable responsive hover bordered className="table-fixed">
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell className="text-center" style={{ width: 50 }}>#</CTableHeaderCell>
-                      <CTableHeaderCell style={{ width: 120, maxWidth: 120 }}>Product name</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 140, maxWidth: 180 }}>Product name / Description</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 90 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 80 }}>Unit</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 100 }}>HSN Number</CTableHeaderCell>
@@ -1564,7 +1734,7 @@ const QuotationView = () => {
                       <CTableHeaderCell className="text-center" style={{ width: 70 }}>GST %</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 120 }}>Images</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 100 }}>Rate (₹)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total (₹)</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total Amount (₹)</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 90 }}>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
@@ -1574,15 +1744,15 @@ const QuotationView = () => {
                       const productRef = typeof p.product_id === 'object' ? p.product_id : null
                       const allImages = Array.isArray(p.images) ? p.images : (productRef?.images || [])
                       const imageUrls = allImages.map((img) => getImageUrl(img)).filter((src) => !!src)
-                      const desc = productRef?.shortDescription || p.description || p.remark || ''
+                      const desc = (p.description || productRef?.shortDescription || p.remark || '').trim()
                       const rateVal = getListRate(realIdx)
                       const totalVal = getListTotal(realIdx)
                       return (
                         <CTableRow key={realIdx}>
                           <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
-                          <CTableDataCell style={{ width: 120, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <CTableDataCell style={{ width: 140, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             <div className="text-truncate" title={p.productName || ''}>{p.productName || '–'}</div>
-                            {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em' }} title={String(desc)}>{String(desc).slice(0, 80)}{desc.length > 80 ? '…' : ''}</div> : null}
+                            {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap' }} title={String(desc)}>{String(desc).slice(0, 120)}{desc.length > 120 ? '…' : ''}</div> : null}
                           </CTableDataCell>
                           <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
                           <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
@@ -1665,12 +1835,18 @@ const QuotationView = () => {
                             <CButton color="primary" size="sm" onClick={() => handleUpdateProductFromList(realIdx)} disabled={updating}>
                               Update
                             </CButton>
-                          </CTableDataCell>
-                        </CTableRow>
-                      )
-                    })}
-                  </CTableBody>
-                </CTable>
+                            </CTableDataCell>
+                          </CTableRow>
+                        )
+                      })}
+                    </CTableBody>
+                  </CTable>
+                  <div className="mt-3 text-end border-top pt-3">
+                    <p className="mb-1"><strong>Total (Taxable):</strong> ₹{calculatedTotalTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="mb-1"><strong>GST Amount:</strong> ₹{calculatedTotalGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="mb-0 fs-5"><strong>Total Amount:</strong> ₹{calculatedTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+                </>
               ) : (
                 <p className="text-muted mb-0">No products with rate.</p>
               )}
@@ -1679,11 +1855,12 @@ const QuotationView = () => {
             {/* Tab 5: Products without Rate */}
             <CTabPane visible={activeTab === 'withoutRate'}>
               {productsWithoutRate.length > 0 ? (
+                <>
                 <CTable responsive hover bordered className="table-fixed">
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell className="text-center" style={{ width: 50 }}>#</CTableHeaderCell>
-                      <CTableHeaderCell style={{ width: 120, maxWidth: 120 }}>Product name</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 140, maxWidth: 180 }}>Product name / Description</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 90 }}>Quantity</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 80 }}>Unit</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 100 }}>HSN Number</CTableHeaderCell>
@@ -1691,7 +1868,7 @@ const QuotationView = () => {
                       <CTableHeaderCell className="text-center" style={{ width: 70 }}>GST %</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 120 }}>Images</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 100 }}>Rate (₹)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total (₹)</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total Amount (₹)</CTableHeaderCell>
                       <CTableHeaderCell className="text-center" style={{ width: 90 }}>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
@@ -1701,15 +1878,15 @@ const QuotationView = () => {
                       const productRef = typeof p.product_id === 'object' ? p.product_id : null
                       const allImages = Array.isArray(p.images) ? p.images : (productRef?.images || [])
                       const imageUrls = allImages.map((img) => getImageUrl(img)).filter((src) => !!src)
-                      const desc = productRef?.shortDescription || p.description || p.remark || ''
+                      const desc = (p.description || productRef?.shortDescription || p.remark || '').trim()
                       const rateVal = getListRate(realIdx)
                       const totalVal = getListTotal(realIdx)
                       return (
                         <CTableRow key={realIdx}>
                           <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
-                          <CTableDataCell style={{ width: 120, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <CTableDataCell style={{ width: 140, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             <div className="text-truncate" title={p.productName || ''}>{p.productName || '–'}</div>
-                            {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em' }} title={String(desc)}>{String(desc).slice(0, 80)}{desc.length > 80 ? '…' : ''}</div> : null}
+                            {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap' }} title={String(desc)}>{String(desc).slice(0, 120)}{desc.length > 120 ? '…' : ''}</div> : null}
                           </CTableDataCell>
                           <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
                           <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
@@ -1792,12 +1969,18 @@ const QuotationView = () => {
                             <CButton color="primary" size="sm" onClick={() => handleUpdateProductFromList(realIdx)} disabled={updating}>
                               Update
                             </CButton>
-                          </CTableDataCell>
-                        </CTableRow>
-                      )
-                    })}
-                  </CTableBody>
-                </CTable>
+                            </CTableDataCell>
+                          </CTableRow>
+                        )
+                      })}
+                    </CTableBody>
+                  </CTable>
+                  <div className="mt-3 text-end border-top pt-3">
+                    <p className="mb-1"><strong>Total (Taxable):</strong> ₹{calculatedTotalTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="mb-1"><strong>GST Amount:</strong> ₹{calculatedTotalGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    <p className="mb-0 fs-5"><strong>Total Amount:</strong> ₹{calculatedTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+                </>
               ) : (
                 <p className="text-muted mb-0">No products without rate.</p>
               )}

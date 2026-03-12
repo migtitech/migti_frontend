@@ -45,6 +45,7 @@ const INITIAL_PRODUCT = {
   gstPercentage: null,
   variants: [],
   remark: '',
+  description: '',
   product_id: null,
   productCode: '',
   isNewProduct: true,
@@ -184,6 +185,7 @@ const QuotationGenerate = () => {
       gstPercentage: p.gstPercentage ?? null,
       variants: (p.variants || []).map((v) => ({ variantName: v.variantName || v || '' })),
       remark: p.remark || '',
+      description: p.description || '',
       product_id: p.product_id || null,
       productCode: p.productCode || '',
       isNewProduct: p.isNewProduct ?? !p.product_id,
@@ -211,6 +213,7 @@ const QuotationGenerate = () => {
       gstPercentage: p.gstPercentage ?? null,
       variants: (p.variants || []).map((v) => ({ variantName: v.variantName || v || '' })),
       remark: p.remark || '',
+      description: p.description || p.shortDescription || '',
       product_id: p.product_id || p._id || null,
       productCode: p.productCode || '',
       isNewProduct: false,
@@ -244,6 +247,7 @@ const QuotationGenerate = () => {
           gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
           variants: (p.variants || []).map((v) => ({ variantName: v.variantName || v || '' })),
           remark: p.remark || '',
+          description: p.description || '',
           product_id: productId,
           images: (p.images || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean),
         }
@@ -349,6 +353,15 @@ const QuotationGenerate = () => {
                   <CFormLabel>Remark</CFormLabel>
                   <CFormInput value={formProduct.remark} onChange={(e) => updateFormProduct('remark', e.target.value)} placeholder="Remark" />
                 </CCol>
+                <CCol md={12}>
+                  <CFormLabel>Product description</CFormLabel>
+                  <CFormTextarea
+                    rows={2}
+                    value={formProduct.description}
+                    onChange={(e) => updateFormProduct('description', e.target.value)}
+                    placeholder="Product description (e.g. from catalog)"
+                  />
+                </CCol>
                 <CCol md={6}>
                   <CFormLabel>Images (optional)</CFormLabel>
                   <CFormInput
@@ -409,7 +422,7 @@ const QuotationGenerate = () => {
                     <CTableRow key={index}>
                       <CTableDataCell>{index + 1}</CTableDataCell>
                       <CTableDataCell>{p.productName || '—'}</CTableDataCell>
-                      <CTableDataCell className="small">{productRef?.shortDescription || p.description || '—'}</CTableDataCell>
+                      <CTableDataCell className="small">{p.description || productRef?.shortDescription || '—'}</CTableDataCell>
                       <CTableDataCell>{p.quantity != null ? p.quantity : '—'}</CTableDataCell>
                       <CTableDataCell>{p.unit || '—'}</CTableDataCell>
                       <CTableDataCell className="small">{formatVariants(p.variants)}</CTableDataCell>
