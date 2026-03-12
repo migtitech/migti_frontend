@@ -239,15 +239,17 @@ const AreaList = () => {
                     <CPaginationItem
                       disabled={!pagination.hasPrevPage}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      style={{ cursor: 'pointer' }}
                     >
                       Previous
                     </CPaginationItem>
-                    <CPaginationItem active>
+                    <CPaginationItem active style={{ cursor: 'pointer' }}>
                       {pagination.currentPage} / {pagination.totalPages}
                     </CPaginationItem>
                     <CPaginationItem
                       disabled={!pagination.hasNextPage}
                       onClick={() => setPage((p) => p + 1)}
+                      style={{ cursor: 'pointer' }}
                     >
                       Next
                     </CPaginationItem>

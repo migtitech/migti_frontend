@@ -12,7 +12,7 @@ const EmployeeAccountDetailsSection = ({ register, errors }) => (
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="accountNumber">Account Number *</CFormLabel>
+          <CFormLabel htmlFor="accountNumber">Account Number</CFormLabel>
           <CFormInput
             id="accountNumber"
             inputMode="numeric"
@@ -25,7 +25,7 @@ const EmployeeAccountDetailsSection = ({ register, errors }) => (
       </CCol>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="ifscCode">IFSC Code *</CFormLabel>
+          <CFormLabel htmlFor="ifscCode">IFSC Code</CFormLabel>
           <CFormInput
             id="ifscCode"
             {...register('bankDetails.ifscCode')}
@@ -38,7 +38,7 @@ const EmployeeAccountDetailsSection = ({ register, errors }) => (
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="bankName">Bank Name *</CFormLabel>
+          <CFormLabel htmlFor="bankName">Bank Name</CFormLabel>
           <CFormInput
             id="bankName"
             {...register('bankDetails.bankName')}
@@ -49,7 +49,7 @@ const EmployeeAccountDetailsSection = ({ register, errors }) => (
       </CCol>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="accountHolderName">Account Holder Name *</CFormLabel>
+          <CFormLabel htmlFor="accountHolderName">Account Holder Name</CFormLabel>
           <CFormInput
             id="accountHolderName"
             {...register('bankDetails.accountHolderName')}

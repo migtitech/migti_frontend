@@ -219,7 +219,6 @@ const IndustryForm = () => {
         const payload = {
           location: values.location || '',
           address: values.address || '',
-          branchId: values.branchId || undefined,
           purchaseManagers: (values.purchaseManagers || []).filter(
             (pm) => (pm.name || '').trim(),
           ).map((pm) => ({
@@ -294,8 +293,8 @@ const IndustryForm = () => {
                 <CFormLabel>Branch {!isEdit ? '*' : ''}</CFormLabel>
                 <CFormSelect
                   {...register('branchId')}
-                  disabled={!canSelectBranch && !!userBranchId}
-                  className={!canSelectBranch && userBranchId ? 'bg-light' : ''}
+                  disabled={isEdit || (!canSelectBranch && !!userBranchId)}
+                  className={isEdit || (!canSelectBranch && userBranchId) ? 'bg-light' : ''}
                 >
                   <option value="">Select branch</option>
                   {branches.map((b) => (
@@ -304,7 +303,7 @@ const IndustryForm = () => {
                     </option>
                   ))}
                 </CFormSelect>
-                {!canSelectBranch && userBranchId && (
+                {!isEdit && !canSelectBranch && userBranchId && (
                   <small className="text-muted">Your branch is pre-selected.</small>
                 )}
               </div>
@@ -387,7 +386,7 @@ const IndustryForm = () => {
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Location</CFormLabel>
+                <CFormLabel>Location ( Google Map URL )</CFormLabel>
                 <CFormInput {...register('location')} />
                 {errors.location && (
                   <div className="text-danger small mt-1">{errors.location.message}</div>

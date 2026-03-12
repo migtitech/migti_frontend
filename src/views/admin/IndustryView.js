@@ -175,10 +175,6 @@ const IndustryView = () => {
                   <strong>Address:</strong>
                   <p className="mb-0 mt-2">{industry.address || 'No address provided'}</p>
                 </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Created At:</strong>
-                  <span>{new Date(industry.createdAt).toLocaleDateString()}</span>
-                </CListGroupItem>
               </CListGroup>
             </CCardBody>
           </CCard>

@@ -82,11 +82,16 @@ const EmployeeForm = () => {
           .matches(/^\d{4,10}$/, 'Pincode must be 4-10 digits'),
         hasBike: yup.string().oneOf(['yes', 'no']).required('Please select an option'),
         hasDrivingLicense: yup.string().oneOf(['yes', 'no']).required('Please select an option'),
-        companyEmail: yup.string().email('Enter a valid email').required('Company email is required'),
+        companyEmail: yup
+          .string()
+          .email('Enter a valid email')
+          .nullable()
+          .transform((v, o) => (o === '' ? null : v)),
         companyPhone: yup
           .string()
-          .required('Company phone is required')
-          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
+          .nullable()
+          .transform((v, o) => (o === '' ? null : v))
+          .test('companyPhone', 'Phone must be exactly 10 digits', (v) => !v || /^\d{10}$/.test(v)),
         role: yup.string().required('Role is required'),
         designation: yup.string().required('Designation is required').min(2).max(100),
         address: yup.string().required('Address is required').min(2).max(500),
@@ -100,14 +105,34 @@ const EmployeeForm = () => {
         bankDetails: yup.object({
           accountNumber: yup
             .string()
-            .required('Account number is required')
-            .matches(/^\d{6,20}$/, 'Account number must be 6-20 digits'),
+            .nullable()
+            .transform((v, o) => (o === '' ? null : v))
+            .test(
+              'accountNumber',
+              'Account number must be 6-20 digits',
+              (v) => !v || /^\d{6,20}$/.test(v),
+            ),
           ifscCode: yup
             .string()
-            .required('IFSC code is required')
-            .matches(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/, 'Enter a valid IFSC code'),
-          bankName: yup.string().required('Bank name is required').min(2).max(100),
-          accountHolderName: yup.string().required('Account holder name is required').min(2).max(100),
+            .nullable()
+            .transform((v, o) => (o === '' ? null : v))
+            .test(
+              'ifscCode',
+              'Enter a valid IFSC code',
+              (v) => !v || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v),
+            ),
+          bankName: yup
+            .string()
+            .nullable()
+            .transform((v, o) => (o === '' ? null : v))
+            .min(2)
+            .max(100),
+          accountHolderName: yup
+            .string()
+            .nullable()
+            .transform((v, o) => (o === '' ? null : v))
+            .min(2)
+            .max(100),
           upiDetails: yup.string().trim().nullable(),
         }),
         ...(isEdit ? {} : { password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters') }),
@@ -256,9 +281,7 @@ const EmployeeForm = () => {
   useEffect(() => {
     const loadZones = async () => {
       try {
-        const params = { pageSize: 100 }
-        if (selectedBranchId) params.branchId = selectedBranchId
-        const response = await areaService.getAll(params)
+        const response = await areaService.getAll({ pageSize: 100 })
         const data = response?.data?.data || response?.data || response
         const list = data?.areas || data || []
         const normalized = list.map(normalizeId)

@@ -21,7 +21,7 @@ const EmployeeCompanyInfoSection = ({
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="companyEmail">Company Email *</CFormLabel>
+          <CFormLabel htmlFor="companyEmail">Company Email</CFormLabel>
           <CFormInput
             type="email"
             id="companyEmail"
@@ -33,7 +33,7 @@ const EmployeeCompanyInfoSection = ({
       </CCol>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="companyPhone">Company Phone *</CFormLabel>
+          <CFormLabel htmlFor="companyPhone">Company Phone</CFormLabel>
           <CFormInput
             id="companyPhone"
             inputMode="numeric"

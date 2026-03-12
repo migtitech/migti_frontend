@@ -216,8 +216,8 @@ const IndustryList = () => {
                       <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>GST No</CTableHeaderCell>
-                      <CTableHeaderCell>Area</CTableHeaderCell>
-                      <CTableHeaderCell>Location</CTableHeaderCell>
+                      <CTableHeaderCell>Zone</CTableHeaderCell>
+                      <CTableHeaderCell>Purchase Manager</CTableHeaderCell>
                       <CTableHeaderCell>Address</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
@@ -247,7 +247,28 @@ const IndustryList = () => {
                             ? industry.area?.name || '-'
                             : industry.area || '-'}
                         </CTableDataCell>
-                        <CTableDataCell>{industry.location || '-'}</CTableDataCell>
+                        <CTableDataCell>
+                          {(() => {
+                            const pms = industry.purchaseManagers || []
+                            if (pms.length > 0) {
+                              const first = pms[0]
+                              const name = first.name || ''
+                              const phone = first.phone || ''
+                              if (name && phone) return `${name} - ${phone}`
+                              if (name) return name
+                              if (phone) return phone
+                              return '-'
+                            }
+                            if (industry.purchase_manager_name || industry.purchase_manager_phone) {
+                              const name = industry.purchase_manager_name || ''
+                              const phone = industry.purchase_manager_phone || ''
+                              if (name && phone) return `${name} - ${phone}`
+                              if (name) return name
+                              if (phone) return phone
+                            }
+                            return '-'
+                          })()}
+                        </CTableDataCell>
                         <CTableDataCell>{industry.address || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton

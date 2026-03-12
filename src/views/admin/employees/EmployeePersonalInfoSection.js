@@ -45,7 +45,7 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
       </CCol>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="idnumber">ID Number *</CFormLabel>
+          <CFormLabel htmlFor="idnumber">ID Number ( Aaadhar / Pan / DL ) *</CFormLabel>
           <CFormInput id="idnumber" {...register('idnumber')} invalid={!!errors.idnumber} />
           <CFormFeedback invalid>{errors.idnumber?.message}</CFormFeedback>
         </div>
@@ -54,14 +54,14 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="fatherName">Father Name *</CFormLabel>
+          <CFormLabel htmlFor="fatherName">Fathers Name *</CFormLabel>
           <CFormInput id="fatherName" {...register('fatherName')} invalid={!!errors.fatherName} />
           <CFormFeedback invalid>{errors.fatherName?.message}</CFormFeedback>
         </div>
       </CCol>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="motherName">Mother Name *</CFormLabel>
+          <CFormLabel htmlFor="motherName">Mothers Name *</CFormLabel>
           <CFormInput id="motherName" {...register('motherName')} invalid={!!errors.motherName} />
           <CFormFeedback invalid>{errors.motherName?.message}</CFormFeedback>
         </div>
