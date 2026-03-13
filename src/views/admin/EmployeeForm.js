@@ -169,6 +169,11 @@ const EmployeeForm = () => {
             providedDate: yup.string().trim(),
           }),
         }),
+        categories: yup
+          .string()
+          .trim()
+          .nullable()
+          .transform((v, o) => (o === '' ? null : v)),
       }),
     [isEdit],
   )
@@ -239,6 +244,7 @@ const EmployeeForm = () => {
           providedDate: '',
         },
       },
+      categories: '',
     },
   })
 
@@ -372,6 +378,7 @@ const EmployeeForm = () => {
               providedDate: employee?.assets?.simCard?.providedDate || '',
             },
           },
+          categories: employee.categories || '',
         })
       } catch (err) {
         toastError(err?.message || 'Failed to load employee')

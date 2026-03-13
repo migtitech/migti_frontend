@@ -117,6 +117,20 @@ const EmployeeCompanyInfoSection = ({
       </CCol>
     </CRow>
     <CRow>
+      <CCol md={12}>
+        <div className="mb-3">
+          <CFormLabel htmlFor="categories">Categories</CFormLabel>
+          <CFormInput
+            id="categories"
+            placeholder="e.g. electrical, fire safety, tools"
+            {...register('categories')}
+            invalid={!!errors.categories}
+          />
+          <CFormFeedback invalid>{errors.categories?.message}</CFormFeedback>
+        </div>
+      </CCol>
+    </CRow>
+    <CRow>
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel htmlFor="zoneId">Zone</CFormLabel>
