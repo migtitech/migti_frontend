@@ -63,6 +63,7 @@ const RawQueryCreate = () => {
   const audioClipsRef = useRef([])
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [descriptionError, setDescriptionError] = useState('')
   const [descriptionTouched, setDescriptionTouched] = useState(false)
 
@@ -392,9 +393,35 @@ const RawQueryCreate = () => {
   }
 
   const DESCRIPTION_MIN_LENGTH = 5
+  const DESCRIPTION_MAX_LENGTH = 2000
+  const TITLE_MIN_LENGTH = 2
+  const TITLE_MAX_LENGTH = 200
+  const PRIORITY_MIN_LENGTH = 2
+  const PRIORITY_MAX_LENGTH = 50
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setFieldErrors({})
+    setDescriptionError('')
+
+    const errs = {}
+    const priority = (formData.priority || '').trim()
+    if (!priority) errs.priority = 'Priority is required'
+    else if (priority.length < PRIORITY_MIN_LENGTH) errs.priority = `Priority must be at least ${PRIORITY_MIN_LENGTH} characters`
+    else if (priority.length > PRIORITY_MAX_LENGTH) errs.priority = `Priority must be at most ${PRIORITY_MAX_LENGTH} characters`
+
+    const title = (formData.title || '').trim()
+    if (!title) errs.title = 'Title is required'
+    else if (title.length < TITLE_MIN_LENGTH) errs.title = `Title must be at least ${TITLE_MIN_LENGTH} characters`
+    else if (title.length > TITLE_MAX_LENGTH) errs.title = `Title must be at most ${TITLE_MAX_LENGTH} characters`
+
+    const desc = (formData.description || '').trim()
+    if (!desc) errs.description = 'Description is required'
+    else if (desc.length < DESCRIPTION_MIN_LENGTH) errs.description = `Description must be at least ${DESCRIPTION_MIN_LENGTH} characters`
+    else if (desc.length > DESCRIPTION_MAX_LENGTH) errs.description = `Description must be at most ${DESCRIPTION_MAX_LENGTH} characters`
+
+    if (!industryId) errs.industry_id = 'Please select or create an industry'
+
     const storedUserJson = localStorage.getItem('migticrm_user')
     const storedUser = storedUserJson ? JSON.parse(storedUserJson) : null
     const createdBy = storedUser?._id ?? user?.id ?? user?._id
@@ -402,25 +429,24 @@ const RawQueryCreate = () => {
       toastError('Unable to determine current user. Please log in again.')
       return
     }
-    if (!industryId) {
-      toastError('Please select or create an industry.')
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      if (errs.description) {
+        setDescriptionError(errs.description)
+        setDescriptionTouched(true)
+      }
+      toastError('Please fix the errors before submitting.')
       return
     }
-    const desc = (formData.description || '').trim()
-    if (desc.length < DESCRIPTION_MIN_LENGTH) {
-      setDescriptionError(`Description must be at least ${DESCRIPTION_MIN_LENGTH} characters long.`)
-      setDescriptionTouched(true)
-      toastError(`Description must be at least ${DESCRIPTION_MIN_LENGTH} characters long.`)
-      return
-    }
-    setDescriptionError('')
+
     try {
       setSubmitting(true)
       setError('')
       const files = audioClips.map((clip) => clip.dataUrl).filter(Boolean)
       await rawQueryService.create({
         ...formData,
-        industryId: industryId,
+        industryId,
         created_by: createdBy,
         files,
       })
@@ -449,10 +475,12 @@ const RawQueryCreate = () => {
                     <CFormInput
                       id="title"
                       value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, title: e.target.value }); setFieldErrors((p) => ({ ...p, title: undefined })) }}
                       placeholder="Short title for the raw query"
                       required
+                      invalid={!!fieldErrors.title}
                     />
+                    {fieldErrors.title && <div className="text-danger small mt-1">{fieldErrors.title}</div>}
                   </div>
                 </CCol>
                 <CCol xs={12} md={6}>
@@ -461,12 +489,14 @@ const RawQueryCreate = () => {
                     <CFormSelect
                       id="priority"
                       value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                      onChange={(e) => { setFormData({ ...formData, priority: e.target.value }); setFieldErrors((p) => ({ ...p, priority: undefined })) }}
+                      invalid={!!fieldErrors.priority}
                     >
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
                     </CFormSelect>
+                    {fieldErrors.priority && <div className="text-danger small mt-1">{fieldErrors.priority}</div>}
                   </div>
                 </CCol>
               </CRow>
@@ -478,14 +508,16 @@ const RawQueryCreate = () => {
                       id="industrySearch"
                       type="text"
                       value={industrySearch}
-                      onChange={(e) => setIndustrySearch(e.target.value)}
+                      onChange={(e) => { setIndustrySearch(e.target.value); setFieldErrors((p) => ({ ...p, industry_id: undefined })) }}
                       onFocus={() => setIndustryDropdownOpen(true)}
                       onBlur={() => setTimeout(() => setIndustryDropdownOpen(false), 200)}
                       placeholder="Search industry or create new..."
                       required={!industryId && !createNewIndustry}
                       disabled={!!industryId && !createNewIndustry}
                       autoComplete="off"
+                      invalid={!!fieldErrors.industry_id}
                     />
+                    {fieldErrors.industry_id && <div className="text-danger small mt-1">{fieldErrors.industry_id}</div>}
                     {industryId && !createNewIndustry && (
                       <div className="mt-2">
                         <CButton color="link" size="sm" type="button" onClick={handleClearIndustry}>

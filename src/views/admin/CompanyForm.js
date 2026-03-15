@@ -19,34 +19,22 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
+import { gstinOptional, urlOptional, MSG } from '../../utils/validation'
 import companyService from '../../services/companyService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
 const companySchema = () => yup.object({
-  name: yup.string().required('Company name is required').min(2).max(100),
-  brandName: yup.string().required('Brand name is required').min(2).max(100),
-  email: yup.string().email('Enter a valid email').required('Email is required'),
-  gst: yup
-    .string()
-    .optional()
-    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
-    .test(
-      'gst',
-      'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)',
-      (v) => !v || v === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)
-    ),
-  mobile: yup.string().optional().max(20),
-  address: yup.string().optional().max(500),
-  website: yup
-    .string()
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === '' ? '' : v))
-    .test('url', 'Enter a valid URL', (v) => !v || v === '' || /^https?:\/\/.+/.test(v)),
-  logoUrl: yup.string().optional().nullable(),
-  logoDisplayUrl: yup.string().optional().nullable(),
+  name: yup.string().trim().required('Company name is required').min(2, 'At least 2 characters').max(100, 'At most 100 characters'),
+  brandName: yup.string().trim().required('Brand name is required').min(2, 'At least 2 characters').max(100, 'At most 100 characters'),
+  email: yup.string().trim().email('Enter a valid email').required('Email is required'),
+  gst: gstinOptional(),
+  mobile: yup.string().trim().optional().max(20, 'At most 20 characters').nullable().transform((v, o) => (o === '' ? null : v)),
+  address: yup.string().trim().optional().max(500).nullable().transform((v, o) => (o === '' ? null : v)),
+  website: urlOptional(200),
+  logoUrl: yup.string().trim().optional().nullable(),
+  logoDisplayUrl: yup.string().trim().optional().nullable(),
   isActive: yup.boolean().optional().default(true),
 })
 

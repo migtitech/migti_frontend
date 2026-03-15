@@ -22,6 +22,7 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
+import { phoneOptional, stringRequired, gstinOptional, MSG } from '../../utils/validation'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import branchService from '../../services/branchService'
@@ -30,37 +31,20 @@ import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import useBranchContext from '../../hooks/useBranchContext'
 
-// Indian GSTIN: 15 chars - 2 digit state + 5 letter + 4 digit + 1 letter (PAN) + 1 entity + Z + 1 checksum (empty allowed)
-const GSTIN_REGEX = /^(|[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z])$/
-
 const supplierSchema = yup.object({
-  name: yup.string().required('Name is required').min(2).max(100),
-  shopname: yup.string().optional().max(200),
-  address: yup.string().optional().max(500),
-  phone_1: yup
-    .string()
-    .optional()
-    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
-    .nullable()
-    .transform((value, original) => (original === '' ? null : value)),
-  phone_2: yup
-    .string()
-    .optional()
-    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
-    .nullable()
-    .transform((value, original) => (original === '' ? null : value)),
-  email: yup.string().email('Enter a valid email').optional().nullable().transform((v, o) => (o === '' ? null : v)),
-  other_contact: yup.string().optional().max(200),
-  label: yup.string().optional().max(100),
-  shop_location: yup.string().optional().max(200),
-  gst: yup
-    .string()
-    .optional()
-    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
-    .matches(GSTIN_REGEX, 'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)'),
+  name: stringRequired(2, 100).label('Name'),
+  shopname: yup.string().trim().max(200).default(''),
+  address: yup.string().trim().max(500).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
+  phone_1: phoneOptional(),
+  phone_2: phoneOptional(),
+  email: yup.string().trim().email(MSG.email).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
+  other_contact: yup.string().trim().max(200).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
+  label: yup.string().trim().default(''),
+  shop_location: yup.string().trim().default(''),
+  gst: gstinOptional(),
   categories: yup.array().of(yup.string()).default([]),
-  remark: yup.string().optional().max(500),
-  branchId: yup.string().optional().nullable(),
+  remark: yup.string().trim().max(500).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
+  branchId: yup.string().nullable().default(null),
 })
 
 const defaultValues = {

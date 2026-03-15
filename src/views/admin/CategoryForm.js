@@ -67,6 +67,7 @@ const CategoryForm = () => {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [groupsRefreshing, setGroupsRefreshing] = useState(false)
 
   const fetchGroups = async () => {
@@ -175,15 +176,41 @@ const CategoryForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
     setError('')
+    setFieldErrors({})
 
+    const errs = {}
+    const name = (formData.name || '').trim()
+    if (!name) {
+      errs.name = 'Name is required'
+    } else if (name.length < 2) {
+      errs.name = 'Name must be at least 2 characters'
+    } else if (name.length > 100) {
+      errs.name = 'Name must be at most 100 characters'
+    }
+    if (formData.status && !['active', 'inactive'].includes(formData.status)) {
+      errs.status = 'Status must be active or inactive'
+    }
+    const sortOrder = formData.sortOrder
+    if (sortOrder !== '' && sortOrder != null) {
+      const n = Number(sortOrder)
+      if (Number.isNaN(n) || n < 0) {
+        errs.sortOrder = 'Sort order must be 0 or more'
+      }
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      return
+    }
+
+    setSubmitting(true)
     try {
       const { categoryCode, ...rest } = formData
       const payload = {
         ...rest,
         group: formData.group || null,
         parent: formData.parent || null,
+        sortOrder: rest.sortOrder !== '' && rest.sortOrder != null ? Number(rest.sortOrder) : undefined,
       }
       if (isEdit) {
         await categoryService.update(id, payload)
@@ -315,7 +342,11 @@ const CategoryForm = () => {
                     value={formData.name}
                     onChange={handleChange}
                     required
+                    invalid={!!fieldErrors.name}
                   />
+                  {fieldErrors.name && (
+                    <div className="text-danger small mt-1">{fieldErrors.name}</div>
+                  )}
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>Parent Category</CFormLabel>
@@ -348,10 +379,14 @@ const CategoryForm = () => {
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
+                    invalid={!!fieldErrors.status}
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </CFormSelect>
+                  {fieldErrors.status && (
+                    <div className="text-danger small mt-1">{fieldErrors.status}</div>
+                  )}
                 </CCol>
               </CRow>
 

@@ -262,17 +262,24 @@ const QuotationCreate = () => {
       toastError('Add at least one product to the quotation')
       return
     }
-    for (const p of products) {
-      if (!p.productName.trim()) {
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i]
+      if (!(p.productName || '').trim()) {
         toastError('Each product must have a name')
         return
       }
-      if (!p.quantity || Number(p.quantity) <= 0) {
+      const qty = Number(p.quantity)
+      if (Number.isNaN(qty) || qty < 0 || !Number.isInteger(qty)) {
+        toastError(`Product ${i + 1}: quantity must be a whole number 0 or more`)
+        return
+      }
+      if (qty === 0) {
         toastError('Each product must have quantity greater than 0')
         return
       }
-      if (p.quotedRate === '' || Number(p.quotedRate) < 0) {
-        toastError('Each product must have a quoted rate')
+      const rate = p.quotedRate === '' ? NaN : Number(p.quotedRate)
+      if (Number.isNaN(rate) || rate < 0) {
+        toastError('Each product must have a quoted rate (0 or more)')
         return
       }
     }

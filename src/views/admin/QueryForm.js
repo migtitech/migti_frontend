@@ -887,6 +887,19 @@ const QueryForm = () => {
       toastError('Add at least one product using the form above and click Save')
       return
     }
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i]
+      const qty = Number(p.quantity)
+      if (Number.isNaN(qty) || qty < 0 || !Number.isInteger(qty)) {
+        toastError(`Product "${(p.productName || '').trim() || i + 1}": quantity must be a whole number 0 or more`)
+        return
+      }
+      const gst = p.gstPercentage
+      if (gst != null && (typeof gst !== 'number' || gst < 0 || gst > 100)) {
+        toastError(`Product "${(p.productName || '').trim() || i + 1}": GST % must be between 0 and 100`)
+        return
+      }
+    }
     setSubmitting(true)
     setError('')
     try {

@@ -39,6 +39,7 @@ const AreaForm = () => {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const getId = (item) => item?.id || item?._id
 
@@ -120,14 +121,35 @@ const AreaForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitting(true)
     setError('')
+    setFieldErrors({})
+
+    const errs = {}
+    if (!formData.companyId?.trim()) errs.companyId = 'Company is required'
+    if (!formData.branchId?.trim()) errs.branchId = 'Branch is required'
+    const name = (formData.name || '').trim()
+    if (!name) errs.name = 'Name is required'
+    else if (name.length < 2) errs.name = 'Name must be at least 2 characters'
+    else if (name.length > 100) errs.name = 'Name must be at most 100 characters'
+    const city = (formData.city || '').trim()
+    if (!city) errs.city = 'City is required'
+    else if (city.length < 2) errs.city = 'City must be at least 2 characters'
+    else if (city.length > 100) errs.city = 'City must be at most 100 characters'
+    if (!['market', 'industry'].includes(formData.areaType)) {
+      errs.areaType = 'Zone type must be Market or Industry'
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      return
+    }
+
+    setSubmitting(true)
     try {
       const payload = {
         companyId: formData.companyId,
         branchId: formData.branchId,
-        name: formData.name.trim(),
-        city: formData.city.trim(),
+        name,
+        city,
         areaType: formData.areaType,
       }
       if (isEdit) {
@@ -176,6 +198,7 @@ const AreaForm = () => {
                     value={formData.companyId}
                     onChange={handleChange}
                     required
+                    invalid={!!fieldErrors.companyId}
                   >
                     <option value="">Select Company</option>
                     {companies.map((c) => (
@@ -184,6 +207,7 @@ const AreaForm = () => {
                       </option>
                     ))}
                   </CFormSelect>
+                  {fieldErrors.companyId && <div className="text-danger small mt-1">{fieldErrors.companyId}</div>}
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>Branch *</CFormLabel>
@@ -193,6 +217,7 @@ const AreaForm = () => {
                     onChange={handleChange}
                     required
                     disabled={!formData.companyId}
+                    invalid={!!fieldErrors.branchId}
                   >
                     <option value="">Select Branch</option>
                     {branches.map((b) => (
@@ -201,6 +226,7 @@ const AreaForm = () => {
                       </option>
                     ))}
                   </CFormSelect>
+                  {fieldErrors.branchId && <div className="text-danger small mt-1">{fieldErrors.branchId}</div>}
                 </CCol>
               </CRow>
               <CRow className="mb-3">
@@ -214,7 +240,9 @@ const AreaForm = () => {
                     required
                     minLength={2}
                     maxLength={100}
+                    invalid={!!fieldErrors.name}
                   />
+                  {fieldErrors.name && <div className="text-danger small mt-1">{fieldErrors.name}</div>}
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>City *</CFormLabel>
@@ -226,7 +254,9 @@ const AreaForm = () => {
                     required
                     minLength={2}
                     maxLength={100}
+                    invalid={!!fieldErrors.city}
                   />
+                  {fieldErrors.city && <div className="text-danger small mt-1">{fieldErrors.city}</div>}
                 </CCol>
               </CRow>
               <CRow className="mb-3">
@@ -237,10 +267,12 @@ const AreaForm = () => {
                     value={formData.areaType}
                     onChange={handleChange}
                     required
+                    invalid={!!fieldErrors.areaType}
                   >
                     <option value="market">Market</option>
                     <option value="industry">Industry</option>
                   </CFormSelect>
+                  {fieldErrors.areaType && <div className="text-danger small mt-1">{fieldErrors.areaType}</div>}
                 </CCol>
               </CRow>
               <div className="d-flex justify-content-end gap-2 pt-2">

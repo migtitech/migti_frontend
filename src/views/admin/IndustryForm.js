@@ -21,6 +21,7 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
+import { phoneOptional, gstinOptional, MSG } from '../../utils/validation'
 import industryService from '../../services/industryService'
 import areaService from '../../services/areaService'
 import branchService from '../../services/branchService'
@@ -30,19 +31,9 @@ import { toastSuccess, toastError } from '../../utils/toast'
 import useBranchContext from '../../hooks/useBranchContext'
 
 const purchaseManagerSchema = yup.object({
-  name: yup.string().required('Name is required').max(100),
-  phone: yup
-    .string()
-    .optional()
-    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
-    .nullable()
-    .transform((v, o) => (o === '' ? '' : v)),
-  email: yup
-    .string()
-    .email('Enter a valid email')
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === '' ? '' : v)),
+  name: yup.string().trim().required('Name is required').min(1, MSG.minLength(1)).max(100, MSG.maxLength(100)),
+  phone: yup.string().trim().optional().max(20).nullable().transform((v, o) => (o === '' ? '' : v)).test('phone', 'Phone must be 5–20 digits', (v) => !v || /^\d{5,20}$/.test(v)),
+  email: yup.string().trim().email('Enter a valid email').optional().nullable().transform((v, o) => (o === '' ? '' : v)),
 })
 
 const industrySchema = yup.object({
@@ -55,23 +46,9 @@ const industrySchema = yup.object({
   area: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
-  gstNumber: yup
-    .string()
-    .optional()
-    .nullable()
-    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
-    .test(
-      'gst',
-      'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)',
-      (v) => !v || v === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)
-    ),
-  purchase_manager_name: yup.string().optional().max(100),
-  purchase_manager_phone: yup
-    .string()
-    .optional()
-    .matches(/^\d{10}$/, 'Phone must be exactly 10 digits')
-    .nullable()
-    .transform((value, original) => (original === '' ? null : value)),
+  gstNumber: gstinOptional(),
+  purchase_manager_name: yup.string().trim().optional().max(100).nullable().transform((v, o) => (o === '' ? null : v)),
+  purchase_manager_phone: phoneOptional(),
   email: yup
     .string()
     .email('Enter a valid email')

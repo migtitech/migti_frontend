@@ -11,6 +11,15 @@ import {
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
+import {
+  phoneRequired,
+  phoneOptional,
+  emailRequired,
+  emailOptional,
+  stringRequired,
+  stringOptional,
+  MSG,
+} from '../../utils/validation'
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
 import areaService from '../../services/areaService'
@@ -68,35 +77,21 @@ const EmployeeForm = () => {
   const schema = useMemo(
     () =>
       yup.object({
-        name: yup.string().required('Name is required').min(2).max(100),
-        email: yup.string().email('Enter a valid email').required('Email is required'),
-        phone: yup
-          .string()
-          .required('Phone is required')
-          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
-        fatherName: yup.string().required("Father's name is required").min(2).max(100),
-        motherName: yup.string().required("Mother's name is required").min(2).max(100),
-        pincode: yup
-          .string()
-          .required('Pincode is required')
-          .matches(/^\d{4,10}$/, 'Pincode must be 4-10 digits'),
-        hasBike: yup.string().oneOf(['yes', 'no']).required('Please select an option'),
-        hasDrivingLicense: yup.string().oneOf(['yes', 'no']).required('Please select an option'),
-        companyEmail: yup
-          .string()
-          .email('Enter a valid email')
-          .nullable()
-          .transform((v, o) => (o === '' ? null : v)),
-        companyPhone: yup
-          .string()
-          .nullable()
-          .transform((v, o) => (o === '' ? null : v))
-          .test('companyPhone', 'Phone must be exactly 10 digits', (v) => !v || /^\d{10}$/.test(v)),
-        role: yup.string().required('Role is required'),
-        designation: yup.string().required('Designation is required').min(2).max(100),
-        address: yup.string().required('Address is required').min(2).max(500),
-        idnumber: yup.string().required('ID number is required').min(2).max(50),
-        salaryType: yup.string().required('Salary type is required'),
+        name: stringRequired(2, 100).label('Name'),
+        email: emailRequired().label('Email'),
+        phone: phoneRequired().label('Phone'),
+        fatherName: stringOptional(100).label("Father's name"),
+        motherName: stringOptional(100).label("Mother's name"),
+        pincode: yup.string().trim().optional().max(20, MSG.maxLength(20)).nullable().transform((v, o) => (o === '' ? null : v)),
+        hasBike: yup.string().oneOf(['yes', 'no', ''], 'Please select an option').optional().default('no'),
+        hasDrivingLicense: yup.string().oneOf(['yes', 'no', ''], 'Please select an option').optional().default('no'),
+        companyEmail: emailOptional(),
+        companyPhone: phoneOptional(),
+        role: yup.string().required('Role is required').min(2, MSG.minLength(2)).max(50, MSG.maxLength(50)),
+        designation: stringRequired(2, 100).label('Designation'),
+        address: stringRequired(2, 500).label('Address'),
+        idnumber: stringRequired(2, 50).label('ID number'),
+        salaryType: yup.string().optional().max(50).default('monthly'),
         salary: yup
           .number()
           .typeError('Salary is required')
@@ -137,7 +132,8 @@ const EmployeeForm = () => {
         }),
         ...(isEdit ? {} : { password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters') }),
         branchId: yup.string().required('Branch is required'),
-        zoneId: yup.string().nullable(),
+        zoneId: yup.string().optional().nullable(),
+        categories: yup.string().trim().optional().nullable().transform((v, o) => (o === '' ? null : v)),
         assets: yup.object({
           bike: yup.object({
             enabled: yup.boolean().default(false),
@@ -195,6 +191,7 @@ const EmployeeForm = () => {
       role: '',
       branchId: '',
       zoneId: '',
+      categories: '',
       designation: '',
       address: '',
       idnumber: '',
@@ -329,6 +326,7 @@ const EmployeeForm = () => {
           role: employee.role || '',
           branchId: employee.branchId || '',
           zoneId: employee.zoneId || '',
+          categories: employee.categories || '',
           designation: employee.designation || '',
           address: employee.address || '',
           idnumber: employee.idnumber || '',

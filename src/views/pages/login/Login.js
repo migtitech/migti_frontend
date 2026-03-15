@@ -17,6 +17,7 @@ import CIcon from '@coreui/icons-react'
 import { cilLockLocked, cilUser, cilPeople } from '@coreui/icons'
 import { useAuth, ROLES, ROLE_LABELS } from '../../../context/AuthContext'
 import { toastSuccess, toastError } from '../../../utils/toast'
+import { EMPLOYEE_LOGIN_ROLES } from '../../../utils/validation'
 
 const Login = () => {
   const navigate = useNavigate()
@@ -27,6 +28,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [role, setRole] = useState('')
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
   // Redirect if already logged in
@@ -38,14 +40,30 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    setFieldErrors({})
 
-    if (!email || !password || !role) {
-      toastError('Please fill in all fields')
+    const errs = {}
+    const emailTrim = (email || '').trim()
+    if (!emailTrim) {
+      errs.email = 'Email is required'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      errs.email = 'Enter a valid email address'
+    }
+    if (!password) {
+      errs.password = 'Password is required'
+    }
+    if (!role) {
+      errs.role = 'Please select a role'
+    } else if (!EMPLOYEE_LOGIN_ROLES.includes(role)) {
+      errs.role = 'Invalid role selected'
+    }
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
       return
     }
 
     setLoading(true)
-    const result = await login(email, password, role)
+    const result = await login(emailTrim, password, role)
 
     if (result.success) {
       toastSuccess('Signed in successfully')
@@ -81,10 +99,12 @@ const Login = () => {
                       placeholder="Email"
                       autoComplete="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => { setEmail(e.target.value); setFieldErrors((p) => ({ ...p, email: undefined })) }}
+                      invalid={!!fieldErrors.email}
                       required
                     />
                   </CInputGroup>
+                  {fieldErrors.email && <div className="text-danger small mb-2">{fieldErrors.email}</div>}
 
                   <CInputGroup className="mb-3">
                     <CInputGroupText>
@@ -95,7 +115,8 @@ const Login = () => {
                       placeholder="Password"
                       autoComplete="current-password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setPassword(e.target.value); setFieldErrors((p) => ({ ...p, password: undefined })) }}
+                      invalid={!!fieldErrors.password}
                       required
                     />
                     <CInputGroupText
@@ -122,19 +143,21 @@ const Login = () => {
                     <CInputGroupText>
                       <CIcon icon={cilPeople} />
                     </CInputGroupText>
-                  <CFormSelect
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    required
-                  >
-                    <option value="">Select Role</option>
-                    {Object.entries(ROLES).map(([key, value]) => (
-                      <option key={value} value={value}>
-                        {ROLE_LABELS[value]}
-                      </option>
-                    ))}
-                  </CFormSelect>
+                    <CFormSelect
+                      value={role}
+                      onChange={(e) => { setRole(e.target.value); setFieldErrors((p) => ({ ...p, role: undefined })) }}
+                      invalid={!!fieldErrors.role}
+                      required
+                    >
+                      <option value="">Select Role</option>
+                      {Object.entries(ROLES).map(([key, value]) => (
+                        <option key={value} value={value}>
+                          {ROLE_LABELS[value]}
+                        </option>
+                      ))}
+                    </CFormSelect>
                   </CInputGroup>
+                  {fieldErrors.role && <div className="text-danger small mb-2">{fieldErrors.role}</div>}
 
                   <CRow>
                     <CCol xs={12}>

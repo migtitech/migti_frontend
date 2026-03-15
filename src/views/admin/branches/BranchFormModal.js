@@ -17,6 +17,7 @@ import {
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
+import { phoneRequired, gstinRequired, stringRequired, stringOptional, urlOptional, MSG } from '../../../utils/validation'
 
 const BranchFormModal = ({
   visible,
@@ -30,30 +31,16 @@ const BranchFormModal = ({
   const schema = useMemo(
     () =>
       yup.object({
-        name: yup.string().required('Branch name is required').min(2).max(100),
+        name: stringRequired(2, 100).label('Branch name'),
         companyId: yup.string().required('Company is required'),
-        email: yup.string().email('Enter a valid email').required('Email is required'),
-        phone: yup
-          .string()
-          .required('Phone is required')
-          .matches(/^\d{10}$/, 'Phone must be exactly 10 digits'),
-        branchcode: yup.string().required('Branch code is required').min(1).max(50),
-        gstNumber: yup
-          .string()
-          .required('GST number is required')
-          .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
-          .matches(
-            /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/,
-            'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)'
-          ),
-        address: yup.string().required('Address is required').min(2).max(200),
-        fullAddress: yup.string().required('Full address is required').min(5).max(500),
-        mapLocationUrl: yup
-          .string()
-          .optional()
-          .transform((v) => (v === '' ? undefined : v))
-          .url('Enter a valid URL')
-          .max(500),
+        email: yup.string().trim().email(MSG.email).required('Email is required'),
+        phone: phoneRequired().label('Phone'),
+        branchcode: yup.string().trim().required('Branch code is required').min(1, MSG.minLength(1)).max(50, MSG.maxLength(50)),
+        gstNumber: gstinRequired().label('GST number'),
+        address: stringRequired(2, 200).label('Address'),
+        fullAddress: stringRequired(5, 500).label('Full address'),
+        location: stringOptional(200),
+        mapLocationUrl: urlOptional(500),
       }),
     []
   )
