@@ -180,6 +180,9 @@ const CategoryForm = () => {
     setFieldErrors({})
 
     const errs = {}
+    if (!formData.group) {
+      errs.group = 'Group is required'
+    }
     const name = (formData.name || '').trim()
     if (!name) {
       errs.name = 'Name is required'
@@ -323,12 +326,18 @@ const CategoryForm = () => {
                   <SearchableDropdown
                     options={groups}
                     value={formData.group}
-                    onChange={(val) => setFormData((prev) => ({ ...prev, group: val || '' }))}
-                    placeholder="Select Group (optional)"
+                    onChange={(val) => {
+                    setFormData((prev) => ({ ...prev, group: val || '' }))
+                    if (fieldErrors.group) setFieldErrors((prev) => ({ ...prev, group: undefined }))
+                  }}
+                    placeholder="Select Group (required)"
                     maxDisplayCount={5}
                     getOptionLabel={(grp) => `${grp.name || ''}${grp.code ? ` (${grp.code})` : ''}`}
                     getOptionValue={(grp) => grp._id}
                   />
+                  {fieldErrors.group && (
+                    <div className="text-danger small mt-1">{fieldErrors.group}</div>
+                  )}
                   <small className="text-muted">Search and select a group. Best 5 matches shown. Click the refresh icon to reload groups.</small>
                 </CCol>
               </CRow>

@@ -43,6 +43,7 @@ const ALLOWED_MODULE_LABELS = new Set([
   'Quotations',
   'Suppliers',
   'Rate Card',
+  'Task Management',
   'Employees',
 ])
 

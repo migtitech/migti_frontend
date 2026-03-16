@@ -519,6 +519,12 @@ const ProductForm = () => {
     })
   }
 
+  /** Remove a variant combination (subvariant) by index – use when you don't have product for that combo */
+  const removeVariantCombo = (comboIndex) => {
+    setVariantCombinations((prev) => prev.filter((_, i) => i !== comboIndex))
+    toastSuccess('Combination removed.')
+  }
+
   const onSubmit = async (values) => {
     setSubmitting(true)
     setError('')
@@ -1119,13 +1125,24 @@ const ProductForm = () => {
                     {variantCombinations.map((combo, cIdx) => (
                       <CCard key={combo.uniqueId || cIdx} className="mb-3 border">
                         <CCardBody className="py-2">
-                          <div className="mb-2 d-flex align-items-center gap-2 flex-wrap">
-                            <strong>
-                              {combo.optionValues?.map((o) => `${o.variantName}: ${o.variantValue}`).join(' · ') || 'Subvariant'}
-                            </strong>
-                            {combo.variantCode && (
-                              <code className="text-primary small">Code: {combo.variantCode}</code>
-                            )}
+                          <div className="mb-2 d-flex align-items-center gap-2 flex-wrap justify-content-between">
+                            <div className="d-flex align-items-center gap-2 flex-wrap">
+                              <strong>
+                                {combo.optionValues?.map((o) => `${o.variantName}: ${o.variantValue}`).join(' · ') || 'Subvariant'}
+                              </strong>
+                              {combo.variantCode && (
+                                <code className="text-primary small">Code: {combo.variantCode}</code>
+                              )}
+                            </div>
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeVariantCombo(cIdx)}
+                              title="Remove this combination (no product for this variant)"
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
                           </div>
                           <div className="row g-2 mb-2">
                             <div className="col-md-4">

@@ -20,6 +20,7 @@ import CIcon from '@coreui/icons-react'
 import { cilPencil, cilTrash } from '@coreui/icons'
 import { EyeIcon } from '../../../components'
 import { Loader } from '../../../components'
+import { ROLE_LABELS } from '../../../context/AuthContext'
 
 const EmployeeTable = ({
   employees,
@@ -106,7 +107,13 @@ const EmployeeTable = ({
                         <CTableDataCell>{employee.phone || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CBadge color={roleBadgeColor(employee.role)}>
-                            {(employee.role || '').toUpperCase() || '-'}
+                            {employee.role
+                              ? (ROLE_LABELS[employee.role] ||
+                                  employee.role
+                                    .split('_')
+                                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                                    .join(' '))
+                              : '-'}
                           </CBadge>
                         </CTableDataCell>
                         <CTableDataCell>{branch?.name || 'N/A'}</CTableDataCell>

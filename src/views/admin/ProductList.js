@@ -237,7 +237,6 @@ const ProductList = () => {
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Code</CTableHeaderCell>
-                      <CTableHeaderCell>SKU</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>Brand</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
@@ -264,7 +263,6 @@ const ProductList = () => {
                         <CTableDataCell>
                           <code className="text-primary">{product.productCode || '-'}</code>
                         </CTableDataCell>
-                        <CTableDataCell>{product.sku}</CTableDataCell>
                         <CTableDataCell>{product.category?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{product.brand?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{getStatusBadge(product.status)}</CTableDataCell>

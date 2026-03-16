@@ -68,6 +68,14 @@ const RateCardList = React.lazy(() => import('./views/admin/RateCardList'))
 // Purchase Tasks (My Task / Rate Bucket / Admin Tracking)
 const PurchaseTasks = React.lazy(() => import('./views/admin/PurchaseTasks'))
 
+// Task Dashboard (Task Management)
+const TaskList = React.lazy(() => import('./views/admin/TaskList'))
+const TaskForm = React.lazy(() => import('./views/admin/TaskForm'))
+const TaskView = React.lazy(() => import('./views/admin/TaskView'))
+const TaskBucket = React.lazy(() => import('./views/admin/TaskBucket'))
+const TaskBucketView = React.lazy(() => import('./views/admin/TaskBucketView'))
+const TaskBucketRateForm = React.lazy(() => import('./views/admin/TaskBucketRateForm'))
+
 // DMG Bucket (Purchase role)
 const DmgBucket = React.lazy(() => import('./views/admin/DmgBucket'))
 
@@ -171,6 +179,16 @@ const routes = [
 
   // Purchase Tasks
   { path: '/purchase-tasks', name: 'Purchase Tasks', element: PurchaseTasks, module: 'purchase_tasks', action: 'read' },
+
+  // Task Dashboard
+  { path: '/task-dashboard', name: 'Task Dashboard', element: TaskList, module: 'task_management', action: 'read' },
+  { path: '/task-dashboard/new', name: 'Create Task', element: TaskForm, module: 'task_management', action: 'create' },
+  { path: '/task-dashboard/:id', name: 'Task Details', element: TaskView, module: 'task_management', action: 'read' },
+
+  // Task Bucket (tasks assigned to current employee)
+  { path: '/task-bucket', name: 'Task Bucket', element: TaskBucket, module: 'task_management', action: 'read' },
+  { path: '/task-bucket/:id', name: 'Task Bucket Details', element: TaskBucketView, module: 'task_management', action: 'read' },
+  { path: '/task-bucket/:id/rate', name: 'Task Bucket Rate', element: TaskBucketRateForm, module: 'task_management', action: 'update' },
 
   // Follow-up Dashboard
   { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, module: 'follow_up', action: 'read' },

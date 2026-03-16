@@ -23,6 +23,7 @@ const mapToApiPayload = (data) => ({
       variantName: v.variantName || '',
     })),
     remark: p.remark || '',
+    description: (p.description && String(p.description).trim()) ? String(p.description).trim() : '',
     product_id: p.product_id || null,
     images: Array.isArray(p.images) ? p.images : [],
   })),

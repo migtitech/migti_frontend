@@ -233,8 +233,9 @@ const SupplierList = () => {
                 {error}
               </CAlert>
             )}
-            <CRow className="mb-3 align-items-end suppliers-filter-row" style={{ position: 'relative', zIndex: 10, overflow: 'visible' }}>
-              <CCol md={6} style={{ overflow: 'visible' }}>
+            <CRow className="mb-3 g-2 align-items-end suppliers-filter-row" style={{ position: 'relative', zIndex: 10, overflow: 'visible' }}>
+              <CCol xs={12} sm={6} md={4} lg={4} style={{ overflow: 'visible', minWidth: 0 }}>
+                <label className="form-label small text-body-secondary mb-1">Search</label>
                 <CInputGroup>
                   <CInputGroupText>
                     <CIcon icon={cilSearch} />
@@ -247,64 +248,61 @@ const SupplierList = () => {
                   />
                 </CInputGroup>
               </CCol>
-              <CCol md={6}>
-                <CRow className="g-2">
-                  <CCol xs={12} sm={4}>
-                    <label className="form-label small text-muted">Branch</label>
-                    <CFormSelect
-                      value={branchFilterId}
-                      onChange={(e) => {
-                        setBranchFilterId(e.target.value)
-                        setPage(1)
-                      }}
-                      aria-label="Branch filter"
-                    >
-                      <option value="">All branches</option>
-                      {companyBranches.map((b) => (
-                        <option key={b.id || b._id} value={b.id || b._id}>
-                          {b.name || b.branchcode || b.id}
-                        </option>
-                      ))}
-                    </CFormSelect>
-                  </CCol>
-                  <CCol xs={12} sm={4}>
-                    <SearchableDropdown
-                      label="Category"
-                      options={categories}
-                      value={filterCategory}
-                      onChange={handleFilterCategoryChange}
-                      placeholder="Select category"
-                      maxDisplayCount={5}
-                      getOptionLabel={(opt) => opt?.name ?? ''}
-                      getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
-                    />
-                  </CCol>
-                  <CCol xs={12} sm={4}>
-                    <SearchableDropdown
-                      label="Subcategory"
-                      options={subcategories}
-                      value={filterSubcategory}
-                      onChange={handleFilterSubcategoryChange}
-                      placeholder="Select subcategory"
-                      maxDisplayCount={5}
-                      getOptionLabel={(opt) => opt?.name ?? ''}
-                      getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
-                      disabled={!filterCategory}
-                    />
-                  </CCol>
-                  <CCol xs={12} sm={4}>
-                    <SearchableDropdown
-                      label="Zone"
-                      options={areas}
-                      value={filterArea}
-                      onChange={handleFilterAreaChange}
-                      placeholder="Select zone"
-                      maxDisplayCount={5}
-                      getOptionLabel={(opt) => opt?.name ?? ''}
-                      getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
-                    />
-                  </CCol>
-                </CRow>
+              <CCol xs={12} sm={6} md={2} lg={2}>
+                <label className="form-label small text-body-secondary mb-1">Branch</label>
+                <CFormSelect
+                  value={branchFilterId}
+                  onChange={(e) => {
+                    setBranchFilterId(e.target.value)
+                    setPage(1)
+                  }}
+                  aria-label="Branch filter"
+                  className="w-100"
+                >
+                  <option value="">All branches</option>
+                  {companyBranches.map((b) => (
+                    <option key={b.id || b._id} value={b.id || b._id}>
+                      {b.name || b.branchcode || b.id}
+                    </option>
+                  ))}
+                </CFormSelect>
+              </CCol>
+              <CCol xs={12} sm={6} md={2} lg={2} style={{ overflow: 'visible' }}>
+                <SearchableDropdown
+                  label="Category"
+                  options={categories}
+                  value={filterCategory}
+                  onChange={handleFilterCategoryChange}
+                  placeholder="Select category"
+                  maxDisplayCount={5}
+                  getOptionLabel={(opt) => opt?.name ?? ''}
+                  getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
+                />
+              </CCol>
+              <CCol xs={12} sm={6} md={2} lg={2} style={{ overflow: 'visible' }}>
+                <SearchableDropdown
+                  label="Subcategory"
+                  options={subcategories}
+                  value={filterSubcategory}
+                  onChange={handleFilterSubcategoryChange}
+                  placeholder="Select subcategory"
+                  maxDisplayCount={5}
+                  getOptionLabel={(opt) => opt?.name ?? ''}
+                  getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
+                  disabled={!filterCategory}
+                />
+              </CCol>
+              <CCol xs={12} sm={6} md={2} lg={2} style={{ overflow: 'visible' }}>
+                <SearchableDropdown
+                  label="Zone"
+                  options={areas}
+                  value={filterArea}
+                  onChange={handleFilterAreaChange}
+                  placeholder="Select zone"
+                  maxDisplayCount={5}
+                  getOptionLabel={(opt) => opt?.name ?? ''}
+                  getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
+                />
               </CCol>
             </CRow>
             {loading ? (

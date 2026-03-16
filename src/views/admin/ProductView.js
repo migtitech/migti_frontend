@@ -111,7 +111,6 @@ const ProductView = () => {
 
   const keyValueRows = [
     ...(product.productCode ? [{ key: 'Product Code', value: product.productCode, highlight: true }] : []),
-    { key: 'SKU', value: product.sku },
     ...(product.shortDescription ? [{ key: 'Short Description', value: product.shortDescription }] : []),
     { key: 'Category', value: product.category?.name || '-' },
     { key: 'Subcategory', value: product.subcategory?.name || '-' },
@@ -228,6 +227,9 @@ const ProductView = () => {
                 <CTable bordered hover responsive className="mb-0">
                   <CTableHead>
                     <CTableRow>
+                      <CTableHeaderCell style={{ backgroundColor: '#f8f9fa', fontWeight: 600 }}>
+                        Code
+                      </CTableHeaderCell>
                       <CTableHeaderCell style={{ backgroundColor: '#f8f9fa', fontWeight: 600 }}>
                         Variant
                       </CTableHeaderCell>

@@ -17,10 +17,10 @@ import {
   cilTags,
   cilList,
   cilMap,
-  cilHome,
   cilStar,
   cilClipboard,
   cilFolder,
+  cilTask,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -70,13 +70,6 @@ const _nav = [
     to: '/industries',
     icon: <CIcon icon={cilIndustry} customClassName="nav-icon" />,
     module: 'industries',
-  },
-  {
-    component: CNavItem,
-    name: 'Industry Branches',
-    to: '/industry-branches',
-    icon: <CIcon icon={cilHome} customClassName="nav-icon" />,
-    module: 'industry_branches',
   },
   {
     component: CNavGroup,
@@ -149,6 +142,20 @@ const _nav = [
     to: '/rate-cards',
     icon: <CIcon icon={cilList} customClassName="nav-icon" />,
     module: 'rate_cards',
+  },
+  {
+    component: CNavItem,
+    name: 'Task Dashboard',
+    to: '/task-dashboard',
+    icon: <CIcon icon={cilTask} customClassName="nav-icon" />,
+    module: 'task_management',
+  },
+  {
+    component: CNavItem,
+    name: 'Task Bucket',
+    to: '/task-bucket',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+    module: 'task_management',
   },
   {
     component: CNavItem,

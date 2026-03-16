@@ -22,7 +22,6 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
-import { phoneOptional, stringRequired, gstinOptional, MSG } from '../../utils/validation'
 import supplierService from '../../services/supplierService'
 import categoryService from '../../services/categoryService'
 import branchService from '../../services/branchService'
@@ -31,21 +30,51 @@ import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import useBranchContext from '../../hooks/useBranchContext'
 
-const supplierSchema = yup.object({
-  name: stringRequired(2, 100).label('Name'),
-  shopname: yup.string().trim().max(200).default(''),
-  address: yup.string().trim().max(500).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
-  phone_1: phoneOptional(),
-  phone_2: phoneOptional(),
-  email: yup.string().trim().email(MSG.email).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
-  other_contact: yup.string().trim().max(200).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
-  label: yup.string().trim().default(''),
-  shop_location: yup.string().trim().default(''),
-  gst: gstinOptional(),
-  categories: yup.array().of(yup.string()).default([]),
-  remark: yup.string().trim().max(500).nullable().default(null).transform((v, o) => (o === '' ? null : v)),
-  branchId: yup.string().nullable().default(null),
-})
+// Indian GSTIN: 15 chars - 2 digit state + 5 letter + 4 digit + 1 letter (PAN) + 1 entity + Z + 1 checksum
+const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/
+const GST_MESSAGE = 'GST number must be valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)'
+const PHONE_MESSAGE = 'Phone number must be 10 to 15 digits'
+
+function getSupplierSchema(isCreate) {
+  return yup.object({
+    name: yup
+      .string()
+      .required('Name is required')
+      .min(2, 'Name must be at least 2 characters')
+      .max(100, 'Name must be at most 100 characters'),
+    shopname: yup.string().notRequired().default(''),
+    address: yup
+      .string()
+      .required('Address is required')
+      .max(500, 'Address must be at most 500 characters'),
+    phone_1: yup
+      .string()
+      .required('Phone 1 is required')
+      .transform((v) => (typeof v === 'string' ? v.replace(/\s+/g, '') : v))
+      .matches(/^[0-9]{10,15}$/, PHONE_MESSAGE),
+    phone_2: yup
+      .string()
+      .required('Phone 2 is required')
+      .transform((v) => (typeof v === 'string' ? v.replace(/\s+/g, '') : v))
+      .matches(/^[0-9]{10,15}$/, PHONE_MESSAGE),
+    email: yup
+      .string()
+      .email('Enter a valid email')
+      .required('Email is required')
+      .transform((v) => (typeof v === 'string' ? v.trim() : v)),
+    other_contact: yup.string().notRequired().default(''),
+    label: yup.string().notRequired().default(''),
+    shop_location: yup.string().notRequired().default(''),
+    gst: yup
+      .string()
+      .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+      .required('GST number is required')
+      .matches(GSTIN_REGEX, GST_MESSAGE),
+    categories: yup.array().of(yup.string()).optional().default([]),
+    remark: yup.string().notRequired().default(''),
+    branchId: yup.string().required('Please select a branch for the supplier.'),
+  })
+}
 
 const defaultValues = {
   name: '',
@@ -90,7 +119,7 @@ const SupplierForm = () => {
     watch,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(supplierSchema),
+    resolver: yupResolver(getSupplierSchema(!isEdit)),
     defaultValues,
     mode: 'onBlur',
   })
@@ -182,7 +211,6 @@ const SupplierForm = () => {
         name: data?.name || '',
         shopname: data?.shopname || '',
         address: data?.address || '',
-        billingAddress: data?.billingAddress || '',
         phone_1: data?.phone_1 || '',
         phone_2: data?.phone_2 || '',
         email: data?.email || '',
@@ -286,7 +314,7 @@ const SupplierForm = () => {
         await supplierService.update(id, payload)
         toastSuccess('Supplier updated successfully')
       } else {
-        const { branchId: _branchId, billingAddress: _billingAddress, ...rest } = values
+        const { branchId: _branchId, ...rest } = values
         const payload = {
           ...rest,
           categories: values.categories || [],
@@ -316,7 +344,12 @@ const SupplierForm = () => {
       }
       navigate('/suppliers')
     } catch (err) {
-      toastError(err?.message || 'Failed to save supplier')
+      const apiErrors = err?.response?.data?.error
+      const message = Array.isArray(apiErrors)
+        ? apiErrors.join('. ')
+        : err?.response?.data?.message || err?.message || 'Failed to save supplier'
+      setError(message)
+      toastError(message)
     } finally {
       setSubmitting(false)
     }
@@ -386,6 +419,9 @@ const SupplierForm = () => {
                       </option>
                     ))}
                   </CFormSelect>
+                  {errors.branchId && (
+                    <div className="text-danger small mt-1">{errors.branchId.message}</div>
+                  )}
                   {!canSelectBranch && userBranchId && (
                     <small className="text-muted">Your branch is pre-selected.</small>
                   )}

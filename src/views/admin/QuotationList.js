@@ -15,6 +15,7 @@ import {
   CButton,
   CBadge,
   CFormSelect,
+  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilCloudDownload } from '@coreui/icons'
@@ -23,7 +24,7 @@ import quotationService from '../../services/quotationService'
 import Filtered from '../../filtered/Filtered'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+import { toastError, toastSuccess } from '../../utils/toast'
 
 const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null)
 
@@ -37,6 +38,51 @@ const QuotationList = () => {
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize] = useState(10)
   const [loading, setLoading] = useState(false)
+  const [exportingPdfId, setExportingPdfId] = useState(null)
+
+  const handleDownloadPdf = async (e, quotation) => {
+    e?.stopPropagation()
+    if (!quotation?.id || quotation.status !== 'hod_approved') return
+    setExportingPdfId(quotation.id)
+    try {
+      const response = await quotationService.exportPdf(quotation.id)
+      const blob = response?.data
+      if (!blob || !(blob instanceof Blob)) {
+        toastError('Invalid PDF response')
+        return
+      }
+      const contentType = response?.headers?.['content-type'] || blob.type || ''
+      if (blob.size < 100 || contentType.includes('json')) {
+        const text = await blob.text()
+        const err = text
+          ? (() => {
+              try {
+                const j = JSON.parse(text)
+                return j?.message || j?.error?.detail || text
+              } catch {
+                return text
+              }
+            })()
+          : 'Invalid PDF response'
+        toastError(err)
+        return
+      }
+      const pdfBlob = new Blob([blob], { type: 'application/pdf' })
+      const url = URL.createObjectURL(pdfBlob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `quotation-${quotation.quotationCode || quotation.id}-${new Date().toISOString().slice(0, 10)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toastSuccess('PDF downloaded')
+    } catch (err) {
+      toastError(err?.message || 'Failed to export PDF')
+    } finally {
+      setExportingPdfId(null)
+    }
+  }
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(searchTerm), 400)
@@ -117,14 +163,18 @@ const QuotationList = () => {
           </CCardHeader>
 
             <CCardBody>
-            <div className="d-flex flex-wrap gap-3 align-items-center mb-3">
-              <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-              <div className="d-flex align-items-center gap-2">
-                <label className="form-label mb-0 small fw-semibold">Status</label>
+            <CRow className="mb-3 g-2 align-items-end">
+              <CCol xs={12} sm={6} md={6} lg={4}>
+                <label className="form-label small text-body-secondary mb-1">Search</label>
+                <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+              </CCol>
+              <CCol xs={12} sm={6} md={6} lg={4}>
+                <label className="form-label small text-body-secondary mb-1">Status</label>
                 <CFormSelect
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  style={{ width: 'auto', minWidth: 180 }}
+                  className="w-100"
+                  aria-label="Filter by status"
                 >
                   <option value="">All</option>
                   <option value="draft">Draft</option>
@@ -132,8 +182,8 @@ const QuotationList = () => {
                   <option value="fulfilled">Fulfilled</option>
                   <option value="hod_approved">HOD Approved</option>
                 </CFormSelect>
-              </div>
-            </div>
+              </CCol>
+            </CRow>
             {loading && <Loader />}
             <CTable hover responsive bordered>
               <CTableHead>
@@ -187,11 +237,6 @@ const QuotationList = () => {
                         ₹{quotation.totalAmount?.toLocaleString() || '0'}
                       </CTableDataCell>
                       <CTableDataCell style={rowBg}>
-                        {quotation.validUntil
-                          ? new Date(quotation.validUntil).toLocaleDateString()
-                          : '-'}
-                      </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
                         {getStatusBadge(quotation.status)}
                       </CTableDataCell>
                       <CTableDataCell style={rowBg}>
@@ -216,9 +261,15 @@ const QuotationList = () => {
                           color="success"
                           variant="ghost"
                           size="sm"
-                          title="Download"
+                          title={isHodApproved ? 'Download PDF' : 'Available after HOD approval'}
+                          disabled={!isHodApproved || exportingPdfId === quotation.id}
+                          onClick={(e) => handleDownloadPdf(e, quotation)}
                         >
-                          <CIcon icon={cilCloudDownload} />
+                          {exportingPdfId === quotation.id ? (
+                            <CSpinner size="sm" />
+                          ) : (
+                            <CIcon icon={cilCloudDownload} />
+                          )}
                         </CButton>
 
                         <CButton

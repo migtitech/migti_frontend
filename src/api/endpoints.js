@@ -2,6 +2,12 @@
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:7200/api'
 
+/** Socket.IO server URL (same host as API, no /api path) */
+export const getSocketUrl = () => {
+  const base = BASE_URL.replace(/\/api\/?$/, '')
+  return base || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:7200')
+}
+
 /** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
 export const getAssetsBaseUrl = () => {
   const base = BASE_URL.replace(/\/api\/?$/, '')
@@ -196,6 +202,17 @@ export const PURCHASE_TASKS = {
   ADMIN_LIST: '/purchase-tasks/admin-list',
 }
 
+export const TASK_MANAGEMENT = {
+  CREATE: '/task-management/create',
+  LIST: '/task-management/list',
+  MY_TASKS: '/task-management/my-tasks',
+  GET_BY_ID: (id) => `/task-management/get-by-id/${id}`,
+  ASSIGN_EMPLOYEE: '/task-management/assign-employee',
+  UPDATE_SUPPLIER: '/task-management/update-supplier',
+  UPDATE: '/task-management/update',
+  DELETE: '/task-management/delete',
+}
+
 export const ADMIN = {
   PERMISSIONS_MODULES: '/admin/permissions/modules',
 }
@@ -224,4 +241,5 @@ export default {
   QUERIES,
   QUOTATIONS,
   PURCHASE_TASKS,
+  TASK_MANAGEMENT,
 }
