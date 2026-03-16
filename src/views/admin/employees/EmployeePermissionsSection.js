@@ -44,6 +44,7 @@ const ALLOWED_MODULE_LABELS = new Set([
   'Suppliers',
   'Rate Card',
   'Task Management',
+  'Task Bucket',
   'Employees',
 ])
 

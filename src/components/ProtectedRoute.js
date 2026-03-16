@@ -1,11 +1,8 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth, ROLES } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext'
 import usePermissions from '../hooks/usePermissions'
 import Loader from './Loader/Loader'
-
-const PURCHASE_BUCKET_MODULES = ['purchase_tasks', 'follow_up', 'dmg']
-const PURCHASE_ROLES = [ROLES.PURCHASE_MANAGER, ROLES.PURCHASE_EXICUTIVE]
 
 const ProtectedRoute = ({ children, module, action = 'read' }) => {
   const { loading, isAuthenticated, user } = useAuth()
@@ -30,11 +27,6 @@ const ProtectedRoute = ({ children, module, action = 'read' }) => {
 
   // Full-access roles bypass permission checks
   if (isFullAccess) {
-    return children
-  }
-
-  // Purchase Manager / Purchase Executive: allow access to Procurement, Follow up, DMG buckets
-  if (user?.role && PURCHASE_ROLES.includes(user.role) && PURCHASE_BUCKET_MODULES.includes(module)) {
     return children
   }
 

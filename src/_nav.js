@@ -155,7 +155,7 @@ const _nav = [
     name: 'Task Bucket',
     to: '/task-bucket',
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-    module: 'task_management',
+    module: 'task_bucket',
   },
   {
     component: CNavItem,

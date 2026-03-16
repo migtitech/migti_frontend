@@ -186,9 +186,9 @@ const routes = [
   { path: '/task-dashboard/:id', name: 'Task Details', element: TaskView, module: 'task_management', action: 'read' },
 
   // Task Bucket (tasks assigned to current employee)
-  { path: '/task-bucket', name: 'Task Bucket', element: TaskBucket, module: 'task_management', action: 'read' },
-  { path: '/task-bucket/:id', name: 'Task Bucket Details', element: TaskBucketView, module: 'task_management', action: 'read' },
-  { path: '/task-bucket/:id/rate', name: 'Task Bucket Rate', element: TaskBucketRateForm, module: 'task_management', action: 'update' },
+  { path: '/task-bucket', name: 'Task Bucket', element: TaskBucket, module: 'task_bucket', action: 'read' },
+  { path: '/task-bucket/:id', name: 'Task Bucket Details', element: TaskBucketView, module: 'task_bucket', action: 'read' },
+  { path: '/task-bucket/:id/rate', name: 'Task Bucket Rate', element: TaskBucketRateForm, module: 'task_bucket', action: 'update' },
 
   // Follow-up Dashboard
   { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, module: 'follow_up', action: 'read' },

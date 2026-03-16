@@ -15,9 +15,7 @@ import usePermissions from '../hooks/usePermissions'
 import { useAuth } from '../context/AuthContext'
 
 // sidebar nav config
-import navigation, { PURCHASE_ROLE_NAV } from '../_nav'
-
-const PURCHASE_ROLES = ['purchase_manager', 'purchase_exicutive']
+import navigation from '../_nav'
 
 const AppSidebar = () => {
   const dispatch = useDispatch()
@@ -26,18 +24,8 @@ const AppSidebar = () => {
   const { user } = useAuth()
   const { hasAnyPermission, isFullAccess } = usePermissions()
 
-  const isPurchaseRole = useMemo(
-    () => !!user?.role && PURCHASE_ROLES.includes(user.role),
-    [user?.role],
-  )
-
   // Filter navigation items based on permissions (or use purchase-only nav for PM/PE)
   const filteredNavigation = useMemo(() => {
-    // Purchase Manager / Purchase Executive: show only Dashboard + Procurement, Follow up, DMG buckets
-    if (isPurchaseRole) {
-      return PURCHASE_ROLE_NAV
-    }
-
     const filterItem = (item) => {
       // No module = accessible to all (e.g., Dashboard)
       if (!item.module) return true
@@ -63,7 +51,7 @@ const AppSidebar = () => {
         return item
       })
       .filter(Boolean)
-  }, [isPurchaseRole, hasAnyPermission, isFullAccess])
+  }, [hasAnyPermission, isFullAccess])
 
   return (
     <CSidebar

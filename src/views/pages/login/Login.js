@@ -81,7 +81,7 @@ const Login = () => {
           <CCol md={6} lg={5} xl={4}>
             <CCard className="p-4">
               <CCardBody>
-                <CForm onSubmit={handleSubmit}>
+                <CForm onSubmit={handleSubmit} autoComplete="off">
                   <div className="text-center mb-4">
                     <h1 className="text-primary fw-bold">MigtiCRM</h1>
                     <p className="text-body-secondary">Migti Industrial Private Limited</p>
@@ -97,7 +97,7 @@ const Login = () => {
                     <CFormInput
                       type="email"
                       placeholder="Email"
-                      autoComplete="email"
+                      autoComplete="off"
                       value={email}
                       onChange={(e) => { setEmail(e.target.value); setFieldErrors((p) => ({ ...p, email: undefined })) }}
                       invalid={!!fieldErrors.email}
@@ -113,7 +113,7 @@ const Login = () => {
                     <CFormInput
                       type={showPassword ? 'text' : 'password'}
                       placeholder="Password"
-                      autoComplete="current-password"
+                      autoComplete="new-password"
                       value={password}
                       onChange={(e) => { setPassword(e.target.value); setFieldErrors((p) => ({ ...p, password: undefined })) }}
                       invalid={!!fieldErrors.password}
