@@ -80,6 +80,8 @@ const QuotationView = () => {
   const [productIndex, setProductIndex] = useState(0)
   const [editingProduct, setEditingProduct] = useState(null)
   const [updating, setUpdating] = useState(false)
+  const [deleteProductModalVisible, setDeleteProductModalVisible] = useState(false)
+  const [deleteProductIndex, setDeleteProductIndex] = useState(null)
   const [productListRateEdits, setProductListRateEdits] = useState({})
   const [productListGstEdits, setProductListGstEdits] = useState({})
   const [productListApplyDiscount, setProductListApplyDiscount] = useState({})
@@ -625,6 +627,60 @@ const QuotationView = () => {
       toastSuccess('Rate and GST updated')
     } catch (err) {
       toastError(err?.message || 'Failed to update rate')
+    } finally {
+      setUpdating(false)
+    }
+  }
+
+  const openDeleteProductModal = (idx) => {
+    if (!products[idx]) return
+    setDeleteProductIndex(idx)
+    setDeleteProductModalVisible(true)
+  }
+
+  const handleConfirmDeleteProduct = async () => {
+    if (!quotation?.id || deleteProductIndex == null) return
+    const idx = deleteProductIndex
+    if (!products[idx]) return
+    const toImgIds = (imgs) =>
+      (imgs || [])
+        .map((img) => (typeof img === 'object' && img?._id ? img._id : img))
+        .filter(Boolean)
+    const toProductPayload = (prod) => ({
+      productName: prod.productName || '',
+      description: prod.description || '',
+      quantity: Number(prod.quantity) ?? 1,
+      unit: prod.unit || '',
+      hsnNumber: prod.hsnNumber || '',
+      modelNumber: prod.modelNumber || '',
+      gstPercentage: prod.gstPercentage ?? null,
+      remark: prod.remark || '',
+      product_id: typeof prod.product_id === 'object' && prod.product_id?._id ? prod.product_id._id : prod.product_id || null,
+      rate: prod.rate ?? null,
+      variants: prod.variants || [],
+      images: toImgIds(prod.images),
+      applyDiscount: prod.applyDiscount ?? false,
+      discountPercentage: prod.discountPercentage ?? null,
+      discountAmount: prod.discountAmount ?? null,
+      notAvailable: prod.notAvailable ?? false,
+      notAvailableRemark: prod.notAvailableRemark || '',
+    })
+    const updatedProducts = products
+      .filter((_, i) => i !== idx)
+      .map(toProductPayload)
+
+    setUpdating(true)
+    try {
+      const res = await quotationService.update(quotation.id, { products: updatedProducts })
+      const data = res?.data?.data ?? res?.data ?? res
+      const nextProducts = data?.products || updatedProducts
+      setQuotation((prev) => (prev ? { ...prev, products: nextProducts } : null))
+      setDeleteProductModalVisible(false)
+      setDeleteProductIndex(null)
+      toastSuccess('Product deleted from quotation')
+      setProductIndex((pi) => Math.max(0, Math.min(pi, Math.max(0, nextProducts.length - 1))))
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to delete product')
     } finally {
       setUpdating(false)
     }
@@ -2053,6 +2109,16 @@ const QuotationView = () => {
                                     <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating}>
                                       Update
                                     </CButton>
+                                    <CButton
+                                      color="danger"
+                                      size="sm"
+                                      className="w-100"
+                                      style={{ minWidth: 90, fontSize: '0.75rem' }}
+                                      onClick={() => openDeleteProductModal(idx)}
+                                      disabled={updating}
+                                    >
+                                      Delete
+                                    </CButton>
                                   </>
                                 ) : (
                                   <>
@@ -2061,6 +2127,16 @@ const QuotationView = () => {
                                     </CButton>
                                     <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating}>
                                       Update
+                                    </CButton>
+                                    <CButton
+                                      color="danger"
+                                      size="sm"
+                                      className="w-100"
+                                      style={{ minWidth: 90, fontSize: '0.75rem' }}
+                                      onClick={() => openDeleteProductModal(idx)}
+                                      disabled={updating}
+                                    >
+                                      Delete
                                     </CButton>
                                   </>
                                 )}
@@ -2479,6 +2555,30 @@ const QuotationView = () => {
             disabled={productListAssigningTask || !productListAssignEmployeeId}
           >
             {productListAssigningTask ? <><CSpinner size="sm" className="me-2" />Assigning...</> : 'Assign'}
+          </CButton>
+        </CModalFooter>
+      </CModal>
+
+      <CModal
+        visible={deleteProductModalVisible}
+        onClose={() => { setDeleteProductModalVisible(false); setDeleteProductIndex(null) }}
+      >
+        <CModalHeader>
+          <CModalTitle>Delete product</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          Are you sure you want to delete this product from the quotation?
+        </CModalBody>
+        <CModalFooter>
+          <CButton
+            color="secondary"
+            onClick={() => { setDeleteProductModalVisible(false); setDeleteProductIndex(null) }}
+            disabled={updating}
+          >
+            Cancel
+          </CButton>
+          <CButton color="danger" onClick={handleConfirmDeleteProduct} disabled={updating}>
+            {updating ? <><CSpinner size="sm" className="me-2" />Deleting...</> : 'Delete'}
           </CButton>
         </CModalFooter>
       </CModal>
