@@ -18,6 +18,8 @@ import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
 import * as yup from 'yup'
 import { phoneRequired, gstinRequired, stringRequired, stringOptional, urlOptional, MSG } from '../../../utils/validation'
+import AuthImage from '../../../components/AuthImage/AuthImage'
+import { getAssetsUrl } from '../../../api/endpoints'
 
 const BranchFormModal = ({
   visible,
@@ -49,6 +51,7 @@ const BranchFormModal = ({
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(schema),
@@ -58,6 +61,17 @@ const BranchFormModal = ({
   useEffect(() => {
     reset(defaultValues)
   }, [defaultValues, reset])
+
+  const selectedSignature = watch('signatureFile')
+  const selectedFileName =
+    selectedSignature && selectedSignature.length > 0 ? selectedSignature[0]?.name || '' : ''
+  const existingSignature = editingBranch?.signature
+  const existingSignatureId =
+    typeof existingSignature === 'object' ? existingSignature?._id || existingSignature?.id : existingSignature
+  const existingSignaturePath =
+    typeof existingSignature === 'object' && existingSignature?.path
+      ? (existingSignature.path.startsWith('http') ? existingSignature.path : getAssetsUrl(existingSignature.path))
+      : ''
 
   return (
     <CModal visible={visible} onClose={onClose} size="lg">
@@ -170,6 +184,35 @@ const BranchFormModal = ({
               </div>
             </CCol>
             <CCol md={6} />
+          </CRow>
+          <CRow>
+            <CCol md={12}>
+              <div className="mb-3">
+                <CFormLabel htmlFor="signatureFile">Authorised Signature</CFormLabel>
+                <CFormInput
+                  id="signatureFile"
+                  type="file"
+                  accept="image/*"
+                  {...register('signatureFile')}
+                />
+                <div className="small text-muted mt-1">
+                  Upload PNG/JPG signature image (stored in S3 and saved as document id).
+                </div>
+                {selectedFileName ? (
+                  <div className="small mt-1">Selected: {selectedFileName}</div>
+                ) : null}
+                {!selectedFileName && existingSignatureId ? (
+                  <div className="mt-2">
+                    <AuthImage
+                      documentId={existingSignatureId}
+                      fallbackUrl={existingSignaturePath}
+                      alt="Current branch signature"
+                      style={{ maxHeight: 60, maxWidth: 180, objectFit: 'contain' }}
+                    />
+                  </div>
+                ) : null}
+              </div>
+            </CCol>
           </CRow>
           <CRow>
             <CCol md={12}>

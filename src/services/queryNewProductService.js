@@ -18,6 +18,13 @@ const queryNewProductService = {
     })
     return response
   },
+
+  delete: async (productId) => {
+    const response = await api.delete(QUERY_NEW_PRODUCTS.DELETE, {
+      params: { productId },
+    })
+    return response
+  },
 }
 
 export default queryNewProductService

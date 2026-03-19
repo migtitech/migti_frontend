@@ -33,7 +33,7 @@ import {
   CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPlus, cilTrash, cilPencil, cilSearch, cilCheckCircle } from '@coreui/icons'
+import { cilArrowLeft, cilPlus, cilTrash, cilPencil, cilSearch, cilCheckCircle, cilX } from '@coreui/icons'
 import queryService from '../../services/queryService'
 import industryService from '../../services/industryService'
 import productService from '../../services/productService'
@@ -679,6 +679,21 @@ const QueryForm = () => {
       const variants = [...(prev.variants || [])]
       variants[variantIndex] = { ...variants[variantIndex], [field]: value }
       return { ...prev, variants }
+    })
+  }
+
+  const removeSelectedUploadImage = (index) => {
+    setProductImageFiles((prev) => prev.filter((_, i) => i !== index))
+    setProductImagePreviews((prev) => {
+      const urlToRemove = prev[index]
+      if (urlToRemove) {
+        try {
+          URL.revokeObjectURL(urlToRemove)
+        } catch {
+          // ignore revoke errors
+        }
+      }
+      return prev.filter((_, i) => i !== index)
     })
   }
 
@@ -1729,15 +1744,32 @@ const QueryForm = () => {
                       {productImagePreviews.length > 0 && (
                         <div className="d-flex flex-wrap gap-2 mt-2">
                           {productImagePreviews.map((src, idx) => (
-                            <CImage
+                            <div
                               key={idx}
-                              src={src}
-                              alt={`Preview ${idx + 1}`}
-                              width={64}
-                              height={64}
-                              className="border rounded"
-                              style={{ objectFit: 'cover' }}
-                            />
+                              className="position-relative border rounded overflow-hidden"
+                              style={{ width: 64, height: 64 }}
+                            >
+                              <CImage
+                                src={src}
+                                alt={`Preview ${idx + 1}`}
+                                width={64}
+                                height={64}
+                                className="w-100 h-100"
+                                style={{ objectFit: 'cover' }}
+                              />
+                              <CButton
+                                color="danger"
+                                size="sm"
+                                shape="rounded-pill"
+                                className="position-absolute d-flex align-items-center justify-content-center p-0"
+                                style={{ top: 2, right: 2, width: 18, height: 18, minWidth: 18 }}
+                                onClick={() => removeSelectedUploadImage(idx)}
+                                title="Remove image"
+                                type="button"
+                              >
+                                <CIcon icon={cilX} size="sm" />
+                              </CButton>
+                            </div>
                           ))}
                         </div>
                       )}

@@ -35,7 +35,7 @@ import {
   CModalFooter,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilArrowRight, cilCloudDownload, cilEnvelopeClosed } from '@coreui/icons'
+import { cilArrowLeft, cilArrowRight, cilCloudDownload, cilEnvelopeClosed, cilX } from '@coreui/icons'
 import quotationService from '../../services/quotationService'
 import employeeService from '../../services/employeeService'
 import purchaseTaskService from '../../services/purchaseTaskService'
@@ -118,6 +118,7 @@ const QuotationView = () => {
   const [imageGalleryImages, setImageGalleryImages] = useState([])
   const [imageGalleryIndex, setImageGalleryIndex] = useState(0)
   const [imageGalleryVisible, setImageGalleryVisible] = useState(false)
+  const [uploadingProductImages, setUploadingProductImages] = useState(false)
   const [companyForm, setCompanyForm] = useState({
     name: '',
     location: '',
@@ -170,6 +171,15 @@ const QuotationView = () => {
 
   const companyInfo = quotation?.companyInfo || null
   const products = Array.isArray(quotation?.products) ? quotation.products : []
+  const branchSignature = quotation?.branchSignature || null
+  const branchSignatureId =
+    branchSignature && typeof branchSignature === 'object'
+      ? branchSignature._id || branchSignature.id || null
+      : null
+  const branchSignaturePath =
+    branchSignature && typeof branchSignature === 'object' && branchSignature.path
+      ? (branchSignature.path.startsWith('http') ? branchSignature.path : getAssetsUrl(branchSignature.path))
+      : ''
   const queryId = quotation?.queryId?._id ?? quotation?.queryId
   const hasRate = (p) => !p.notAvailable && p.rate != null && !Number.isNaN(Number(p.rate)) && Number(p.rate) >= 0
   const productsWithRate = products.filter(hasRate)
@@ -320,7 +330,10 @@ const QuotationView = () => {
         rate: p.rate != null ? p.rate : '',
         variants: p.variants || [],
         product_id: p.product_id,
-        images: p.images || [],
+        images:
+          Array.isArray(p.images) && p.images.length > 0
+            ? p.images
+            : (Array.isArray(productRef?.images) ? productRef.images : []),
       })
     } else {
       setEditingProduct(null)
@@ -421,6 +434,52 @@ const QuotationView = () => {
     setEditingProduct((prev) => (prev ? { ...prev, [field]: value } : null))
   }
 
+  const getProductImagesForEdit = (product) => {
+    if (!product) return []
+    const imagesFromProduct = Array.isArray(product.images) ? product.images : []
+    if (imagesFromProduct.length > 0) return imagesFromProduct
+    const productRef = typeof product.product_id === 'object' ? product.product_id : null
+    return Array.isArray(productRef?.images) ? productRef.images : []
+  }
+
+  const removeEditingProductImage = (imgIndex) => {
+    setEditingProduct((prev) => {
+      if (!prev) return prev
+      const images = Array.isArray(prev.images) ? prev.images : []
+      return {
+        ...prev,
+        images: images.filter((_, index) => index !== imgIndex),
+      }
+    })
+  }
+
+  const uploadEditingProductImages = async (files) => {
+    if (!files?.length) return
+    setUploadingProductImages(true)
+    try {
+      const res = await documentService.uploadImages(files)
+      const data = res?.data?.data ?? res?.data ?? res
+      const docs = data?.documents || []
+      const uploaded = docs
+        .map((d) => ({ _id: d?._id || d?.id, path: d?.path || d?.url || '' }))
+        .filter((d) => !!d._id || !!d.path)
+      if (uploaded.length === 0) {
+        toastError('No images uploaded')
+        return
+      }
+      setEditingProduct((prev) => {
+        if (!prev) return prev
+        const existing = Array.isArray(prev.images) ? prev.images : []
+        return { ...prev, images: [...existing, ...uploaded] }
+      })
+      toastSuccess(`${uploaded.length} image(s) uploaded`)
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to upload images')
+    } finally {
+      setUploadingProductImages(false)
+    }
+  }
+
   const handleUpdateProduct = async () => {
     if (!quotation?.id || !editingProduct) return false
     const idx = Math.min(productIndex, products.length - 1)
@@ -458,6 +517,7 @@ const QuotationView = () => {
         product_id: pid ?? p.product_id,
         rate: rateVal,
         variants: editingProduct.variants || p.variants || [],
+        images: Array.isArray(editingProduct.images) ? editingProduct.images : getProductImagesForEdit(p),
       })
     })
     setUpdating(true)
@@ -1169,6 +1229,11 @@ const QuotationView = () => {
               </CNavLink>
             </CNavItem>
             <CNavItem>
+              <CNavLink active={activeTab === 'products'} onClick={() => setActiveTab('products')} style={{ cursor: 'pointer' }}>
+                Product
+              </CNavLink>
+            </CNavItem>
+            <CNavItem>
               <CNavLink active={activeTab === 'addNewProduct'} onClick={() => setActiveTab('addNewProduct')} style={{ cursor: 'pointer' }}>
                 Add New Product
               </CNavLink>
@@ -1176,16 +1241,6 @@ const QuotationView = () => {
             <CNavItem>
               <CNavLink active={activeTab === 'productList'} onClick={() => setActiveTab('productList')} style={{ cursor: 'pointer' }}>
                 Product List ({products.length})
-              </CNavLink>
-            </CNavItem>
-            <CNavItem>
-              <CNavLink active={activeTab === 'withRate'} onClick={() => setActiveTab('withRate')} style={{ cursor: 'pointer' }}>
-                Products with Rate ({productsWithRate.length})
-              </CNavLink>
-            </CNavItem>
-            <CNavItem>
-              <CNavLink active={activeTab === 'withoutRate'} onClick={() => setActiveTab('withoutRate')} style={{ cursor: 'pointer' }}>
-                Products without Rate ({productsWithoutRate.length})
               </CNavLink>
             </CNavItem>
           </CNav>
@@ -1705,6 +1760,16 @@ const QuotationView = () => {
                         </CTableBody>
                       </CTable>
                       <div className="text-end small">
+                        {branchSignatureId || branchSignaturePath ? (
+                          <div className="mb-1">
+                            <AuthImage
+                              documentId={branchSignatureId}
+                              fallbackUrl={branchSignaturePath}
+                              alt="Authorised signature"
+                              style={{ maxHeight: 70, maxWidth: 170, objectFit: 'contain' }}
+                            />
+                          </div>
+                        ) : null}
                         <div className="fw-semibold">
                           For Migti Industrial Pvt Ltd
                         </div>
@@ -1841,6 +1906,202 @@ const QuotationView = () => {
                   <CButton color="primary" onClick={handleSavePackingDelivery} disabled={savingPackingDelivery}>
                     {savingPackingDelivery ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
                   </CButton>
+                </CCardBody>
+              </CCard>
+            </CTabPane>
+
+            {/* Tab: Single Product Edit */}
+            <CTabPane visible={activeTab === 'products'}>
+              <CCard className="mb-4">
+                <CCardHeader className="d-flex justify-content-between align-items-center">
+                  <strong>Product Details</strong>
+                  {products.length > 0 && (
+                    <span className="text-muted small">
+                      Product {Math.min(productIndex + 1, products.length)} of {products.length}
+                    </span>
+                  )}
+                </CCardHeader>
+                <CCardBody>
+                  {products.length === 0 || !editingProduct ? (
+                    <p className="text-muted mb-0">No products in this quotation.</p>
+                  ) : (
+                    <>
+                      <CRow>
+                        <CCol md={4}>
+                          <div className="mb-3">
+                            <CFormLabel>Product Name</CFormLabel>
+                            <CFormInput
+                              value={editingProduct.productName || ''}
+                              onChange={(e) => updateFormField('productName', e.target.value)}
+                              placeholder="Product name"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Description</CFormLabel>
+                            <CFormTextarea
+                              rows={3}
+                              value={editingProduct.description || ''}
+                              onChange={(e) => updateFormField('description', e.target.value)}
+                              placeholder="Description"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Remark</CFormLabel>
+                            <CFormInput
+                              value={editingProduct.remark || ''}
+                              onChange={(e) => updateFormField('remark', e.target.value)}
+                              placeholder="Remark"
+                            />
+                          </div>
+                        </CCol>
+                        <CCol md={4}>
+                          <div className="mb-3">
+                            <CFormLabel>Quantity</CFormLabel>
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              value={editingProduct.quantity ?? ''}
+                              onChange={(e) => updateFormField('quantity', e.target.value)}
+                              placeholder="Quantity"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Unit</CFormLabel>
+                            <CFormInput
+                              value={editingProduct.unit || ''}
+                              onChange={(e) => updateFormField('unit', e.target.value)}
+                              placeholder="Unit"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Rate (Rs)</CFormLabel>
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={editingProduct.rate ?? ''}
+                              onChange={(e) => updateFormField('rate', e.target.value)}
+                              placeholder="Rate"
+                            />
+                          </div>
+                        </CCol>
+                        <CCol md={4}>
+                          <div className="mb-3">
+                            <CFormLabel>HSN Number</CFormLabel>
+                            <CFormInput
+                              value={editingProduct.hsnNumber || ''}
+                              onChange={(e) => updateFormField('hsnNumber', e.target.value)}
+                              placeholder="HSN Number"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Model Number</CFormLabel>
+                            <CFormInput
+                              value={editingProduct.modelNumber || ''}
+                              onChange={(e) => updateFormField('modelNumber', e.target.value)}
+                              placeholder="Model Number"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>GST %</CFormLabel>
+                            <CFormInput
+                              type="number"
+                              min={0}
+                              max={100}
+                              step="0.01"
+                              value={editingProduct.gstPercentage ?? ''}
+                              onChange={(e) => updateFormField('gstPercentage', e.target.value)}
+                              placeholder="GST %"
+                            />
+                          </div>
+                        </CCol>
+                      </CRow>
+                      <CRow className="mt-1">
+                        <CCol md={12}>
+                          <CFormLabel>Uploaded Images</CFormLabel>
+                          {Array.isArray(editingProduct.images) && editingProduct.images.length > 0 ? (
+                            <div className="d-flex flex-wrap gap-2 mb-3">
+                              {editingProduct.images.map((img, index) => (
+                                <div key={`edit-img-${index}`} className="position-relative border rounded overflow-hidden" style={{ width: 72, height: 72 }}>
+                                  {getDocumentId(img) ? (
+                                    <AuthImage
+                                      documentId={getDocumentId(img)}
+                                      fallbackUrl={getImageUrl(img)}
+                                      alt=""
+                                      className="w-100 h-100"
+                                      style={{ objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <CImage
+                                      src={getImageUrl(img)}
+                                      alt=""
+                                      className="w-100 h-100"
+                                      style={{ objectFit: 'cover' }}
+                                    />
+                                  )}
+                                  <CButton
+                                    color="danger"
+                                    size="sm"
+                                    shape="rounded-pill"
+                                    className="position-absolute d-flex align-items-center justify-content-center p-0"
+                                    style={{ top: 4, right: 4, width: 20, height: 20, minWidth: 20 }}
+                                    onClick={() => removeEditingProductImage(index)}
+                                    title="Remove image"
+                                  >
+                                    <CIcon icon={cilX} size="sm" />
+                                  </CButton>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="small text-muted mb-3">No uploaded image for this product.</div>
+                          )}
+                          <CFormInput
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            disabled={uploadingProductImages}
+                            onChange={async (e) => {
+                              const files = Array.from(e.target.files || [])
+                              if (!files.length) return
+                              await uploadEditingProductImages(files)
+                              e.target.value = ''
+                            }}
+                          />
+                          <div className="small text-muted mt-1">
+                            Remove old images with the cross icon, then upload new image(s).
+                          </div>
+                        </CCol>
+                      </CRow>
+                      <div className="mt-4 d-flex flex-wrap gap-2">
+                        <CButton
+                          color="secondary"
+                          variant="outline"
+                          disabled={updating || uploadingProductImages || productIndex <= 0}
+                          onClick={() => setProductIndex((i) => Math.max(0, i - 1))}
+                        >
+                          <CIcon icon={cilArrowLeft} className="me-1" />
+                          Previous
+                        </CButton>
+                        <CButton
+                          color="primary"
+                          disabled={updating || uploadingProductImages}
+                          onClick={handleUpdateProduct}
+                        >
+                          {updating ? <><CSpinner size="sm" className="me-2" />Updating...</> : 'Update'}
+                        </CButton>
+                        <CButton
+                          color="info"
+                          variant="outline"
+                          disabled={updating || uploadingProductImages || productIndex >= products.length - 1}
+                          onClick={handleNextProduct}
+                        >
+                          Next
+                          <CIcon icon={cilArrowRight} className="ms-1" />
+                        </CButton>
+                      </div>
+                    </>
+                  )}
                 </CCardBody>
               </CCard>
             </CTabPane>
@@ -2161,273 +2422,6 @@ const QuotationView = () => {
               </div>
             </CTabPane>
 
-            {/* Tab 4: Products with Rate */}
-            <CTabPane visible={activeTab === 'withRate'}>
-              {productsWithRate.length > 0 ? (
-                <>
-                <CTable responsive hover bordered className="table-fixed">
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell className="text-center" style={{ width: 50 }}>#</CTableHeaderCell>
-                      <CTableHeaderCell style={{ width: 140, maxWidth: 180 }}>Product name / Description</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 90 }}>Quantity</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 80 }}>Unit</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>HSN Number</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Model Number</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 70 }}>GST %</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 120 }}>Images</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Rate (₹)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total Amount (₹)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 90 }}>Actions</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {productsWithRate.map((p, idx) => {
-                      const realIdx = products.indexOf(p)
-                      const productRef = typeof p.product_id === 'object' ? p.product_id : null
-                      const allImages = Array.isArray(p.images) ? p.images : (productRef?.images || [])
-                      const imageUrls = allImages.map((img) => getImageUrl(img)).filter((src) => !!src)
-                      const desc = (p.description || productRef?.shortDescription || p.remark || '').trim()
-                      const rateVal = getListRate(realIdx)
-                      const totalVal = getListTotal(realIdx)
-                      return (
-                        <CTableRow key={realIdx}>
-                          <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
-                          <CTableDataCell style={{ width: 140, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            <div className="text-truncate" title={p.productName || ''}>{p.productName || '–'}</div>
-                            {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap' }} title={String(desc)}>{String(desc).slice(0, 120)}{desc.length > 120 ? '…' : ''}</div> : null}
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
-                          <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
-                          <CTableDataCell className="small text-center">{productRef?.hsnNumber || p.hsnNumber || '–'}</CTableDataCell>
-                          <CTableDataCell className="small text-center">{productRef?.modelNumber || productRef?.defaultModelNumber || p.modelNumber || '–'}</CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="0.01"
-                              size="sm"
-                              value={getListGst(realIdx)}
-                              onChange={(e) => setListGst(realIdx, e.target.value)}
-                              placeholder="GST %"
-                              title="GST % (required, 0–100)"
-                            />
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            {allImages.length > 0 ? (
-                              <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">
-                                {allImages.slice(0, 2).map((img, i) => (
-                                  <div
-                                    key={i}
-                                    role="button"
-                                    tabIndex={0}
-                                    className="rounded overflow-hidden border"
-                                    style={{ width: 40, height: 40, cursor: 'pointer' }}
-                                    onClick={() => openImageGallery(allImages, i)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, i) } }}
-                                  >
-                                    {getDocumentId(img) ? (
-                                      <AuthImage documentId={getDocumentId(img)} fallbackUrl={getImageUrl(img)} alt="" className="w-100 h-100" style={{ objectFit: 'cover' }} />
-                                    ) : (
-                                      <CImage src={getImageUrl(img)} alt="" className="w-100 h-100" style={{ objectFit: 'cover' }} />
-                                    )}
-                                  </div>
-                                ))}
-                                {allImages.length > 2 && (
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    className="d-flex align-items-center justify-content-center rounded border bg-light text-primary fw-bold"
-                                    style={{ width: 40, height: 40, fontSize: '1.1rem', cursor: 'pointer' }}
-                                    onClick={() => openImageGallery(allImages, 2)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, 2) } }}
-                                    title={`${allImages.length - 2} more`}
-                                  >
-                                    +
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted small">–</span>
-                            )}
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              size="sm"
-                              value={rateVal}
-                              onChange={(e) => setListRate(realIdx, e.target.value)}
-                              placeholder="Rate"
-                            />
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              size="sm"
-                              value={totalVal}
-                              onChange={(e) => setListTotal(realIdx, e.target.value)}
-                              placeholder="Qty × Rate"
-                            />
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CButton color="primary" size="sm" onClick={() => handleUpdateProductFromList(realIdx)} disabled={updating}>
-                              Update
-                            </CButton>
-                            </CTableDataCell>
-                          </CTableRow>
-                        )
-                      })}
-                    </CTableBody>
-                  </CTable>
-                  <div className="mt-3 text-end border-top pt-3">
-                    <p className="mb-1"><strong>Total (Taxable):</strong> ₹{calculatedTotalTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="mb-1"><strong>GST Amount:</strong> ₹{calculatedTotalGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="mb-0 fs-5"><strong>Total Amount:</strong> ₹{calculatedTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                </>
-              ) : (
-                <p className="text-muted mb-0">No products with rate.</p>
-              )}
-            </CTabPane>
-
-            {/* Tab 5: Products without Rate */}
-            <CTabPane visible={activeTab === 'withoutRate'}>
-              {productsWithoutRate.length > 0 ? (
-                <>
-                <CTable responsive hover bordered className="table-fixed">
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell className="text-center" style={{ width: 50 }}>#</CTableHeaderCell>
-                      <CTableHeaderCell style={{ width: 140, maxWidth: 180 }}>Product name / Description</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 90 }}>Quantity</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 80 }}>Unit</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>HSN Number</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Model Number</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 70 }}>GST %</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 120 }}>Images</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Rate (₹)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 100 }}>Total Amount (₹)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-center" style={{ width: 90 }}>Actions</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {productsWithoutRate.map((p, idx) => {
-                      const realIdx = products.indexOf(p)
-                      const productRef = typeof p.product_id === 'object' ? p.product_id : null
-                      const allImages = Array.isArray(p.images) ? p.images : (productRef?.images || [])
-                      const imageUrls = allImages.map((img) => getImageUrl(img)).filter((src) => !!src)
-                      const desc = (p.description || productRef?.shortDescription || p.remark || '').trim()
-                      const rateVal = getListRate(realIdx)
-                      const totalVal = getListTotal(realIdx)
-                      return (
-                        <CTableRow key={realIdx}>
-                          <CTableDataCell className="text-center">{idx + 1}</CTableDataCell>
-                          <CTableDataCell style={{ width: 140, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            <div className="text-truncate" title={p.productName || ''}>{p.productName || '–'}</div>
-                            {desc ? <div className="small text-muted text-truncate" style={{ fontSize: '0.8em', whiteSpace: 'pre-wrap' }} title={String(desc)}>{String(desc).slice(0, 120)}{desc.length > 120 ? '…' : ''}</div> : null}
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">{p.quantity ?? '–'}</CTableDataCell>
-                          <CTableDataCell className="text-center">{p.unit || '–'}</CTableDataCell>
-                          <CTableDataCell className="small text-center">{productRef?.hsnNumber || p.hsnNumber || '–'}</CTableDataCell>
-                          <CTableDataCell className="small text-center">{productRef?.modelNumber || productRef?.defaultModelNumber || p.modelNumber || '–'}</CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              max={100}
-                              step="0.01"
-                              size="sm"
-                              value={getListGst(realIdx)}
-                              onChange={(e) => setListGst(realIdx, e.target.value)}
-                              placeholder="GST %"
-                              title="GST % (required, 0–100)"
-                            />
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            {allImages.length > 0 ? (
-                              <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">
-                                {allImages.slice(0, 2).map((img, i) => (
-                                  <div
-                                    key={i}
-                                    role="button"
-                                    tabIndex={0}
-                                    className="rounded overflow-hidden border"
-                                    style={{ width: 40, height: 40, cursor: 'pointer' }}
-                                    onClick={() => openImageGallery(allImages, i)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, i) } }}
-                                  >
-                                    {getDocumentId(img) ? (
-                                      <AuthImage documentId={getDocumentId(img)} fallbackUrl={getImageUrl(img)} alt="" className="w-100 h-100" style={{ objectFit: 'cover' }} />
-                                    ) : (
-                                      <CImage src={getImageUrl(img)} alt="" className="w-100 h-100" style={{ objectFit: 'cover' }} />
-                                    )}
-                                  </div>
-                                ))}
-                                {allImages.length > 2 && (
-                                  <div
-                                    role="button"
-                                    tabIndex={0}
-                                    className="d-flex align-items-center justify-content-center rounded border bg-light text-primary fw-bold"
-                                    style={{ width: 40, height: 40, fontSize: '1.1rem', cursor: 'pointer' }}
-                                    onClick={() => openImageGallery(allImages, 2)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, 2) } }}
-                                    title={`${allImages.length - 2} more`}
-                                  >
-                                    +
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-muted small">–</span>
-                            )}
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              size="sm"
-                              value={rateVal}
-                              onChange={(e) => setListRate(realIdx, e.target.value)}
-                              placeholder="Rate"
-                            />
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              size="sm"
-                              value={totalVal}
-                              onChange={(e) => setListTotal(realIdx, e.target.value)}
-                              placeholder="Qty × Rate"
-                            />
-                          </CTableDataCell>
-                          <CTableDataCell className="text-center">
-                            <CButton color="primary" size="sm" onClick={() => handleUpdateProductFromList(realIdx)} disabled={updating}>
-                              Update
-                            </CButton>
-                            </CTableDataCell>
-                          </CTableRow>
-                        )
-                      })}
-                    </CTableBody>
-                  </CTable>
-                  <div className="mt-3 text-end border-top pt-3">
-                    <p className="mb-1"><strong>Total (Taxable):</strong> ₹{calculatedTotalTaxable.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="mb-1"><strong>GST Amount:</strong> ₹{calculatedTotalGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="mb-0 fs-5"><strong>Total Amount:</strong> ₹{calculatedTotalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                </>
-              ) : (
-                <p className="text-muted mb-0">No products without rate.</p>
-              )}
-            </CTabPane>
           </CTabContent>
         </CCardBody>
       </CCard>

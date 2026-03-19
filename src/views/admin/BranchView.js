@@ -19,6 +19,8 @@ import employeeService from '../../services/employeeService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError } from '../../utils/toast'
+import AuthImage from '../../components/AuthImage/AuthImage'
+import { getAssetsUrl } from '../../api/endpoints'
 
 const BranchView = () => {
   const { id } = useParams()
@@ -43,6 +45,17 @@ const BranchView = () => {
     } catch {
       return '-'
     }
+  }
+
+  const getSignatureDisplay = (signature) => {
+    if (!signature) return { id: '', path: '' }
+    if (typeof signature === 'object') {
+      const id = signature?._id || signature?.id || ''
+      const rawPath = signature?.path || ''
+      const path = rawPath ? (rawPath.startsWith('http') ? rawPath : getAssetsUrl(rawPath)) : ''
+      return { id, path }
+    }
+    return { id: signature, path: '' }
   }
 
   useEffect(() => {
@@ -125,6 +138,7 @@ const BranchView = () => {
       </CCard>
     )
   }
+  const signature = getSignatureDisplay(branch.signature)
 
   return (
     <>
@@ -195,6 +209,21 @@ const BranchView = () => {
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
                   <span>{formatCreatedAt(branch)}</span>
+                </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Signature:</strong>
+                  <div className="mt-2">
+                    {signature.id || signature.path ? (
+                      <AuthImage
+                        documentId={signature.id || null}
+                        fallbackUrl={signature.path}
+                        alt="Branch signature"
+                        style={{ maxHeight: 60, maxWidth: 180, objectFit: 'contain' }}
+                      />
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
+                  </div>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>

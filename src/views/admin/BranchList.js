@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import branchService from '../../services/branchService'
 import companyService from '../../services/companyService'
+import documentService from '../../services/documentService'
 import { getAccessToken } from '../../api/axiosClient'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -93,10 +94,21 @@ const BranchList = () => {
     setError('')
     try {
       const adminId = getAdminIdFromToken()
-      const { branchId: _b, billingAddress: _a, ...rest } = data
+      const { branchId: _b, billingAddress: _a, signatureFile, ...rest } = data
       const payload = {
         ...rest,
         ...(adminId ? { adminId } : {}),
+      }
+      const signatureFileToUpload =
+        signatureFile && signatureFile.length > 0 ? signatureFile[0] : null
+      if (signatureFileToUpload) {
+        const uploadRes = await documentService.uploadImages([signatureFileToUpload])
+        const uploadedDocs = uploadRes?.data?.documents || []
+        const uploadedId = uploadedDocs[0]?._id
+        if (!uploadedId) {
+          throw new Error('Signature upload failed, please try again.')
+        }
+        payload.signature = uploadedId
       }
 
       if (editingBranch) {
@@ -153,6 +165,10 @@ const BranchList = () => {
         gstNumber: editingBranch.gstNumber || '',
         fullAddress: editingBranch.fullAddress || '',
         mapLocationUrl: editingBranch.mapLocationUrl || '',
+        signature:
+          (typeof editingBranch.signature === 'object'
+            ? editingBranch.signature?._id || editingBranch.signature?.id
+            : editingBranch.signature) || '',
       }
     }
 
@@ -166,6 +182,7 @@ const BranchList = () => {
       gstNumber: '',
       fullAddress: '',
       mapLocationUrl: '',
+      signature: '',
     }
   }, [companies, editingBranch])
 

@@ -15,13 +15,15 @@ import {
   CPagination,
   CPaginationItem,
   CImage,
+  CButton,
+  CBadge,
 } from '@coreui/react'
 import queryNewProductService from '../../services/queryNewProductService'
 import { getAssetsUrl } from '../../api/endpoints'
 import Filtered from '../../filtered/Filtered'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+import { toastError, toastSuccess } from '../../utils/toast'
 
 const getImageUrl = (img) => {
   if (!img) return ''
@@ -65,6 +67,26 @@ const ProductLead = () => {
   }, [searchTerm, page])
 
   const pageSize = pagination?.itemsPerPage || 10
+  const hsnCounts = products.reduce((acc, p) => {
+    const normalized = (p?.hsnNumber || '').toString().trim().toLowerCase()
+    if (!normalized) return acc
+    acc[normalized] = (acc[normalized] || 0) + 1
+    return acc
+  }, {})
+
+  const handleDeleteProduct = async (e, productId) => {
+    e.stopPropagation()
+    if (!productId) return
+    const confirmed = window.confirm('Are you sure you want to delete this product lead?')
+    if (!confirmed) return
+    try {
+      await queryNewProductService.delete(productId)
+      toastSuccess('Product lead deleted successfully')
+      fetchProducts()
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to delete product lead')
+    }
+  }
 
   return (
     <CRow>
@@ -95,17 +117,23 @@ const ProductLead = () => {
                       <CTableHeaderCell>HSN</CTableHeaderCell>
                       <CTableHeaderCell>Unit</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 80 }}>Image</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 120 }}>Action</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {products.map((product, index) => {
                       const images = product?.images || []
                       const firstImageUrl = getImageUrl(images[0])
+                      const normalizedHsn = (product?.hsnNumber || '').toString().trim().toLowerCase()
+                      const isDuplicateHsn = !!normalizedHsn && (hsnCounts[normalizedHsn] || 0) > 1
                       return (
                         <CTableRow
                           key={product._id}
                           onClick={() => navigate(`/product-lead/${product._id}`)}
-                          style={{ cursor: 'pointer' }}
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: isDuplicateHsn ? '#e9ecef' : undefined,
+                          }}
                         >
                           <CTableDataCell>{(page - 1) * pageSize + index + 1}</CTableDataCell>
                           <CTableDataCell>
@@ -117,7 +145,14 @@ const ProductLead = () => {
                               : '-'}
                           </CTableDataCell>
                           <CTableDataCell>{product.modelNumber || '-'}</CTableDataCell>
-                          <CTableDataCell>{product.hsnNumber || '-'}</CTableDataCell>
+                          <CTableDataCell>
+                            {product.hsnNumber || '-'}
+                            {isDuplicateHsn && (
+                              <CBadge color="secondary" className="ms-2">
+                                Duplicate
+                              </CBadge>
+                            )}
+                          </CTableDataCell>
                           <CTableDataCell>{product.unit || '-'}</CTableDataCell>
                           <CTableDataCell>
                             {firstImageUrl ? (
@@ -140,12 +175,21 @@ const ProductLead = () => {
                               </div>
                             )}
                           </CTableDataCell>
+                          <CTableDataCell>
+                            <CButton
+                              color="danger"
+                              size="sm"
+                              onClick={(e) => handleDeleteProduct(e, product._id)}
+                            >
+                              Delete
+                            </CButton>
+                          </CTableDataCell>
                         </CTableRow>
                       )
                     })}
                     {products.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center text-muted py-4">
+                        <CTableDataCell colSpan={8} className="text-center text-muted py-4">
                           {searchTerm
                             ? `No products found matching "${searchTerm}"`
                             : 'No products found in the new query product list.'}

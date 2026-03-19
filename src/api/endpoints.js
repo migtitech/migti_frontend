@@ -123,6 +123,7 @@ export const QUERY_NEW_PRODUCTS = {
   CREATE: '/query-new-products/create',
   LIST: '/query-new-products/list',
   GET_BY_ID: '/query-new-products/get-by-id',
+  DELETE: '/query-new-products/delete',
 }
 
 export const DOCUMENTS = {
