@@ -28,6 +28,20 @@ import { toastError, toastSuccess } from '../../utils/toast'
 
 const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null)
 
+const STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'draft', label: 'Drafted' },
+  { value: 'partial', label: 'Partially Fulfilled' },
+  { value: 'fulfilled', label: 'Fulfilled' },
+  { value: 'hod_approved', label: 'HOD Approved' },
+  { value: 'ready', label: 'Ready' },
+  { value: 'sentToClient', label: 'Sent to Client' },
+  { value: 'poReceived', label: 'PO Received' },
+  { value: 'followup01', label: 'Follow-up 01' },
+  { value: 'followup02', label: 'Follow-up 02' },
+  { value: 'closed', label: 'Closed' },
+]
+
 const QuotationList = () => {
   const navigate = useNavigate()
   const [quotations, setQuotations] = useState([])
@@ -120,7 +134,7 @@ const QuotationList = () => {
 
   useEffect(() => {
     fetchQuotations()
-  }, [pageNumber, pageSize, searchDebounced])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter])
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -176,11 +190,11 @@ const QuotationList = () => {
                   className="w-100"
                   aria-label="Filter by status"
                 >
-                  <option value="">All</option>
-                  <option value="draft">Draft</option>
-                  <option value="partial">Partially Fulfilled</option>
-                  <option value="fulfilled">Fulfilled</option>
-                  <option value="hod_approved">HOD Approved</option>
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value || 'all'} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </CFormSelect>
               </CCol>
             </CRow>
