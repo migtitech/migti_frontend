@@ -133,7 +133,7 @@ const QuotationView = () => {
   const [packingDeliveryForm, setPackingDeliveryForm] = useState({
     freightCharge: 0,
     packingCharge: 0,
-    expectedDeliveryDate: '',
+    expectedDeliveryWithinDays: '',
   })
   const [savingPackingDelivery, setSavingPackingDelivery] = useState(false)
 
@@ -215,11 +215,14 @@ const QuotationView = () => {
     if (quotation) {
       const freight = quotation.freightCharge
       const packing = quotation.packingCharge
-      const expDate = quotation.expectedDeliveryDate
+      const expWithinDays = quotation.expectedDeliveryWithinDays
       setPackingDeliveryForm({
         freightCharge: typeof freight === 'number' ? freight : (Number(freight) || 0),
         packingCharge: typeof packing === 'number' ? packing : (Number(packing) || 0),
-        expectedDeliveryDate: expDate ? new Date(expDate).toISOString().slice(0, 10) : '',
+        expectedDeliveryWithinDays:
+          expWithinDays != null && !Number.isNaN(Number(expWithinDays))
+            ? Number(expWithinDays)
+            : '',
       })
     }
   }, [quotation])
@@ -262,7 +265,12 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, {
         freightCharge: Number(packingDeliveryForm.freightCharge) >= 0 ? Number(packingDeliveryForm.freightCharge) : 0,
         packingCharge: Number(packingDeliveryForm.packingCharge) >= 0 ? Number(packingDeliveryForm.packingCharge) : 0,
-        expectedDeliveryDate: packingDeliveryForm.expectedDeliveryDate ? new Date(packingDeliveryForm.expectedDeliveryDate).toISOString() : null,
+        expectedDeliveryWithinDays:
+          packingDeliveryForm.expectedDeliveryWithinDays === ''
+            ? null
+            : (Number(packingDeliveryForm.expectedDeliveryWithinDays) >= 0
+                ? Number(packingDeliveryForm.expectedDeliveryWithinDays)
+                : null),
       })
       const data = res?.data?.data ?? res?.data ?? res
       if (data) {
@@ -270,7 +278,11 @@ const QuotationView = () => {
           ...prev,
           freightCharge: data.freightCharge ?? packingDeliveryForm.freightCharge,
           packingCharge: data.packingCharge ?? packingDeliveryForm.packingCharge,
-          expectedDeliveryDate: data.expectedDeliveryDate ?? (packingDeliveryForm.expectedDeliveryDate || null),
+          expectedDeliveryWithinDays:
+            data.expectedDeliveryWithinDays ??
+            (packingDeliveryForm.expectedDeliveryWithinDays === ''
+              ? null
+              : Number(packingDeliveryForm.expectedDeliveryWithinDays)),
         } : null))
       }
       toastSuccess('Packing & delivery updated')
@@ -1689,13 +1701,12 @@ const QuotationView = () => {
                           </CTableRow>
                           <CTableRow>
                             <CTableHeaderCell className="bg-light text-end">
-                              Expected Delivery Date
+                              Expected Delivery Within
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
-                              {quotation?.expectedDeliveryDate
-                                ? new Date(
-                                    quotation.expectedDeliveryDate,
-                                  ).toLocaleDateString()
+                              {quotation?.expectedDeliveryWithinDays != null &&
+                              !Number.isNaN(Number(quotation.expectedDeliveryWithinDays))
+                                ? `${Number(quotation.expectedDeliveryWithinDays)} Days`
                                 : 'NA'}
                             </CTableDataCell>
                           </CTableRow>
@@ -1891,13 +1902,14 @@ const QuotationView = () => {
                     </CCol>
                     <CCol md={4}>
                       <div className="mb-3">
-                        <CFormLabel>Expected Delivery Date</CFormLabel>
+                        <CFormLabel>Expected Delivery Within (Days)</CFormLabel>
                         <CFormInput
-                          type="date"
-                          min={new Date().toISOString().slice(0, 10)}
-                          value={packingDeliveryForm.expectedDeliveryDate}
-                          onChange={(e) => setPackingDeliveryForm((prev) => ({ ...prev, expectedDeliveryDate: e.target.value }))}
-                          title="Leave empty for NA"
+                          type="number"
+                          min={0}
+                          step="1"
+                          value={packingDeliveryForm.expectedDeliveryWithinDays}
+                          onChange={(e) => setPackingDeliveryForm((prev) => ({ ...prev, expectedDeliveryWithinDays: e.target.value }))}
+                          placeholder="Enter number of days"
                         />
                         <div className="small text-muted mt-1">Leave empty to show NA in PDF</div>
                       </div>

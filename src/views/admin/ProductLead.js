@@ -67,10 +67,13 @@ const ProductLead = () => {
   }, [searchTerm, page])
 
   const pageSize = pagination?.itemsPerPage || 10
-  const hsnCounts = products.reduce((acc, p) => {
-    const normalized = (p?.hsnNumber || '').toString().trim().toLowerCase()
-    if (!normalized) return acc
-    acc[normalized] = (acc[normalized] || 0) + 1
+  const duplicateKeyCounts = products.reduce((acc, p) => {
+    const normalizedHsn = (p?.hsnNumber || '').toString().trim().toLowerCase()
+    const normalizedName = (p?.name || '').toString().trim().toLowerCase()
+    const normalizedDescription = (p?.description || '').toString().trim().toLowerCase()
+    if (!normalizedHsn || !normalizedName || !normalizedDescription) return acc
+    const combinedKey = `${normalizedHsn}||${normalizedName}||${normalizedDescription}`
+    acc[combinedKey] = (acc[combinedKey] || 0) + 1
     return acc
   }, {})
 
@@ -125,19 +128,33 @@ const ProductLead = () => {
                       const images = product?.images || []
                       const firstImageUrl = getImageUrl(images[0])
                       const normalizedHsn = (product?.hsnNumber || '').toString().trim().toLowerCase()
-                      const isDuplicateHsn = !!normalizedHsn && (hsnCounts[normalizedHsn] || 0) > 1
+                      const normalizedName = (product?.name || '').toString().trim().toLowerCase()
+                      const normalizedDescription = (product?.description || '')
+                        .toString()
+                        .trim()
+                        .toLowerCase()
+                      const duplicateKey =
+                        normalizedHsn && normalizedName && normalizedDescription
+                          ? `${normalizedHsn}||${normalizedName}||${normalizedDescription}`
+                          : ''
+                      const isDuplicateEntry = !!duplicateKey && (duplicateKeyCounts[duplicateKey] || 0) > 1
                       return (
                         <CTableRow
                           key={product._id}
                           onClick={() => navigate(`/product-lead/${product._id}`)}
                           style={{
                             cursor: 'pointer',
-                            backgroundColor: isDuplicateHsn ? '#e9ecef' : undefined,
+                            backgroundColor: isDuplicateEntry ? '#e9ecef' : undefined,
                           }}
                         >
                           <CTableDataCell>{(page - 1) * pageSize + index + 1}</CTableDataCell>
                           <CTableDataCell>
                             <strong>{product.name || '-'}</strong>
+                            {product.description && (
+                              <small className="d-block text-medium-emphasis">
+                                {product.description}
+                              </small>
+                            )}
                           </CTableDataCell>
                           <CTableDataCell>
                             {Array.isArray(product.variants) && product.variants.length > 0
@@ -147,7 +164,7 @@ const ProductLead = () => {
                           <CTableDataCell>{product.modelNumber || '-'}</CTableDataCell>
                           <CTableDataCell>
                             {product.hsnNumber || '-'}
-                            {isDuplicateHsn && (
+                            {isDuplicateEntry && (
                               <CBadge color="secondary" className="ms-2">
                                 Duplicate
                               </CBadge>

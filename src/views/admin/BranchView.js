@@ -8,6 +8,8 @@ import {
   CRow,
   CButton,
   CBadge,
+  CFormInput,
+  CFormLabel,
   CListGroup,
   CListGroupItem,
 } from '@coreui/react'
@@ -18,9 +20,10 @@ import companyService from '../../services/companyService'
 import employeeService from '../../services/employeeService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+import { toastError, toastSuccess } from '../../utils/toast'
 import AuthImage from '../../components/AuthImage/AuthImage'
 import { getAssetsUrl } from '../../api/endpoints'
+import documentService from '../../services/documentService'
 
 const BranchView = () => {
   const { id } = useParams()
@@ -29,6 +32,7 @@ const BranchView = () => {
   const [company, setCompany] = useState(null)
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
+  const [uploadingSignature, setUploadingSignature] = useState(false)
   const [error, setError] = useState('')
 
   const normalizeId = (item) => ({
@@ -58,19 +62,25 @@ const BranchView = () => {
     return { id: signature, path: '' }
   }
 
+  const loadBranchDetails = async (branchId) => {
+    const branchResponse = await withMinimumDelay(() => branchService.getById(branchId))
+    const branchPayload =
+      branchResponse?.data?.branch ||
+      branchResponse?.data?.data?.branch ||
+      branchResponse?.data?.data ||
+      branchResponse?.data ||
+      null
+    const normalizedBranch = branchPayload ? normalizeId(branchPayload) : null
+    setBranch(normalizedBranch)
+    return normalizedBranch
+  }
+
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       setError('')
       try {
-        const branchResponse = await withMinimumDelay(() => branchService.getById(id))
-        const branchPayload =
-          branchResponse?.data?.branch ||
-          branchResponse?.data?.data ||
-          branchResponse?.data ||
-          null
-        const normalizedBranch = branchPayload ? normalizeId(branchPayload) : null
-        setBranch(normalizedBranch)
+        const normalizedBranch = await loadBranchDetails(id)
 
         if (normalizedBranch?.companyId) {
           const companyResponse = await companyService.getById(
@@ -102,6 +112,37 @@ const BranchView = () => {
 
     load()
   }, [id])
+
+  const handleSignatureUpload = async (event) => {
+    const file = event?.target?.files?.[0]
+    if (!file || !branch?.id) return
+
+    setUploadingSignature(true)
+    try {
+      const uploadRes = await documentService.uploadImages([file])
+      const uploadedDocs = uploadRes?.data?.documents || []
+      const uploadedId = uploadedDocs[0]?._id
+      if (!uploadedId) {
+        throw new Error('Signature upload failed, please try again.')
+      }
+
+      const updateRes = await branchService.update(branch.id, { signature: uploadedId })
+      const updatedBranchPayload =
+        updateRes?.data?.data ||
+        updateRes?.data?.branch ||
+        updateRes?.data ||
+        null
+      const normalizedUpdatedBranch = updatedBranchPayload ? normalizeId(updatedBranchPayload) : null
+      setBranch((prev) => normalizedUpdatedBranch || { ...(prev || {}), signature: uploadedId })
+      await loadBranchDetails(branch.id)
+      toastSuccess('Signature uploaded successfully')
+    } catch (err) {
+      toastError(err?.message || 'Failed to upload signature')
+    } finally {
+      event.target.value = ''
+      setUploadingSignature(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -224,6 +265,21 @@ const BranchView = () => {
                       <span className="text-muted">-</span>
                     )}
                   </div>
+                  <div className="mt-3">
+                    <CFormLabel htmlFor="branchSignatureUpload" className="small mb-1">
+                      Upload / Replace Signature
+                    </CFormLabel>
+                    <CFormInput
+                      id="branchSignatureUpload"
+                      type="file"
+                      accept="image/*"
+                      disabled={uploadingSignature}
+                      onChange={handleSignatureUpload}
+                    />
+                    <div className="small text-muted mt-1">
+                      You can upload any image format (max 10MB).
+                    </div>
+                  </div>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>
@@ -257,6 +313,8 @@ const BranchView = () => {
                         <strong>{employee.name || 'Employee'}</strong>
                         <br />
                         <small className="text-muted">{employee.designation || employee.role || ''}</small>
+                        <br />
+                        <small className="text-muted">Phone: {employee.phone || '-'}</small>
                       </div>
                       <CBadge color="info">{employee.email || '-'}</CBadge>
                     </CListGroupItem>

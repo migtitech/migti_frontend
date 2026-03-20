@@ -37,12 +37,9 @@ const QueryList = () => {
 
   const STATUS_OPTIONS = [
     { value: '', label: 'All' },
-    { value: 'pending', label: 'Pending' },
+    { value: 'drafted', label: 'Drafted' },
+    { value: 'convertedToQuotation', label: 'Converted to Quotation' },
     { value: 'closed', label: 'Closed' },
-    { value: 'convertedToQuotation', label: 'Completed' },
-    { value: 'followup01pending', label: 'Follow-up 1' },
-    { value: 'followup02pending', label: 'Follow-up 2' },
-    { value: 'followup03pending', label: 'Follow-up 3' },
   ]
   const [pageSize] = useState(10)
   const [loading, setLoading] = useState(false)

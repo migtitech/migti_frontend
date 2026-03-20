@@ -17,7 +17,7 @@ import {
   CFormSelect,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus } from '@coreui/icons'
+import { cilPlus, cilTrash, cilUser } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import taskManagementService from '../../services/taskManagementService'
 import Filtered from '../../filtered/Filtered'
@@ -144,7 +144,6 @@ const TaskList = () => {
               <CTableHead>
                 <CTableRow>
                   <CTableHeaderCell>#</CTableHeaderCell>
-                  <CTableHeaderCell>Title</CTableHeaderCell>
                   <CTableHeaderCell>Product</CTableHeaderCell>
                   <CTableHeaderCell>Assigned To</CTableHeaderCell>
                   <CTableHeaderCell>Status</CTableHeaderCell>
@@ -165,12 +164,21 @@ const TaskList = () => {
                     >
                       <CTableDataCell>{(pagination?.currentPage - 1) * pageSize + index + 1}</CTableDataCell>
                       <CTableDataCell>
-                        <strong>{task.title || '–'}</strong>
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        {task.productInfo?.name || '–'}
+                        <strong>{task.productInfo?.name || '–'}</strong>
+                        {task.productInfo?.description && (
+                          <small className="d-block text-medium-emphasis">{task.productInfo.description}</small>
+                        )}
+                        {(task.productInfo?.variant ||
+                          (Array.isArray(task.productInfo?.variants) &&
+                            task.productInfo.variants.length > 0)) && (
+                          <small className="d-block text-muted">
+                            Variant:{' '}
+                            {task.productInfo?.variant ||
+                              task.productInfo.variants.filter(Boolean).join(', ')}
+                          </small>
+                        )}
                         {task.productInfo?.modelNumber && (
-                          <small className="d-block text-muted">{task.productInfo.modelNumber}</small>
+                          <small className="d-block text-muted">Model: {task.productInfo.modelNumber}</small>
                         )}
                       </CTableDataCell>
                       <CTableDataCell>
@@ -222,6 +230,16 @@ const TaskList = () => {
                       </CTableDataCell>
                       <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CButton
+                          color="info"
+                          variant="ghost"
+                          size="sm"
+                          className="me-1"
+                          onClick={() => navigate(`/task-dashboard/${task._id}`)}
+                          title="Assign employee"
+                        >
+                          <CIcon icon={cilUser} />
+                        </CButton>
+                        <CButton
                           color="primary"
                           variant="ghost"
                           size="sm"
@@ -234,8 +252,9 @@ const TaskList = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => setDeleteTarget(task)}
+                          title="Delete task"
                         >
-                          Delete
+                          <CIcon icon={cilTrash} />
                         </CButton>
                       </CTableDataCell>
                     </CTableRow>
@@ -243,7 +262,7 @@ const TaskList = () => {
                 ) : (
                   !loading && (
                     <CTableRow>
-                      <CTableDataCell colSpan={10} className="text-center text-muted py-4">
+                      <CTableDataCell colSpan={9} className="text-center text-muted py-4">
                         No tasks found. Create one to get started.
                       </CTableDataCell>
                     </CTableRow>

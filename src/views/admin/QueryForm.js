@@ -44,7 +44,7 @@ import { useAuth } from '../../context/AuthContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
-import { getAssetsUrl } from '../../api/endpoints'
+import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from '../../api/endpoints'
 import FindProductModal from './FindProductModal'
 
 const INITIAL_COMPANY = {
@@ -103,6 +103,7 @@ const STEPS = [
 ]
 
 const DRAFT_STORAGE_KEY = 'migticrm_query_draft'
+const MAX_PRODUCT_IMAGES = 3
 
 const QueryForm = () => {
   const navigate = useNavigate()
@@ -569,7 +570,7 @@ const QueryForm = () => {
 
       const productToSave = {
         ...formProduct,
-        images: uploadedDocs.length ? uploadedDocs : formProduct.images || [],
+        images: ((formProduct.images || []).concat(uploadedDocs)).slice(0, MAX_PRODUCT_IMAGES),
       }
 
       setProducts((prev) => [...prev, productToSave])
@@ -610,7 +611,7 @@ const QueryForm = () => {
 
     const updatedProduct = {
       ...formProduct,
-      images: (formProduct.images || []).concat(uploadedDocs),
+      images: (formProduct.images || []).concat(uploadedDocs).slice(0, MAX_PRODUCT_IMAGES),
     }
 
     setProducts((prev) => {
@@ -624,6 +625,13 @@ const QueryForm = () => {
 
   const editProductFromTable = (index) => {
     const p = products[index]
+    productImagePreviews.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url)
+      } catch {}
+    })
+    setProductImagePreviews([])
+    setProductImageFiles([])
     setFormProduct({
       productName: p.productName || '',
       quantity: p.quantity ?? 1,
@@ -695,6 +703,26 @@ const QueryForm = () => {
       }
       return prev.filter((_, i) => i !== index)
     })
+  }
+
+  const removeExistingProductImage = (index) => {
+    setFormProduct((prev) => ({
+      ...prev,
+      images: (prev.images || []).filter((_, i) => i !== index),
+    }))
+  }
+
+  const getImageDisplayUrl = (img) => {
+    if (!img) return ''
+    if (typeof img === 'string') {
+      if (/^[a-fA-F0-9]{24}$/.test(img)) return `${getAssetsBaseUrl()}${DOCUMENTS.SERVE(img)}`
+      return getAssetsUrl(img)
+    }
+    if (img.path || img.url) return getAssetsUrl(img.path || img.url)
+    if (img._id && /^[a-fA-F0-9]{24}$/.test(String(img._id))) {
+      return `${getAssetsBaseUrl()}${DOCUMENTS.SERVE(String(img._id))}`
+    }
+    return ''
   }
 
   // Load for edit
@@ -1734,45 +1762,112 @@ const QueryForm = () => {
                         onChange={(e) => {
                           const files = Array.from(e.target.files || [])
                           if (!files.length) return
-                          setProductImageFiles((prev) => [...prev, ...files])
-                          const previews = files.map((file) =>
-                            URL.createObjectURL(file),
-                          )
+                          const existingCount = Array.isArray(formProduct.images)
+                            ? formProduct.images.length
+                            : 0
+                          const remainingSlots =
+                            MAX_PRODUCT_IMAGES - existingCount - productImageFiles.length
+
+                          if (remainingSlots <= 0) {
+                            toastError(`Only ${MAX_PRODUCT_IMAGES} images allowed per product`)
+                            e.target.value = ''
+                            return
+                          }
+
+                          const acceptedFiles = files.slice(0, remainingSlots)
+                          if (acceptedFiles.length < files.length) {
+                            toastError(
+                              `Only ${MAX_PRODUCT_IMAGES} images allowed. Extra images were ignored.`,
+                            )
+                          }
+
+                          setProductImageFiles((prev) => [...prev, ...acceptedFiles])
+                          const previews = acceptedFiles.map((file) => URL.createObjectURL(file))
                           setProductImagePreviews((prev) => [...prev, ...previews])
+                          e.target.value = ''
                         }}
                       />
-                      {productImagePreviews.length > 0 && (
-                        <div className="d-flex flex-wrap gap-2 mt-2">
-                          {productImagePreviews.map((src, idx) => (
-                            <div
-                              key={idx}
-                              className="position-relative border rounded overflow-hidden"
-                              style={{ width: 64, height: 64 }}
-                            >
-                              <CImage
-                                src={src}
-                                alt={`Preview ${idx + 1}`}
-                                width={64}
-                                height={64}
-                                className="w-100 h-100"
-                                style={{ objectFit: 'cover' }}
-                              />
-                              <CButton
-                                color="danger"
-                                size="sm"
-                                shape="rounded-pill"
-                                className="position-absolute d-flex align-items-center justify-content-center p-0"
-                                style={{ top: 2, right: 2, width: 18, height: 18, minWidth: 18 }}
-                                onClick={() => removeSelectedUploadImage(idx)}
-                                title="Remove image"
-                                type="button"
-                              >
-                                <CIcon icon={cilX} size="sm" />
-                              </CButton>
-                            </div>
-                          ))}
+                      {Array.isArray(formProduct.images) && formProduct.images.length > 0 && (
+                        <div className="mt-2">
+                          <div className="small text-muted mb-1">Existing images</div>
+                          <div className="d-flex flex-wrap gap-2">
+                            {formProduct.images.map((img, idx) => {
+                              const imageUrl = getImageDisplayUrl(img)
+                              if (!imageUrl) return null
+                              return (
+                                <div
+                                  key={`existing-${idx}`}
+                                  className="position-relative border rounded overflow-hidden"
+                                  style={{ width: 64, height: 64 }}
+                                >
+                                  <CImage
+                                    src={imageUrl}
+                                    alt={`Existing ${idx + 1}`}
+                                    width={64}
+                                    height={64}
+                                    className="w-100 h-100"
+                                    style={{ objectFit: 'cover' }}
+                                  />
+                                  <CButton
+                                    color="danger"
+                                    size="sm"
+                                    shape="rounded-pill"
+                                    className="position-absolute d-flex align-items-center justify-content-center p-0"
+                                    style={{ top: 2, right: 2, width: 18, height: 18, minWidth: 18 }}
+                                    onClick={() => removeExistingProductImage(idx)}
+                                    title="Remove existing image"
+                                    type="button"
+                                  >
+                                    <CIcon icon={cilX} size="sm" />
+                                  </CButton>
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       )}
+                      {productImagePreviews.length > 0 && (
+                        <div className="mt-2">
+                          <div className="small text-muted mb-1">New uploads</div>
+                          <div className="d-flex flex-wrap gap-2">
+                            {productImagePreviews.map((src, idx) => (
+                              <div
+                                key={idx}
+                                className="position-relative border rounded overflow-hidden"
+                                style={{ width: 64, height: 64 }}
+                              >
+                                <CImage
+                                  src={src}
+                                  alt={`Preview ${idx + 1}`}
+                                  width={64}
+                                  height={64}
+                                  className="w-100 h-100"
+                                  style={{ objectFit: 'cover' }}
+                                />
+                                <CButton
+                                  color="danger"
+                                  size="sm"
+                                  shape="rounded-pill"
+                                  className="position-absolute d-flex align-items-center justify-content-center p-0"
+                                  style={{ top: 2, right: 2, width: 18, height: 18, minWidth: 18 }}
+                                  onClick={() => removeSelectedUploadImage(idx)}
+                                  title="Remove image"
+                                  type="button"
+                                >
+                                  <CIcon icon={cilX} size="sm" />
+                                </CButton>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="form-text">
+                        {Math.min(
+                          MAX_PRODUCT_IMAGES,
+                          (formProduct.images || []).length + productImageFiles.length,
+                        )}
+                        /{MAX_PRODUCT_IMAGES} images selected
+                      </div>
                     </div>
                     <div className="d-flex justify-content-end gap-2">
                       {editingProductIndex != null ? (
