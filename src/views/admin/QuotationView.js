@@ -47,6 +47,7 @@ import { Loader } from '../../components'
 import AuthImage from '../../components/AuthImage/AuthImage'
 import { toastError, toastSuccess } from '../../utils/toast'
 import { ROLES, ROLE_LABELS } from '../../context/AuthContext'
+import QuoteLogsSidebar from './QuoteLogsSidebar'
 
 const PURCHASE_ROLES = [ROLES.PURCHASE_MANAGER, ROLES.PURCHASE_EXICUTIVE, 'purchase_executive']
 
@@ -136,6 +137,8 @@ const QuotationView = () => {
     expectedDeliveryWithinDays: '',
   })
   const [savingPackingDelivery, setSavingPackingDelivery] = useState(false)
+  const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0)
+  const [quoteLogsOpen, setQuoteLogsOpen] = useState(false)
 
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
 
@@ -541,6 +544,7 @@ const QuotationView = () => {
       } else {
         setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
       }
+      setQuoteLogsRefreshKey((prev) => prev + 1)
       toastSuccess('Product updated')
       return true
     } catch (err) {
@@ -696,6 +700,7 @@ const QuotationView = () => {
       } else {
         setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
       }
+      setQuoteLogsRefreshKey((prev) => prev + 1)
       toastSuccess('Rate and GST updated')
     } catch (err) {
       toastError(err?.message || 'Failed to update rate')
@@ -1083,6 +1088,9 @@ const QuotationView = () => {
   }
 
   const isHodApproved = quotation?.status === 'hod_approved'
+  const currentProduct =
+    products.length > 0 ? products[Math.min(productIndex, products.length - 1)] : null
+  const isCurrentProductNotAvailable = !!currentProduct?.notAvailable
 
   const handleMarkApproved = async () => {
     if (!quotation?.id) return
@@ -1142,21 +1150,33 @@ const QuotationView = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'partial':
+        return (
+          <CBadge color="warning" className="text-uppercase fw-semibold px-3 py-2">
+            Partial
+          </CBadge>
+        )
+      case 'approved':
+        return (
+          <CBadge color="success" className="text-uppercase fw-semibold px-3 py-2">
+            Approved
+          </CBadge>
+        )
       case 'draft':
-        return <CBadge color="secondary">Draft</CBadge>
+        return <CBadge color="secondary" className="text-uppercase fw-semibold px-3 py-2">Draft</CBadge>
       case 'hod_approved':
-        return <CBadge color="success">HOD Approved</CBadge>
+        return <CBadge color="success" className="text-uppercase fw-semibold px-3 py-2">HOD Approved</CBadge>
       case 'sent':
       case 'sentToClient':
-        return <CBadge color="info">Sent</CBadge>
+        return <CBadge color="info" className="text-uppercase fw-semibold px-3 py-2">Sent</CBadge>
       case 'accepted':
-        return <CBadge color="success">Accepted</CBadge>
+        return <CBadge color="success" className="text-uppercase fw-semibold px-3 py-2">Accepted</CBadge>
       case 'rejected':
-        return <CBadge color="danger">Rejected</CBadge>
+        return <CBadge color="danger" className="text-uppercase fw-semibold px-3 py-2">Rejected</CBadge>
       case 'expired':
-        return <CBadge color="warning">Expired</CBadge>
+        return <CBadge color="warning" className="text-uppercase fw-semibold px-3 py-2">Expired</CBadge>
       default:
-        return <CBadge color="secondary">{status}</CBadge>
+        return <CBadge color="secondary" className="text-uppercase fw-semibold px-3 py-2">{status}</CBadge>
     }
   }
 
@@ -1175,83 +1195,198 @@ const QuotationView = () => {
 
   return (
     <>
-      <CRow className="mb-3">
-        <CCol className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div className="d-flex align-items-center gap-3 flex-wrap">
-            <CButton color="secondary" variant="outline" onClick={() => navigate('/quotations')}>
+      <CCard className="mb-4 border-0 shadow-sm" style={{ borderRadius: 12, backgroundColor: '#f8f9fb' }}>
+        <CCardBody className="p-3 p-md-4">
+          {/* Row 1: quotation id / status + summary */}
+          <div className="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3 mb-3">
+            <div
+              className="fw-bold text-primary px-3 py-2 rounded-pill border"
+              style={{ fontSize: '1rem', letterSpacing: '0.3px', backgroundColor: '#eef4ff' }}
+            >
+              {quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}
+            </div>
+            <div className="d-flex flex-wrap align-items-center justify-content-lg-end gap-2 gap-md-3" style={{ minWidth: 0 }}>
+              {getStatusBadge(quotation.status)}
+              <span
+                className="text-nowrap fw-semibold text-secondary px-2 py-1 rounded border"
+                style={{ backgroundColor: '#ffffff' }}
+              >
+                Total: {products.length}
+              </span>
+              <span
+                className="text-nowrap fw-semibold text-success px-2 py-1 rounded border"
+                style={{ backgroundColor: '#ffffff' }}
+              >
+                With Rate: {productsWithRate.length}
+              </span>
+              <span
+                className="text-nowrap fw-semibold px-2 py-1 rounded border"
+                style={{ color: '#fd7e14', backgroundColor: '#ffffff' }}
+              >
+                Without Rate: {productsWithoutRate.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Row 2: back + actions */}
+          <div
+            className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 gap-md-3 pt-3"
+            style={{ borderTop: '1px solid #e9ecef' }}
+          >
+            <CButton
+              color="secondary"
+              variant="outline"
+              onClick={() => navigate('/quotations')}
+              className="d-inline-flex align-items-center px-3"
+              style={{ height: 40 }}
+            >
               <CIcon icon={cilArrowLeft} className="me-2" />
               Back to Quotations
             </CButton>
-            <CBadge color="info" className="fs-6 px-3 py-2">
-              {quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}
-            </CBadge>
-            <div className="d-flex align-items-center gap-2 px-3 py-2 rounded bg-light border">
-              <span className="small fw-bold text-uppercase text-muted">Status</span>
-              {getStatusBadge(quotation.status)}
+
+            <div className="d-flex flex-wrap justify-content-md-end align-items-center gap-2">
+              <CButton
+                color="dark"
+                variant="outline"
+                onClick={() => setQuoteLogsOpen((prev) => !prev)}
+                className="d-inline-flex align-items-center px-3"
+                style={{ height: 40 }}
+              >
+                {quoteLogsOpen ? 'Hide Quote Logs' : 'Show Quote Logs'}
+              </CButton>
+              <CButton
+                color="primary"
+                onClick={handleMarkApproved}
+                disabled={isHodApproved}
+                className="d-inline-flex align-items-center px-3 fw-semibold"
+                style={{ height: 40 }}
+              >
+                Mark Approved
+              </CButton>
+              <CButton
+                color="secondary"
+                variant="outline"
+                onClick={handleDownloadProductsPdf}
+                disabled={exportingPdf || !isHodApproved}
+                title={!isHodApproved ? 'Available after HOD approval' : undefined}
+                className="d-inline-flex align-items-center px-3"
+                style={{ height: 40 }}
+              >
+                {exportingPdf && <CSpinner size="sm" className="me-2" />}
+                {!exportingPdf && <CIcon icon={cilCloudDownload} className="me-2" />}
+                {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
+              </CButton>
+              <CButton
+                color="primary"
+                variant="outline"
+                disabled={!isHodApproved}
+                className="d-inline-flex align-items-center px-3"
+                style={{ height: 40 }}
+              >
+                <CIcon icon={cilEnvelopeClosed} className="me-2" />
+                Send to Customer
+              </CButton>
             </div>
           </div>
-          <div className="d-flex align-items-center gap-3 flex-grow-1 flex-wrap justify-content-center" style={{ minWidth: 0, maxWidth: 600 }}>
-            <span className="text-nowrap fw-bold text-secondary">Total: {products.length}</span>
-            <span className="text-nowrap fw-bold text-success">With Rate: {productsWithRate.length}</span>
-            <span className="text-nowrap fw-bold" style={{ color: '#fd7e14' }}>Without Rate: {productsWithoutRate.length}</span>
-          </div>
-          <div className="d-flex gap-2 align-items-center">
-            <CButton
-              color="primary"
-              variant="outline"
-              onClick={handleMarkApproved}
-              disabled={isHodApproved}
-            >
-              Mark Approved
-            </CButton>
-            <CButton
-              color="success"
-              onClick={handleDownloadProductsPdf}
-              disabled={exportingPdf || !isHodApproved}
-              title={!isHodApproved ? 'Available after HOD approval' : undefined}
-            >
-              {exportingPdf && <CSpinner size="sm" className="me-2" />}
-              {!exportingPdf && <CIcon icon={cilCloudDownload} className="me-2" />}
-              {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
-            </CButton>
-            <CButton color="info" disabled={!isHodApproved}>
-              <CIcon icon={cilEnvelopeClosed} className="me-2" />
-              Send to Customer
-            </CButton>
-          </div>
-        </CCol>
-      </CRow>
+        </CCardBody>
+      </CCard>
 
       <CCard className="mb-4">
-        <CCardHeader>
-          <CNav variant="tabs" role="tablist">
+        <CCardHeader className="border-bottom" style={{ backgroundColor: '#fbfcfe' }}>
+          <CNav variant="tabs" role="tablist" className="gap-2">
             <CNavItem>
-              <CNavLink active={activeTab === 'preview'} onClick={() => setActiveTab('preview')} style={{ cursor: 'pointer' }}>
+              <CNavLink
+                active={activeTab === 'preview'}
+                onClick={() => setActiveTab('preview')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'preview' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'preview' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
                 Preview
               </CNavLink>
             </CNavItem>
             <CNavItem>
-              <CNavLink active={activeTab === 'company'} onClick={() => setActiveTab('company')} style={{ cursor: 'pointer' }}>
+              <CNavLink
+                active={activeTab === 'company'}
+                onClick={() => setActiveTab('company')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'company' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'company' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
                 Company Information
               </CNavLink>
             </CNavItem>
             <CNavItem>
-              <CNavLink active={activeTab === 'packingDelivery'} onClick={() => setActiveTab('packingDelivery')} style={{ cursor: 'pointer' }}>
+              <CNavLink
+                active={activeTab === 'packingDelivery'}
+                onClick={() => setActiveTab('packingDelivery')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'packingDelivery' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'packingDelivery' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
                 Packing &amp; Delivery
               </CNavLink>
             </CNavItem>
             <CNavItem>
-              <CNavLink active={activeTab === 'products'} onClick={() => setActiveTab('products')} style={{ cursor: 'pointer' }}>
+              <CNavLink
+                active={activeTab === 'products'}
+                onClick={() => setActiveTab('products')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'products' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'products' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
                 Product
               </CNavLink>
             </CNavItem>
             <CNavItem>
-              <CNavLink active={activeTab === 'addNewProduct'} onClick={() => setActiveTab('addNewProduct')} style={{ cursor: 'pointer' }}>
+              <CNavLink
+                active={activeTab === 'addNewProduct'}
+                onClick={() => setActiveTab('addNewProduct')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'addNewProduct' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'addNewProduct' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
                 Add New Product
               </CNavLink>
             </CNavItem>
             <CNavItem>
-              <CNavLink active={activeTab === 'productList'} onClick={() => setActiveTab('productList')} style={{ cursor: 'pointer' }}>
+              <CNavLink
+                active={activeTab === 'productList'}
+                onClick={() => setActiveTab('productList')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'productList' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'productList' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
                 Product List ({products.length})
               </CNavLink>
             </CNavItem>
@@ -1435,6 +1570,9 @@ const QuotationView = () => {
                               Item Name &amp; Description
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-center">
+                              Variants
+                            </CTableHeaderCell>
+                            <CTableHeaderCell className="text-center">
                               HSN Code
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-center">
@@ -1505,6 +1643,7 @@ const QuotationView = () => {
                                   : 0
                             const hsn =
                               p.hsnNumber || productRef?.hsnNumber || '–'
+                            const variantsText = formatVariants(p.variants || [])
                             const descriptionText = (
                               p.description ||
                               productRef?.shortDescription ||
@@ -1547,6 +1686,9 @@ const QuotationView = () => {
                                         : ''}
                                     </div>
                                   )}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center align-middle">
+                                  {variantsText}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center align-middle">
                                   {hsn}
@@ -1605,11 +1747,8 @@ const QuotationView = () => {
                                 </CTableDataCell>
                                 {hasDiscountColumn && (
                                   <CTableDataCell className="text-end align-middle">
-                                    {discountAmount > 0
-                                      ? `₹${discountAmount.toLocaleString(undefined, {
-                                          minimumFractionDigits: 2,
-                                          maximumFractionDigits: 2,
-                                        })}`
+                                    {p.applyDiscount && p.discountPercentage != null
+                                      ? `${Number(p.discountPercentage).toFixed(2)}%`
                                       : '–'}
                                   </CTableDataCell>
                                 )}
@@ -1938,6 +2077,12 @@ const QuotationView = () => {
                     <p className="text-muted mb-0">No products in this quotation.</p>
                   ) : (
                     <>
+                      {isCurrentProductNotAvailable && (
+                        <div className="alert alert-warning py-2 px-3 mb-3">
+                          This product is marked as not available in Product List. Revoke it there to edit
+                          this product again.
+                        </div>
+                      )}
                       <CRow>
                         <CCol md={4}>
                           <div className="mb-3">
@@ -1946,6 +2091,7 @@ const QuotationView = () => {
                               value={editingProduct.productName || ''}
                               onChange={(e) => updateFormField('productName', e.target.value)}
                               placeholder="Product name"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -1955,6 +2101,7 @@ const QuotationView = () => {
                               value={editingProduct.description || ''}
                               onChange={(e) => updateFormField('description', e.target.value)}
                               placeholder="Description"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -1963,6 +2110,7 @@ const QuotationView = () => {
                               value={editingProduct.remark || ''}
                               onChange={(e) => updateFormField('remark', e.target.value)}
                               placeholder="Remark"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                         </CCol>
@@ -1975,6 +2123,7 @@ const QuotationView = () => {
                               value={editingProduct.quantity ?? ''}
                               onChange={(e) => updateFormField('quantity', e.target.value)}
                               placeholder="Quantity"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -1983,6 +2132,7 @@ const QuotationView = () => {
                               value={editingProduct.unit || ''}
                               onChange={(e) => updateFormField('unit', e.target.value)}
                               placeholder="Unit"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -1994,6 +2144,7 @@ const QuotationView = () => {
                               value={editingProduct.rate ?? ''}
                               onChange={(e) => updateFormField('rate', e.target.value)}
                               placeholder="Rate"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                         </CCol>
@@ -2004,6 +2155,7 @@ const QuotationView = () => {
                               value={editingProduct.hsnNumber || ''}
                               onChange={(e) => updateFormField('hsnNumber', e.target.value)}
                               placeholder="HSN Number"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2012,6 +2164,7 @@ const QuotationView = () => {
                               value={editingProduct.modelNumber || ''}
                               onChange={(e) => updateFormField('modelNumber', e.target.value)}
                               placeholder="Model Number"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2024,6 +2177,7 @@ const QuotationView = () => {
                               value={editingProduct.gstPercentage ?? ''}
                               onChange={(e) => updateFormField('gstPercentage', e.target.value)}
                               placeholder="GST %"
+                              disabled={isCurrentProductNotAvailable}
                             />
                           </div>
                         </CCol>
@@ -2059,6 +2213,7 @@ const QuotationView = () => {
                                     style={{ top: 4, right: 4, width: 20, height: 20, minWidth: 20 }}
                                     onClick={() => removeEditingProductImage(index)}
                                     title="Remove image"
+                                    disabled={isCurrentProductNotAvailable}
                                   >
                                     <CIcon icon={cilX} size="sm" />
                                   </CButton>
@@ -2072,7 +2227,7 @@ const QuotationView = () => {
                             type="file"
                             accept="image/*"
                             multiple
-                            disabled={uploadingProductImages}
+                            disabled={uploadingProductImages || isCurrentProductNotAvailable}
                             onChange={async (e) => {
                               const files = Array.from(e.target.files || [])
                               if (!files.length) return
@@ -2097,7 +2252,7 @@ const QuotationView = () => {
                         </CButton>
                         <CButton
                           color="primary"
-                          disabled={updating || uploadingProductImages}
+                          disabled={updating || uploadingProductImages || isCurrentProductNotAvailable}
                           onClick={handleUpdateProduct}
                         >
                           {updating ? <><CSpinner size="sm" className="me-2" />Updating...</> : 'Update'}
@@ -2220,7 +2375,7 @@ const QuotationView = () => {
 
             {/* Tab 3: Product List - bordered table */}
             <CTabPane visible={activeTab === 'productList'}>
-              <div style={{ fontSize: '0.8rem' }}>
+              <div style={{ fontSize: '0.9rem' }}>
               {products.length > 0 ? (
                 <>
                   <CTable responsive hover bordered className="table-fixed">
@@ -2232,11 +2387,11 @@ const QuotationView = () => {
                         <CTableHeaderCell className="text-center" style={{ width: 56 }}>Unit</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 72 }}>HSN</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 72 }}>Model</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center" style={{ width: 58 }}>GST %</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center" style={{ width: 90 }}>Images</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center" style={{ width: 72 }}>Rate (₹)</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center" style={{ width: 82 }}>GST %</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center" style={{ width: 160 }}>Images</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center" style={{ width: 101 }}>Rate (₹)</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 85 }}>Discount</CTableHeaderCell>
-                        <CTableHeaderCell className="text-center" style={{ width: 80 }}>Total (₹)</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center" style={{ width: 112 }}>Total (₹)</CTableHeaderCell>
                         <CTableHeaderCell className="text-center" style={{ width: 100 }}>Actions</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -2272,7 +2427,7 @@ const QuotationView = () => {
                                 step="0.01"
                                 size="sm"
                                 className="form-control-sm"
-                                style={{ width: 78, minHeight: 28, fontSize: '0.75rem' }}
+                                style={{ width: 109, minHeight: 28, fontSize: '0.75rem' }}
                                 value={getListGst(idx)}
                                 onChange={(e) => setListGst(idx, e.target.value)}
                                 placeholder="%"
@@ -2289,7 +2444,7 @@ const QuotationView = () => {
                                       role="button"
                                       tabIndex={0}
                                       className="rounded overflow-hidden border"
-                                      style={{ width: 32, height: 32, cursor: 'pointer' }}
+                                      style={{ width: 64, height: 64, cursor: 'pointer' }}
                                       onClick={() => openImageGallery(allImages, i)}
                                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, i) } }}
                                     >
@@ -2305,7 +2460,7 @@ const QuotationView = () => {
                                       role="button"
                                       tabIndex={0}
                                       className="d-flex align-items-center justify-content-center rounded border bg-light text-primary fw-bold"
-                                      style={{ width: 40, height: 40, fontSize: '1.1rem', cursor: 'pointer' }}
+                                      style={{ width: 64, height: 64, fontSize: '1.25rem', cursor: 'pointer' }}
                                       onClick={() => openImageGallery(allImages, 2)}
                                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openImageGallery(allImages, 2) } }}
                                       title={`${allImages.length - 2} more`}
@@ -2325,7 +2480,7 @@ const QuotationView = () => {
                                 step="0.01"
                                 size="sm"
                                 className="form-control-sm"
-                                style={{ width: 100, minHeight: 28, fontSize: '0.75rem' }}
+                                style={{ width: 140, minHeight: 28, fontSize: '0.75rem' }}
                                 value={rateVal}
                                 onChange={(e) => setListRate(idx, e.target.value)}
                                 placeholder="Rate"
@@ -2437,6 +2592,12 @@ const QuotationView = () => {
           </CTabContent>
         </CCardBody>
       </CCard>
+      <QuoteLogsSidebar
+        refreshKey={quoteLogsRefreshKey}
+        isOpen={quoteLogsOpen}
+        onToggle={() => setQuoteLogsOpen((prev) => !prev)}
+        showFloatingToggle={false}
+      />
 
       <CModal visible={assignTaskModalVisible} onClose={() => setAssignTaskModalVisible(false)}>
         <CModalHeader>

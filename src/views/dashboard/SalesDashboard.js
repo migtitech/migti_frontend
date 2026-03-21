@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import {
   CCard,
   CCardBody,
@@ -20,20 +20,38 @@ import {
   cilCart,
   cilDollar,
   cilPeople,
-  cilChartLine,
 } from '@coreui/icons'
 import { useAuth } from '../../context/AuthContext'
+import queryService from '../../services/queryService'
 
 const SalesDashboard = () => {
   const { user } = useAuth()
+  const [todayStats, setTodayStats] = useState({
+    todayQueryCount: 0,
+    todayQuotationCount: 0,
+    todayQuotedAmount: 0,
+  })
 
-  // Dummy data for demonstration
-  const stats = {
-    totalSales: 1250000,
-    pendingOrders: 24,
-    newCustomers: 18,
-    monthlyTarget: 72,
-  }
+  useEffect(() => {
+    const fetchTodayStats = async () => {
+      try {
+        const response = await queryService.getTodayStats()
+        setTodayStats({
+          todayQueryCount: Number(response?.data?.todayQueryCount || 0),
+          todayQuotationCount: Number(response?.data?.todayQuotationCount || 0),
+          todayQuotedAmount: Number(response?.data?.todayQuotedAmount || 0),
+        })
+      } catch (error) {
+        setTodayStats({
+          todayQueryCount: 0,
+          todayQuotationCount: 0,
+          todayQuotedAmount: 0,
+        })
+      }
+    }
+
+    fetchTodayStats()
+  }, [])
 
   const recentOrders = [
     { id: 'ORD001', customer: 'ABC Corp', amount: 45000, status: 'Pending', date: '2024-01-15' },
@@ -75,8 +93,8 @@ const SalesDashboard = () => {
           <CWidgetStatsA
             className="mb-4"
             color="success"
-            value={`₹${(stats.totalSales / 100000).toFixed(1)}L`}
-            title="Total Sales"
+            value={todayStats.todayQueryCount.toString()}
+            title="Queries Today"
             chart={
               <CIcon icon={cilDollar} height={52} className="my-4 text-white opacity-25" />
             }
@@ -86,32 +104,21 @@ const SalesDashboard = () => {
           <CWidgetStatsA
             className="mb-4"
             color="warning"
-            value={stats.pendingOrders.toString()}
-            title="Pending Orders"
+            value={todayStats.todayQuotationCount.toString()}
+            title="Quotations Today"
             chart={
               <CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />
             }
           />
         </CCol>
-        <CCol sm={6} lg={3}>
+        <CCol sm={6} lg={6}>
           <CWidgetStatsA
             className="mb-4"
             color="info"
-            value={stats.newCustomers.toString()}
-            title="New Customers"
+            value={`₹${todayStats.todayQuotedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
+            title="Quoted Amount Today"
             chart={
               <CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
-        </CCol>
-        <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="primary"
-            value={`${stats.monthlyTarget}%`}
-            title="Monthly Target"
-            chart={
-              <CIcon icon={cilChartLine} height={52} className="my-4 text-white opacity-25" />
             }
           />
         </CCol>

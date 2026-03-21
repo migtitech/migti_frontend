@@ -187,7 +187,7 @@ const QuotationList = () => {
   const endItem = Math.min(currentPage * pageSize, totalItems)
 
   return (
-    <CRow>
+    <CRow style={{ zoom: '0.8' }}>
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">

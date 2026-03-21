@@ -12,7 +12,7 @@ import {
   CListGroupItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil, cilLocationPin } from '@coreui/icons'
+import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import companyService from '../../services/companyService'
 import branchService from '../../services/branchService'
 import { Loader } from '../../components'
@@ -181,14 +181,6 @@ const CompanyView = () => {
                   <strong>Address:</strong>
                   <p className="mb-0 mt-2">{company.address || '-'}</p>
                 </CListGroupItem>
-                <CListGroupItem>
-                  <strong>Shipping Address:</strong>
-                  <p className="mb-0 mt-2">{company.shippingAddress || '-'}</p>
-                </CListGroupItem>
-                <CListGroupItem>
-                  <strong>Billing Address:</strong>
-                  <p className="mb-0 mt-2">{company.billingAddress || '-'}</p>
-                </CListGroupItem>
               </CListGroup>
             </CCardBody>
           </CCard>
@@ -198,14 +190,6 @@ const CompanyView = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Branches ({branches.length})</strong>
-              <CButton
-                color="primary"
-                size="sm"
-                onClick={() => navigate(`/companies/${id}/branches`)}
-              >
-                <CIcon icon={cilLocationPin} className="me-2" />
-                Manage
-              </CButton>
             </CCardHeader>
             <CCardBody>
               {branches.length > 0 ? (

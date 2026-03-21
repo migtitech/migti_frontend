@@ -177,6 +177,7 @@ export const INDUSTRY_BRANCHES = {
 export const QUERIES = {
   CREATE: '/queries/create',
   LIST: '/queries/list',
+  TODAY_STATS: '/queries/today-stats',
   GET_BY_ID: '/queries/get-by-id',
   UPDATE: '/queries/update',
   DELETE: '/queries/delete',
@@ -192,6 +193,7 @@ export const QUOTATIONS = {
   UPDATE: '/quotations/update',
   UPDATE_STATUS: '/quotations/update-status',
   EXPORT_PDF: '/quotations/export-pdf',
+  RATE_LOGS_LIST: '/quotations/rate-logs/list',
 }
 
 export const PURCHASE_TASKS = {

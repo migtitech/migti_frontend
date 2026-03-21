@@ -43,6 +43,11 @@ const queryService = {
     return response
   },
 
+  getTodayStats: async (params = {}) => {
+    const response = await api.get(QUERIES.TODAY_STATS, { params })
+    return response
+  },
+
   create: async (data) => {
     const response = await api.post(QUERIES.CREATE, mapToApiPayload(data))
     return response

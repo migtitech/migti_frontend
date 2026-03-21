@@ -568,14 +568,32 @@ const QueryForm = () => {
         }
       }
 
-      const productToSave = {
-        ...formProduct,
-        images: ((formProduct.images || []).concat(uploadedDocs)).slice(0, MAX_PRODUCT_IMAGES),
-      }
+      const mergedImages = ((formProduct.images || []).concat(uploadedDocs)).slice(0, MAX_PRODUCT_IMAGES)
+      const cleanedVariants = (formProduct.variants || [])
+        .map((v) => ({ variantName: (v?.variantName || '').trim() }))
+        .filter((v) => v.variantName)
 
-      setProducts((prev) => [...prev, productToSave])
+      const productsToAdd =
+        cleanedVariants.length > 0
+          ? cleanedVariants.map((variant) => ({
+              ...formProduct,
+              variants: [{ ...variant }],
+              images: mergedImages,
+            }))
+          : [
+              {
+                ...formProduct,
+                images: mergedImages,
+              },
+            ]
+
+      setProducts((prev) => [...prev, ...productsToAdd])
       clearProductForm()
-      toastSuccess('Product added to list')
+      toastSuccess(
+        productsToAdd.length > 1
+          ? `${productsToAdd.length} products added to list (one per variant)`
+          : 'Product added to list',
+      )
     } finally {
       setAddingProductToQuery(false)
     }

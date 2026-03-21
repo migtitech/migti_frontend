@@ -62,6 +62,7 @@ const QuotationGenerate = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const queryFromState = location.state?.query || null
+  const forceNewQuotation = !!location.state?.forceNewQuotation
 
   const [query, setQuery] = useState(queryFromState)
   const [loading, setLoading] = useState(!queryFromState)
@@ -252,7 +253,11 @@ const QuotationGenerate = () => {
           images: (p.images || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)).filter(Boolean),
         }
       })
-      const res = await queryService.convertToQuotation(query.queryCode, { remark, products: productsPayload })
+      const res = await queryService.convertToQuotation(query.queryCode, {
+        remark,
+        products: productsPayload,
+        forceNewQuotation,
+      })
       const data = res?.data || res
       const quotation = data?.data?.quotation || data?.quotation
       toastSuccess('Quotation created successfully')

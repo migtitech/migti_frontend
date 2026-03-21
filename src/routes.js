@@ -48,6 +48,7 @@ const QuotationList = React.lazy(() => import('./views/admin/QuotationList'))
 const QuotationView = React.lazy(() => import('./views/admin/QuotationView'))
 const QuotationForm = React.lazy(() => import('./views/admin/QuotationForm'))
 const QuotationGenerate = React.lazy(() => import('./views/admin/QuotationGenerate')) 
+const QuoteLogsView = React.lazy(() => import('./views/admin/QuoteLogsView'))
 // Purchase Orders
 const PurchaseOrderList = React.lazy(() => import('./views/admin/PurchaseOrderList'))
 const PurchaseOrderView = React.lazy(() => import('./views/admin/PurchaseOrderView'))
@@ -156,6 +157,7 @@ const routes = [
 
   // Quotations
   { path: '/quotations', name: 'Quotations', element: QuotationList, module: 'quotations', action: 'read' },
+  { path: '/quote-logs', name: 'Quote Logs', element: QuoteLogsView, module: 'quotations', action: 'read' },
   { path: '/quotations/generate/:queryId', name: 'Generate Quotation', element: QuotationGenerate, module: 'quotations', action: 'create' },
   { path: '/quotations/new', name: 'Add Quotations', element: QuotationForm, module: 'quotations', action: 'create' },
   { path: '/quotations/edit/:id', name: 'Edit Quotations', element: QuotationForm, module: 'quotations', action: 'update' },

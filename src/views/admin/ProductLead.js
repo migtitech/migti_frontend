@@ -115,6 +115,7 @@ const ProductLead = () => {
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell>Variants</CTableHeaderCell>
                       <CTableHeaderCell>Model Number</CTableHeaderCell>
                       <CTableHeaderCell>HSN</CTableHeaderCell>
@@ -150,12 +151,8 @@ const ProductLead = () => {
                           <CTableDataCell>{(page - 1) * pageSize + index + 1}</CTableDataCell>
                           <CTableDataCell>
                             <strong>{product.name || '-'}</strong>
-                            {product.description && (
-                              <small className="d-block text-medium-emphasis">
-                                {product.description}
-                              </small>
-                            )}
                           </CTableDataCell>
+                          <CTableDataCell>{product.description || '-'}</CTableDataCell>
                           <CTableDataCell>
                             {Array.isArray(product.variants) && product.variants.length > 0
                               ? product.variants.join(', ')
@@ -206,7 +203,7 @@ const ProductLead = () => {
                     })}
                     {products.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={8} className="text-center text-muted py-4">
+                        <CTableDataCell colSpan={9} className="text-center text-muted py-4">
                           {searchTerm
                             ? `No products found matching "${searchTerm}"`
                             : 'No products found in the new query product list.'}

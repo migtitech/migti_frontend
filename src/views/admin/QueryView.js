@@ -197,6 +197,16 @@ const QueryView = () => {
     })
   }
 
+  const handleCreateReQuotation = () => {
+    if (!query?.queryCode) {
+      toastError('Query code is missing, cannot create re-quotation.')
+      return
+    }
+    navigate(`/quotations/generate/${id}`, {
+      state: { query, forceNewQuotation: true },
+    })
+  }
+
   const formatVariants = (variants) => {
     if (!variants?.length) return '—'
     return variants.map((v) => v.variantName || '—').filter(Boolean).join(', ') || '—'
@@ -300,6 +310,8 @@ const QueryView = () => {
 
   const ci = query.companyInfo || {}
   const prods = query.products || []
+  const companyName = ci.name || ci.companyName || '-'
+  const companyLocation = ci.location || '-'
 
   let creator = query.created_by && typeof query.created_by === 'object' ? query.created_by : null
   if (!creator && query.created_by) {
@@ -315,58 +327,128 @@ const QueryView = () => {
 
   return (
     <>
-      <CRow className="mb-3">
-        <CCol xs={12} className="d-flex align-items-center flex-wrap gap-2">
-          <CButton color="light" onClick={() => navigate('/queries')}>
-            <CIcon icon={cilArrowLeft} className="me-1" />
-            Back to Queries
-          </CButton>
-          {query.queryCode && (
-            <CBadge
-              color="info"
-              className="fs-6 px-3 py-2 d-inline-flex align-items-center"
-            >
-              {query.queryCode}
-            </CBadge>
-          )}
-          {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
-            <CButton
-              color="success"
-              disabled={!query?.queryCode}
-              onClick={handleConvertClick}
-            >
-              <CIcon icon={cilCheckAlt} className="me-1" />
-              Convert to Quotation
-            </CButton>
-          )}
-          {canUpdate('queries') && (
-            <CButton color="warning" onClick={() => navigate(`/queries/edit/${id}`)}>
-              <CIcon icon={cilPencil} className="me-1" />
-              Edit
-            </CButton>
-          )}
-          {canDelete('queries') && (
-            <CButton color="danger" onClick={handleDeleteClick}>
-              <CIcon icon={cilTrash} className="me-1" />
-              Delete
-            </CButton>
-          )}
-          <CButton color="info" onClick={handleExportPDF} disabled={exportingPdf}>
-            <CIcon icon={cilCloudDownload} className="me-1" />
-            {exportingPdf ? 'Exporting...' : 'Export PDF'}
-          </CButton>
-        </CCol>
-      </CRow>
+      <CCard className="mb-4 border-0 shadow-sm" style={{ borderRadius: 12, backgroundColor: '#f8f9fb' }}>
+        <CCardBody className="p-3 p-md-4">
+          <div className="d-flex flex-column gap-3">
+            <div className="small text-muted" style={{ fontSize: '0.82rem' }}>
+              Home&nbsp;/&nbsp;Queries
+            </div>
+
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              <div className="px-3 py-2 rounded border bg-white">
+                <span className="small text-muted me-2">Company</span>
+                <span className="fw-semibold">{companyName}</span>
+              </div>
+              <div className="px-3 py-2 rounded border bg-white">
+                <span className="small text-muted me-2">Location</span>
+                <span className="fw-semibold">{companyLocation}</span>
+              </div>
+            </div>
+
+            <div className="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
+              <div className="d-flex align-items-center gap-2 flex-wrap">
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  onClick={() => navigate('/queries')}
+                  className="d-inline-flex align-items-center px-3"
+                  style={{ height: 40 }}
+                >
+                  <CIcon icon={cilArrowLeft} className="me-2" />
+                  Back to Queries
+                </CButton>
+                {query.queryCode && (
+                  <div
+                    className="fw-bold text-primary px-3 py-2 rounded-pill border"
+                    style={{ fontSize: '0.95rem', letterSpacing: '0.3px', backgroundColor: '#eef4ff' }}
+                  >
+                    {query.queryCode}
+                  </div>
+                )}
+              </div>
+
+              <div className="d-flex flex-wrap justify-content-lg-end align-items-center gap-2">
+                {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
+                  <CButton
+                    color="success"
+                    disabled={!query?.queryCode}
+                    onClick={handleConvertClick}
+                    className="d-inline-flex align-items-center px-3"
+                    style={{ height: 40 }}
+                  >
+                    <CIcon icon={cilCheckAlt} className="me-1" />
+                    Convert to Quotation
+                  </CButton>
+                )}
+                {canUpdate('quotations') && query.status === 'convertedToQuotation' && (
+                  <CButton
+                    color="success"
+                    variant="outline"
+                    disabled={!query?.queryCode}
+                    onClick={handleCreateReQuotation}
+                    className="d-inline-flex align-items-center px-3"
+                    style={{ height: 40 }}
+                  >
+                    <CIcon icon={cilCheckAlt} className="me-1" />
+                    Create Re-Quotation
+                  </CButton>
+                )}
+                {canUpdate('queries') && (
+                  <CButton
+                    color="warning"
+                    onClick={() => navigate(`/queries/edit/${id}`)}
+                    className="d-inline-flex align-items-center px-3"
+                    style={{ height: 40 }}
+                  >
+                    <CIcon icon={cilPencil} className="me-1" />
+                    Edit
+                  </CButton>
+                )}
+                {canDelete('queries') && (
+                  <CButton
+                    color="danger"
+                    onClick={handleDeleteClick}
+                    className="d-inline-flex align-items-center px-3"
+                    style={{ height: 40 }}
+                  >
+                    <CIcon icon={cilTrash} className="me-1" />
+                    Delete
+                  </CButton>
+                )}
+                <CButton
+                  color="primary"
+                  variant="outline"
+                  onClick={handleExportPDF}
+                  disabled={exportingPdf}
+                  className="d-inline-flex align-items-center px-3"
+                  style={{ height: 40 }}
+                >
+                  <CIcon icon={cilCloudDownload} className="me-1" />
+                  {exportingPdf ? 'Exporting...' : 'Export PDF'}
+                </CButton>
+              </div>
+            </div>
+          </div>
+        </CCardBody>
+      </CCard>
 
       <CRow>
         <CCol xs={12}>
           {/* 1. Company Information */}
-          <CCard className="mb-4">
-            <CCardHeader><strong>1. Company Information</strong></CCardHeader>
+          <CCard className="mb-4 border-0 shadow-sm" style={{ borderRadius: 10 }}>
+            <CCardHeader className="border-bottom" style={{ backgroundColor: '#fbfcfe' }}>
+              <strong>1. Company Information</strong>
+            </CCardHeader>
             <CCardBody>
               <CListGroup flush>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Company name</strong><span>{ci.name || '-'}</span></CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between"><strong>Location</strong><span>{ci.location || '-'}</span></CListGroupItem>
+                <CListGroupItem className="d-flex flex-column flex-md-row justify-content-between gap-1">
+                  <strong>Company name</strong>
+                  <span>{companyName}</span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex flex-column flex-md-row justify-content-between gap-1">
+                  <strong>Location</strong>
+                  <span>{companyLocation}</span>
+                </CListGroupItem>
                 <CListGroupItem><strong>Purchase managers</strong><div className="mt-1">{(ci.purchaseManagers || []).length > 0 ? (ci.purchaseManagers || []).map((m, i) => <div key={i}>{m.name || '–'}{m.phone ? ` • ${m.phone}` : ''}{m.email ? ` • ${m.email}` : ''}</div>) : (ci.purchase_manager_name || ci.purchase_manager_phone) ? `${ci.purchase_manager_name || '–'} • ${ci.purchase_manager_phone || ''}` : '–'}</div></CListGroupItem>
                 <CListGroupItem><strong>Address</strong><div className="mt-1">{ci.address || '-'}</div></CListGroupItem>
               </CListGroup>

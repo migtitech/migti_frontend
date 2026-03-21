@@ -131,6 +131,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'Quote Logs',
+    to: '/quote-logs',
+    icon: <CIcon icon={cilFile} customClassName="nav-icon" />,
+    module: 'quotations',
+  },
+  {
+    component: CNavItem,
     name: 'Suppliers',
     to: '/suppliers',
     icon: <CIcon icon={cilFactory} customClassName="nav-icon" />,
