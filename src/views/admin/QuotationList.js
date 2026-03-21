@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -16,6 +16,8 @@ import {
   CBadge,
   CFormSelect,
   CSpinner,
+  CPagination,
+  CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilCloudDownload } from '@coreui/icons'
@@ -50,9 +52,10 @@ const QuotationList = () => {
   const [searchDebounced, setSearchDebounced] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [pageNumber, setPageNumber] = useState(1)
-  const [pageSize] = useState(10)
+  const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(false)
   const [exportingPdfId, setExportingPdfId] = useState(null)
+  const latestFetchIdRef = useRef(0)
 
   const handleDownloadPdf = async (e, quotation) => {
     e?.stopPropagation()
@@ -108,6 +111,8 @@ const QuotationList = () => {
   }, [searchDebounced, statusFilter])
 
   const fetchQuotations = async () => {
+    const fetchId = Date.now()
+    latestFetchIdRef.current = fetchId
     setLoading(true)
     try {
       const res = await withMinimumDelay(() =>
@@ -120,15 +125,29 @@ const QuotationList = () => {
       )
       const data = res?.data || res
       const result = data?.data ?? data
+      if (latestFetchIdRef.current !== fetchId) return
       const list = (result?.quotations || []).map(mapQuotation)
       setQuotations(list)
       setPagination(result?.pagination || null)
+      const serverPage = result?.pagination?.currentPage
+      const serverTotalPages = result?.pagination?.totalPages
+      if (
+        Number.isInteger(serverPage)
+        && Number.isInteger(serverTotalPages)
+        && serverTotalPages > 0
+        && serverPage > serverTotalPages
+      ) {
+        setPageNumber(serverTotalPages)
+      }
     } catch (err) {
+      if (latestFetchIdRef.current !== fetchId) return
       toastError(err?.message || 'Failed to load quotations')
       setQuotations([])
       setPagination(null)
     } finally {
-      setLoading(false)
+      if (latestFetchIdRef.current === fetchId) {
+        setLoading(false)
+      }
     }
   }
 
@@ -161,6 +180,11 @@ const QuotationList = () => {
   }
 
   const filteredQuotations = quotations
+  const totalPages = pagination?.totalPages ?? 1
+  const currentPage = pagination?.currentPage ?? pageNumber
+  const totalItems = pagination?.totalItems ?? filteredQuotations.length
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1
+  const endItem = Math.min(currentPage * pageSize, totalItems)
 
   return (
     <CRow>
@@ -197,6 +221,22 @@ const QuotationList = () => {
                   ))}
                 </CFormSelect>
               </CCol>
+              <CCol xs={12} sm={6} md={6} lg={2}>
+                <label className="form-label small text-body-secondary mb-1">Rows per page</label>
+                <CFormSelect
+                  value={pageSize}
+                  onChange={(e) => {
+                    const next = Number(e.target.value) || 10
+                    setPageSize(next)
+                    setPageNumber(1)
+                  }}
+                  aria-label="Rows per page"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </CFormSelect>
+              </CCol>
             </CRow>
             {loading && <Loader />}
             <CTable hover responsive bordered>
@@ -224,7 +264,9 @@ const QuotationList = () => {
                       onClick={() => navigate(`/quotations/${quotation.id}`)}
                       style={{ cursor: 'pointer', ...rowBg }}
                     >
-                      <CTableDataCell style={rowBg}>{index + 1}</CTableDataCell>
+                      <CTableDataCell style={rowBg}>
+                        {(currentPage - 1) * pageSize + index + 1}
+                      </CTableDataCell>
                       <CTableDataCell style={rowBg}>
                         <strong>{quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}</strong>
                       </CTableDataCell>
@@ -313,6 +355,42 @@ const QuotationList = () => {
                 )}
               </CTableBody>
             </CTable>
+            {totalPages > 1 && (
+              <>
+                <div className="small text-body-secondary text-center mt-2">
+                  Showing {startItem}-{endItem} of {totalItems}
+                </div>
+                <CPagination className="mt-2 justify-content-center">
+                <CPaginationItem
+                  disabled={loading || currentPage <= 1}
+                  onClick={() => setPageNumber(1)}
+                >
+                  First
+                </CPaginationItem>
+                <CPaginationItem
+                  disabled={loading || currentPage <= 1}
+                  onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </CPaginationItem>
+                <CPaginationItem active>
+                  {currentPage} / {totalPages}
+                </CPaginationItem>
+                <CPaginationItem
+                  disabled={loading || currentPage >= totalPages}
+                  onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
+                >
+                  Next
+                </CPaginationItem>
+                <CPaginationItem
+                  disabled={loading || currentPage >= totalPages}
+                  onClick={() => setPageNumber(totalPages)}
+                >
+                  Last
+                </CPaginationItem>
+              </CPagination>
+              </>
+            )}
           </CCardBody>
         </CCard>
       </CCol>
