@@ -50,6 +50,22 @@ import { ROLES, ROLE_LABELS } from '../../context/AuthContext'
 import QuoteLogsSidebar from './QuoteLogsSidebar'
 
 const PURCHASE_ROLES = [ROLES.PURCHASE_MANAGER, ROLES.PURCHASE_EXICUTIVE, 'purchase_executive']
+const BACK_OFFICE_ROLES = new Set([
+  ROLES.BACK_OFFICE_EXICUTIVE,
+  'back_office_executive',
+  'boe',
+])
+
+const getCurrentUserRole = () => {
+  try {
+    const raw = localStorage.getItem('migticrm_user')
+    if (!raw) return ''
+    const parsed = JSON.parse(raw)
+    return parsed?.role || ''
+  } catch {
+    return ''
+  }
+}
 
 const getImageUrl = (img) => {
   if (!img) return ''
@@ -1088,6 +1104,7 @@ const QuotationView = () => {
   }
 
   const isHodApproved = quotation?.status === 'hod_approved'
+  const isBackOfficeExecutive = BACK_OFFICE_ROLES.has(getCurrentUserRole())
   const currentProduct =
     products.length > 0 ? products[Math.min(productIndex, products.length - 1)] : null
   const isCurrentProductNotAvailable = !!currentProduct?.notAvailable
@@ -1254,15 +1271,17 @@ const QuotationView = () => {
               >
                 {quoteLogsOpen ? 'Hide Quote Logs' : 'Show Quote Logs'}
               </CButton>
-              <CButton
-                color="primary"
-                onClick={handleMarkApproved}
-                disabled={isHodApproved}
-                className="d-inline-flex align-items-center px-3 fw-semibold"
-                style={{ height: 40 }}
-              >
-                Mark Approved
-              </CButton>
+              {!isBackOfficeExecutive && (
+                <CButton
+                  color="primary"
+                  onClick={handleMarkApproved}
+                  disabled={isHodApproved}
+                  className="d-inline-flex align-items-center px-3 fw-semibold"
+                  style={{ height: 40 }}
+                >
+                  Mark Approved
+                </CButton>
+              )}
               <CButton
                 color="secondary"
                 variant="outline"
