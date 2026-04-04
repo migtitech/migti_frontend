@@ -211,16 +211,16 @@ const routes = [
   { path: '/zones/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
 
   // Industries
-  { path: '/industries', name: 'Industries', element: IndustryList, module: 'industries', action: 'read' },
-  { path: '/industries/new', name: 'Add Industry', element: IndustryForm, module: 'industries', action: 'create' },
-  { path: '/industries/edit/:id', name: 'Edit Industry', element: IndustryForm, module: 'industries', action: 'update' },
-  { path: '/industries/:id', name: 'Industry Details', element: IndustryView, module: 'industries', action: 'read' },
+  { path: '/industries', name: 'Clients', element: IndustryList, module: 'industries', action: 'read' },
+  { path: '/industries/new', name: 'Add client', element: IndustryForm, module: 'industries', action: 'create' },
+  { path: '/industries/edit/:id', name: 'Edit client', element: IndustryForm, module: 'industries', action: 'update' },
+  { path: '/industries/:id', name: 'Client details', element: IndustryView, module: 'industries', action: 'read' },
 
   // Industry Branches
-  { path: '/industry-branches', name: 'Industry Branches', element: IndustryBranchList, module: 'industry_branches', action: 'read' },
-  { path: '/industry-branches/new', name: 'Add Industry Branch', element: IndustryBranchForm, module: 'industry_branches', action: 'create' },
-  { path: '/industry-branches/edit/:id', name: 'Edit Industry Branch', element: IndustryBranchForm, module: 'industry_branches', action: 'update' },
-  { path: '/industry-branches/:id', name: 'Industry Branch Details', element: IndustryBranchView, module: 'industry_branches', action: 'read' },
+  { path: '/industry-branches', name: 'Client branches', element: IndustryBranchList, module: 'industry_branches', action: 'read' },
+  { path: '/industry-branches/new', name: 'Add client branch', element: IndustryBranchForm, module: 'industry_branches', action: 'create' },
+  { path: '/industry-branches/edit/:id', name: 'Edit client branch', element: IndustryBranchForm, module: 'industry_branches', action: 'update' },
+  { path: '/industry-branches/:id', name: 'Client branch details', element: IndustryBranchView, module: 'industry_branches', action: 'read' },
 
   // Admin routes for company/branch management (legacy)
   { path: '/admin/companies/:companyId/branches', name: 'Branches', element: BranchManagement, module: 'branches', action: 'read' },

@@ -87,22 +87,22 @@ const QuoteLogsView = () => {
               />
             </CCol>
             <CCol md={4}>
-              <CFormLabel>Search Industry</CFormLabel>
+              <CFormLabel>Search client</CFormLabel>
               <CFormInput
-                placeholder="Type to search industries"
+                placeholder="Type to search clients"
                 value={industrySearchText}
                 onChange={(e) => setIndustrySearchText(e.target.value)}
                 className="mb-2"
               />
-              <CFormLabel>Industry</CFormLabel>
+              <CFormLabel>Client</CFormLabel>
               <CFormSelect value={industryName} onChange={(e) => setIndustryName(e.target.value)}>
-                <option value="">All industries</option>
+                <option value="">All clients</option>
                 {visibleIndustryOptions.map((name) => (
                   <option key={name} value={name}>{name}</option>
                 ))}
               </CFormSelect>
               <div className="small text-muted mt-1">
-                Showing {visibleIndustryOptions.length} of {industryOptions.length} industries
+                Showing {visibleIndustryOptions.length} of {industryOptions.length} clients
               </div>
             </CCol>
           </CRow>
@@ -138,7 +138,7 @@ const QuoteLogsView = () => {
                     <strong>Variants:</strong> {(log.variants || []).join(', ') || '—'}
                   </div>
                   <div className="small text-muted mt-1">
-                    <strong>Industry:</strong> {log.industry_name || 'Unknown'} |{' '}
+                    <strong>Client:</strong> {log.industry_name || 'Unknown'} |{' '}
                     <strong>Created:</strong> {formatDate(log.created_at)}
                   </div>
                 </div>

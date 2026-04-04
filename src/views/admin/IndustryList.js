@@ -126,10 +126,10 @@ const IndustryList = () => {
     if (!id) return
     try {
       await industryService.delete(id)
-      toastSuccess('Industry deleted successfully')
+      toastSuccess('Client deleted successfully')
       fetchIndustries()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete industry')
+      toastError(err?.message || 'Failed to delete client')
     }
   }
 
@@ -138,11 +138,11 @@ const IndustryList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Industries</strong>
+            <strong>Clients</strong>
             {canCreate('industries') && (
               <CButton color="primary" onClick={() => navigate('/industries/new')}>
                 <CIcon icon={cilPlus} className="me-2" />
-                Add Industry
+                Add client
               </CButton>
             )}
           </CCardHeader>
@@ -212,7 +212,7 @@ const IndustryList = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Industry Name</CTableHeaderCell>
+                      <CTableHeaderCell>Client name</CTableHeaderCell>
                       <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>GST No</CTableHeaderCell>
@@ -316,8 +316,8 @@ const IndustryList = () => {
                       <CTableRow>
                         <CTableDataCell colSpan={9} className="text-center">
                           {searchTerm
-                            ? 'No industries match the current search.'
-                            : 'No industries found. Click "Add Industry" to create one.'}
+                            ? 'No clients match the current search.'
+                            : 'No clients found. Click "Add client" to create one.'}
                         </CTableDataCell>
                       </CTableRow>
                     )}
@@ -358,8 +358,8 @@ const IndustryList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Industry?"
-        message="Are you sure you want to delete this industry? This action cannot be undone."
+        title="Delete client?"
+        message="Are you sure you want to delete this client? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
       />

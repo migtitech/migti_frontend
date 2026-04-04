@@ -156,7 +156,7 @@ const QuoteLogsSidebar = ({
         </div>
 
         <div className="mb-3">
-          <CFormLabel className="small mb-1">Search Industry</CFormLabel>
+          <CFormLabel className="small mb-1">Search client</CFormLabel>
           <CFormInput
             size="sm"
             placeholder="Type to search industries"
@@ -164,19 +164,19 @@ const QuoteLogsSidebar = ({
             onChange={(e) => setIndustrySearchText(e.target.value)}
             className="mb-2"
           />
-          <CFormLabel className="small mb-1">Industry</CFormLabel>
+          <CFormLabel className="small mb-1">Client</CFormLabel>
           <CFormSelect
             size="sm"
             value={industryName}
             onChange={(e) => setIndustryName(e.target.value)}
           >
-            <option value="">All industries</option>
+            <option value="">All clients</option>
             {visibleIndustryOptions.map((name) => (
               <option key={name} value={name}>{name}</option>
             ))}
           </CFormSelect>
           <div className="small text-muted mt-1">
-            Showing {visibleIndustryOptions.length} of {industryOptions.length} industries
+            Showing {visibleIndustryOptions.length} of {industryOptions.length} clients
           </div>
         </div>
 
@@ -197,7 +197,7 @@ const QuoteLogsSidebar = ({
                     <strong>Variants:</strong> {(log.variants || []).join(', ') || '—'}
                   </div>
                   <div className="d-flex justify-content-between mt-1">
-                    <span className="small text-muted">{log.industry_name || 'Unknown industry'}</span>
+                    <span className="small text-muted">{log.industry_name || 'Unknown client'}</span>
                     <span className="fw-bold text-primary">
                       Rs {formatMoney(log.amount)}
                       {log.unit ? ` / ${log.unit}` : ''}

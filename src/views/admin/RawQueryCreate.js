@@ -165,9 +165,9 @@ const RawQueryCreate = () => {
       const res = await industryService.update(industryId, payload)
       const data = res?.data || res
       setIndustryDetails(data)
-      toastSuccess('Industry updated successfully')
+      toastSuccess('Client updated successfully')
     } catch (err) {
-      toastError(err?.message || 'Failed to update industry')
+      toastError(err?.message || 'Failed to update client')
     } finally {
       setSavingIndustry(false)
     }
@@ -176,7 +176,7 @@ const RawQueryCreate = () => {
   const handleCreateIndustry = async (e) => {
     e.preventDefault()
     if (!industryEditForm.name?.trim()) {
-      toastError('Industry name is required')
+      toastError('Client name is required')
       return
     }
     const pm = (industryEditForm?.purchase_manager_phone || '').trim()
@@ -206,9 +206,9 @@ const RawQueryCreate = () => {
       })
       setCreateNewIndustry(false)
       setIndustrySearch((newIndustry?.name || '') + (newIndustry?.location ? ` (${newIndustry.location})` : ''))
-      toastSuccess('Industry created successfully')
+      toastSuccess('Client created successfully')
     } catch (err) {
-      toastError(err?.message || 'Failed to create industry')
+      toastError(err?.message || 'Failed to create client')
     } finally {
       setCreatingIndustry(false)
     }
@@ -420,7 +420,7 @@ const RawQueryCreate = () => {
     else if (desc.length < DESCRIPTION_MIN_LENGTH) errs.description = `Description must be at least ${DESCRIPTION_MIN_LENGTH} characters`
     else if (desc.length > DESCRIPTION_MAX_LENGTH) errs.description = `Description must be at most ${DESCRIPTION_MAX_LENGTH} characters`
 
-    if (!industryId) errs.industry_id = 'Please select or create an industry'
+    if (!industryId) errs.industry_id = 'Please select or create a client'
 
     const storedUserJson = localStorage.getItem('migticrm_user')
     const storedUser = storedUserJson ? JSON.parse(storedUserJson) : null
@@ -503,7 +503,7 @@ const RawQueryCreate = () => {
               <CRow>
                 <CCol xs={12}>
                   <div className="mb-3 position-relative" ref={dropdownRef}>
-                    <CFormLabel htmlFor="industrySearch">Industry</CFormLabel>
+                    <CFormLabel htmlFor="industrySearch">Client</CFormLabel>
                     <CFormInput
                       id="industrySearch"
                       type="text"
@@ -511,7 +511,7 @@ const RawQueryCreate = () => {
                       onChange={(e) => { setIndustrySearch(e.target.value); setFieldErrors((p) => ({ ...p, industry_id: undefined })) }}
                       onFocus={() => setIndustryDropdownOpen(true)}
                       onBlur={() => setTimeout(() => setIndustryDropdownOpen(false), 200)}
-                      placeholder="Search industry or create new..."
+                      placeholder="Search client or create new..."
                       required={!industryId && !createNewIndustry}
                       disabled={!!industryId && !createNewIndustry}
                       autoComplete="off"
@@ -521,7 +521,7 @@ const RawQueryCreate = () => {
                     {industryId && !createNewIndustry && (
                       <div className="mt-2">
                         <CButton color="link" size="sm" type="button" onClick={handleClearIndustry}>
-                          Change industry
+                          Change client
                         </CButton>
                       </div>
                     )}
@@ -540,14 +540,14 @@ const RawQueryCreate = () => {
                               handleCreateNewIndustry()
                             }}
                           >
-                            + Create new industry
+                            + Create new client
                           </CListGroupItem>
                           {industrySearchLoading && (
                             <CListGroupItem className="text-muted">Searching...</CListGroupItem>
                           )}
                           {!industrySearchLoading && industrySearchResults.length === 0 && (
                             <CListGroupItem className="text-muted">
-                              {industrySearch.trim() ? 'No industries found. Try "Create new".' : 'No industries in database. Create one below.'}
+                              {industrySearch.trim() ? 'No clients found. Try "Create new".' : 'No clients in database. Create one below.'}
                             </CListGroupItem>
                           )}
                           {!industrySearchLoading &&
@@ -583,7 +583,7 @@ const RawQueryCreate = () => {
                   <CCol xs={12}>
                     <CCard className="mb-4">
                       <CCardHeader className="d-flex justify-content-between align-items-center">
-                        <strong>Industry details (editable)</strong>
+                        <strong>Client details (editable)</strong>
                         <CButton color="primary" size="sm" onClick={handleSaveIndustryDetails} disabled={savingIndustry}>
                           {savingIndustry ? 'Saving...' : 'Save changes'}
                         </CButton>
@@ -593,11 +593,11 @@ const RawQueryCreate = () => {
                           <CRow>
                             <CCol md={6}>
                               <div className="mb-3">
-                                <CFormLabel>Industry Name</CFormLabel>
+                                <CFormLabel>Client name</CFormLabel>
                                 <CFormInput
                                   value={industryEditForm.name}
                                   onChange={(e) => setIndustryEditForm((f) => ({ ...f, name: e.target.value }))}
-                                  placeholder="Industry name"
+                                  placeholder="Client name"
                                 />
                               </div>
                             </CCol>
@@ -694,18 +694,18 @@ const RawQueryCreate = () => {
                   <CCol xs={12}>
                     <CCard className="mb-4 border-primary">
                       <CCardHeader>
-                        <strong>Create new industry</strong>
+                        <strong>Create new client</strong>
                       </CCardHeader>
                       <CCardBody>
                         <CForm onSubmit={handleCreateIndustry}>
                           <CRow>
                             <CCol md={6}>
                               <div className="mb-3">
-                                <CFormLabel>Industry Name *</CFormLabel>
+                                <CFormLabel>Client name *</CFormLabel>
                                 <CFormInput
                                   value={industryEditForm.name}
                                   onChange={(e) => setIndustryEditForm((f) => ({ ...f, name: e.target.value }))}
-                                  placeholder="Industry name"
+                                  placeholder="Client name"
                                   required
                                 />
                               </div>
@@ -802,7 +802,7 @@ const RawQueryCreate = () => {
                               Cancel
                             </CButton>
                             <CButton color="primary" type="submit" disabled={creatingIndustry}>
-                              {creatingIndustry ? 'Creating...' : 'Create industry'}
+                              {creatingIndustry ? 'Creating...' : 'Create client'}
                             </CButton>
                           </div>
                         </CForm>

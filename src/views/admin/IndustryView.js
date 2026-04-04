@@ -98,7 +98,7 @@ const IndustryView = () => {
         setQueries(queryList.filter(belongsToIndustry))
         setQuotations(quotationList.filter(belongsToIndustry))
       } catch (err) {
-        const message = err?.message || 'Failed to fetch industry'
+        const message = err?.message || 'Failed to fetch client'
         setError(message)
         toastError(message)
       } finally {
@@ -166,7 +166,7 @@ const IndustryView = () => {
     return (
       <CCard>
         <CCardBody>
-          <Loader message="Loading industry..." />
+          <Loader message="Loading client..." />
         </CCardBody>
       </CCard>
     )
@@ -177,7 +177,7 @@ const IndustryView = () => {
       <CAlert color="danger">
         {error}
         <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
-          Back to Industries
+          Back to clients
         </CButton>
       </CAlert>
     )
@@ -186,9 +186,9 @@ const IndustryView = () => {
   if (!industry) {
     return (
       <CAlert color="warning">
-        Industry not found.
+        Client not found.
         <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
-          Back to Industries
+          Back to clients
         </CButton>
       </CAlert>
     )
@@ -200,7 +200,7 @@ const IndustryView = () => {
         <CCol className="d-flex gap-2">
           <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
             <CIcon icon={cilArrowLeft} className="me-1" />
-            Back to Industries
+            Back to clients
           </CButton>
           <CButton color="warning" onClick={() => navigate(`/industries/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-1" />
@@ -213,7 +213,7 @@ const IndustryView = () => {
         <CCol>
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <strong>{industry.name || 'Industry Details'}</strong>
+              <strong>{industry.name || 'Client details'}</strong>
               <div className="d-flex gap-2 flex-wrap">
                 <CBadge color="primary">Queries: {queries.length}</CBadge>
                 <CBadge color="info">Quotations: {quotations.length}</CBadge>

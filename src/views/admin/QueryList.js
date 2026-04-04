@@ -177,9 +177,41 @@ const QueryList = () => {
                               <strong>{q.queryCode || '—'}</strong>
                             </CTableDataCell>
                             <CTableDataCell>
-                              <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
-                                {q.status || 'pending'}
-                              </CBadge>
+                              <div>
+                                <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
+                                  {q.status || 'pending'}
+                                </CBadge>
+                                {Array.isArray(q.convertedQuotations) && q.convertedQuotations.length > 0 && (
+                                  <div className="text-muted small mt-1">
+                                    {q.convertedQuotations.map((ref) => {
+                                      const qid = ref.quotationId?._id ?? ref.quotationId
+                                      const code = ref.quotationCode || qid || '—'
+                                      return (
+                                        <div key={String(qid)}>
+                                          <span
+                                            role="link"
+                                            tabIndex={0}
+                                            className="text-primary text-decoration-underline"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              if (qid) navigate(`/quotations/${qid}`)
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                if (qid) navigate(`/quotations/${qid}`)
+                                              }
+                                            }}
+                                          >
+                                            {code}
+                                          </span>
+                                        </div>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
                             </CTableDataCell>
                             <CTableDataCell>
                               <strong>{q.companyInfo?.name || '-'}</strong>

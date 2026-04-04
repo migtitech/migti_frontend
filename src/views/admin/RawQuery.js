@@ -214,7 +214,7 @@ const RawQuery = () => {
                     <CTableHeaderCell>SNo</CTableHeaderCell>
                     <CTableHeaderCell>Query No.</CTableHeaderCell>
                     <CTableHeaderCell>Title</CTableHeaderCell>
-                    <CTableHeaderCell>Industry</CTableHeaderCell>
+                    <CTableHeaderCell>Client</CTableHeaderCell>
                     <CTableHeaderCell>Priority</CTableHeaderCell>
                     <CTableHeaderCell>Date</CTableHeaderCell>
                     <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -350,13 +350,13 @@ const RawQuery = () => {
             <CRow>
               <CCol md={12}>
                 <div className="mb-3">
-                  <CFormLabel htmlFor="industryId">Industry</CFormLabel>
+                  <CFormLabel htmlFor="industryId">Client</CFormLabel>
                   <CFormSelect
                     id="industryId"
                     value={formData.industryId}
                     onChange={(e) => setFormData({ ...formData, industryId: e.target.value })}
                   >
-                    <option value="">Select industry</option>
+                    <option value="">Select client</option>
                     {industries.map((industry) => (
                       <option key={industry._id || industry.id} value={industry._id || industry.id}>
                         {industry.name}

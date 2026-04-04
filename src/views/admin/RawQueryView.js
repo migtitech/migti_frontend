@@ -417,7 +417,7 @@ const RawQueryView = () => {
                 </CListGroupItem>
                 {industry && (
                   <CListGroupItem>
-                    <strong>Industry:</strong>
+                    <strong>Client:</strong>
                     <div className="mt-2">
                       <div className="fw-semibold">{industry.name}</div>
                       {(industry.location || industry.address) && (

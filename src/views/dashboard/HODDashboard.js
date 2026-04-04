@@ -23,23 +23,32 @@ import { useNavigate } from 'react-router-dom'
 import {
   cilPeople,
   cilCart,
-  cilDollar,
   cilTruck,
   cilChartLine,
 } from '@coreui/icons'
 import { useAuth } from '../../context/AuthContext'
 import quotationService from '../../services/quotationService'
 import queryService from '../../services/queryService'
+import {
+  formatIstDateKey,
+  formatIstDisplayDate,
+  buildLastNDaysIst,
+  formatPctVsPrevious,
+  addIstCalendarDays,
+} from '../../utils/istDate'
 
 const HODDashboard = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const stats = {
-    queryCountToday: 18,
-    quotationCountToday: 11,
-    quotedAmountToday: 285000,
-    completedTasks: 156,
-  }
+  const [stats, setStats] = useState({
+    queryCountToday: 0,
+    quotationCountToday: 0,
+    quotedAmountToday: 0,
+    completedTasks: 0,
+    queryPctVsYesterday: '0%',
+    quotationPctVsYesterday: '0%',
+    amountPctVsYesterday: '0%',
+  })
 
   const [pendingApprovals, setPendingApprovals] = useState([])
   const [pendingQueries, setPendingQueries] = useState([])
@@ -68,7 +77,7 @@ const HODDashboard = () => {
           .map((q) => ({
             id: q._id || q.id,
             quotationCode: q.quotationCode || '-',
-            convertedDate: q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-GB') : '-',
+            convertedDate: q.createdAt ? formatIstDisplayDate(q.createdAt) : '-',
             industryName: q?.industry_id?.name || '-',
           }))
 
@@ -79,46 +88,66 @@ const HODDashboard = () => {
           .map((q) => ({
             id: q._id || q.id,
             queryCode: q.queryCode || '-',
-            createdDate: q.createdAt ? new Date(q.createdAt).toLocaleDateString('en-GB') : '-',
+            createdDate: q.createdAt ? formatIstDisplayDate(q.createdAt) : '-',
             industryName: q?.industry_id?.name || '-',
           }))
 
         setPendingQueries(nonConvertedQueries)
 
-        const dateKeys = []
-        const dateLabels = []
-        const today = new Date()
-        for (let i = 6; i >= 0; i -= 1) {
-          const d = new Date(today)
-          d.setHours(0, 0, 0, 0)
-          d.setDate(d.getDate() - i)
-          const isoKey = d.toISOString().slice(0, 10)
-          const label = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
-          dateKeys.push(isoKey)
-          dateLabels.push(label)
-        }
+        const { keys: dateKeys, labels: dateLabels } = buildLastNDaysIst(7)
+        const todayIstKey = formatIstDateKey(new Date())
+        const yesterdayKey = todayIstKey ? addIstCalendarDays(todayIstKey, -1) : null
 
         const queryCountMap = Object.fromEntries(dateKeys.map((k) => [k, 0]))
         const quotationCountMap = Object.fromEntries(dateKeys.map((k) => [k, 0]))
         const quotationAmountMap = Object.fromEntries(dateKeys.map((k) => [k, 0]))
 
+        let queriesToday = 0
+        let queriesYesterday = 0
+        let quotationsToday = 0
+        let quotationsYesterday = 0
+        let quotedAmountToday = 0
+        let quotedAmountYesterday = 0
+
         queries.forEach((q) => {
           if (!q?.createdAt) return
-          const key = new Date(q.createdAt).toISOString().slice(0, 10)
+          const key = formatIstDateKey(q.createdAt)
+          if (!key) return
           if (key in queryCountMap) queryCountMap[key] += 1
+          if (todayIstKey && key === todayIstKey) queriesToday += 1
+          if (yesterdayKey && key === yesterdayKey) queriesYesterday += 1
         })
 
         quotations.forEach((q) => {
           if (!q?.createdAt) return
-          const key = new Date(q.createdAt).toISOString().slice(0, 10)
+          const key = formatIstDateKey(q.createdAt)
+          if (!key) return
+          const amt = Number(q?.totalAmount || 0)
           if (key in quotationCountMap) quotationCountMap[key] += 1
-          if (key in quotationAmountMap) quotationAmountMap[key] += Number(q?.totalAmount || 0)
+          if (key in quotationAmountMap) quotationAmountMap[key] += amt
+          if (todayIstKey && key === todayIstKey) {
+            quotationsToday += 1
+            quotedAmountToday += amt
+          }
+          if (yesterdayKey && key === yesterdayKey) {
+            quotationsYesterday += 1
+            quotedAmountYesterday += amt
+          }
         })
 
         setWeeklyLabels(dateLabels)
         setWeeklyQueries(dateKeys.map((k) => queryCountMap[k]))
         setWeeklyQuotations(dateKeys.map((k) => quotationCountMap[k]))
         setWeeklyQuotedAmount(dateKeys.map((k) => quotationAmountMap[k]))
+        setStats({
+          queryCountToday: queriesToday,
+          quotationCountToday: quotationsToday,
+          quotedAmountToday,
+          completedTasks: 0,
+          queryPctVsYesterday: formatPctVsPrevious(queriesToday, queriesYesterday),
+          quotationPctVsYesterday: formatPctVsPrevious(quotationsToday, quotationsYesterday),
+          amountPctVsYesterday: formatPctVsPrevious(quotedAmountToday, quotedAmountYesterday),
+        })
       } catch (error) {
         setPendingApprovals([])
         setPendingQueries([])
@@ -126,6 +155,15 @@ const HODDashboard = () => {
         setWeeklyQueries([])
         setWeeklyQuotations([])
         setWeeklyQuotedAmount([])
+        setStats({
+          queryCountToday: 0,
+          quotationCountToday: 0,
+          quotedAmountToday: 0,
+          completedTasks: 0,
+          queryPctVsYesterday: '0%',
+          quotationPctVsYesterday: '0%',
+          amountPctVsYesterday: '0%',
+        })
       }
     }
 
@@ -171,7 +209,8 @@ const HODDashboard = () => {
                 {stats.queryCountToday}
                 <span className="fs-6 fw-normal">
                   {' '}
-                  (+12% <small className="ms-1">vs yesterday</small>)
+                  ({stats.queryPctVsYesterday}{' '}
+                  <small className="ms-1">vs yesterday</small>)
                 </span>
               </>
             }
@@ -209,7 +248,8 @@ const HODDashboard = () => {
                 ₹{stats.quotedAmountToday.toLocaleString('en-IN')}
                 <span className="fs-6 fw-normal">
                   {' '}
-                  (+15% <small className="ms-1">vs yesterday</small>)
+                  ({stats.amountPctVsYesterday}{' '}
+                  <small className="ms-1">vs yesterday</small>)
                 </span>
               </>
             }
@@ -372,7 +412,7 @@ const HODDashboard = () => {
                   <CTableRow>
                     <CTableHeaderCell>Quotation Code</CTableHeaderCell>
                     <CTableHeaderCell>Converted Date</CTableHeaderCell>
-                    <CTableHeaderCell>Industry Name</CTableHeaderCell>
+                    <CTableHeaderCell>Client name</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
@@ -450,7 +490,7 @@ const HODDashboard = () => {
                   <CTableRow>
                     <CTableHeaderCell>Query Code</CTableHeaderCell>
                     <CTableHeaderCell>Created Date</CTableHeaderCell>
-                    <CTableHeaderCell>Industry Name</CTableHeaderCell>
+                    <CTableHeaderCell>Client name</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>

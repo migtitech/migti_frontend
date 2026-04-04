@@ -194,6 +194,17 @@ export const QUOTATIONS = {
   UPDATE_STATUS: '/quotations/update-status',
   EXPORT_PDF: '/quotations/export-pdf',
   RATE_LOGS_LIST: '/quotations/rate-logs/list',
+  DELETE: '/quotations/delete',
+}
+
+export const PURCHASE_ORDERS = {
+  LIST: '/purchase-orders/list',
+  GET_BY_ID: '/purchase-orders/get-by-id',
+  BY_QUOTATION: '/purchase-orders/by-quotation',
+  CREATE_FROM_QUOTATION: '/purchase-orders/create-from-quotation',
+  UPDATE: '/purchase-orders/update',
+  UPDATE_STATUS: '/purchase-orders/update-status',
+  APPEND_PAYMENT: '/purchase-orders/append-payment',
 }
 
 export const PURCHASE_TASKS = {
@@ -243,6 +254,7 @@ export default {
   INDUSTRY_BRANCHES,
   QUERIES,
   QUOTATIONS,
+  PURCHASE_ORDERS,
   PURCHASE_TASKS,
   TASK_MANAGEMENT,
 }

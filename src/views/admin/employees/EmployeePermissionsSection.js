@@ -25,6 +25,12 @@ const ACTION_LABELS = {
   delete: 'Delete',
 }
 
+/** API module labels from backend → UI display names */
+const MODULE_LABEL_DISPLAY = {
+  Industries: 'Clients',
+  'Industry Branches': 'Client branches',
+}
+
 const ALLOWED_MODULE_LABELS = new Set([
   'MigtiCRM',
   'Dashboard',
@@ -183,7 +189,7 @@ const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }
             const allModuleChecked = ACTIONS.every((a) => permissions.includes(`${mod.key}:${a}`))
             return (
               <CTableRow key={mod.key}>
-                <CTableDataCell>{mod.label}</CTableDataCell>
+                <CTableDataCell>{MODULE_LABEL_DISPLAY[mod.label] || mod.label}</CTableDataCell>
                 {ACTIONS.map((action) => (
                   <CTableDataCell key={action} className="text-center">
                     <CFormCheck

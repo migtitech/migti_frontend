@@ -21,7 +21,7 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
-import { phoneOptional, gstinOptional, MSG } from '../../utils/validation'
+import { phoneOptional, gstinOptional, gstinRequired, MSG } from '../../utils/validation'
 import industryService from '../../services/industryService'
 import areaService from '../../services/areaService'
 import branchService from '../../services/branchService'
@@ -37,7 +37,7 @@ const purchaseManagerSchema = yup.object({
 })
 
 const industrySchema = yup.object({
-  name: yup.string().required('Industry name is required').min(2).max(100),
+  name: yup.string().required('Client name is required').min(2).max(100),
   category: yup
     .string()
     .oneOf(['A', 'B', 'C', 'D', ''], 'Invalid category')
@@ -46,7 +46,11 @@ const industrySchema = yup.object({
   area: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
-  gstNumber: gstinOptional(),
+  gstNumber: yup.string().when('$isEdit', {
+    is: true,
+    then: () => gstinOptional(),
+    otherwise: () => gstinRequired(),
+  }),
   purchase_manager_name: yup.string().trim().optional().max(100).nullable().transform((v, o) => (o === '' ? null : v)),
   purchase_manager_phone: phoneOptional(),
   email: yup
@@ -95,6 +99,7 @@ const IndustryForm = () => {
     formState: { errors },
   } = useForm({
     resolver: yupResolver(industrySchema),
+    context: { isEdit },
     defaultValues,
     mode: 'onBlur',
   })
@@ -178,7 +183,7 @@ const IndustryForm = () => {
         branchId: branchId || '',
       })
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch industry')
+      toastError(err?.message || 'Failed to fetch client')
     } finally {
       setLoading(false)
     }
@@ -186,7 +191,7 @@ const IndustryForm = () => {
 
   const onSubmit = async (values) => {
     if (!isEdit && !values.branchId) {
-      setError('Please select a branch for the industry.')
+      setError('Please select a branch for the client.')
       return
     }
     setSubmitting(true)
@@ -205,12 +210,12 @@ const IndustryForm = () => {
           })),
         }
         await industryService.update(id, payload)
-        toastSuccess('Industry updated successfully')
+        toastSuccess('Client updated successfully')
       } else {
         const payload = {
           ...values,
           area: values.area || null,
-          gstNumber: values.gstNumber || '',
+          gstNumber: (values.gstNumber || '').trim().toUpperCase(),
           branchId: values.branchId || undefined,
           purchaseManagers: (values.purchaseManagers || []).filter(
             (pm) => (pm.name || '').trim(),
@@ -221,11 +226,11 @@ const IndustryForm = () => {
           })),
         }
         await industryService.create(payload)
-        toastSuccess('Industry created successfully')
+        toastSuccess('Client created successfully')
       }
       navigate('/industries')
     } catch (err) {
-      toastError(err?.message || 'Failed to save industry')
+      toastError(err?.message || 'Failed to save client')
     } finally {
       setSubmitting(false)
     }
@@ -234,7 +239,7 @@ const IndustryForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <Loader message="Loading industry..." />
+        <Loader message="Loading client..." />
       </div>
     )
   }
@@ -245,7 +250,7 @@ const IndustryForm = () => {
         <CCol>
           <CButton color="light" onClick={() => navigate('/industries')} className="me-2">
             <CIcon icon={cilArrowLeft} className="me-1" />
-            Back to Industries
+            Back to clients
           </CButton>
         </CCol>
       </CRow>
@@ -258,9 +263,9 @@ const IndustryForm = () => {
 
       <CCard className="mb-4">
         <CCardHeader>
-          <strong>{isEdit ? 'Edit Industry' : 'Add Industry'}</strong>
+          <strong>{isEdit ? 'Edit client' : 'Add client'}</strong>
           <small className="text-muted d-block mt-1">
-            {isEdit ? 'You can update branch, location, purchase managers and address.' : 'Select the branch this industry belongs to.'}
+            {isEdit ? 'You can update branch, location, purchase managers and address.' : 'Select the branch this client belongs to.'}
           </small>
         </CCardHeader>
         <CCardBody>
@@ -289,7 +294,7 @@ const IndustryForm = () => {
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Industry Name *</CFormLabel>
+                <CFormLabel>Client name *</CFormLabel>
                 <CFormInput
                   {...register('name')}
                   readOnly={isEdit}
@@ -303,7 +308,7 @@ const IndustryForm = () => {
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>GST Number</CFormLabel>
+                <CFormLabel>GST Number {!isEdit ? '*' : ''}</CFormLabel>
                 <CFormInput
                   {...register('gstNumber')}
                   placeholder="e.g. 27AABCU9603R1ZM"
@@ -478,9 +483,9 @@ const IndustryForm = () => {
             {submitting ? (
               <CSpinner size="sm" />
             ) : isEdit ? (
-              'Update Industry'
+              'Update client'
             ) : (
-              'Create Industry'
+              'Create client'
             )}
           </CButton>
         </CCardBody>

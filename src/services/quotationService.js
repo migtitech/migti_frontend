@@ -37,6 +37,13 @@ const quotationService = {
     })
     return response
   },
+
+  delete: async (id) => {
+    const response = await api.delete(QUOTATIONS.DELETE, {
+      params: { quotationId: id },
+    })
+    return response
+  },
 }
 
 export default quotationService

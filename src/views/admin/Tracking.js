@@ -626,7 +626,7 @@ const Tracking = () => {
                   </CListGroupItem>
                   {industry && (
                     <CListGroupItem>
-                      <strong>Industry</strong>
+                      <strong>Client</strong>
                       <div className="mt-1">
                         <div className="fw-semibold">{industry.name}</div>
                         {(industry.location || industry.address) && (

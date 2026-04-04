@@ -37,6 +37,8 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilArrowRight, cilCloudDownload, cilEnvelopeClosed, cilX } from '@coreui/icons'
 import quotationService from '../../services/quotationService'
+import purchaseOrderService from '../../services/purchaseOrderService'
+import usePermissions from '../../hooks/usePermissions'
 import employeeService from '../../services/employeeService'
 import purchaseTaskService from '../../services/purchaseTaskService'
 import areaService from '../../services/areaService'
@@ -89,6 +91,9 @@ const formatVariants = (variants) => {
 const QuotationView = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { hasPermission } = usePermissions()
+  const canPoRead = hasPermission('purchase_orders', 'read')
+  const canPoCreate = hasPermission('purchase_orders', 'create')
   const [quotation, setQuotation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -155,6 +160,9 @@ const QuotationView = () => {
   const [savingPackingDelivery, setSavingPackingDelivery] = useState(false)
   const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0)
   const [quoteLogsOpen, setQuoteLogsOpen] = useState(false)
+  const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState(null)
+  const [poLinkChecking, setPoLinkChecking] = useState(false)
+  const [poCreating, setPoCreating] = useState(false)
 
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
 
@@ -188,6 +196,32 @@ const QuotationView = () => {
     return () => { cancelled = true }
   }, [id])
 
+  useEffect(() => {
+    if (!quotation?.id || !canPoRead) {
+      setLinkedPurchaseOrderId(null)
+      setPoLinkChecking(false)
+      return
+    }
+    let cancelled = false
+    setPoLinkChecking(true)
+    purchaseOrderService
+      .getByQuotationId(quotation.id)
+      .then((res) => {
+        if (cancelled) return
+        const d = res?.data?.data
+        setLinkedPurchaseOrderId(d?._id || d?.id || null)
+      })
+      .catch(() => {
+        if (!cancelled) setLinkedPurchaseOrderId(null)
+      })
+      .finally(() => {
+        if (!cancelled) setPoLinkChecking(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [quotation?.id, canPoRead])
+
   const companyInfo = quotation?.companyInfo || null
   const products = Array.isArray(quotation?.products) ? quotation.products : []
   const branchSignature = quotation?.branchSignature || null
@@ -200,6 +234,11 @@ const QuotationView = () => {
       ? (branchSignature.path.startsWith('http') ? branchSignature.path : getAssetsUrl(branchSignature.path))
       : ''
   const queryId = quotation?.queryId?._id ?? quotation?.queryId
+  const relatedQueryCode =
+    quotation?.queryId && typeof quotation.queryId === 'object' && quotation.queryId.queryCode
+      ? String(quotation.queryId.queryCode).trim()
+      : ''
+  const relatedQueryLinkLabel = relatedQueryCode || 'View Query'
   const hasRate = (p) => !p.notAvailable && p.rate != null && !Number.isNaN(Number(p.rate)) && Number(p.rate) >= 0
   const productsWithRate = products.filter(hasRate)
   const productsWithoutRate = products.filter((p) => !hasRate(p))
@@ -1103,6 +1142,33 @@ const QuotationView = () => {
     }
   }
 
+  const handlePurchaseOrderClick = async () => {
+    if (!quotation?.id) return
+    if (linkedPurchaseOrderId) {
+      navigate(`/purchase-orders/${linkedPurchaseOrderId}`)
+      return
+    }
+    if (!canPoCreate) {
+      toastError('You do not have permission to create purchase orders')
+      return
+    }
+    setPoCreating(true)
+    try {
+      const res = await purchaseOrderService.createFromQuotation(quotation.id)
+      const data = res?.data?.data ?? res?.data
+      const newId = data?._id || data?.id
+      if (newId) {
+        setLinkedPurchaseOrderId(newId)
+        navigate(`/purchase-orders/${newId}`)
+        toastSuccess('Purchase order ready')
+      }
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to create purchase order')
+    } finally {
+      setPoCreating(false)
+    }
+  }
+
   const isHodApproved = quotation?.status === 'hod_approved'
   const isBackOfficeExecutive = BACK_OFFICE_ROLES.has(getCurrentUserRole())
   const currentProduct =
@@ -1295,6 +1361,23 @@ const QuotationView = () => {
                 {!exportingPdf && <CIcon icon={cilCloudDownload} className="me-2" />}
                 {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
               </CButton>
+              {(canPoRead || canPoCreate) && (
+                <CButton
+                  color="success"
+                  variant="outline"
+                  onClick={handlePurchaseOrderClick}
+                  disabled={poCreating || poLinkChecking}
+                  className="d-inline-flex align-items-center px-3"
+                  style={{ height: 40 }}
+                >
+                  {poCreating && <CSpinner size="sm" className="me-2" />}
+                  {poLinkChecking
+                    ? 'Checking…'
+                    : linkedPurchaseOrderId
+                      ? 'View purchase order'
+                      : 'Create purchase order'}
+                </CButton>
+              )}
               <CButton
                 color="primary"
                 variant="outline"
@@ -2006,13 +2089,17 @@ const QuotationView = () => {
                   <strong>Related Query</strong>
                   {queryId ? (
                     <CButton color="primary" size="sm" onClick={() => navigate(`/queries/${queryId}`)}>
-                      View Query
+                      {relatedQueryLinkLabel}
                     </CButton>
                   ) : null}
                 </CCardHeader>
                 <CCardBody>
                   {queryId ? (
-                    <p className="mb-0 text-muted">This quotation is linked to a query. Click "View Query" to open it.</p>
+                    <p className="mb-0 text-muted">
+                      {relatedQueryCode
+                        ? `This quotation is linked to query ${relatedQueryCode}. Click the query number above to open it.`
+                        : 'This quotation is linked to a query. Click the link above to open it.'}
+                    </p>
                   ) : (
                     <p className="mb-0 text-muted">No related query.</p>
                   )}

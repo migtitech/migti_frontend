@@ -67,7 +67,7 @@ const IndustryBranchList = () => {
       setBranches(data?.branches || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch industry branches')
+      toastError(err?.message || 'Failed to fetch client branches')
     } finally {
       setLoading(false)
     }
@@ -89,10 +89,10 @@ const IndustryBranchList = () => {
     if (!bid) return
     try {
       await industryBranchService.delete(bid)
-      toastSuccess('Industry branch deleted successfully')
+      toastSuccess('Client branch deleted successfully')
       fetchBranches()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete industry branch')
+      toastError(err?.message || 'Failed to delete client branch')
     }
   }
 
@@ -101,11 +101,11 @@ const IndustryBranchList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Industry Branches</strong>
+            <strong>Client branches</strong>
             {canCreate('industry_branches') && (
               <CButton color="primary" onClick={() => navigate('/industry-branches/new')}>
                 <CIcon icon={cilPlus} className="me-2" />
-                Add Industry Branch
+                Add client branch
               </CButton>
             )}
           </CCardHeader>
@@ -140,7 +140,7 @@ const IndustryBranchList = () => {
                     setPage(1)
                   }}
                 >
-                  <option value="">All Industries</option>
+                  <option value="">All clients</option>
                   {industries.map((ind) => (
                     <option key={ind._id} value={ind._id}>
                       {ind.name}
@@ -150,14 +150,14 @@ const IndustryBranchList = () => {
               </CCol>
             </CRow>
             {loading ? (
-              <Loader message="Loading industry branches..." />
+              <Loader message="Loading client branches..." />
             ) : (
               <>
               <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Industry</CTableHeaderCell>
+                      <CTableHeaderCell>Client</CTableHeaderCell>
                       <CTableHeaderCell>Branch Name</CTableHeaderCell>
                       <CTableHeaderCell>Location</CTableHeaderCell>
                       <CTableHeaderCell>GST</CTableHeaderCell>
@@ -231,7 +231,7 @@ const IndustryBranchList = () => {
                     {branches.length === 0 && (
                       <CTableRow>
                         <CTableDataCell colSpan={7} className="text-center">
-                          No industry branches found. Select an industry and create a branch.
+                          No client branches found. Select a client and create a branch.
                         </CTableDataCell>
                       </CTableRow>
                     )}
@@ -271,8 +271,8 @@ const IndustryBranchList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Industry Branch?"
-        message="Are you sure you want to delete this industry branch?"
+        title="Delete client branch?"
+        message="Are you sure you want to delete this client branch?"
         confirmText="Delete"
         cancelText="Cancel"
       />

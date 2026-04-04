@@ -34,7 +34,7 @@ const IndustryBranchView = () => {
         const data = res?.data?.data || res?.data || res
         setBranch(data)
       } catch (err) {
-        toastError(err?.message || 'Failed to fetch industry branch')
+        toastError(err?.message || 'Failed to fetch client branch')
       } finally {
         setLoading(false)
       }
@@ -46,7 +46,7 @@ const IndustryBranchView = () => {
     return (
       <CCard>
         <CCardBody>
-          <Loader message="Loading industry branch..." />
+          <Loader message="Loading client branch..." />
         </CCardBody>
       </CCard>
     )
@@ -57,7 +57,7 @@ const IndustryBranchView = () => {
       <CAlert color="danger">
         {error}
         <CButton color="link" onClick={() => navigate('/industry-branches')}>
-          Back to Industry Branches
+          Back to client branches
         </CButton>
       </CAlert>
     )
@@ -66,9 +66,9 @@ const IndustryBranchView = () => {
   if (!branch) {
     return (
       <CAlert color="warning">
-        Industry branch not found.
+        Client branch not found.
         <CButton color="link" onClick={() => navigate('/industry-branches')}>
-          Back to Industry Branches
+          Back to client branches
         </CButton>
       </CAlert>
     )
@@ -104,7 +104,7 @@ const IndustryBranchView = () => {
             <CCardBody>
               <CListGroup flush>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Industry:</strong>
+                  <strong>Client:</strong>
                   <span>{industryName}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">

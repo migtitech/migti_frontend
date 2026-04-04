@@ -817,7 +817,7 @@ const QueryForm = () => {
 
   const handleNextFromCompany = () => {
     if (!companyInfo?.name?.trim()) {
-      toastError('Company / Industry name is required')
+      toastError('Company / Client name is required')
       return
     }
     if ((companyInfo.name || '').length > 100) {
@@ -920,7 +920,7 @@ const QueryForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!companyInfo?.name?.trim()) {
-      toastError('Company / Industry name is required')
+      toastError('Company / Client name is required')
       return
     }
     if ((companyInfo.name || '').length > 100) {
@@ -1129,7 +1129,7 @@ const QueryForm = () => {
               </CCardHeader>
               <CCardBody>
                 <div className="mb-3 position-relative" ref={companyDropdownRef}>
-                  <CFormLabel>Industry / Company name (search & select)</CFormLabel>
+                  <CFormLabel>Client / Company name (search & select)</CFormLabel>
                   <CFormInput
                     type="text"
                     value={industrySearch}
@@ -1197,7 +1197,7 @@ const QueryForm = () => {
                         onChange={(e) =>
                           setCompanyInfo((c) => ({ ...c, name: e.target.value.slice(0, 100) }))
                         }
-                        placeholder="Company / Industry name"
+                        placeholder="Company / Client name"
                         maxLength={100}
                       />
                       <div className="form-text text-muted small">
@@ -2027,7 +2027,7 @@ const QueryForm = () => {
                     <CRow className="mb-3">
                       <CCol md={6}>
                         <div className="mb-2">
-                          <strong>Industry / Company</strong>
+                          <strong>Client / Company</strong>
                           <div>{industrySearch || companyInfo.name || '–'}</div>
                         </div>
                       </CCol>

@@ -77,6 +77,65 @@ const ProductLead = () => {
     return acc
   }, {})
 
+  const renderPageNumbers = () => {
+    const totalPages = pagination.totalPages || 0
+    const currentPage = page
+
+    if (!totalPages) return null
+
+    const items = []
+
+    const createPageItem = (pageNumber, label, key) => (
+      <CPaginationItem
+        key={key ?? `p-${pageNumber}`}
+        active={pageNumber === currentPage}
+        disabled={pageNumber == null}
+        onClick={
+          pageNumber != null
+            ? () => {
+                if (pageNumber !== currentPage) {
+                  setPage(pageNumber)
+                }
+              }
+            : undefined
+        }
+      >
+        {label}
+      </CPaginationItem>
+    )
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i += 1) {
+        items.push(createPageItem(i, i))
+      }
+      return items
+    }
+
+    items.push(createPageItem(1, 1))
+
+    const showLeftEllipsis = currentPage > 3
+    const showRightEllipsis = currentPage < totalPages - 2
+
+    if (showLeftEllipsis) {
+      items.push(createPageItem(null, '…', 'ellipsis-left'))
+    }
+
+    const startPage = Math.max(2, currentPage - 1)
+    const endPage = Math.min(totalPages - 1, currentPage + 1)
+
+    for (let i = startPage; i <= endPage; i += 1) {
+      items.push(createPageItem(i, i))
+    }
+
+    if (showRightEllipsis) {
+      items.push(createPageItem(null, '…', 'ellipsis-right'))
+    }
+
+    items.push(createPageItem(totalPages, totalPages))
+
+    return items
+  }
+
   const handleDeleteProduct = async (e, productId) => {
     e.stopPropagation()
     if (!productId) return
@@ -213,27 +272,36 @@ const ProductLead = () => {
                   </CTableBody>
                 </CTable>
                 {pagination?.totalPages > 1 && (
-                  <CPagination className="mt-3 justify-content-center" aria-label="Product Lead pages">
+                  <CPagination className="mt-3 justify-content-center flex-wrap" aria-label="Product Lead pages">
                     <CPaginationItem
+                      aria-label="Previous page"
                       disabled={!pagination.hasPrevPage}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      onClick={() => {
+                        if (pagination.hasPrevPage) setPage((p) => Math.max(1, p - 1))
+                      }}
                     >
-                      Previous
+                      <span aria-hidden="true">«</span> Previous
                     </CPaginationItem>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => (
-                      <CPaginationItem
-                        key={i + 1}
-                        active={page === i + 1}
-                        onClick={() => setPage(i + 1)}
-                      >
-                        {i + 1}
-                      </CPaginationItem>
-                    ))}
+                    {renderPageNumbers()}
                     <CPaginationItem
+                      aria-label="Next page"
                       disabled={!pagination.hasNextPage}
-                      onClick={() => setPage((p) => p + 1)}
+                      onClick={() => {
+                        if (pagination.hasNextPage) setPage((p) => p + 1)
+                      }}
                     >
-                      Next
+                      Next <span aria-hidden="true">»</span>
+                    </CPaginationItem>
+                    <CPaginationItem
+                      aria-label="Last page"
+                      disabled={!pagination.hasNextPage || page >= pagination.totalPages}
+                      onClick={() => {
+                        if (pagination.totalPages && page !== pagination.totalPages) {
+                          setPage(pagination.totalPages)
+                        }
+                      }}
+                    >
+                      Last <span aria-hidden="true">»</span>
                     </CPaginationItem>
                   </CPagination>
                 )}

@@ -24,7 +24,7 @@ import { cilPlus, cilPencil, cilCloudDownload } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import quotationService from '../../services/quotationService'
 import Filtered from '../../filtered/Filtered'
-import { Loader } from '../../components'
+import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError, toastSuccess } from '../../utils/toast'
 
@@ -55,6 +55,8 @@ const QuotationList = () => {
   const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(false)
   const [exportingPdfId, setExportingPdfId] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState({ visible: false, quotation: null })
+  const [deletingId, setDeletingId] = useState(null)
   const latestFetchIdRef = useRef(0)
 
   const handleDownloadPdf = async (e, quotation) => {
@@ -98,6 +100,26 @@ const QuotationList = () => {
       toastError(err?.message || 'Failed to export PDF')
     } finally {
       setExportingPdfId(null)
+    }
+  }
+
+  const handleDeleteQuotationConfirm = async () => {
+    const q = confirmDelete.quotation
+    const qid = q?.id || q?._id
+    if (!qid) {
+      setConfirmDelete({ visible: false, quotation: null })
+      return
+    }
+    setDeletingId(qid)
+    try {
+      await quotationService.delete(qid)
+      toastSuccess('Quotation deleted successfully')
+      setConfirmDelete({ visible: false, quotation: null })
+      fetchQuotations()
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to delete quotation')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -394,6 +416,20 @@ const QuotationList = () => {
           </CCardBody>
         </CCard>
       </CCol>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => !deletingId && setConfirmDelete({ visible: false, quotation: null })}
+        onConfirm={handleDeleteQuotationConfirm}
+        title="Delete quotation?"
+        message={
+          confirmDelete.quotation?.quotationCode
+            ? `Permanently remove quotation ${confirmDelete.quotation.quotationCode}? This cannot be undone.`
+            : 'Permanently remove this quotation? This cannot be undone.'
+        }
+        confirmText={deletingId ? 'Deleting…' : 'Delete'}
+        cancelText="Cancel"
+      />
     </CRow>
   )
 }

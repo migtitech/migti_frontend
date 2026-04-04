@@ -27,7 +27,7 @@ import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
 const schema = yup.object({
-  industryId: yup.string().required('Please select an industry'),
+  industryId: yup.string().required('Please select a client'),
   name: yup.string().required('Branch name is required').min(1).max(100),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
@@ -117,7 +117,7 @@ const IndustryBranchForm = () => {
         gst: data?.gst || '',
       })
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch industry branch')
+      toastError(err?.message || 'Failed to fetch client branch')
     } finally {
       setLoading(false)
     }
@@ -136,14 +136,14 @@ const IndustryBranchForm = () => {
       }
       if (isEdit) {
         await industryBranchService.update(id, payload)
-        toastSuccess('Industry branch updated successfully')
+        toastSuccess('Client branch updated successfully')
       } else {
         await industryBranchService.create(payload)
-        toastSuccess('Industry branch created successfully')
+        toastSuccess('Client branch created successfully')
       }
       navigate('/industry-branches')
     } catch (err) {
-      toastError(err?.message || 'Failed to save industry branch')
+      toastError(err?.message || 'Failed to save client branch')
     } finally {
       setSubmitting(false)
     }
@@ -152,7 +152,7 @@ const IndustryBranchForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <Loader message="Loading industry branch..." />
+        <Loader message="Loading client branch..." />
       </div>
     )
   }
@@ -163,7 +163,7 @@ const IndustryBranchForm = () => {
         <CCol>
           <CButton color="light" onClick={() => navigate('/industry-branches')} className="me-2">
             <CIcon icon={cilArrowLeft} className="me-1" />
-            Back to Industry Branches
+            Back to client branches
           </CButton>
         </CCol>
       </CRow>
@@ -176,15 +176,15 @@ const IndustryBranchForm = () => {
 
       <CCard className="mb-4">
         <CCardHeader>
-          <strong>{isEdit ? 'Edit Industry Branch' : 'Add Industry Branch'}</strong>
+          <strong>{isEdit ? 'Edit client branch' : 'Add client branch'}</strong>
         </CCardHeader>
         <CCardBody>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Industry *</CFormLabel>
+                <CFormLabel>Client *</CFormLabel>
                 <CFormSelect {...register('industryId')} disabled={isEdit}>
-                  <option value="">Select Industry</option>
+                  <option value="">Select client</option>
                   {industries.map((ind) => {
                     const industryId = ind._id ?? ind.id
                     return (
@@ -252,9 +252,9 @@ const IndustryBranchForm = () => {
             {submitting ? (
               <CSpinner size="sm" />
             ) : isEdit ? (
-              'Update Industry Branch'
+              'Update client branch'
             ) : (
-              'Create Industry Branch'
+              'Create client branch'
             )}
           </CButton>
         </CCardBody>

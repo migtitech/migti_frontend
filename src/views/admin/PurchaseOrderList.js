@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -13,389 +13,314 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CForm,
-  CFormInput,
-  CFormLabel,
-  CFormTextarea,
-  CFormSelect,
   CBadge,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilCloudDownload } from '@coreui/icons'
-import { EyeIcon } from '../../components'
-import { useData } from '../../context/DataContext'
-import { ConfirmDialog } from '../../components'
+  CFormSelect,
+  CSpinner,
+  CPagination,
+  CPaginationItem,
+} from "@coreui/react";
+import { EyeIcon } from "../../components";
+import purchaseOrderService from "../../services/purchaseOrderService";
+import Filtered from "../../filtered/Filtered";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastError } from "../../utils/toast";
+
+const mapPo = (row) => (row ? { ...row, id: row._id ?? row.id } : null);
+
+const STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "fulfilled", label: "Fulfilled" },
+  { value: "cancelled", label: "Cancelled" },
+];
 
 const PurchaseOrderList = () => {
-  const navigate = useNavigate()
-  const { purchaseOrders, addPurchaseOrder, updatePurchaseOrder, deletePurchaseOrder, suppliers } = useData()
-  const [showModal, setShowModal] = useState(false)
-  const [editingOrder, setEditingOrder] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
-  const [formData, setFormData] = useState({
-    supplierId: '',
-    supplierName: '',
-    items: '',
-    totalAmount: '',
-    expectedDelivery: '',
-    shippingAddress: '',
-    notes: '',
-    status: 'pending',
-  })
+  const navigate = useNavigate();
+  const [rows, setRows] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const latestFetchIdRef = useRef(0);
 
-  const handleOpenModal = (order = null) => {
-    if (order) {
-      setEditingOrder(order)
-      setFormData({
-        supplierId: order.supplierId || '',
-        supplierName: order.supplierName || '',
-        items: order.items || '',
-        totalAmount: order.totalAmount || '',
-        expectedDelivery: order.expectedDelivery ? order.expectedDelivery.split('T')[0] : '',
-        shippingAddress: order.shippingAddress || '',
-        notes: order.notes || '',
-        status: order.status || 'pending',
-      })
-    } else {
-      setEditingOrder(null)
-      setFormData({
-        supplierId: '',
-        supplierName: '',
-        items: '',
-        totalAmount: '',
-        expectedDelivery: '',
-        shippingAddress: '',
-        notes: '',
-        status: 'pending',
-      })
+  useEffect(() => {
+    const t = setTimeout(() => setSearchDebounced(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    setPageNumber(1);
+  }, [searchDebounced, statusFilter]);
+
+  const fetchRows = async () => {
+    const fetchId = Date.now();
+    latestFetchIdRef.current = fetchId;
+    setLoading(true);
+    try {
+      const res = await withMinimumDelay(() =>
+        purchaseOrderService.getAll({
+          pageNumber,
+          pageSize,
+          search: searchDebounced.trim() || undefined,
+          status: statusFilter || undefined,
+        }),
+      );
+      const data = res?.data || res;
+      const result = data?.data ?? data;
+      if (latestFetchIdRef.current !== fetchId) return;
+      const list = (result?.purchaseOrders || []).map(mapPo);
+      setRows(list);
+      setPagination(result?.pagination || null);
+      const serverPage = result?.pagination?.currentPage;
+      const serverTotalPages = result?.pagination?.totalPages;
+      if (
+        Number.isInteger(serverPage) &&
+        Number.isInteger(serverTotalPages) &&
+        serverTotalPages > 0 &&
+        serverPage > serverTotalPages
+      ) {
+        setPageNumber(serverTotalPages);
+      }
+    } catch (err) {
+      if (latestFetchIdRef.current !== fetchId) return;
+      toastError(err?.message || "Failed to load purchase orders");
+      setRows([]);
+      setPagination(null);
+    } finally {
+      if (latestFetchIdRef.current === fetchId) {
+        setLoading(false);
+      }
     }
-    setShowModal(true)
-  }
+  };
 
-  const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingOrder(null)
-    setFormData({
-      supplierId: '',
-      supplierName: '',
-      items: '',
-      totalAmount: '',
-      expectedDelivery: '',
-      shippingAddress: '',
-      notes: '',
-      status: 'pending',
-    })
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    const data = {
-      ...formData,
-      supplierId: formData.supplierId ? parseInt(formData.supplierId) : null,
-      totalAmount: parseFloat(formData.totalAmount) || 0,
-      expectedDelivery: formData.expectedDelivery ? new Date(formData.expectedDelivery).toISOString() : null,
-    }
-    if (editingOrder) {
-      updatePurchaseOrder(editingOrder.id, data)
-    } else {
-      addPurchaseOrder(data)
-    }
-    handleCloseModal()
-  }
-
-  const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
-
-  const handleDeleteConfirm = () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (id != null) deletePurchaseOrder(id)
-  }
+  useEffect(() => {
+    fetchRows();
+  }, [pageNumber, pageSize, searchDebounced, statusFilter]);
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'pending':
-        return <CBadge color="warning">Pending</CBadge>
-      case 'approved':
-        return <CBadge color="info">Approved</CBadge>
-      case 'ordered':
-        return <CBadge color="primary">Ordered</CBadge>
-      case 'shipped':
-        return <CBadge color="secondary">Shipped</CBadge>
-      case 'delivered':
-        return <CBadge color="success">Delivered</CBadge>
-      case 'cancelled':
-        return <CBadge color="danger">Cancelled</CBadge>
+      case "draft":
+        return <CBadge color="secondary">Draft</CBadge>;
+      case "confirmed":
+        return <CBadge color="info">Confirmed</CBadge>;
+      case "fulfilled":
+        return <CBadge color="success">Fulfilled</CBadge>;
+      case "cancelled":
+        return <CBadge color="danger">Cancelled</CBadge>;
       default:
-        return <CBadge color="secondary">{status}</CBadge>
+        return <CBadge color="secondary">{status || "Draft"}</CBadge>;
     }
-  }
+  };
+
+  const totalPages = pagination?.totalPages ?? 1;
+  const currentPage = pagination?.currentPage ?? pageNumber;
+  const totalItems = pagination?.totalItems ?? rows.length;
+  const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
 
   return (
-    <>
-      <CRow>
-        <CCol xs={12}>
-          <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Purchase Orders</strong>
-              <CButton color="primary" onClick={() => handleOpenModal()}>
-                <CIcon icon={cilPlus} className="me-2" />
-                Add Purchase Order
-              </CButton>
-            </CCardHeader>
-            <CCardBody>
-              <CTable hover responsive bordered>
-                <CTableHead>
-                  <CTableRow>
-                    <CTableHeaderCell>S No</CTableHeaderCell>
-                    <CTableHeaderCell>PO Number</CTableHeaderCell>
-                    <CTableHeaderCell>Supplier</CTableHeaderCell>
-                    <CTableHeaderCell>Items</CTableHeaderCell>
-                    <CTableHeaderCell>Total Amount</CTableHeaderCell>
-                    <CTableHeaderCell>Expected Delivery</CTableHeaderCell>
-                    <CTableHeaderCell>Status</CTableHeaderCell>
-                    <CTableHeaderCell>Date</CTableHeaderCell>
-                    <CTableHeaderCell>Actions</CTableHeaderCell>
-                  </CTableRow>
-                </CTableHead>
-                <CTableBody>
-                  {purchaseOrders && purchaseOrders.map((order, index) => (
-                    <CTableRow
-                      key={order.id}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => navigate(`/purchase-orders/${order.id}`)}
-                    >
-                      <CTableDataCell>{index + 1}</CTableDataCell>
-                      <CTableDataCell>
-                        <strong>PO-{String(order.id).padStart(4, '0')}</strong>
-                      </CTableDataCell>
-                      <CTableDataCell>{order.supplierName || 'N/A'}</CTableDataCell>
-                      <CTableDataCell>
-                        <small>{order.items?.substring(0, 50)}{order.items?.length > 50 ? '...' : ''}</small>
-                      </CTableDataCell>
-                      <CTableDataCell>₹{order.totalAmount?.toLocaleString() || '0'}</CTableDataCell>
-                      <CTableDataCell>
-                        {order.expectedDelivery ? new Date(order.expectedDelivery).toLocaleDateString() : '-'}
-                      </CTableDataCell>
-                      <CTableDataCell>{getStatusBadge(order.status)}</CTableDataCell>
-                      <CTableDataCell>
-                        {new Date(order.createdAt).toLocaleDateString()}
-                      </CTableDataCell>
-                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                        <CButton
-                          color="info"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigate(`/purchase-orders/${order.id}`)
-                          }}
-                          title="View"
-                        >
-                          <EyeIcon />
-                        </CButton>
-                        <CButton
-                          color="success"
-                          variant="ghost"
-                          size="sm"
-                          title="Download PDF"
-                        >
-                          <CIcon icon={cilCloudDownload} />
-                        </CButton>
-                        <CButton
-                          color="warning"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleOpenModal(order)
-                          }}
-                          title="Edit"
-                        >
-                          <CIcon icon={cilPencil} />
-                        </CButton>
-                        <CButton
-                          color="danger"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDelete(order.id)
-                          }}
-                          title="Delete"
-                        >
-                          <CIcon icon={cilTrash} />
-                        </CButton>
-                      </CTableDataCell>
-                    </CTableRow>
+    <CRow style={{ zoom: "0.8" }}>
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader className="d-flex justify-content-between align-items-center">
+            <strong>Purchase orders</strong>
+            <div className="small text-body-secondary">
+              Created from quotations; same line items and totals as the source
+              quote.
+            </div>
+          </CCardHeader>
+
+          <CCardBody>
+            <CRow className="mb-3 g-2 align-items-end">
+              <CCol xs={12} sm={6} md={6} lg={4}>
+                <label className="form-label small text-body-secondary mb-1">
+                  Search
+                </label>
+                <Filtered
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                />
+              </CCol>
+              <CCol xs={12} sm={6} md={6} lg={4}>
+                <label className="form-label small text-body-secondary mb-1">
+                  Status
+                </label>
+                <CFormSelect
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-100"
+                  aria-label="Filter by status"
+                >
+                  {STATUS_OPTIONS.map((option) => (
+                    <option key={option.value || "all"} value={option.value}>
+                      {option.label}
+                    </option>
                   ))}
-                  {(!purchaseOrders || purchaseOrders.length === 0) && (
-                    <CTableRow>
-                      <CTableDataCell colSpan={9} className="text-center">
-                        No purchase orders found. Click "Add Purchase Order" to create one.
-                      </CTableDataCell>
-                    </CTableRow>
-                  )}
-                </CTableBody>
-              </CTable>
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
+                </CFormSelect>
+              </CCol>
+              <CCol xs={12} sm={6} md={6} lg={2}>
+                <label className="form-label small text-body-secondary mb-1">
+                  Rows per page
+                </label>
+                <CFormSelect
+                  value={pageSize}
+                  onChange={(e) => {
+                    const next = Number(e.target.value) || 10;
+                    setPageSize(next);
+                    setPageNumber(1);
+                  }}
+                  aria-label="Rows per page"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </CFormSelect>
+              </CCol>
+            </CRow>
+            {loading && <Loader />}
+            <CTable hover responsive bordered>
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>S No</CTableHeaderCell>
+                  <CTableHeaderCell>PO No.</CTableHeaderCell>
+                  <CTableHeaderCell>Quotation</CTableHeaderCell>
+                  <CTableHeaderCell>Company</CTableHeaderCell>
+                  <CTableHeaderCell>Products / Items</CTableHeaderCell>
+                  <CTableHeaderCell>Total amount</CTableHeaderCell>
+                  <CTableHeaderCell>Status</CTableHeaderCell>
+                  <CTableHeaderCell>Date</CTableHeaderCell>
+                  <CTableHeaderCell>Actions</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
 
-      <CModal visible={showModal} onClose={handleCloseModal} size="lg">
-        <CModalHeader>
-          <CModalTitle>{editingOrder ? 'Edit Purchase Order' : 'Add New Purchase Order'}</CModalTitle>
-        </CModalHeader>
-        <CForm onSubmit={handleSubmit}>
-          <CModalBody>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="supplierId">Supplier</CFormLabel>
-                  <CFormSelect
-                    id="supplierId"
-                    value={formData.supplierId}
-                    onChange={(e) => {
-                      const supplier = suppliers?.find((s) => s.id === parseInt(e.target.value))
-                      setFormData({
-                        ...formData,
-                        supplierId: e.target.value,
-                        supplierName: supplier?.name || formData.supplierName,
-                      })
-                    }}
+              <CTableBody>
+                {rows && rows.length > 0 ? (
+                  rows.map((po, index) => {
+                    const qCode =
+                      typeof po.quotationId === "object" &&
+                      po.quotationId?.quotationCode
+                        ? po.quotationId.quotationCode
+                        : "–";
+                    return (
+                      <CTableRow
+                        key={po.id}
+                        onClick={() => navigate(`/purchase-orders/${po.id}`)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <CTableDataCell>
+                          {(currentPage - 1) * pageSize + index + 1}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <strong>
+                            {po.poCode || `PO-${String(po.id).slice(-6)}`}
+                          </strong>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <small>{qCode}</small>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <strong>{po.companyInfo?.name || "–"}</strong>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <small>
+                            {Array.isArray(po.products) &&
+                            po.products.length > 0
+                              ? `${po.products.length} product(s)`
+                              : "–"}
+                          </small>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          ₹{po.totalAmount?.toLocaleString() || "0"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {getStatusBadge(po.status)}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {po.createdAt
+                            ? new Date(po.createdAt).toLocaleDateString()
+                            : "–"}
+                        </CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
+                          <CButton
+                            color="info"
+                            variant="ghost"
+                            size="sm"
+                            title="View"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate(`/purchase-orders/${po.id}`);
+                            }}
+                          >
+                            <EyeIcon />
+                          </CButton>
+                        </CTableDataCell>
+                      </CTableRow>
+                    );
+                  })
+                ) : (
+                  <CTableRow>
+                    <CTableDataCell colSpan={9} className="text-center">
+                      {!loading &&
+                        (rows?.length === 0
+                          ? "No purchase orders yet. Open a quotation and use “Create purchase order”."
+                          : "No purchase orders match your search.")}
+                    </CTableDataCell>
+                  </CTableRow>
+                )}
+              </CTableBody>
+            </CTable>
+            {totalPages > 1 && (
+              <>
+                <div className="small text-body-secondary text-center mt-2">
+                  Showing {startItem}-{endItem} of {totalItems}
+                </div>
+                <CPagination className="mt-2 justify-content-center">
+                  <CPaginationItem
+                    disabled={loading || currentPage <= 1}
+                    onClick={() => setPageNumber(1)}
                   >
-                    <option value="">Select Supplier</option>
-                    {suppliers && suppliers.map((supplier) => (
-                      <option key={supplier.id} value={supplier.id}>
-                        {supplier.name}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="supplierName">Supplier Name *</CFormLabel>
-                  <CFormInput
-                    id="supplierName"
-                    value={formData.supplierName}
-                    onChange={(e) => setFormData({ ...formData, supplierName: e.target.value })}
-                    required
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="totalAmount">Total Amount *</CFormLabel>
-                  <CFormInput
-                    type="number"
-                    id="totalAmount"
-                    value={formData.totalAmount}
-                    onChange={(e) => setFormData({ ...formData, totalAmount: e.target.value })}
-                    required
-                  />
-                </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="expectedDelivery">Expected Delivery</CFormLabel>
-                  <CFormInput
-                    type="date"
-                    id="expectedDelivery"
-                    value={formData.expectedDelivery}
-                    onChange={(e) => setFormData({ ...formData, expectedDelivery: e.target.value })}
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="status">Status</CFormLabel>
-                  <CFormSelect
-                    id="status"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    First
+                  </CPaginationItem>
+                  <CPaginationItem
+                    disabled={loading || currentPage <= 1}
+                    onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
                   >
-                    <option value="pending">Pending</option>
-                    <option value="approved">Approved</option>
-                    <option value="ordered">Ordered</option>
-                    <option value="shipped">Shipped</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                  </CFormSelect>
-                </div>
-              </CCol>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="shippingAddress">Shipping Address</CFormLabel>
-                  <CFormInput
-                    id="shippingAddress"
-                    value={formData.shippingAddress}
-                    onChange={(e) => setFormData({ ...formData, shippingAddress: e.target.value })}
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="items">Items/Description *</CFormLabel>
-                  <CFormTextarea
-                    id="items"
-                    rows={4}
-                    value={formData.items}
-                    onChange={(e) => setFormData({ ...formData, items: e.target.value })}
-                    placeholder="Enter item details, quantities, and specifications"
-                    required
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="notes">Notes</CFormLabel>
-                  <CFormTextarea
-                    id="notes"
-                    rows={2}
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  />
-                </div>
-              </CCol>
-            </CRow>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={handleCloseModal}>
-              Cancel
-            </CButton>
-            <CButton color="primary" type="submit">
-              {editingOrder ? 'Update' : 'Create'}
-            </CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
-      <ConfirmDialog
-        visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Purchase Order?"
-        message="Are you sure you want to delete this purchase order? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
-    </>
-  )
-}
+                    Previous
+                  </CPaginationItem>
+                  <CPaginationItem active>
+                    {loading ? (
+                      <CSpinner size="sm" />
+                    ) : (
+                      `${currentPage} / ${totalPages}`
+                    )}
+                  </CPaginationItem>
+                  <CPaginationItem
+                    disabled={loading || currentPage >= totalPages}
+                    onClick={() =>
+                      setPageNumber((p) => Math.min(totalPages, p + 1))
+                    }
+                  >
+                    Next
+                  </CPaginationItem>
+                  <CPaginationItem
+                    disabled={loading || currentPage >= totalPages}
+                    onClick={() => setPageNumber(totalPages)}
+                  >
+                    Last
+                  </CPaginationItem>
+                </CPagination>
+              </>
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+    </CRow>
+  );
+};
 
-export default PurchaseOrderList
+export default PurchaseOrderList;
