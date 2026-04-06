@@ -59,8 +59,11 @@ axiosClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config
+    const status = error.response?.status
+    const errorMessage =
+      error.response?.data?.message || error.message || ''
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
 
       const refreshToken = getRefreshToken()
@@ -84,6 +87,19 @@ axiosClient.interceptors.response.use(
       // No refresh token or token expired: clear auth and redirect to login
       redirectToLogin()
       return Promise.reject(error)
+    }
+
+    // Some backends return 403 for invalid/mismatched token
+    if (status === 403) {
+      const msg = String(errorMessage).toLowerCase()
+      if (
+        msg.includes('unauthorized') ||
+        msg.includes('forbidden') ||
+        msg.includes('token') ||
+        msg.includes('jwt')
+      ) {
+        redirectToLogin()
+      }
     }
 
     // Format error response

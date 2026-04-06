@@ -7,7 +7,6 @@ import {
   cilCart,
   cilCommentSquare,
   cilDescription,
-  cilFile,
   cilPeople,
   cilFactory,
   cilIndustry,
@@ -21,6 +20,8 @@ import {
   cilClipboard,
   cilFolder,
   cilTask,
+  cilChartLine,
+  cilCalendar,
 } from '@coreui/icons'
 import { CNavItem, CNavGroup } from '@coreui/react'
 
@@ -131,20 +132,6 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: 'Purchase Orders',
-    to: '/purchase-orders',
-    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
-    module: 'purchase_orders',
-  },
-  {
-    component: CNavItem,
-    name: 'Quote Logs',
-    to: '/quote-logs',
-    icon: <CIcon icon={cilFile} customClassName="nav-icon" />,
-    module: 'quotations',
-  },
-  {
-    component: CNavItem,
     name: 'Suppliers',
     to: '/suppliers',
     icon: <CIcon icon={cilFactory} customClassName="nav-icon" />,
@@ -173,10 +160,45 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'Branch Analytics',
+    to: '/branch-analytics',
+    icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
+    module: null,
+  },
+  {
+    component: CNavItem,
+    name: 'Target Analytics',
+    to: '/target-analytics',
+    icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
+    module: null,
+  },
+  {
+    component: CNavItem,
+    name: 'Purchase Order',
+    to: '/purchase-order-sidebar',
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+    module: 'purchase_orders',
+  },
+  {
+    component: CNavItem,
     name: 'Employees',
     to: '/employees',
     icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
     module: 'employees',
+  },
+  {
+    component: CNavItem,
+    name: 'Visit Management',
+    to: '/visit-management-sidebar',
+    icon: <CIcon icon={cilCalendar} customClassName="nav-icon" />,
+    module: 'visits',
+  },
+  {
+    component: CNavItem,
+    name: 'My Visits',
+    to: '/my-visits',
+    icon: <CIcon icon={cilCalendar} customClassName="nav-icon" />,
+    module: 'visits',
   },
 ]
 

@@ -258,8 +258,23 @@ const QuotationGenerate = () => {
         products: productsPayload,
         forceNewQuotation,
       })
-      const data = res?.data || res
-      const quotation = data?.data?.quotation || data?.quotation
+      const bundle = res?.data ?? res
+      const quotation = bundle?.quotation
+      const updatedQuery = bundle?.query
+      const qMongoId = updatedQuery?._id ?? updatedQuery?.id ?? queryId
+      const quotationId = quotation?._id ?? quotation?.id
+      const quotationCode = quotation?.quotationCode ?? ''
+      if (qMongoId && quotationId) {
+        try {
+          await queryService.syncQuotationOnQuery({
+            queryId: String(qMongoId),
+            quotationId: String(quotationId),
+            quotationCode,
+          })
+        } catch (syncErr) {
+          console.error('syncQuotationOnQuery failed', syncErr)
+        }
+      }
       toastSuccess('Quotation created successfully')
       if (quotation?._id || quotation?.id) {
         navigate(`/quotations/${quotation._id || quotation.id}`)

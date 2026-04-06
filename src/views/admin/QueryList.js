@@ -17,9 +17,11 @@ import {
   CPagination,
   CPaginationItem,
   CFormSelect,
+  CFormInput,
+  CFormLabel,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilLockLocked, cilLockUnlocked } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import queryService from '../../services/queryService'
 import Filtered from '../../filtered/Filtered'
@@ -27,12 +29,102 @@ import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
+const FILTERS_LOCKED_KEY = 'migti_queries_list_filters_locked'
+const FILTERS_STATUS_KEY = 'migti_queries_list_filters_status'
+const FILTERS_DATE_FROM_KEY = 'migti_queries_list_filters_date_from'
+const FILTERS_DATE_TO_KEY = 'migti_queries_list_filters_date_to'
+/** Previous single-field lock (migrated on next save) */
+const LEGACY_STATUS_LOCK_KEY = 'migti_queries_list_status_filter_locked'
+const LEGACY_STATUS_VALUE_KEY = 'migti_queries_list_status_filter'
+
+const readFiltersLocked = () => {
+  try {
+    if (localStorage.getItem(FILTERS_LOCKED_KEY) === '1') return true
+    return localStorage.getItem(LEGACY_STATUS_LOCK_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const readPersistedFilters = () => {
+  if (!readFiltersLocked()) {
+    return { status: '', dateFrom: '', dateTo: '' }
+  }
+  try {
+    const status =
+      localStorage.getItem(FILTERS_STATUS_KEY) ??
+      localStorage.getItem(LEGACY_STATUS_VALUE_KEY) ??
+      ''
+    const dateFrom = localStorage.getItem(FILTERS_DATE_FROM_KEY) ?? ''
+    let dateTo = localStorage.getItem(FILTERS_DATE_TO_KEY) ?? ''
+    if (dateFrom && dateTo && dateTo < dateFrom) dateTo = ''
+    return { status, dateFrom, dateTo }
+  } catch {
+    return { status: '', dateFrom: '', dateTo: '' }
+  }
+}
+
+const clearPersistedFilters = () => {
+  ;[
+    FILTERS_LOCKED_KEY,
+    LEGACY_STATUS_LOCK_KEY,
+    FILTERS_STATUS_KEY,
+    LEGACY_STATUS_VALUE_KEY,
+    FILTERS_DATE_FROM_KEY,
+    FILTERS_DATE_TO_KEY,
+  ].forEach((k) => {
+    try {
+      localStorage.removeItem(k)
+    } catch {
+      /* ignore */
+    }
+  })
+}
+
+const persistLockedFilters = (status, from, to) => {
+  try {
+    localStorage.setItem(FILTERS_LOCKED_KEY, '1')
+    localStorage.setItem(FILTERS_STATUS_KEY, status)
+    localStorage.setItem(FILTERS_DATE_FROM_KEY, from)
+    localStorage.setItem(FILTERS_DATE_TO_KEY, to)
+    localStorage.removeItem(LEGACY_STATUS_LOCK_KEY)
+    localStorage.removeItem(LEGACY_STATUS_VALUE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+const getInitialFilterState = () => {
+  const filtersLocked = readFiltersLocked()
+  const f = readPersistedFilters()
+  return {
+    filtersLocked,
+    statusFilter: f.status,
+    dateFrom: f.dateFrom,
+    dateTo: f.dateTo,
+  }
+}
+
+const formatDateDdMmYyyy = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = String(d.getFullYear())
+  return `${dd}/${mm}/${yyyy}`
+}
+
 const QueryList = () => {
   const navigate = useNavigate()
+  const [filterInit] = useState(() => getInitialFilterState())
   const [queries, setQueries] = useState([])
   const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(filterInit.statusFilter)
+  const [filtersLocked, setFiltersLocked] = useState(filterInit.filtersLocked)
+  const [dateFrom, setDateFrom] = useState(filterInit.dateFrom)
+  const [dateTo, setDateTo] = useState(filterInit.dateTo)
   const [pageNumber, setPageNumber] = useState(1)
 
   const STATUS_OPTIONS = [
@@ -56,6 +148,8 @@ const QueryList = () => {
           pageSize,
           search: searchDebounced.trim() || undefined,
           status: statusFilter || undefined,
+          dateFrom: dateFrom.trim() || undefined,
+          dateTo: dateTo.trim() || undefined,
         }),
       )
       const data = res?.data || res
@@ -80,11 +174,34 @@ const QueryList = () => {
 
   useEffect(() => {
     setPageNumber(1)
-  }, [searchDebounced, statusFilter])
+  }, [searchDebounced, statusFilter, dateFrom, dateTo])
+
+  useEffect(() => {
+    if (!filtersLocked) return
+    persistLockedFilters(statusFilter, dateFrom, dateTo)
+  }, [statusFilter, dateFrom, dateTo, filtersLocked])
 
   useEffect(() => {
     fetchQueries()
-  }, [pageNumber, pageSize, searchDebounced, statusFilter])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter, dateFrom, dateTo])
+
+  useEffect(() => {
+    if (!dateFrom) return
+    setDateTo((prev) => {
+      if (prev && prev < dateFrom) return ''
+      return prev
+    })
+  }, [dateFrom])
+
+  const toggleFiltersLock = () => {
+    if (filtersLocked) {
+      setFiltersLocked(false)
+      clearPersistedFilters()
+      return
+    }
+    setFiltersLocked(true)
+    persistLockedFilters(statusFilter, dateFrom, dateTo)
+  }
 
   const handleDeleteClick = (queryId) => {
     setConfirmDelete({ visible: true, id: queryId })
@@ -121,24 +238,59 @@ const QueryList = () => {
             </CCardHeader>
 
             <CCardBody>
-              <CRow className="mb-3 g-2">
-                <CCol md={4}>
+              <CRow className="mb-3 g-2 align-items-end">
+                <CCol md={3}>
                   <Filtered
                     searchTerm={searchTerm}
                     setSearchTerm={setSearchTerm}
                   />
                 </CCol>
-                <CCol md={4}>
-                  <CFormSelect
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                <CCol md={2}>
+                  <CFormLabel className="mb-1 small text-muted">From date</CFormLabel>
+                  <CFormInput
+                    type="date"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                </CCol>
+                <CCol md={2}>
+                  <CFormLabel className="mb-1 small text-muted">To date</CFormLabel>
+                  <CFormInput
+                    type="date"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                </CCol>
+                <CCol md={3} className="d-flex flex-wrap align-items-end gap-2">
+                  <div className="flex-grow-1" style={{ minWidth: 140 }}>
+                    <CFormLabel className="mb-1 small text-muted">Status</CFormLabel>
+                    <CFormSelect
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                    >
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </CFormSelect>
+                  </div>
+                  <CButton
+                    type="button"
+                    color={filtersLocked ? 'warning' : 'secondary'}
+                    variant="outline"
+                    className="mb-0"
+                    title={
+                      filtersLocked
+                        ? 'Unlock filters (status and date range will not persist when you leave this page)'
+                        : 'Lock filters (status and from/to dates stay when you return to Queries)'
+                    }
+                    onClick={toggleFiltersLock}
                   >
-                    {STATUS_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </CFormSelect>
+                    <CIcon icon={filtersLocked ? cilLockLocked : cilLockUnlocked} />
+                  </CButton>
                 </CCol>
               </CRow>
 
@@ -160,6 +312,7 @@ const QueryList = () => {
                         <CTableHeaderCell>Status</CTableHeaderCell>
                         <CTableHeaderCell>Company</CTableHeaderCell>
                         <CTableHeaderCell>Products</CTableHeaderCell>
+                        <CTableHeaderCell>Quotation no.</CTableHeaderCell>
                         <CTableHeaderCell>Date</CTableHeaderCell>
                         <CTableHeaderCell>Actions</CTableHeaderCell>
                       </CTableRow>
@@ -177,41 +330,9 @@ const QueryList = () => {
                               <strong>{q.queryCode || '—'}</strong>
                             </CTableDataCell>
                             <CTableDataCell>
-                              <div>
-                                <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
-                                  {q.status || 'pending'}
-                                </CBadge>
-                                {Array.isArray(q.convertedQuotations) && q.convertedQuotations.length > 0 && (
-                                  <div className="text-muted small mt-1">
-                                    {q.convertedQuotations.map((ref) => {
-                                      const qid = ref.quotationId?._id ?? ref.quotationId
-                                      const code = ref.quotationCode || qid || '—'
-                                      return (
-                                        <div key={String(qid)}>
-                                          <span
-                                            role="link"
-                                            tabIndex={0}
-                                            className="text-primary text-decoration-underline"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              if (qid) navigate(`/quotations/${qid}`)
-                                            }}
-                                            onKeyDown={(e) => {
-                                              if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                                if (qid) navigate(`/quotations/${qid}`)
-                                              }
-                                            }}
-                                          >
-                                            {code}
-                                          </span>
-                                        </div>
-                                      )
-                                    })}
-                                  </div>
-                                )}
-                              </div>
+                              <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
+                                {q.status || 'pending'}
+                              </CBadge>
                             </CTableDataCell>
                             <CTableDataCell>
                               <strong>{q.companyInfo?.name || '-'}</strong>
@@ -219,22 +340,58 @@ const QueryList = () => {
                                 ? (q.companyInfo.purchaseManagers || []).map((m) => m.name || m.phone).filter(Boolean).join(', ')
                                 : q.companyInfo?.purchase_manager_name || q.companyInfo?.purchase_manager_phone
                               ) && (
-                                <div className="text-muted small">
-                                  {q.companyInfo?.purchaseManagers?.length > 0
-                                    ? (q.companyInfo.purchaseManagers || []).map((m) => m.name || m.phone).filter(Boolean).join(', ')
-                                    : `${q.companyInfo?.purchase_manager_name || ''}${q.companyInfo?.purchase_manager_phone ? ` • ${q.companyInfo.purchase_manager_phone}` : ''}`}
-                                </div>
-                              )}
+                                  <div className="text-muted small">
+                                    {q.companyInfo?.purchaseManagers?.length > 0
+                                      ? q.companyInfo.purchaseManagers.map((pm, index) => (
+                                        <div key={index}>
+                                          {pm.name} {pm.phone ? `(${pm.phone})` : ""}
+                                        </div>
+                                      ))
+                                      : "-"}
+                                  </div>
+                                )}
                             </CTableDataCell>
                             <CTableDataCell>
                               {q.products?.length
                                 ? `${q.products.length} item(s)`
                                 : '-'}
                             </CTableDataCell>
+                            <CTableDataCell className="small">
+                              {Array.isArray(q.convertedQuotations) && q.convertedQuotations.length > 0 ? (
+                                q.convertedQuotations.map((ref) => {
+                                  const qid = ref.quotationId?._id ?? ref.quotationId
+                                  const code = ref.quotationCode || qid || '—'
+                                  return (
+                                    <div key={String(qid)}>
+                                      <span
+                                        role="link"
+                                        tabIndex={0}
+                                        className="text-primary text-decoration-underline"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          if (qid) navigate(`/quotations/${qid}`)
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault()
+                                            e.stopPropagation()
+                                            if (qid) navigate(`/quotations/${qid}`)
+                                          }
+                                        }}
+                                      >
+                                        {code}
+                                      </span>
+                                    </div>
+                                  )
+                                })
+                              ) : (
+                                '—'
+                              )}
+                            </CTableDataCell>
                             <CTableDataCell>
                               {q.createdAt ? (
                                 <>
-                                  {new Date(q.createdAt).toLocaleDateString()}
+                                  {formatDateDdMmYyyy(q.createdAt)}
                                   <div className="text-muted small">
                                     {new Date(q.createdAt).toLocaleTimeString([], {
                                       hour: '2-digit',
@@ -260,18 +417,20 @@ const QueryList = () => {
                               >
                                 <EyeIcon />
                               </CButton>
-                              <CButton
-                                color="warning"
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  navigate(`/queries/edit/${q._id || q.id}`)
-                                }}
-                                title="Edit"
-                              >
-                                <CIcon icon={cilPencil} />
-                              </CButton>
+                              {q.status !== 'closed' && (
+                                <CButton
+                                  color="warning"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigate(`/queries/edit/${q._id || q.id}`)
+                                  }}
+                                  title="Edit"
+                                >
+                                  <CIcon icon={cilPencil} />
+                                </CButton>
+                              )}
                               <CButton
                                 color="danger"
                                 variant="ghost"
@@ -288,11 +447,11 @@ const QueryList = () => {
                           </CTableRow>
                         ))
                       ) : (
-                    <CTableRow>
-                      <CTableDataCell colSpan={9} className="text-center">
-                        No queries found.
-                      </CTableDataCell>
-                    </CTableRow>
+                        <CTableRow>
+                          <CTableDataCell colSpan={8} className="text-center">
+                            No queries found.
+                          </CTableDataCell>
+                        </CTableRow>
                       )}
                     </CTableBody>
                   </CTable>

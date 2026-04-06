@@ -178,10 +178,14 @@ export const QUERIES = {
   CREATE: '/queries/create',
   LIST: '/queries/list',
   TODAY_STATS: '/queries/today-stats',
+  BRANCH_ANALYTICS: '/queries/branch-analytics',
+  TARGET_ANALYTICS: '/queries/target-analytics',
+  TARGET_ANALYTICS_SUMMARY: '/queries/target-analytics/summary',
   GET_BY_ID: '/queries/get-by-id',
   UPDATE: '/queries/update',
   DELETE: '/queries/delete',
   CONVERT_TO_QUOTATION: '/queries/convert-to-quotation',
+  LINK_CONVERTED_QUOTATION: '/queries/link-converted-quotation',
   ACTIVITIES: '/queries/activities',
   RECORD_ACTIVITY: '/queries/record-activity',
   EXPORT_PDF: '/queries/export-pdf',
@@ -214,6 +218,19 @@ export const PURCHASE_TASKS = {
   UPDATE_REMARK: '/purchase-tasks/update-remark',
   RATE_BUCKET: '/purchase-tasks/rate-bucket',
   ADMIN_LIST: '/purchase-tasks/admin-list',
+}
+
+export const PO_BILLING = {
+  CREATE_PO: '/po-billing/po/create',
+  CREATE_BILLING: '/po-billing/billing/create',
+  ANALYTICS: '/po-billing/analytics',
+}
+
+export const VISITS = {
+  CREATE: '/visits/create',
+  LIST: '/visits/list',
+  MY_VISITS: '/visits/my-visits',
+  COMPLETE_WITH_REMARK: '/visits/complete-with-remark',
 }
 
 export const TASK_MANAGEMENT = {
@@ -256,5 +273,7 @@ export default {
   QUOTATIONS,
   PURCHASE_ORDERS,
   PURCHASE_TASKS,
+  PO_BILLING,
+  VISITS,
   TASK_MANAGEMENT,
 }

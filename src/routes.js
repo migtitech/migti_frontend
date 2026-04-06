@@ -49,12 +49,13 @@ const QuotationView = React.lazy(() => import('./views/admin/QuotationView'))
 const QuotationForm = React.lazy(() => import('./views/admin/QuotationForm'))
 const QuotationGenerate = React.lazy(() => import('./views/admin/QuotationGenerate')) 
 const QuoteLogsView = React.lazy(() => import('./views/admin/QuoteLogsView'))
-// Purchase Orders
-const PurchaseOrderList = React.lazy(() => import('./views/admin/PurchaseOrderList'))
-const PurchaseOrderView = React.lazy(() => import('./views/admin/PurchaseOrderView'))
-
 // Finance
 const FinanceDashboard = React.lazy(() => import('./views/admin/FinanceDashboard'))
+const BranchAnalytics = React.lazy(() => import('./views/admin/BranchAnalytics'))
+const TargetAnalytics = React.lazy(() => import('./views/admin/TargetAnalytics'))
+const PurchaseOrderSidebar = React.lazy(() => import('./views/admin/PurchaseOrderSidebar'))
+const VisitManagementSidebar = React.lazy(() => import('./views/admin/VisitManagementSidebar'))
+const MyVisits = React.lazy(() => import('./views/admin/MyVisits'))
 
 // Suppliers
 const SupplierList = React.lazy(() => import('./views/admin/SupplierList'))
@@ -163,12 +164,13 @@ const routes = [
   { path: '/quotations/edit/:id', name: 'Edit Quotations', element: QuotationForm, module: 'quotations', action: 'update' },
   { path: '/quotations/:id', name: 'Quotation Details', element: QuotationView, module: 'quotations', action: 'read' },
 
-  // Purchase Orders
-  { path: '/purchase-orders', name: 'Purchase Orders', element: PurchaseOrderList, module: 'purchase_orders', action: 'read' },
-  { path: '/purchase-orders/:id', name: 'Purchase Order Details', element: PurchaseOrderView, module: 'purchase_orders', action: 'read' },
-
   // Finance
   { path: '/finance', name: 'Finance', element: FinanceDashboard, module: 'finance', action: 'read' },
+  { path: '/branch-analytics', name: 'Branch Analytics', element: BranchAnalytics },
+  { path: '/target-analytics', name: 'Target Analytics', element: TargetAnalytics },
+  { path: '/purchase-order-sidebar', name: 'Purchase Order', element: PurchaseOrderSidebar, module: 'purchase_orders', action: 'read' },
+  { path: '/visit-management-sidebar', name: 'Visit Management', element: VisitManagementSidebar, module: 'visits', action: 'read' },
+  { path: '/my-visits', name: 'My Visits', element: MyVisits, module: 'visits', action: 'read' },
 
   // Suppliers
   { path: '/suppliers', name: 'Suppliers', element: SupplierList, module: 'suppliers', action: 'read' },

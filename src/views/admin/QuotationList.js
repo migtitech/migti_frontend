@@ -15,12 +15,14 @@ import {
   CButton,
   CBadge,
   CFormSelect,
+  CFormInput,
+  CFormLabel,
   CSpinner,
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilCloudDownload } from '@coreui/icons'
+import { cilPlus, cilPencil, cilCloudDownload, cilLockLocked, cilLockUnlocked } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import quotationService from '../../services/quotationService'
 import Filtered from '../../filtered/Filtered'
@@ -29,6 +31,81 @@ import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError, toastSuccess } from '../../utils/toast'
 
 const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null)
+
+const Q_FILTERS_LOCKED_KEY = 'migti_quotations_list_filters_locked'
+const Q_FILTERS_STATUS_KEY = 'migti_quotations_list_filters_status'
+const Q_FILTERS_DATE_FROM_KEY = 'migti_quotations_list_filters_date_from'
+const Q_FILTERS_DATE_TO_KEY = 'migti_quotations_list_filters_date_to'
+
+const readQFiltersLocked = () => {
+  try {
+    return localStorage.getItem(Q_FILTERS_LOCKED_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+const readQPersistedFilters = () => {
+  if (!readQFiltersLocked()) {
+    return { status: '', dateFrom: '', dateTo: '' }
+  }
+  try {
+    const status = localStorage.getItem(Q_FILTERS_STATUS_KEY) ?? ''
+    const dateFrom = localStorage.getItem(Q_FILTERS_DATE_FROM_KEY) ?? ''
+    let dateTo = localStorage.getItem(Q_FILTERS_DATE_TO_KEY) ?? ''
+    if (dateFrom && dateTo && dateTo < dateFrom) dateTo = ''
+    return { status, dateFrom, dateTo }
+  } catch {
+    return { status: '', dateFrom: '', dateTo: '' }
+  }
+}
+
+const clearQPersistedFilters = () => {
+  ;[Q_FILTERS_LOCKED_KEY, Q_FILTERS_STATUS_KEY, Q_FILTERS_DATE_FROM_KEY, Q_FILTERS_DATE_TO_KEY].forEach(
+    (k) => {
+      try {
+        localStorage.removeItem(k)
+      } catch {
+        /* ignore */
+      }
+    },
+  )
+}
+
+const persistQLockedFilters = (status, from, to) => {
+  try {
+    localStorage.setItem(Q_FILTERS_LOCKED_KEY, '1')
+    localStorage.setItem(Q_FILTERS_STATUS_KEY, status)
+    localStorage.setItem(Q_FILTERS_DATE_FROM_KEY, from)
+    localStorage.setItem(Q_FILTERS_DATE_TO_KEY, to)
+  } catch {
+    /* ignore */
+  }
+}
+
+const getQInitialFilterState = () => {
+  const filtersLocked = readQFiltersLocked()
+  const f = readQPersistedFilters()
+  return {
+    filtersLocked,
+    statusFilter: f.status,
+    dateFrom: f.dateFrom,
+    dateTo: f.dateTo,
+  }
+}
+
+const formatDateDdMmYyyy = (iso) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yyyy = String(d.getFullYear())
+  return `${dd}/${mm}/${yyyy}`
+}
+
+const formatInrAmount = (value) =>
+  Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -46,11 +123,15 @@ const STATUS_OPTIONS = [
 
 const QuotationList = () => {
   const navigate = useNavigate()
+  const [qFilterInit] = useState(() => getQInitialFilterState())
   const [quotations, setQuotations] = useState([])
   const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState(qFilterInit.statusFilter)
+  const [filtersLocked, setFiltersLocked] = useState(qFilterInit.filtersLocked)
+  const [dateFrom, setDateFrom] = useState(qFilterInit.dateFrom)
+  const [dateTo, setDateTo] = useState(qFilterInit.dateTo)
   const [pageNumber, setPageNumber] = useState(1)
   const [pageSize, setPageSize] = useState(10)
   const [loading, setLoading] = useState(false)
@@ -130,7 +211,30 @@ const QuotationList = () => {
 
   useEffect(() => {
     setPageNumber(1)
-  }, [searchDebounced, statusFilter])
+  }, [searchDebounced, statusFilter, dateFrom, dateTo])
+
+  useEffect(() => {
+    if (!filtersLocked) return
+    persistQLockedFilters(statusFilter, dateFrom, dateTo)
+  }, [statusFilter, dateFrom, dateTo, filtersLocked])
+
+  useEffect(() => {
+    if (!dateFrom) return
+    setDateTo((prev) => {
+      if (prev && prev < dateFrom) return ''
+      return prev
+    })
+  }, [dateFrom])
+
+  const toggleFiltersLock = () => {
+    if (filtersLocked) {
+      setFiltersLocked(false)
+      clearQPersistedFilters()
+      return
+    }
+    setFiltersLocked(true)
+    persistQLockedFilters(statusFilter, dateFrom, dateTo)
+  }
 
   const fetchQuotations = async () => {
     const fetchId = Date.now()
@@ -143,6 +247,8 @@ const QuotationList = () => {
           pageSize,
           search: searchDebounced.trim() || undefined,
           status: statusFilter || undefined,
+          dateFrom: dateFrom.trim() || undefined,
+          dateTo: dateTo.trim() || undefined,
         }),
       )
       const data = res?.data || res
@@ -175,7 +281,7 @@ const QuotationList = () => {
 
   useEffect(() => {
     fetchQuotations()
-  }, [pageNumber, pageSize, searchDebounced, statusFilter])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter, dateFrom, dateTo])
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -224,27 +330,61 @@ const QuotationList = () => {
 
             <CCardBody>
             <CRow className="mb-3 g-2 align-items-end">
-              <CCol xs={12} sm={6} md={6} lg={4}>
-                <label className="form-label small text-body-secondary mb-1">Search</label>
+              <CCol xs={12} sm={6} md={6} lg={3}>
+                <CFormLabel className="mb-1 small text-body-secondary">Search</CFormLabel>
                 <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
               </CCol>
-              <CCol xs={12} sm={6} md={6} lg={4}>
-                <label className="form-label small text-body-secondary mb-1">Status</label>
-                <CFormSelect
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-100"
-                  aria-label="Filter by status"
+              <CCol xs={12} sm={6} md={3} lg={2}>
+                <CFormLabel className="mb-1 small text-body-secondary">From date</CFormLabel>
+                <CFormInput
+                  type="date"
+                  value={dateFrom}
+                  max={dateTo || undefined}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                />
+              </CCol>
+              <CCol xs={12} sm={6} md={3} lg={2}>
+                <CFormLabel className="mb-1 small text-body-secondary">To date</CFormLabel>
+                <CFormInput
+                  type="date"
+                  value={dateTo}
+                  min={dateFrom || undefined}
+                  onChange={(e) => setDateTo(e.target.value)}
+                />
+              </CCol>
+              <CCol xs={12} sm={6} md={6} lg={3} className="d-flex flex-wrap align-items-end gap-2">
+                <div className="flex-grow-1" style={{ minWidth: 140 }}>
+                  <CFormLabel className="mb-1 small text-body-secondary">Status</CFormLabel>
+                  <CFormSelect
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-100"
+                    aria-label="Filter by status"
+                  >
+                    {STATUS_OPTIONS.map((option) => (
+                      <option key={option.value || 'all'} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </div>
+                <CButton
+                  type="button"
+                  color={filtersLocked ? 'warning' : 'secondary'}
+                  variant="outline"
+                  className="mb-0"
+                  title={
+                    filtersLocked
+                      ? 'Unlock filters (status and date range will not persist when you leave this page)'
+                      : 'Lock filters (status and from/to dates stay when you return to Quotations)'
+                  }
+                  onClick={toggleFiltersLock}
                 >
-                  {STATUS_OPTIONS.map((option) => (
-                    <option key={option.value || 'all'} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </CFormSelect>
+                  <CIcon icon={filtersLocked ? cilLockLocked : cilLockUnlocked} />
+                </CButton>
               </CCol>
               <CCol xs={12} sm={6} md={6} lg={2}>
-                <label className="form-label small text-body-secondary mb-1">Rows per page</label>
+                <CFormLabel className="mb-1 small text-body-secondary">Rows per page</CFormLabel>
                 <CFormSelect
                   value={pageSize}
                   onChange={(e) => {
@@ -312,15 +452,13 @@ const QuotationList = () => {
                         </small>
                       </CTableDataCell>
                       <CTableDataCell style={rowBg}>
-                        ₹{quotation.totalAmount?.toLocaleString() || '0'}
+                        ₹{formatInrAmount(quotation.totalAmount)}
                       </CTableDataCell>
                       <CTableDataCell style={rowBg}>
                         {getStatusBadge(quotation.status)}
                       </CTableDataCell>
                       <CTableDataCell style={rowBg}>
-                        {quotation.createdAt
-                          ? new Date(quotation.createdAt).toLocaleDateString()
-                          : '-'}
+                        {quotation.createdAt ? formatDateDdMmYyyy(quotation.createdAt) : '-'}
                       </CTableDataCell>
                       <CTableDataCell style={rowBg} onClick={(e) => e.stopPropagation()}>
                         <CButton
@@ -330,7 +468,8 @@ const QuotationList = () => {
                           title="View"
                           onClick={(e) => {
                             e.stopPropagation()
-                            navigate(`/quotations/${quotation.id}`)}}
+                            navigate(`/quotations/${quotation.id}`)
+                          }}
                         >
                           <EyeIcon />
                         </CButton>

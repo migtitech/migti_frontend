@@ -754,6 +754,11 @@ const QueryForm = () => {
         const data = res?.data || res
         const q = data?.data ?? data
         if (!q) throw new Error('Query not found')
+        if (q.status === 'closed') {
+          toastError('This query is closed and cannot be edited')
+          navigate(`/queries/${id}`)
+          return
+        }
 
         const ci = q.companyInfo || {}
         let managers = (ci.purchaseManagers || []).map((m) => ({
@@ -802,7 +807,7 @@ const QueryForm = () => {
       }
     }
     load()
-  }, [id, isEdit])
+  }, [id, isEdit, navigate])
 
   const getCreatedBy = () => {
     try {

@@ -29,6 +29,7 @@ const ACTION_LABELS = {
 const MODULE_LABEL_DISPLAY = {
   Industries: 'Clients',
   'Industry Branches': 'Client branches',
+  Visits: 'My Visits',
 }
 
 const ALLOWED_MODULE_LABELS = new Set([
@@ -52,6 +53,7 @@ const ALLOWED_MODULE_LABELS = new Set([
   'Task Management',
   'Task Bucket',
   'Employees',
+  'Visits',
 ])
 
 const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }) => {

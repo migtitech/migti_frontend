@@ -32,7 +32,7 @@ const ProtectedRoute = ({ children, module, action = 'read' }) => {
 
   // Check specific permission
   if (!hasPermission(module, action)) {
-    return <Navigate to="/unauthorized" replace />
+    return <Navigate to="/login" replace />
   }
 
   return children

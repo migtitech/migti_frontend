@@ -1,38 +1,63 @@
 import { api } from '../api/axiosClient'
 import { QUERIES } from '../api/endpoints'
 
-const mapToApiPayload = (data) => ({
-  ...(data.status != null && { status: data.status }),
-  companyInfo: {
-    ...(data.companyInfo || {}),
-    purchaseManagers: (data.companyInfo?.purchaseManagers || []).map((m) => ({
-      name: m?.name || '',
-      phone: m?.phone || '',
-      email: m?.email || '',
-    })),
-  },
-  industry_id: data.industry_id || null,
-  products: (data.products || []).map((p) => ({
-    productName: p.productName,
-    quantity: p.quantity ?? 1,
-    unit: p.unit || '',
-    hsnNumber: p.hsnNumber || '',
-    modelNumber: p.modelNumber || '',
-    gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
-    variants: (p.variants || []).map((v) => ({
-      variantName: v.variantName || '',
-    })),
-    remark: p.remark || '',
-    description: (p.description && String(p.description).trim()) ? String(p.description).trim() : '',
-    product_id: p.product_id || null,
-    images: Array.isArray(p.images) ? p.images : [],
-  })),
-  created_by: data.created_by != null ? String(data.created_by) : undefined,
-})
+const mapToApiPayload = (data) => {
+  const payload = {}
+  if (data.status != null) payload.status = data.status
+  if (data.close_remark !== undefined) payload.close_remark = data.close_remark
+
+  if (data.companyInfo !== undefined) {
+    payload.companyInfo = {
+      ...(data.companyInfo || {}),
+      purchaseManagers: (data.companyInfo?.purchaseManagers || []).map((m) => ({
+        name: m?.name || '',
+        phone: m?.phone || '',
+        email: m?.email || '',
+      })),
+    }
+  }
+
+  if (data.industry_id !== undefined) {
+    payload.industry_id = data.industry_id || null
+  }
+
+  if (data.products !== undefined) {
+    payload.products = (data.products || []).map((p) => ({
+      productName: p.productName,
+      quantity: p.quantity ?? 1,
+      unit: p.unit || '',
+      hsnNumber: p.hsnNumber || '',
+      modelNumber: p.modelNumber || '',
+      gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
+      variants: (p.variants || []).map((v) => ({
+        variantName: v.variantName || '',
+      })),
+      remark: p.remark || '',
+      description:
+        p.description && String(p.description).trim() ? String(p.description).trim() : '',
+      product_id: p.product_id || null,
+      images: Array.isArray(p.images) ? p.images : [],
+    }))
+  }
+
+  if (data.created_by != null) payload.created_by = String(data.created_by)
+
+  return payload
+}
 
 const queryService = {
   getAll: async (params = {}) => {
     const response = await api.get(QUERIES.LIST, { params })
+    return response
+  },
+
+  /** Idempotent: ensures quotation ref + code are stored on the source query after convert. */
+  syncQuotationOnQuery: async ({ queryId, quotationId, quotationCode }) => {
+    const response = await api.post(QUERIES.LINK_CONVERTED_QUOTATION, {
+      queryId,
+      quotationId,
+      quotationCode: quotationCode ?? '',
+    })
     return response
   },
 

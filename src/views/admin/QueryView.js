@@ -20,10 +20,23 @@ import {
   CModalHeader,
   CModalTitle,
   CModalBody,
+  CModalFooter,
+  CFormLabel,
+  CFormTextarea,
+  CSpinner,
   CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilArrowRight, cilPencil, cilTrash, cilCheckAlt, cilX, cilCloudDownload } from '@coreui/icons'
+import {
+  cilArrowLeft,
+  cilArrowRight,
+  cilPencil,
+  cilTrash,
+  cilCheckAlt,
+  cilX,
+  cilCloudDownload,
+  cilBan,
+} from '@coreui/icons'
 import { getAssetsUrl } from '../../api/endpoints'
 import queryService from '../../services/queryService'
 import employeeService from '../../services/employeeService'
@@ -83,6 +96,9 @@ const QueryView = () => {
   const [expandedImages, setExpandedImages] = useState([]) // array of image URLs for slider
   const [expandedImageIndex, setExpandedImageIndex] = useState(0)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [closeModalVisible, setCloseModalVisible] = useState(false)
+  const [closeRemark, setCloseRemark] = useState('')
+  const [closing, setClosing] = useState(false)
 
   const getImageUrl = (img) => {
     if (!img) return ''
@@ -178,6 +194,33 @@ const QueryView = () => {
       navigate('/queries')
     } catch (err) {
       toastError(err?.message || 'Failed to delete query')
+    }
+  }
+
+  const openCloseQueryModal = () => {
+    setCloseRemark((query && query.close_remark) || '')
+    setCloseModalVisible(true)
+  }
+
+  const handleCloseQuerySave = async () => {
+    if (!id) return
+    setClosing(true)
+    try {
+      await queryService.update(id, {
+        status: 'closed',
+        close_remark: closeRemark.trim(),
+      })
+      toastSuccess('Query closed successfully')
+      setCloseModalVisible(false)
+      const res = await queryService.getById(id)
+      const data = res?.data || res
+      const q = data?.data ?? data
+      setQuery(q)
+      fetchActivities(activitiesPage)
+    } catch (err) {
+      toastError(err?.message || 'Failed to close query')
+    } finally {
+      setClosing(false)
     }
   }
 
@@ -343,7 +386,17 @@ const QueryView = () => {
                 <span className="small text-muted me-2">Location</span>
                 <span className="fw-semibold">{companyLocation}</span>
               </div>
+              <div className="px-3 py-2 rounded border bg-white d-inline-flex align-items-center gap-2">
+                <span className="small text-muted">Status</span>
+                <CBadge color={getStatusBadgeColor(query.status)}>{query.status || '—'}</CBadge>
+              </div>
             </div>
+            {query.status === 'closed' && query.close_remark ? (
+              <div className="px-3 py-2 rounded border bg-white w-100">
+                <span className="small text-muted d-block mb-1">Close remark</span>
+                <span className="text-break">{query.close_remark}</span>
+              </div>
+            ) : null}
 
             <div className="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
               <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -368,7 +421,7 @@ const QueryView = () => {
               </div>
 
               <div className="d-flex flex-wrap justify-content-lg-end align-items-center gap-2">
-                {canUpdate('quotations') && query.status !== 'convertedToQuotation' && (
+                {canUpdate('quotations') && query.status !== 'closed' && query.status !== 'convertedToQuotation' && (
                   <CButton
                     color="success"
                     disabled={!query?.queryCode}
@@ -380,7 +433,7 @@ const QueryView = () => {
                     Convert to Quotation
                   </CButton>
                 )}
-                {canUpdate('quotations') && query.status === 'convertedToQuotation' && (
+                {canUpdate('quotations') && query.status !== 'closed' && query.status === 'convertedToQuotation' && (
                   <CButton
                     color="success"
                     variant="outline"
@@ -393,7 +446,7 @@ const QueryView = () => {
                     Create Re-Quotation
                   </CButton>
                 )}
-                {canUpdate('queries') && (
+                {canUpdate('queries') && query.status !== 'closed' && (
                   <CButton
                     color="warning"
                     onClick={() => navigate(`/queries/edit/${id}`)}
@@ -413,6 +466,18 @@ const QueryView = () => {
                   >
                     <CIcon icon={cilTrash} className="me-1" />
                     Delete
+                  </CButton>
+                )}
+                {canUpdate('queries') && query.status !== 'closed' && (
+                  <CButton
+                    color="dark"
+                    variant="outline"
+                    onClick={openCloseQueryModal}
+                    className="d-inline-flex align-items-center px-3"
+                    style={{ height: 40 }}
+                  >
+                    <CIcon icon={cilBan} className="me-1" />
+                    Close
                   </CButton>
                 )}
                 <CButton
@@ -574,6 +639,36 @@ const QueryView = () => {
         confirmText="Yes, convert"
         cancelText="Cancel"
       />
+      <CModal visible={closeModalVisible} onClose={() => !closing && setCloseModalVisible(false)} alignment="center">
+        <CModalHeader>
+          <CModalTitle>Close query</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <CFormLabel htmlFor="query-close-remark">Remark (optional)</CFormLabel>
+          <CFormTextarea
+            id="query-close-remark"
+            rows={4}
+            value={closeRemark}
+            onChange={(e) => setCloseRemark(e.target.value)}
+            placeholder="Add a remark for closing this query"
+          />
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" variant="outline" onClick={() => setCloseModalVisible(false)} disabled={closing}>
+            Cancel
+          </CButton>
+          <CButton color="primary" onClick={handleCloseQuerySave} disabled={closing}>
+            {closing ? (
+              <>
+                <CSpinner size="sm" className="me-2" />
+                Saving...
+              </>
+            ) : (
+              'Save'
+            )}
+          </CButton>
+        </CModalFooter>
+      </CModal>
       {/* Image slider modal */}
       <CModal alignment="center" visible={expandedImages.length > 0} onClose={() => setExpandedImages([])} className="p-0">
         <CModalHeader className="border-0 pb-0 d-flex justify-content-between align-items-center">

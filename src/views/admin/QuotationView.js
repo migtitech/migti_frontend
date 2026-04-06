@@ -37,7 +37,6 @@ import {
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilArrowRight, cilCloudDownload, cilEnvelopeClosed, cilX } from '@coreui/icons'
 import quotationService from '../../services/quotationService'
-import purchaseOrderService from '../../services/purchaseOrderService'
 import usePermissions from '../../hooks/usePermissions'
 import employeeService from '../../services/employeeService'
 import purchaseTaskService from '../../services/purchaseTaskService'
@@ -88,12 +87,30 @@ const formatVariants = (variants) => {
   return variants.map((v) => v.variantName || v || '–').filter(Boolean).join(', ')
 }
 
+const parseQuotationFreightNumeric = (v) => {
+  if (v == null || v === '') return 0
+  if (typeof v === 'number' && !Number.isNaN(v) && v >= 0) return v
+  const n = parseFloat(String(v).replace(/,/g, '').trim())
+  return Number.isFinite(n) && n >= 0 ? n : 0
+}
+
+const formatQuotationFreightDisplay = (v) => {
+  if (v == null || v === '') return '—'
+  const str = String(v).trim()
+  if (str === '') return '—'
+  const compact = str.replace(/,/g, '').replace(/\s/g, '')
+  if (/^\d*\.?\d+$/.test(compact)) {
+    const num = parseFloat(compact)
+    const n = Number.isFinite(num) && num >= 0 ? num : 0
+    return `₹${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return str
+}
+
 const QuotationView = () => {
   const { id } = useParams()
   const navigate = useNavigate()
   const { hasPermission } = usePermissions()
-  const canPoRead = hasPermission('purchase_orders', 'read')
-  const canPoCreate = hasPermission('purchase_orders', 'create')
   const [quotation, setQuotation] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -153,17 +170,13 @@ const QuotationView = () => {
   const [savingCompany, setSavingCompany] = useState(false)
   const [zoneNameDisplay, setZoneNameDisplay] = useState(null)
   const [packingDeliveryForm, setPackingDeliveryForm] = useState({
-    freightCharge: 0,
+    freightCharge: '',
     packingCharge: 0,
     expectedDeliveryWithinDays: '',
   })
   const [savingPackingDelivery, setSavingPackingDelivery] = useState(false)
   const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0)
   const [quoteLogsOpen, setQuoteLogsOpen] = useState(false)
-  const [linkedPurchaseOrderId, setLinkedPurchaseOrderId] = useState(null)
-  const [poLinkChecking, setPoLinkChecking] = useState(false)
-  const [poCreating, setPoCreating] = useState(false)
-
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
 
   useEffect(() => {
@@ -196,31 +209,6 @@ const QuotationView = () => {
     return () => { cancelled = true }
   }, [id])
 
-  useEffect(() => {
-    if (!quotation?.id || !canPoRead) {
-      setLinkedPurchaseOrderId(null)
-      setPoLinkChecking(false)
-      return
-    }
-    let cancelled = false
-    setPoLinkChecking(true)
-    purchaseOrderService
-      .getByQuotationId(quotation.id)
-      .then((res) => {
-        if (cancelled) return
-        const d = res?.data?.data
-        setLinkedPurchaseOrderId(d?._id || d?.id || null)
-      })
-      .catch(() => {
-        if (!cancelled) setLinkedPurchaseOrderId(null)
-      })
-      .finally(() => {
-        if (!cancelled) setPoLinkChecking(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [quotation?.id, canPoRead])
 
   const companyInfo = quotation?.companyInfo || null
   const products = Array.isArray(quotation?.products) ? quotation.products : []
@@ -275,7 +263,8 @@ const QuotationView = () => {
       const packing = quotation.packingCharge
       const expWithinDays = quotation.expectedDeliveryWithinDays
       setPackingDeliveryForm({
-        freightCharge: typeof freight === 'number' ? freight : (Number(freight) || 0),
+        freightCharge:
+          freight != null && freight !== '' ? String(freight) : '',
         packingCharge: typeof packing === 'number' ? packing : (Number(packing) || 0),
         expectedDeliveryWithinDays:
           expWithinDays != null && !Number.isNaN(Number(expWithinDays))
@@ -321,7 +310,7 @@ const QuotationView = () => {
     setSavingPackingDelivery(true)
     try {
       const res = await quotationService.update(quotation.id, {
-        freightCharge: Number(packingDeliveryForm.freightCharge) >= 0 ? Number(packingDeliveryForm.freightCharge) : 0,
+        freightCharge: String(packingDeliveryForm.freightCharge ?? '').trim(),
         packingCharge: Number(packingDeliveryForm.packingCharge) >= 0 ? Number(packingDeliveryForm.packingCharge) : 0,
         expectedDeliveryWithinDays:
           packingDeliveryForm.expectedDeliveryWithinDays === ''
@@ -1142,32 +1131,6 @@ const QuotationView = () => {
     }
   }
 
-  const handlePurchaseOrderClick = async () => {
-    if (!quotation?.id) return
-    if (linkedPurchaseOrderId) {
-      navigate(`/purchase-orders/${linkedPurchaseOrderId}`)
-      return
-    }
-    if (!canPoCreate) {
-      toastError('You do not have permission to create purchase orders')
-      return
-    }
-    setPoCreating(true)
-    try {
-      const res = await purchaseOrderService.createFromQuotation(quotation.id)
-      const data = res?.data?.data ?? res?.data
-      const newId = data?._id || data?.id
-      if (newId) {
-        setLinkedPurchaseOrderId(newId)
-        navigate(`/purchase-orders/${newId}`)
-        toastSuccess('Purchase order ready')
-      }
-    } catch (err) {
-      toastError(err?.response?.data?.message || err?.message || 'Failed to create purchase order')
-    } finally {
-      setPoCreating(false)
-    }
-  }
 
   const isHodApproved = quotation?.status === 'hod_approved'
   const isBackOfficeExecutive = BACK_OFFICE_ROLES.has(getCurrentUserRole())
@@ -1361,23 +1324,6 @@ const QuotationView = () => {
                 {!exportingPdf && <CIcon icon={cilCloudDownload} className="me-2" />}
                 {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
               </CButton>
-              {(canPoRead || canPoCreate) && (
-                <CButton
-                  color="success"
-                  variant="outline"
-                  onClick={handlePurchaseOrderClick}
-                  disabled={poCreating || poLinkChecking}
-                  className="d-inline-flex align-items-center px-3"
-                  style={{ height: 40 }}
-                >
-                  {poCreating && <CSpinner size="sm" className="me-2" />}
-                  {poLinkChecking
-                    ? 'Checking…'
-                    : linkedPurchaseOrderId
-                      ? 'View purchase order'
-                      : 'Create purchase order'}
-                </CButton>
-              )}
               <CButton
                 color="primary"
                 variant="outline"
@@ -1596,6 +1542,16 @@ const QuotationView = () => {
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
+                            <CTableRow>
+                              <CTableHeaderCell scope="row" className="bg-light">
+                                GST Number
+                              </CTableHeaderCell>
+                              <CTableDataCell>
+                                {quotation?.companyInfo?.gstNumber ||
+                                  quotation?.industry_id?.gstNumber ||
+                                  '–'}
+                              </CTableDataCell>
+                            </CTableRow>
                           </CTableBody>
                         </CTable>
                       </CCol>
@@ -1677,15 +1633,6 @@ const QuotationView = () => {
                             <CTableHeaderCell className="text-center">
                               HSN Code
                             </CTableHeaderCell>
-                            <CTableHeaderCell className="text-center">
-                              Photo
-                            </CTableHeaderCell>
-                            <CTableHeaderCell className="text-center">
-                              Qty.
-                            </CTableHeaderCell>
-                            <CTableHeaderCell className="text-center">
-                              Unit
-                            </CTableHeaderCell>
                             <CTableHeaderCell className="text-end">
                               Unit Price
                             </CTableHeaderCell>
@@ -1695,10 +1642,19 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                             )}
                             <CTableHeaderCell className="text-center">
+                              Qty.
+                            </CTableHeaderCell>
+                            <CTableHeaderCell className="text-center">
+                              Unit
+                            </CTableHeaderCell>
+                            <CTableHeaderCell className="text-center">
                               GST %
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-end">
                               Total
+                            </CTableHeaderCell>
+                            <CTableHeaderCell className="text-center">
+                              Photo
                             </CTableHeaderCell>
                             <CTableHeaderCell>Reason</CTableHeaderCell>
                           </CTableRow>
@@ -1795,6 +1751,40 @@ const QuotationView = () => {
                                 <CTableDataCell className="text-center align-middle">
                                   {hsn}
                                 </CTableDataCell>
+                                <CTableDataCell className="text-end align-middle">
+                                  {rate
+                                    ? `₹${rate.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}`
+                                    : ''}
+                                </CTableDataCell>
+                                {hasDiscountColumn && (
+                                  <CTableDataCell className="text-end align-middle">
+                                    {p.applyDiscount && p.discountPercentage != null
+                                      ? `${Number(p.discountPercentage).toFixed(2)}%`
+                                      : '–'}
+                                  </CTableDataCell>
+                                )}
+                                <CTableDataCell className="text-center align-middle">
+                                  {qty || ''}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center align-middle">
+                                  {p.unit || ''}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center align-middle">
+                                  {gstPercent
+                                    ? `${gstPercent.toFixed(2)}%`
+                                    : '–'}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-end align-middle">
+                                  {rowTotal
+                                    ? `₹${rowTotal.toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      })}`
+                                    : '–'}
+                                </CTableDataCell>
                                 <CTableDataCell className="text-center align-middle">
                                   {firstImg ? (
                                     <div
@@ -1832,40 +1822,6 @@ const QuotationView = () => {
                                   ) : (
                                     <span className="text-muted small">–</span>
                                   )}
-                                </CTableDataCell>
-                                <CTableDataCell className="text-center align-middle">
-                                  {qty || ''}
-                                </CTableDataCell>
-                                <CTableDataCell className="text-center align-middle">
-                                  {p.unit || ''}
-                                </CTableDataCell>
-                                <CTableDataCell className="text-end align-middle">
-                                  {rate
-                                    ? `₹${rate.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}`
-                                    : ''}
-                                </CTableDataCell>
-                                {hasDiscountColumn && (
-                                  <CTableDataCell className="text-end align-middle">
-                                    {p.applyDiscount && p.discountPercentage != null
-                                      ? `${Number(p.discountPercentage).toFixed(2)}%`
-                                      : '–'}
-                                  </CTableDataCell>
-                                )}
-                                <CTableDataCell className="text-center align-middle">
-                                  {gstPercent
-                                    ? `${gstPercent.toFixed(2)}%`
-                                    : '–'}
-                                </CTableDataCell>
-                                <CTableDataCell className="text-end align-middle">
-                                  {rowTotal
-                                    ? `₹${rowTotal.toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      })}`
-                                    : '–'}
                                 </CTableDataCell>
                                 <CTableDataCell className="align-middle">
                                   {reasonText}
@@ -1915,14 +1871,7 @@ const QuotationView = () => {
                               Freight Charge
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
-                              ₹
-                              {(Number(quotation?.freightCharge) || 0).toLocaleString(
-                                undefined,
-                                {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                },
-                              )}
+                              {formatQuotationFreightDisplay(quotation?.freightCharge)}
                             </CTableDataCell>
                           </CTableRow>
                           <CTableRow>
@@ -1957,8 +1906,7 @@ const QuotationView = () => {
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
                               {(() => {
-                                const freight =
-                                  Number(quotation?.freightCharge) || 0
+                                const freight = parseQuotationFreightNumeric(quotation?.freightCharge)
                                 const packing =
                                   Number(quotation?.packingCharge) || 0
                                 const taxableAfterCharges =
@@ -1991,8 +1939,7 @@ const QuotationView = () => {
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end fw-semibold">
                               {(() => {
-                                const freight =
-                                  Number(quotation?.freightCharge) || 0
+                                const freight = parseQuotationFreightNumeric(quotation?.freightCharge)
                                 const packing =
                                   Number(quotation?.packingCharge) || 0
                                 const taxableAfterCharges =
@@ -2121,15 +2068,18 @@ const QuotationView = () => {
                   <CRow>
                     <CCol md={4}>
                       <div className="mb-3">
-                        <CFormLabel>Freight Charge (₹)</CFormLabel>
+                        <CFormLabel>Freight charge</CFormLabel>
                         <CFormInput
-                          type="number"
-                          min={0}
-                          step="0.01"
+                          type="text"
                           value={packingDeliveryForm.freightCharge}
-                          onChange={(e) => setPackingDeliveryForm((prev) => ({ ...prev, freightCharge: e.target.value === '' ? 0 : e.target.value }))}
-                          placeholder="0"
+                          onChange={(e) =>
+                            setPackingDeliveryForm((prev) => ({
+                              ...prev,
+                              freightCharge: e.target.value,
+                            }))}
+                          placeholder="e.g. 1500 or As per actual"
                         />
+                        <div className="small text-muted mt-1">Amount or free text; numeric values are included in totals.</div>
                       </div>
                     </CCol>
                     <CCol md={4}>
