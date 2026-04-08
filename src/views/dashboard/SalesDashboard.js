@@ -12,71 +12,96 @@ import {
   CTableHeaderCell,
   CTableBody,
   CTableDataCell,
-  CBadge,
-  CProgress,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import {
-  cilCart,
-  cilDollar,
-  cilPeople,
-} from '@coreui/icons'
+import { cilCart, cilDollar, cilPeople } from '@coreui/icons'
 import { useAuth } from '../../context/AuthContext'
 import queryService from '../../services/queryService'
 
 const SalesDashboard = () => {
   const { user } = useAuth()
-  const [todayStats, setTodayStats] = useState({
-    todayQueryCount: 0,
-    todayQuotationCount: 0,
-    todayQuotedAmount: 0,
+  const [cards, setCards] = useState({
+    weeklyTarget: 0,
+    weeklyBilling: 0,
+    monthlyTarget: 0,
+    monthlyBilling: 0,
+    weeklyFrom: '',
+    weeklyTo: '',
+    monthlyFrom: '',
+    monthlyTo: '',
   })
+  const [recentBillings, setRecentBillings] = useState([])
 
   useEffect(() => {
-    const fetchTodayStats = async () => {
+    const fetchSalesCards = async () => {
       try {
-        const response = await queryService.getTodayStats()
-        setTodayStats({
-          todayQueryCount: Number(response?.data?.todayQueryCount || 0),
-          todayQuotationCount: Number(response?.data?.todayQuotationCount || 0),
-          todayQuotedAmount: Number(response?.data?.todayQuotedAmount || 0),
+        const response = await queryService.getSalesDashboardCards()
+        // axios interceptor returns API body: { success, message, data }
+        const data = response?.data ?? {}
+        setCards({
+          weeklyTarget: Number(data.weeklyTarget || 0),
+          weeklyBilling: Number(data.weeklyBilling || 0),
+          monthlyTarget: Number(data.monthlyTarget || 0),
+          monthlyBilling: Number(data.monthlyBilling || 0),
+          weeklyFrom: data.weeklyFrom || '',
+          weeklyTo: data.weeklyTo || '',
+          monthlyFrom: data.monthlyFrom || '',
+          monthlyTo: data.monthlyTo || '',
         })
-      } catch (error) {
-        setTodayStats({
-          todayQueryCount: 0,
-          todayQuotationCount: 0,
-          todayQuotedAmount: 0,
+      } catch (_error) {
+        setCards({
+          weeklyTarget: 0,
+          weeklyBilling: 0,
+          monthlyTarget: 0,
+          monthlyBilling: 0,
+          weeklyFrom: '',
+          weeklyTo: '',
+          monthlyFrom: '',
+          monthlyTo: '',
         })
       }
     }
-
-    fetchTodayStats()
+    fetchSalesCards()
   }, [])
 
-  const recentOrders = [
-    { id: 'ORD001', customer: 'ABC Corp', amount: 45000, status: 'Pending', date: '2024-01-15' },
-    { id: 'ORD002', customer: 'XYZ Ltd', amount: 78000, status: 'Confirmed', date: '2024-01-14' },
-    { id: 'ORD003', customer: 'PQR Industries', amount: 125000, status: 'Shipped', date: '2024-01-13' },
-    { id: 'ORD004', customer: 'LMN Enterprises', amount: 56000, status: 'Delivered', date: '2024-01-12' },
-    { id: 'ORD005', customer: 'RST Solutions', amount: 92000, status: 'Pending', date: '2024-01-11' },
-  ]
-
-  const topCustomers = [
-    { name: 'ABC Corp', orders: 15, revenue: 450000 },
-    { name: 'XYZ Ltd', orders: 12, revenue: 380000 },
-    { name: 'PQR Industries', orders: 10, revenue: 320000 },
-    { name: 'LMN Enterprises', orders: 8, revenue: 250000 },
-  ]
-
-  const getStatusColor = (status) => {
-    const colors = {
-      Pending: 'warning',
-      Confirmed: 'info',
-      Shipped: 'primary',
-      Delivered: 'success',
-      Cancelled: 'danger',
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const response = await queryService.getSalesRecentBillings({ limit: 5 })
+        const list = response?.data
+        setRecentBillings(Array.isArray(list) ? list : [])
+      } catch (_e) {
+        setRecentBillings([])
+      }
     }
-    return colors[status] || 'secondary'
+    load()
+  }, [])
+
+  const formatAmount = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+
+  const formatBillingDate = (iso) => {
+    if (!iso) return '—'
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '—'
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+  }
+
+  /** dd/mm/yy from ISO or Date */
+  const formatDdMmYy = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear()).slice(-2)
+    return `${dd}/${mm}/${yy}`
+  }
+
+  const rangeLabel = (fromIso, toIso) => {
+    const a = formatDdMmYy(fromIso)
+    const b = formatDdMmYy(toIso)
+    if (!a && !b) return ''
+    return `From ${a || '—'} to ${b || '—'}`
   }
 
   return (
@@ -90,97 +115,92 @@ const SalesDashboard = () => {
 
       <CRow>
         <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="success"
-            value={todayStats.todayQueryCount.toString()}
-            title="Queries Today"
-            chart={
-              <CIcon icon={cilDollar} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="success"
+              value={formatAmount(cards.weeklyTarget)}
+              title="Weekly Target"
+              chart={<CIcon icon={cilDollar} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(cards.weeklyFrom, cards.weeklyTo)}
+            </div>
+          </div>
         </CCol>
         <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="warning"
-            value={todayStats.todayQuotationCount.toString()}
-            title="Quotations Today"
-            chart={
-              <CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="success"
+              value={formatAmount(cards.weeklyBilling)}
+              title="Weekly Billing"
+              chart={<CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(cards.weeklyFrom, cards.weeklyTo)}
+            </div>
+          </div>
         </CCol>
-        <CCol sm={6} lg={6}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="info"
-            value={`₹${todayStats.todayQuotedAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`}
-            title="Quoted Amount Today"
-            chart={
-              <CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+        <CCol sm={6} lg={3}>
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="warning"
+              value={formatAmount(cards.monthlyTarget)}
+              title="Monthly Target"
+              chart={<CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(cards.monthlyFrom, cards.monthlyTo)}
+            </div>
+          </div>
+        </CCol>
+        <CCol sm={6} lg={3}>
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="warning"
+              value={formatAmount(cards.monthlyBilling)}
+              title="Monthly Billing"
+              chart={<CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(cards.monthlyFrom, cards.monthlyTo)}
+            </div>
+          </div>
         </CCol>
       </CRow>
 
       <CRow>
-        <CCol lg={8}>
+        <CCol>
           <CCard className="mb-4">
             <CCardHeader>
-              <strong>Recent Orders</strong>
+              <strong>Recent Billing</strong>
             </CCardHeader>
             <CCardBody>
               <CTable hover responsive>
                 <CTableHead>
                   <CTableRow>
-                    <CTableHeaderCell>Order ID</CTableHeaderCell>
-                    <CTableHeaderCell>Customer</CTableHeaderCell>
+                    <CTableHeaderCell>Company</CTableHeaderCell>
                     <CTableHeaderCell>Amount</CTableHeaderCell>
-                    <CTableHeaderCell>Status</CTableHeaderCell>
                     <CTableHeaderCell>Date</CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
-                  {recentOrders.map((order) => (
-                    <CTableRow key={order.id}>
-                      <CTableDataCell>{order.id}</CTableDataCell>
-                      <CTableDataCell>{order.customer}</CTableDataCell>
-                      <CTableDataCell>₹{order.amount.toLocaleString()}</CTableDataCell>
-                      <CTableDataCell>
-                        <CBadge color={getStatusColor(order.status)}>{order.status}</CBadge>
+                  {recentBillings.length === 0 ? (
+                    <CTableRow>
+                      <CTableDataCell colSpan={3} className="text-body-secondary text-center py-4">
+                        No billing entries yet
                       </CTableDataCell>
-                      <CTableDataCell>{order.date}</CTableDataCell>
                     </CTableRow>
-                  ))}
+                  ) : (
+                    recentBillings.map((row) => (
+                      <CTableRow key={row.id}>
+                        <CTableDataCell>{row.companyName}</CTableDataCell>
+                        <CTableDataCell>{formatAmount(row.amount)}</CTableDataCell>
+                        <CTableDataCell>{formatBillingDate(row.date)}</CTableDataCell>
+                      </CTableRow>
+                    ))
+                  )}
                 </CTableBody>
               </CTable>
-            </CCardBody>
-          </CCard>
-        </CCol>
-
-        <CCol lg={4}>
-          <CCard className="mb-4">
-            <CCardHeader>
-              <strong>Top Customers</strong>
-            </CCardHeader>
-            <CCardBody>
-              {topCustomers.map((customer, index) => (
-                <div key={index} className="mb-3">
-                  <div className="d-flex justify-content-between mb-1">
-                    <span>{customer.name}</span>
-                    <span className="text-body-secondary">{customer.orders} orders</span>
-                  </div>
-                  <div className="small text-body-secondary mb-1">
-                    Revenue: ₹{customer.revenue.toLocaleString()}
-                  </div>
-                  <CProgress
-                    value={(customer.revenue / topCustomers[0].revenue) * 100}
-                    color="success"
-                    className="mb-1"
-                  />
-                </div>
-              ))}
             </CCardBody>
           </CCard>
         </CCol>
@@ -196,26 +216,38 @@ const SalesDashboard = () => {
               <CRow>
                 <CCol md={3}>
                   <div className="border-start border-start-4 border-start-success py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">This Month</div>
-                    <div className="fs-5 fw-semibold">₹12.5L / ₹18L</div>
+                    <div className="text-body-secondary text-truncate small">Weekly Target</div>
+                    <div className="fs-5 fw-semibold">{formatAmount(cards.weeklyTarget)}</div>
+                    <div className="small text-body-secondary mt-1">
+                      {rangeLabel(cards.weeklyFrom, cards.weeklyTo)}
+                    </div>
                   </div>
                 </CCol>
                 <CCol md={3}>
-                  <div className="border-start border-start-4 border-start-info py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">This Quarter</div>
-                    <div className="fs-5 fw-semibold">₹38L / ₹50L</div>
+                  <div className="border-start border-start-4 border-start-success py-1 px-3 mb-3">
+                    <div className="text-body-secondary text-truncate small">Weekly Billing</div>
+                    <div className="fs-5 fw-semibold">{formatAmount(cards.weeklyBilling)}</div>
+                    <div className="small text-body-secondary mt-1">
+                      {rangeLabel(cards.weeklyFrom, cards.weeklyTo)}
+                    </div>
                   </div>
                 </CCol>
                 <CCol md={3}>
                   <div className="border-start border-start-4 border-start-warning py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Conversion Rate</div>
-                    <div className="fs-5 fw-semibold">24%</div>
+                    <div className="text-body-secondary text-truncate small">Monthly Target</div>
+                    <div className="fs-5 fw-semibold">{formatAmount(cards.monthlyTarget)}</div>
+                    <div className="small text-body-secondary mt-1">
+                      {rangeLabel(cards.monthlyFrom, cards.monthlyTo)}
+                    </div>
                   </div>
                 </CCol>
                 <CCol md={3}>
-                  <div className="border-start border-start-4 border-start-primary py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Avg Order Value</div>
-                    <div className="fs-5 fw-semibold">₹52,000</div>
+                  <div className="border-start border-start-4 border-start-warning py-1 px-3 mb-3">
+                    <div className="text-body-secondary text-truncate small">Monthly Billing</div>
+                    <div className="fs-5 fw-semibold">{formatAmount(cards.monthlyBilling)}</div>
+                    <div className="small text-body-secondary mt-1">
+                      {rangeLabel(cards.monthlyFrom, cards.monthlyTo)}
+                    </div>
                   </div>
                 </CCol>
               </CRow>

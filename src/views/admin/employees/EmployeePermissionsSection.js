@@ -29,7 +29,9 @@ const ACTION_LABELS = {
 const MODULE_LABEL_DISPLAY = {
   Industries: 'Clients',
   'Industry Branches': 'Client branches',
-  Visits: 'My Visits',
+  'Purchase Orders': 'Purchase Order',
+  'Visit Management': 'Visit Management',
+  'My Visits': 'My Visits',
 }
 
 const ALLOWED_MODULE_LABELS = new Set([
@@ -52,8 +54,12 @@ const ALLOWED_MODULE_LABELS = new Set([
   'Rate Card',
   'Task Management',
   'Task Bucket',
+  'Branch Analytics',
+  'Target Analytics',
+  'Purchase Orders',
   'Employees',
-  'Visits',
+  'Visit Management',
+  'My Visits',
 ])
 
 const EmployeePermissionsSection = ({ selectedRole, permissions = [], onChange }) => {

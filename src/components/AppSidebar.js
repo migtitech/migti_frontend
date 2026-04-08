@@ -26,6 +26,23 @@ const AppSidebar = () => {
 
   // Filter navigation items based on permissions (or use purchase-only nav for PM/PE)
   const filteredNavigation = useMemo(() => {
+    const role = String(user?.role || '').toLowerCase()
+
+    // Fixed sidebar for admin role only.
+    if (role === 'admin') {
+      const allowedPaths = new Set([
+        '/dashboard',
+        '/companies',
+        '/branches',
+        '/zones',
+        '/industries',
+        '/branch-analytics',
+        '/target-analytics',
+        '/visit-management-sidebar',
+      ])
+      return navigation.filter((item) => item?.to && allowedPaths.has(item.to))
+    }
+
     const filterItem = (item) => {
       // No module = accessible to all (e.g., Dashboard)
       if (!item.module) return true
@@ -51,7 +68,7 @@ const AppSidebar = () => {
         return item
       })
       .filter(Boolean)
-  }, [hasAnyPermission, isFullAccess])
+  }, [hasAnyPermission, isFullAccess, user])
 
   return (
     <CSidebar

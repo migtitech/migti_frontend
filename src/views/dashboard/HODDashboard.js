@@ -12,8 +12,6 @@ import {
   CTableHeaderCell,
   CTableBody,
   CTableDataCell,
-  CBadge,
-  CProgress,
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
@@ -23,31 +21,31 @@ import { useNavigate } from 'react-router-dom'
 import {
   cilPeople,
   cilCart,
-  cilTruck,
   cilChartLine,
+  cilDollar,
 } from '@coreui/icons'
 import { useAuth } from '../../context/AuthContext'
 import quotationService from '../../services/quotationService'
 import queryService from '../../services/queryService'
+import targetAnalyticsService from '../../services/targetAnalyticsService'
 import {
   formatIstDateKey,
   formatIstDisplayDate,
   buildLastNDaysIst,
-  formatPctVsPrevious,
-  addIstCalendarDays,
 } from '../../utils/istDate'
 
 const HODDashboard = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [stats, setStats] = useState({
-    queryCountToday: 0,
-    quotationCountToday: 0,
-    quotedAmountToday: 0,
-    completedTasks: 0,
-    queryPctVsYesterday: '0%',
-    quotationPctVsYesterday: '0%',
-    amountPctVsYesterday: '0%',
+  const [hodCards, setHodCards] = useState({
+    weeklyTarget: 0,
+    weeklyBilling: 0,
+    monthlyTarget: 0,
+    monthlyBilling: 0,
+    weeklyFrom: '',
+    weeklyTo: '',
+    monthlyFrom: '',
+    monthlyTo: '',
   })
 
   const [pendingApprovals, setPendingApprovals] = useState([])
@@ -85,37 +83,29 @@ const HODDashboard = () => {
 
         const nonConvertedQueries = queries
           .filter((q) => q?.status !== 'convertedToQuotation')
-          .map((q) => ({
-            id: q._id || q.id,
-            queryCode: q.queryCode || '-',
-            createdDate: q.createdAt ? formatIstDisplayDate(q.createdAt) : '-',
-            industryName: q?.industry_id?.name || '-',
-          }))
+          .map((q) => {
+            const fromCompany = String(q?.companyInfo?.name || '').trim()
+            return {
+              id: q._id || q.id,
+              queryCode: q.queryCode || '-',
+              createdDate: q.createdAt ? formatIstDisplayDate(q.createdAt) : '-',
+              clientName: fromCompany || q?.industry_id?.name || '-',
+            }
+          })
 
         setPendingQueries(nonConvertedQueries)
 
         const { keys: dateKeys, labels: dateLabels } = buildLastNDaysIst(7)
-        const todayIstKey = formatIstDateKey(new Date())
-        const yesterdayKey = todayIstKey ? addIstCalendarDays(todayIstKey, -1) : null
 
         const queryCountMap = Object.fromEntries(dateKeys.map((k) => [k, 0]))
         const quotationCountMap = Object.fromEntries(dateKeys.map((k) => [k, 0]))
         const quotationAmountMap = Object.fromEntries(dateKeys.map((k) => [k, 0]))
-
-        let queriesToday = 0
-        let queriesYesterday = 0
-        let quotationsToday = 0
-        let quotationsYesterday = 0
-        let quotedAmountToday = 0
-        let quotedAmountYesterday = 0
 
         queries.forEach((q) => {
           if (!q?.createdAt) return
           const key = formatIstDateKey(q.createdAt)
           if (!key) return
           if (key in queryCountMap) queryCountMap[key] += 1
-          if (todayIstKey && key === todayIstKey) queriesToday += 1
-          if (yesterdayKey && key === yesterdayKey) queriesYesterday += 1
         })
 
         quotations.forEach((q) => {
@@ -125,29 +115,12 @@ const HODDashboard = () => {
           const amt = Number(q?.totalAmount || 0)
           if (key in quotationCountMap) quotationCountMap[key] += 1
           if (key in quotationAmountMap) quotationAmountMap[key] += amt
-          if (todayIstKey && key === todayIstKey) {
-            quotationsToday += 1
-            quotedAmountToday += amt
-          }
-          if (yesterdayKey && key === yesterdayKey) {
-            quotationsYesterday += 1
-            quotedAmountYesterday += amt
-          }
         })
 
         setWeeklyLabels(dateLabels)
         setWeeklyQueries(dateKeys.map((k) => queryCountMap[k]))
         setWeeklyQuotations(dateKeys.map((k) => quotationCountMap[k]))
         setWeeklyQuotedAmount(dateKeys.map((k) => quotationAmountMap[k]))
-        setStats({
-          queryCountToday: queriesToday,
-          quotationCountToday: quotationsToday,
-          quotedAmountToday,
-          completedTasks: 0,
-          queryPctVsYesterday: formatPctVsPrevious(queriesToday, queriesYesterday),
-          quotationPctVsYesterday: formatPctVsPrevious(quotationsToday, quotationsYesterday),
-          amountPctVsYesterday: formatPctVsPrevious(quotedAmountToday, quotedAmountYesterday),
-        })
       } catch (error) {
         setPendingApprovals([])
         setPendingQueries([])
@@ -155,20 +128,62 @@ const HODDashboard = () => {
         setWeeklyQueries([])
         setWeeklyQuotations([])
         setWeeklyQuotedAmount([])
-        setStats({
-          queryCountToday: 0,
-          quotationCountToday: 0,
-          quotedAmountToday: 0,
-          completedTasks: 0,
-          queryPctVsYesterday: '0%',
-          quotationPctVsYesterday: '0%',
-          amountPctVsYesterday: '0%',
-        })
       }
     }
 
     fetchDashboardData()
   }, [])
+
+  useEffect(() => {
+    const loadCards = async () => {
+      try {
+        const response = await targetAnalyticsService.getHodDashboardCards()
+        const data = response?.data ?? {}
+        setHodCards({
+          weeklyTarget: Number(data.weeklyTarget || 0),
+          weeklyBilling: Number(data.weeklyBilling || 0),
+          monthlyTarget: Number(data.monthlyTarget || 0),
+          monthlyBilling: Number(data.monthlyBilling || 0),
+          weeklyFrom: data.weeklyFrom || '',
+          weeklyTo: data.weeklyTo || '',
+          monthlyFrom: data.monthlyFrom || '',
+          monthlyTo: data.monthlyTo || '',
+        })
+      } catch (_e) {
+        setHodCards({
+          weeklyTarget: 0,
+          weeklyBilling: 0,
+          monthlyTarget: 0,
+          monthlyBilling: 0,
+          weeklyFrom: '',
+          weeklyTo: '',
+          monthlyFrom: '',
+          monthlyTo: '',
+        })
+      }
+    }
+    loadCards()
+  }, [])
+
+  const formatAmount = (value) =>
+    `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+
+  const formatDdMmYy = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return ''
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yy = String(d.getFullYear()).slice(-2)
+    return `${dd}/${mm}/${yy}`
+  }
+
+  const rangeLabel = (fromIso, toIso) => {
+    const a = formatDdMmYy(fromIso)
+    const b = formatDdMmYy(toIso)
+    if (!a && !b) return ''
+    return `From ${a || '—'} to ${b || '—'}`
+  }
 
   const pendingApprovalsTotalPages = Math.max(1, Math.ceil(pendingApprovals.length / ROWS_PER_PAGE))
   const pendingQueriesTotalPages = Math.max(1, Math.ceil(pendingQueries.length / ROWS_PER_PAGE))
@@ -201,74 +216,56 @@ const HODDashboard = () => {
 
       <CRow>
         <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="primary"
-            value={
-              <>
-                {stats.queryCountToday}
-                <span className="fs-6 fw-normal">
-                  {' '}
-                  ({stats.queryPctVsYesterday}{' '}
-                  <small className="ms-1">vs yesterday</small>)
-                </span>
-              </>
-            }
-            title="Queries Today"
-            chart={
-              <CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="warning"
+              value={formatAmount(hodCards.monthlyTarget)}
+              title="Monthly Target"
+              chart={<CIcon icon={cilChartLine} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(hodCards.monthlyFrom, hodCards.monthlyTo)}
+            </div>
+          </div>
         </CCol>
         <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="warning"
-            value={
-              <>
-                {stats.quotationCountToday}
-                <span className="fs-6 fw-normal">
-                  {' '}
-                  (+8% <small className="ms-1">vs yesterday</small>)
-                </span>
-              </>
-            }
-            title="Quotations Today"
-            chart={
-              <CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="warning"
+              value={formatAmount(hodCards.monthlyBilling)}
+              title="Monthly Billing"
+              chart={<CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(hodCards.monthlyFrom, hodCards.monthlyTo)}
+            </div>
+          </div>
         </CCol>
         <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="success"
-            value={
-              <>
-                ₹{stats.quotedAmountToday.toLocaleString('en-IN')}
-                <span className="fs-6 fw-normal">
-                  {' '}
-                  ({stats.amountPctVsYesterday}{' '}
-                  <small className="ms-1">vs yesterday</small>)
-                </span>
-              </>
-            }
-            title="Quoted Amount Today"
-            chart={
-              <CIcon icon={cilChartLine} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="success"
+              value={formatAmount(hodCards.weeklyTarget)}
+              title="Weekly Target"
+              chart={<CIcon icon={cilDollar} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(hodCards.weeklyFrom, hodCards.weeklyTo)}
+            </div>
+          </div>
         </CCol>
         <CCol sm={6} lg={3}>
-          <CWidgetStatsA
-            className="mb-4"
-            color="info"
-            value={stats.completedTasks.toString()}
-            title="Completed Tasks"
-            chart={
-              <CIcon icon={cilTruck} height={52} className="my-4 text-white opacity-25" />
-            }
-          />
+          <div className="mb-4">
+            <CWidgetStatsA
+              color="success"
+              value={formatAmount(hodCards.weeklyBilling)}
+              title="Weekly Billing"
+              chart={<CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />}
+            />
+            <div className="small text-body-secondary mt-1 px-1">
+              {rangeLabel(hodCards.weeklyFrom, hodCards.weeklyTo)}
+            </div>
+          </div>
         </CCol>
       </CRow>
 
@@ -512,7 +509,7 @@ const HODDashboard = () => {
                         </span>
                       </CTableDataCell>
                       <CTableDataCell>{query.createdDate}</CTableDataCell>
-                      <CTableDataCell>{query.industryName}</CTableDataCell>
+                      <CTableDataCell>{query.clientName}</CTableDataCell>
                     </CTableRow>
                   ))}
                   {paginatedPendingQueries.length === 0 && (
@@ -553,46 +550,6 @@ const HODDashboard = () => {
                   </CPagination>
                 </div>
               )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-
-      <CRow>
-        <CCol>
-          <CCard className="mb-4">
-            <CCardHeader>
-              <strong>Department Performance</strong>
-            </CCardHeader>
-            <CCardBody>
-              <div className="mb-4">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Sales Target</span>
-                  <span>78%</span>
-                </div>
-                <CProgress value={78} color="success" />
-              </div>
-              <div className="mb-4">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Purchase Efficiency</span>
-                  <span>92%</span>
-                </div>
-                <CProgress value={92} color="info" />
-              </div>
-              <div className="mb-4">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Finance Processing</span>
-                  <span>85%</span>
-                </div>
-                <CProgress value={85} color="warning" />
-              </div>
-              <div className="mb-4">
-                <div className="d-flex justify-content-between mb-1">
-                  <span>Delivery Completion</span>
-                  <span>95%</span>
-                </div>
-                <CProgress value={95} color="primary" />
-              </div>
             </CCardBody>
           </CCard>
         </CCol>

@@ -166,11 +166,11 @@ const routes = [
 
   // Finance
   { path: '/finance', name: 'Finance', element: FinanceDashboard, module: 'finance', action: 'read' },
-  { path: '/branch-analytics', name: 'Branch Analytics', element: BranchAnalytics },
-  { path: '/target-analytics', name: 'Target Analytics', element: TargetAnalytics },
+  { path: '/branch-analytics', name: 'Branch Analytics', element: BranchAnalytics, module: 'branch_analytics', action: 'read' },
+  { path: '/target-analytics', name: 'Target Analytics', element: TargetAnalytics, module: 'target_analytics', action: 'read' },
   { path: '/purchase-order-sidebar', name: 'Purchase Order', element: PurchaseOrderSidebar, module: 'purchase_orders', action: 'read' },
-  { path: '/visit-management-sidebar', name: 'Visit Management', element: VisitManagementSidebar, module: 'visits', action: 'read' },
-  { path: '/my-visits', name: 'My Visits', element: MyVisits, module: 'visits', action: 'read' },
+  { path: '/visit-management-sidebar', name: 'Visit Management', element: VisitManagementSidebar, module: 'visit_management', action: 'read' },
+  { path: '/my-visits', name: 'My Visits', element: MyVisits, module: 'my_visits', action: 'read' },
 
   // Suppliers
   { path: '/suppliers', name: 'Suppliers', element: SupplierList, module: 'suppliers', action: 'read' },

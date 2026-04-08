@@ -163,14 +163,14 @@ const _nav = [
     name: 'Branch Analytics',
     to: '/branch-analytics',
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
-    module: null,
+    module: 'branch_analytics',
   },
   {
     component: CNavItem,
     name: 'Target Analytics',
     to: '/target-analytics',
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
-    module: null,
+    module: 'target_analytics',
   },
   {
     component: CNavItem,
@@ -191,14 +191,14 @@ const _nav = [
     name: 'Visit Management',
     to: '/visit-management-sidebar',
     icon: <CIcon icon={cilCalendar} customClassName="nav-icon" />,
-    module: 'visits',
+    module: 'visit_management',
   },
   {
     component: CNavItem,
     name: 'My Visits',
     to: '/my-visits',
     icon: <CIcon icon={cilCalendar} customClassName="nav-icon" />,
-    module: 'visits',
+    module: 'my_visits',
   },
 ]
 

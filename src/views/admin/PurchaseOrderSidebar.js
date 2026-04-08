@@ -21,10 +21,13 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilX } from '@coreui/icons'
+import { getAssetsUrl } from '../../api/endpoints'
 import poBillingService from '../../services/poBillingService'
+import documentService from '../../services/documentService'
 import industryService from '../../services/industryService'
 import employeeService from '../../services/employeeService'
 import useBranchContext from '../../hooks/useBranchContext'
@@ -89,6 +92,8 @@ const unwrapResponse = (response) => {
   return response || {}
 }
 
+const isImageMime = (mime) => /^image\//i.test(String(mime || ''))
+
 const PurchaseOrderSidebar = () => {
   const drawerWidth = 420
   const { branchId } = useBranchContext()
@@ -133,6 +138,10 @@ const PurchaseOrderSidebar = () => {
     entryDate: getTodayInputDate(),
     remark: '',
   })
+  const [poAttachment, setPoAttachment] = useState(null)
+  const [billingAttachment, setBillingAttachment] = useState(null)
+  const [poAttachmentUploading, setPoAttachmentUploading] = useState(false)
+  const [billingAttachmentUploading, setBillingAttachmentUploading] = useState(false)
   const latestAnalyticsRequestRef = useRef(0)
 
   const pageSize = 10
@@ -208,8 +217,6 @@ const PurchaseOrderSidebar = () => {
       })
 
       const payload = unwrapResponse(res)
-            console.log("payload==================>>>>>", payload)
-
       const data = payload || {}
       if (requestId !== latestAnalyticsRequestRef.current) return
       setMetrics(data.metrics || {})
@@ -236,6 +243,81 @@ const PurchaseOrderSidebar = () => {
     loadAnalytics()
   }, [activeTab, period, dateFrom, dateTo, activePage])
 
+  /** Opens file in a new tab. Uses the signed S3 URL from the API (navigation avoids S3 CORS on XHR). */
+  const openAttachmentInNewTab = (attachment) => {
+    const raw = attachment?.url
+    const url =
+      raw && (raw.startsWith('http://') || raw.startsWith('https://')) ? raw : raw ? getAssetsUrl(raw) : ''
+    if (!url) {
+      toastError('Preview link unavailable. Try refreshing the list.')
+      return
+    }
+    const win = window.open(url, '_blank', 'noopener,noreferrer')
+    if (!win) {
+      toastError('Pop-up blocked. Allow pop-ups for this site to open the file.')
+    }
+  }
+
+  const onPoAttachmentFile = async (e) => {
+    const file = e?.target?.files?.[0]
+    if (e?.target) e.target.value = ''
+    if (!file) return
+    setPoAttachmentUploading(true)
+    try {
+      const res = await documentService.uploadAttachments([file])
+      const payload = res?.data || res
+      const docs = payload?.data?.documents || payload?.documents || []
+      const first = docs[0]
+      const id = first?._id || first?.id
+      if (!id) {
+        toastError('Upload failed')
+        return
+      }
+      setPoAttachment({
+        documentId: String(id),
+        fileName: file.name,
+        mimeType: file.type || first?.mimeType || '',
+        previewUrl: first?.path || '',
+      })
+      toastSuccess('Attachment uploaded')
+    } catch (err) {
+      toastError(err?.message || 'Failed to upload attachment')
+      setPoAttachment(null)
+    } finally {
+      setPoAttachmentUploading(false)
+    }
+  }
+
+  const onBillingAttachmentFile = async (e) => {
+    const file = e?.target?.files?.[0]
+    if (e?.target) e.target.value = ''
+    if (!file) return
+    setBillingAttachmentUploading(true)
+    try {
+      const res = await documentService.uploadAttachments([file])
+      const payload = res?.data || res
+      const docs = payload?.data?.documents || payload?.documents || []
+      const first = docs[0]
+      const id = first?._id || first?.id
+      if (!id) {
+        toastError('Upload failed')
+        return
+      }
+      setBillingAttachment({
+        documentId: String(id),
+        fileName: file.name,
+        mimeType: file.type || first?.mimeType || '',
+        previewUrl: first?.path || '',
+      })
+      toastSuccess('Attachment uploaded')
+    } catch (err) {
+      toastError(err?.message || 'Failed to upload attachment')
+      setBillingAttachment(null)
+    } finally {
+      setBillingAttachmentUploading(false)
+    }
+  }
+
   const onCreatePo = async () => {
     const amountValue = Number(poForm.amount)
     if (!poForm.companyId || !poForm.salespersonId || !amountValue || amountValue <= 0) {
@@ -250,9 +332,11 @@ const PurchaseOrderSidebar = () => {
         entryDate: poForm.entryDate || undefined,
         remark: poForm.remark,
         branchId: branchId || undefined,
+        attachmentDocumentId: poAttachment?.documentId || undefined,
       })
       toastSuccess('PO added successfully')
       setPoModal(false)
+      setPoAttachment(null)
       setPoForm({
         companyId: '',
         salespersonId: '',
@@ -280,9 +364,11 @@ const PurchaseOrderSidebar = () => {
         entryDate: billingForm.entryDate || undefined,
         remark: billingForm.remark,
         branchId: branchId || undefined,
+        attachmentDocumentId: billingAttachment?.documentId || undefined,
       })
       toastSuccess('Billing added successfully')
       setBillingModal(false)
+      setBillingAttachment(null)
       setBillingForm({
         companyId: '',
         salespersonId: '',
@@ -308,6 +394,8 @@ const PurchaseOrderSidebar = () => {
                 color="primary"
                 onClick={() => {
                   setBillingModal(false)
+                  setBillingAttachment(null)
+                  setPoAttachment(null)
                   setPoModal(true)
                 }}
               >
@@ -317,6 +405,8 @@ const PurchaseOrderSidebar = () => {
                 color="success"
                 onClick={() => {
                   setPoModal(false)
+                  setPoAttachment(null)
+                  setBillingAttachment(null)
                   setBillingModal(true)
                 }}
               >
@@ -404,6 +494,7 @@ const PurchaseOrderSidebar = () => {
                       <CTableHeaderCell>Salesperson</CTableHeaderCell>
                       <CTableHeaderCell>Amount</CTableHeaderCell>
                       <CTableHeaderCell>Date</CTableHeaderCell>
+                      <CTableHeaderCell>Attachment</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
@@ -422,12 +513,51 @@ const PurchaseOrderSidebar = () => {
                               <div className="text-muted small">{dateInfo.time}</div>
                             ) : null}
                           </CTableDataCell>
+                          <CTableDataCell>
+                            {item.attachment?.documentId ? (
+                              <div className="d-flex align-items-center gap-2 flex-wrap">
+                                {isImageMime(item.attachment.mimeType) && item.attachment.url ? (
+                                  <button
+                                    type="button"
+                                    className="p-0 border-0 bg-transparent"
+                                    title="View full size"
+                                    onClick={() => openAttachmentInNewTab(item.attachment)}
+                                    style={{ cursor: 'pointer' }}
+                                  >
+                                    <img
+                                      src={item.attachment.url}
+                                      alt=""
+                                      style={{
+                                        width: 40,
+                                        height: 40,
+                                        objectFit: 'cover',
+                                        borderRadius: 4,
+                                        border: '1px solid #dee2e6',
+                                      }}
+                                    />
+                                  </button>
+                                ) : (
+                                  <span className="small text-muted">PDF</span>
+                                )}
+                                <CButton
+                                  color="link"
+                                  className="p-0 small"
+                                  title="Open in new tab"
+                                  onClick={() => openAttachmentInNewTab(item.attachment)}
+                                >
+                                  View
+                                </CButton>
+                              </div>
+                            ) : (
+                              '-'
+                            )}
+                          </CTableDataCell>
                         </CTableRow>
                         )
                       })
                     ) : (
                       <CTableRow>
-                          <CTableDataCell colSpan={5} className="text-center">
+                          <CTableDataCell colSpan={6} className="text-center">
                           No {activeTab} data found for selected filters.
                         </CTableDataCell>
                       </CTableRow>
@@ -492,7 +622,10 @@ const PurchaseOrderSidebar = () => {
             size="sm"
             className="rounded-circle p-1 d-inline-flex align-items-center justify-content-center"
             style={{ width: 26, height: 26 }}
-            onClick={() => setPoModal(false)}
+            onClick={() => {
+              setPoModal(false)
+              setPoAttachment(null)
+            }}
           >
             <CIcon icon={cilX} size="sm" />
           </CButton>
@@ -564,10 +697,51 @@ const PurchaseOrderSidebar = () => {
                 onChange={(e) => setPoForm((p) => ({ ...p, remark: e.target.value }))}
               />
             </CCol>
+            <CCol md={12}>
+              <CFormLabel>Attachment (image or PDF)</CFormLabel>
+              <CFormInput
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                onChange={onPoAttachmentFile}
+                disabled={poAttachmentUploading}
+              />
+              {poAttachmentUploading && (
+                <div className="mt-2">
+                  <CSpinner size="sm" className="me-2" />
+                  Uploading…
+                </div>
+              )}
+              {poAttachment && !poAttachmentUploading && (
+                <div className="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                  {isImageMime(poAttachment.mimeType) && poAttachment.previewUrl ? (
+                    <img
+                      src={poAttachment.previewUrl}
+                      alt=""
+                      style={{ maxWidth: '100%', maxHeight: 120, borderRadius: 4 }}
+                    />
+                  ) : (
+                    <span className="small">{poAttachment.fileName}</span>
+                  )}
+                  <CButton
+                    color="link"
+                    className="p-0 small"
+                    onClick={() => setPoAttachment(null)}
+                  >
+                    Remove
+                  </CButton>
+                </div>
+              )}
+            </CCol>
           </CRow>
         </div>
         <div className="d-flex justify-content-end gap-2 pt-3">
-          <CButton color="secondary" onClick={() => setPoModal(false)}>
+          <CButton
+            color="secondary"
+            onClick={() => {
+              setPoModal(false)
+              setPoAttachment(null)
+            }}
+          >
             Cancel
           </CButton>
           <CButton color="primary" onClick={onCreatePo}>
@@ -600,7 +774,10 @@ const PurchaseOrderSidebar = () => {
             size="sm"
             className="rounded-circle p-1 d-inline-flex align-items-center justify-content-center"
             style={{ width: 26, height: 26 }}
-            onClick={() => setBillingModal(false)}
+            onClick={() => {
+              setBillingModal(false)
+              setBillingAttachment(null)
+            }}
           >
             <CIcon icon={cilX} size="sm" />
           </CButton>
@@ -672,10 +849,51 @@ const PurchaseOrderSidebar = () => {
                 onChange={(e) => setBillingForm((p) => ({ ...p, remark: e.target.value }))}
               />
             </CCol>
+            <CCol md={12}>
+              <CFormLabel>Attachment (image or PDF)</CFormLabel>
+              <CFormInput
+                type="file"
+                accept="image/*,.pdf,application/pdf"
+                onChange={onBillingAttachmentFile}
+                disabled={billingAttachmentUploading}
+              />
+              {billingAttachmentUploading && (
+                <div className="mt-2">
+                  <CSpinner size="sm" className="me-2" />
+                  Uploading…
+                </div>
+              )}
+              {billingAttachment && !billingAttachmentUploading && (
+                <div className="d-flex align-items-center gap-2 mt-2 flex-wrap">
+                  {isImageMime(billingAttachment.mimeType) && billingAttachment.previewUrl ? (
+                    <img
+                      src={billingAttachment.previewUrl}
+                      alt=""
+                      style={{ maxWidth: '100%', maxHeight: 120, borderRadius: 4 }}
+                    />
+                  ) : (
+                    <span className="small">{billingAttachment.fileName}</span>
+                  )}
+                  <CButton
+                    color="link"
+                    className="p-0 small"
+                    onClick={() => setBillingAttachment(null)}
+                  >
+                    Remove
+                  </CButton>
+                </div>
+              )}
+            </CCol>
           </CRow>
         </div>
         <div className="d-flex justify-content-end gap-2 pt-3">
-          <CButton color="secondary" onClick={() => setBillingModal(false)}>
+          <CButton
+            color="secondary"
+            onClick={() => {
+              setBillingModal(false)
+              setBillingAttachment(null)
+            }}
+          >
             Cancel
           </CButton>
           <CButton color="success" onClick={onCreateBilling}>

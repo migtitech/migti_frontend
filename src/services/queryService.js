@@ -51,6 +51,11 @@ const queryService = {
     return response
   },
 
+  getByIndustry: async (params = {}) => {
+    const response = await api.get(QUERIES.BY_INDUSTRY, { params })
+    return response
+  },
+
   /** Idempotent: ensures quotation ref + code are stored on the source query after convert. */
   syncQuotationOnQuery: async ({ queryId, quotationId, quotationCode }) => {
     const response = await api.post(QUERIES.LINK_CONVERTED_QUOTATION, {
@@ -70,6 +75,16 @@ const queryService = {
 
   getTodayStats: async (params = {}) => {
     const response = await api.get(QUERIES.TODAY_STATS, { params })
+    return response
+  },
+
+  getSalesDashboardCards: async () => {
+    const response = await api.get(QUERIES.SALES_DASHBOARD_CARDS)
+    return response
+  },
+
+  getSalesRecentBillings: async (params = {}) => {
+    const response = await api.get(QUERIES.SALES_RECENT_BILLINGS, { params })
     return response
   },
 

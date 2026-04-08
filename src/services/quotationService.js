@@ -9,6 +9,11 @@ const quotationService = {
     return response
   },
 
+  getByIndustry: async (params = {}) => {
+    const response = await api.get(QUOTATIONS.BY_INDUSTRY, { params })
+    return response
+  },
+
   getById: async (id) => {
     const response = await api.get(QUOTATIONS.GET_BY_ID, {
       params: { quotationId: id },

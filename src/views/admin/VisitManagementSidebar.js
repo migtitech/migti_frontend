@@ -237,28 +237,15 @@ const VisitManagementSidebar = () => {
     loadBranchScopedData()
   }, [form.branchId])
 
-  const employeesByZone = useMemo(
-    () => employees.filter((employee) => String(employee?.zoneId || '') === String(form.zoneId || '')),
-    [employees, form.zoneId],
-  )
   const visibleIndustries = useMemo(() => {
     const q = industrySearchText.trim().toLowerCase()
     if (!q) return industries
     return industries.filter((industry) => String(industry?.name || '').toLowerCase().includes(q))
   }, [industries, industrySearchText])
 
-  useEffect(() => {
-    setForm((prev) => ({
-      ...prev,
-      employeeId: employeesByZone.some((employee) => String(employee.id) === String(prev.employeeId))
-        ? prev.employeeId
-        : '',
-    }))
-  }, [employeesByZone])
-
   const onSaveVisit = async () => {
-    if (!form.branchId || !form.zoneId || !form.employeeId || !form.industryId) {
-      toastError('Branch, zone, employee and industry are required')
+    if (!form.branchId || !form.zoneId || !form.employeeId) {
+      toastError('Branch, zone and employee are required')
       return
     }
 
@@ -268,7 +255,7 @@ const VisitManagementSidebar = () => {
         branchId: form.branchId,
         zoneId: form.zoneId,
         employeeId: form.employeeId,
-        industryIds: [form.industryId],
+        industryIds: form.industryId ? [form.industryId] : [],
         instructions: form.instructions || '',
       })
 
@@ -305,7 +292,7 @@ const VisitManagementSidebar = () => {
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Visit Management</strong>
               <CButton color="primary" onClick={() => setIsDrawerOpen(true)}>
-                Create Visit
+                Create Task
               </CButton>
             </CCardHeader>
             <CCardBody>
@@ -456,7 +443,7 @@ const VisitManagementSidebar = () => {
         }}
       >
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h6 className="mb-0">Create Visit</h6>
+          <h6 className="mb-0">Create Task</h6>
           <CButton
             color="light"
             size="sm"
@@ -515,13 +502,13 @@ const VisitManagementSidebar = () => {
             </CCol>
 
             <CCol md={12}>
-              <CFormLabel>Employee (by zone)</CFormLabel>
+              <CFormLabel>Employee</CFormLabel>
               <CFormSelect
                 value={form.employeeId}
                 onChange={(e) => setForm((prev) => ({ ...prev, employeeId: e.target.value }))}
               >
                 <option value="">Select employee</option>
-                {employeesByZone.map((employee) => (
+                {employees.map((employee) => (
                   <option key={employee.id} value={employee.id}>
                     {employee.name || employee.id}
                   </option>

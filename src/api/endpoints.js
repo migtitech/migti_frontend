@@ -128,6 +128,7 @@ export const QUERY_NEW_PRODUCTS = {
 
 export const DOCUMENTS = {
   UPLOAD: '/documents/upload',
+  UPLOAD_ATTACHMENT: '/documents/upload-attachment',
   SERVE: (id) => `/documents/serve/${id}`,
 }
 
@@ -177,10 +178,18 @@ export const INDUSTRY_BRANCHES = {
 export const QUERIES = {
   CREATE: '/queries/create',
   LIST: '/queries/list',
+  BY_INDUSTRY: '/queries/by-industry',
   TODAY_STATS: '/queries/today-stats',
+  SALES_DASHBOARD_CARDS: '/queries/sales-dashboard-cards',
+  SALES_RECENT_BILLINGS: '/queries/sales-recent-billings',
+  HOD_DASHBOARD_CARDS: '/queries/hod-dashboard-cards',
   BRANCH_ANALYTICS: '/queries/branch-analytics',
   TARGET_ANALYTICS: '/queries/target-analytics',
   TARGET_ANALYTICS_SUMMARY: '/queries/target-analytics/summary',
+  TARGET_ANALYTICS_ZONE: '/queries/target-analytics/zone',
+  TARGET_ANALYTICS_ZONE_SUMMARY: '/queries/target-analytics/zone/summary',
+  TARGET_ANALYTICS_EMPLOYEE: '/queries/target-analytics/employee',
+  TARGET_ANALYTICS_EMPLOYEE_SUMMARY: '/queries/target-analytics/employee/summary',
   GET_BY_ID: '/queries/get-by-id',
   UPDATE: '/queries/update',
   DELETE: '/queries/delete',
@@ -193,6 +202,7 @@ export const QUERIES = {
 
 export const QUOTATIONS = {
   LIST: '/quotations/list',
+  BY_INDUSTRY: '/quotations/by-industry',
   GET_BY_ID: '/quotations/get-by-id',
   UPDATE: '/quotations/update',
   UPDATE_STATUS: '/quotations/update-status',

@@ -16,6 +16,18 @@ const documentService = {
     })
     return response
   },
+
+  /** Images and PDF (PO/billing attachments). Field name: files. */
+  uploadAttachments: async (files) => {
+    const formData = new FormData()
+    ;(Array.isArray(files) ? files : [files]).forEach((file) => {
+      if (file) formData.append('files', file)
+    })
+    const response = await axiosClient.post(DOCUMENTS.UPLOAD_ATTACHMENT, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    return response
+  },
 }
 
 export default documentService
