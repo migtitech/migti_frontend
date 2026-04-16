@@ -114,7 +114,7 @@ const SubZoneList = () => {
           <small className="text-muted">Grouped by zone</small>
         </CCol>
         <CCol xs="auto">
-          {canCreate('zones') && (
+          {canCreate('sub_zones') && (
             <CButton color="primary" onClick={() => navigate('/sub-zones/new')}>
               <CIcon icon={cilPlus} className="me-1" />
               Add sub-zone
@@ -168,7 +168,7 @@ const SubZoneList = () => {
                                 <CTableDataCell className="text-nowrap">{sz.subZoneCode}</CTableDataCell>
                                 <CTableDataCell>{sz.name}</CTableDataCell>
                                 <CTableDataCell className="text-end">
-                                  {canUpdate('zones') && (
+                                  {canUpdate('sub_zones') && (
                                     <CButton
                                       color="primary"
                                       variant="ghost"
@@ -179,7 +179,7 @@ const SubZoneList = () => {
                                       <CIcon icon={cilPencil} />
                                     </CButton>
                                   )}
-                                  {canDelete('zones') && (
+                                  {canDelete('sub_zones') && (
                                     <CButton
                                       color="danger"
                                       variant="ghost"

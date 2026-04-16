@@ -214,8 +214,8 @@ const routes = [
   { path: '/zones/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
   { path: '/zones/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
 
-  { path: '/sub-zones', name: 'Sub-zones', element: SubZoneList, module: 'zones', action: 'read' },
-  { path: '/sub-zones/new', name: 'Add sub-zone', element: SubZoneForm, module: 'zones', action: 'create' },
+  { path: '/sub-zones', name: 'Sub-zones', element: SubZoneList, module: 'sub_zones', action: 'read' },
+  { path: '/sub-zones/new', name: 'Add sub-zone', element: SubZoneForm, module: 'sub_zones', action: 'create' },
 
   // Industries
   { path: '/industries', name: 'Clients', element: IndustryList, module: 'industries', action: 'read' },

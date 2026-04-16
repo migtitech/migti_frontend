@@ -50,7 +50,7 @@ const SubZoneForm = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    if (!canCreate('zones')) {
+    if (!canCreate('sub_zones')) {
       toastError('You do not have permission to create sub-zones')
       return
     }
@@ -133,7 +133,7 @@ const SubZoneForm = () => {
                 </div>
               </CCol>
             </CRow>
-            <CButton color="primary" type="submit" disabled={submitting || !canCreate('zones')}>
+            <CButton color="primary" type="submit" disabled={submitting || !canCreate('sub_zones')}>
               {submitting ? 'Saving…' : 'Create sub-zone'}
             </CButton>
           </CForm>

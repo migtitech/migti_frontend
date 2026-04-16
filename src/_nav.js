@@ -70,7 +70,7 @@ const _nav = [
     name: 'SubZone',
     to: '/sub-zones',
     icon: <CIcon icon={cilLayers} customClassName="nav-icon" />,
-    module: 'zones',
+    module: 'sub_zones',
   },
   {
     component: CNavItem,

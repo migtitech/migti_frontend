@@ -29,6 +29,7 @@ const ACTION_LABELS = {
 const MODULE_LABEL_DISPLAY = {
   Industries: 'Clients',
   'Industry Branches': 'Client branches',
+  'Sub Zones': 'Sub-zones',
   'Purchase Orders': 'Purchase Order',
   'Visit Management': 'Visit Management',
   'My Visits': 'My Visits',
@@ -40,6 +41,7 @@ const ALLOWED_MODULE_LABELS = new Set([
   'Companies',
   'Branches',
   'Zones',
+  'Sub Zones',
   'Industries',
   'Industry Branches',
   'Product Management',
