@@ -1,6 +1,18 @@
 import { useMemo, useCallback } from 'react'
 import { useAuth, FULL_ACCESS_ROLES } from '../context/AuthContext'
 
+const normalizeRole = (role) =>
+  String(role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+
+const hasPurchaseOrderBypass = (role) => {
+  const normalized = normalizeRole(role)
+  if (['back_office_exicutive', 'back_office_executive', 'boe'].includes(normalized)) return true
+  return normalized.replace(/_/g, '').includes('backoffice')
+}
+
 const usePermissions = () => {
   const { user } = useAuth()
 
@@ -15,6 +27,7 @@ const usePermissions = () => {
     (module, action) => {
       if (!user) return false
       if (isFullAccess) return true
+      if (module === 'purchase_orders' && hasPurchaseOrderBypass(user.role)) return true
       return permissions.includes(`${module}:${action}`)
     },
     [user, isFullAccess, permissions],
@@ -30,6 +43,7 @@ const usePermissions = () => {
     (module) => {
       if (!user) return false
       if (isFullAccess) return true
+      if (module === 'purchase_orders' && hasPurchaseOrderBypass(user.role)) return true
       return permissions.some((p) => p.startsWith(`${module}:`))
     },
     [user, isFullAccess, permissions],

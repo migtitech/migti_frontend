@@ -2,6 +2,11 @@ import { api } from '../api/axiosClient'
 import { PO_BILLING } from '../api/endpoints'
 
 const poBillingService = {
+  getFormOptions: async (params = {}) => {
+    const response = await api.get(PO_BILLING.FORM_OPTIONS, { params })
+    return response
+  },
+
   getAnalytics: async (params = {}) => {
     const response = await api.get(PO_BILLING.ANALYTICS, { params })
     return response

@@ -28,8 +28,6 @@ import { cilX } from '@coreui/icons'
 import { getAssetsUrl } from '../../api/endpoints'
 import poBillingService from '../../services/poBillingService'
 import documentService from '../../services/documentService'
-import industryService from '../../services/industryService'
-import employeeService from '../../services/employeeService'
 import useBranchContext from '../../hooks/useBranchContext'
 import { Loader } from '../../components'
 import { toastError, toastSuccess } from '../../utils/toast'
@@ -163,19 +161,14 @@ const PurchaseOrderSidebar = () => {
     const load = async () => {
       setLoadingInit(true)
       try {
-        const [industriesRes, employeesRes] = await Promise.all([
-          industryService.getAll({ pageNumber: 1, pageSize: 100 }),
-          employeeService.getAll({
-            pageNumber: 1,
-            pageSize: 100,
-            rolePrefix: 'sales',
-            branchId: branchId || undefined,
-          }),
-        ])
-        const industriesPayload = unwrapResponse(industriesRes)
-        const employeesPayload = unwrapResponse(employeesRes)
-        const companiesData = industriesPayload?.data?.industries || industriesPayload?.industries || []
-        const employeesData = employeesPayload?.data?.employees || employeesPayload?.employees || []
+        const formOptionsRes = await poBillingService.getFormOptions({
+          branchId: branchId || undefined,
+        })
+        const formOptionsPayload = unwrapResponse(formOptionsRes)
+        const companiesData =
+          formOptionsPayload?.data?.companies || formOptionsPayload?.companies || []
+        const employeesData =
+          formOptionsPayload?.data?.salespeople || formOptionsPayload?.salespeople || []
         setCompanies((companiesData || []).map((c) => ({ ...c, id: c._id || c.id })))
         setSalespeople(
           (employeesData || [])
