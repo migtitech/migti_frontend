@@ -30,6 +30,7 @@ import {
   CModalHeader,
   CModalTitle,
   CModalBody,
+  CModalFooter,
   CImage,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
@@ -38,6 +39,7 @@ import queryService from '../../services/queryService'
 import industryService from '../../services/industryService'
 import productService from '../../services/productService'
 import areaService from '../../services/areaService'
+import subZoneService from '../../services/subZoneService'
 import queryNewProductService from '../../services/queryNewProductService'
 import documentService from '../../services/documentService'
 import { useAuth } from '../../context/AuthContext'
@@ -50,6 +52,7 @@ import FindProductModal from './FindProductModal'
 const INITIAL_COMPANY = {
   name: '',
   area: '',
+  subZoneId: '',
   location: '',
   address: '',
   purchaseManagers: [],
@@ -124,6 +127,9 @@ const QueryForm = () => {
   const [industryId, setIndustryId] = useState(null)
   const [companyInfo, setCompanyInfo] = useState(INITIAL_COMPANY)
   const [areas, setAreas] = useState([])
+  const [querySubZones, setQuerySubZones] = useState([])
+  const [addSubZoneModal, setAddSubZoneModal] = useState({ visible: false, name: '' })
+  const [addingSubZone, setAddingSubZone] = useState(false)
   const companyDropdownRef = useRef(null)
 
   // Products – form for add/edit one, then table of all added
@@ -149,6 +155,31 @@ const QueryForm = () => {
   const [addingProductToQuery, setAddingProductToQuery] = useState(false)
 
   const getAreaId = (area) => (typeof area === 'object' ? area?._id : area) || ''
+
+  const getSubZoneId = (sz) => (typeof sz === 'object' ? sz?._id : sz) || ''
+
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      const aid = companyInfo.area
+      if (!aid) {
+        setQuerySubZones([])
+        return
+      }
+      try {
+        const res = await subZoneService.listByZone(aid)
+        const data = res?.data?.data || res?.data || res
+        const list = data?.subZones || []
+        if (!cancelled) setQuerySubZones(list || [])
+      } catch {
+        if (!cancelled) setQuerySubZones([])
+      }
+    }
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [companyInfo.area])
 
   const goToStep = (step) => {
     if (step < 1 || step > STEPS.length) return
@@ -237,6 +268,7 @@ const QueryForm = () => {
       setCompanyInfo({
         name: data?.name || '',
         area: getAreaId(areaVal) || '',
+        subZoneId: getSubZoneId(data?.subZoneId) || '',
         location: data?.location || '',
         address: data?.address || '',
         purchaseManagers: mapPurchaseManagers(data?.purchaseManagers),
@@ -245,6 +277,7 @@ const QueryForm = () => {
       setCompanyInfo({
         name: industry?.name || '',
         area: getAreaId(industry?.area) || '',
+        subZoneId: getSubZoneId(industry?.subZoneId) || '',
         location: industry?.location || '',
         address: industry?.address || '',
         purchaseManagers: mapPurchaseManagers(industry?.purchaseManagers),
@@ -772,6 +805,7 @@ const QueryForm = () => {
         setCompanyInfo({
           name: ci.name || '',
           area: getAreaId(ci.area) || ci.area || '',
+          subZoneId: (ci.subZoneId && String(ci.subZoneId).trim()) || '',
           location: ci.location || '',
           address: ci.address || '',
           purchaseManagers: managers,
@@ -916,6 +950,45 @@ const QueryForm = () => {
     return `${match.name}${match.city ? ` - ${match.city}` : ''}`
   }
 
+  const getSubZoneLabel = () => {
+    const sid = companyInfo.subZoneId
+    if (!sid) return ''
+    const match = querySubZones.find((s) => String(s._id || s.id) === String(sid))
+    if (!match) return sid
+    return `${match.subZoneCode ? `${match.subZoneCode} — ` : ''}${match.name || ''}`
+  }
+
+  const handleCreateSubZoneFromQuery = async () => {
+    const zoneId = companyInfo.area
+    const name = (addSubZoneModal.name || '').trim()
+    if (!zoneId) {
+      toastError('Select a zone first')
+      return
+    }
+    if (!name) {
+      toastError('Sub-zone name is required')
+      return
+    }
+    setAddingSubZone(true)
+    try {
+      const res = await subZoneService.create({ zoneId, name })
+      const created = res?.data?.data || res?.data || res
+      const id = created?._id || created?.id
+      const listRes = await subZoneService.listByZone(zoneId)
+      const data = listRes?.data?.data || listRes?.data || listRes
+      setQuerySubZones(data?.subZones || [])
+      if (id) {
+        setCompanyInfo((c) => ({ ...c, subZoneId: String(id) }))
+      }
+      setAddSubZoneModal({ visible: false, name: '' })
+      toastSuccess('Sub-zone created')
+    } catch (err) {
+      toastError(err?.message || 'Failed to create sub-zone')
+    } finally {
+      setAddingSubZone(false)
+    }
+  }
+
   const getStepStatus = (stepId) => {
     if (stepId < currentStep) return 'completed'
     if (stepId === currentStep) return 'active'
@@ -973,6 +1046,7 @@ const QueryForm = () => {
         companyInfo: {
           ...companyInfo,
           area: companyInfo.area || '',
+          subZoneId: companyInfo.subZoneId || '',
           purchaseManagers: (companyInfo.purchaseManagers || []).map((m) => ({
             name: (m?.name || '').trim(),
             phone: (m?.phone || '').trim(),
@@ -1216,7 +1290,11 @@ const QueryForm = () => {
                       <CFormSelect
                         value={companyInfo.area}
                         onChange={(e) =>
-                          setCompanyInfo((c) => ({ ...c, area: e.target.value }))
+                          setCompanyInfo((c) => ({
+                            ...c,
+                            area: e.target.value,
+                            subZoneId: '',
+                          }))
                         }
                       >
                         <option value="">Select zone</option>
@@ -1227,6 +1305,50 @@ const QueryForm = () => {
                           </option>
                         ))}
                       </CFormSelect>
+                    </div>
+                  </CCol>
+                </CRow>
+                <CRow>
+                  <CCol md={6}>
+                    <div className="mb-3">
+                      <CFormLabel>Sub-zone</CFormLabel>
+                      <CFormSelect
+                        value={companyInfo.subZoneId || ''}
+                        onChange={(e) =>
+                          setCompanyInfo((c) => ({ ...c, subZoneId: e.target.value }))
+                        }
+                        disabled={!companyInfo.area || querySubZones.length === 0}
+                      >
+                        <option value="">
+                          {!companyInfo.area
+                            ? 'Select a zone first'
+                            : querySubZones.length === 0
+                              ? 'No sub-zones (optional)'
+                              : 'Optional'}
+                        </option>
+                        {querySubZones.map((sz) => {
+                          const sid = sz._id || sz.id
+                          return (
+                            <option key={sid} value={sid}>
+                              {(sz.subZoneCode ? `${sz.subZoneCode} — ` : '') + (sz.name || '')}
+                            </option>
+                          )
+                        })}
+                      </CFormSelect>
+                    </div>
+                  </CCol>
+                  <CCol md={6} className="d-flex align-items-end">
+                    <div className="mb-3 w-100">
+                      <CButton
+                        type="button"
+                        color="secondary"
+                        variant="outline"
+                        disabled={!companyInfo.area}
+                        onClick={() => setAddSubZoneModal({ visible: true, name: '' })}
+                      >
+                        <CIcon icon={cilPlus} className="me-1" />
+                        Add sub-zone for this zone
+                      </CButton>
                     </div>
                   </CCol>
                 </CRow>
@@ -2043,6 +2165,14 @@ const QueryForm = () => {
                         </div>
                       </CCol>
                     </CRow>
+                    <CRow className="mb-3">
+                      <CCol md={6}>
+                        <div className="mb-2">
+                          <strong>Sub-zone</strong>
+                          <div>{getSubZoneLabel() || '–'}</div>
+                        </div>
+                      </CCol>
+                    </CRow>
                     <CRow>
                       <CCol md={6}>
                         <div className="mb-2">
@@ -2170,6 +2300,32 @@ const QueryForm = () => {
           </CCardBody>
         </CCard>
       </CForm>
+
+      <CModal
+        visible={addSubZoneModal.visible}
+        onClose={() => setAddSubZoneModal({ visible: false, name: '' })}
+      >
+        <CModalHeader closeButton>
+          <CModalTitle>New sub-zone</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <CFormLabel>Name</CFormLabel>
+          <CFormInput
+            value={addSubZoneModal.name}
+            onChange={(e) => setAddSubZoneModal((m) => ({ ...m, name: e.target.value }))}
+            maxLength={200}
+            placeholder="Sub-zone display name"
+          />
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" variant="outline" onClick={() => setAddSubZoneModal({ visible: false, name: '' })}>
+            Cancel
+          </CButton>
+          <CButton color="primary" onClick={handleCreateSubZoneFromQuery} disabled={addingSubZone}>
+            {addingSubZone ? 'Creating…' : 'Create'}
+          </CButton>
+        </CModalFooter>
+      </CModal>
 
       <FindProductModal
         visible={showFindProductModal}

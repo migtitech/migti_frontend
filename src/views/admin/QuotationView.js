@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
   CCard,
@@ -33,9 +33,18 @@ import {
   CModalTitle,
   CModalBody,
   CModalFooter,
+  CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilArrowRight, cilCloudDownload, cilEnvelopeClosed, cilX } from '@coreui/icons'
+import {
+  cilArrowLeft,
+  cilArrowRight,
+  cilActionUndo,
+  cilCloudDownload,
+  cilEnvelopeClosed,
+  cilHistory,
+  cilX,
+} from '@coreui/icons'
 import quotationService from '../../services/quotationService'
 import usePermissions from '../../hooks/usePermissions'
 import employeeService from '../../services/employeeService'
@@ -47,6 +56,7 @@ import { getAssetsUrl } from '../../api/endpoints'
 import { Loader } from '../../components'
 import AuthImage from '../../components/AuthImage/AuthImage'
 import { toastError, toastSuccess } from '../../utils/toast'
+import { formatIstDisplayDate } from '../../utils/istDate'
 import { ROLES, ROLE_LABELS } from '../../context/AuthContext'
 import QuoteLogsSidebar from './QuoteLogsSidebar'
 
@@ -105,6 +115,46 @@ const formatQuotationFreightDisplay = (v) => {
     return `₹${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
   return str
+}
+
+/** Merge snapshot payload onto live quotation for read-only preview (keeps ids, query link, branch signature). */
+const buildViewQuotationFromSnapshot = (live, preview) => {
+  const p = preview.payload
+  if (!p || !live) return live
+  const liveIndustry = live.industry_id
+  const payloadIndustryId = p.industry_id
+  const sameIndustry =
+    payloadIndustryId != null
+    && liveIndustry != null
+    && String(payloadIndustryId) === String(liveIndustry?._id ?? liveIndustry)
+  return {
+    ...live,
+    companyInfo: p.companyInfo ?? live.companyInfo ?? {},
+    products: Array.isArray(p.products) ? p.products : (live.products || []),
+    remark: p.remark ?? live.remark,
+    freightCharge: p.freightCharge ?? live.freightCharge,
+    packingCharge: p.packingCharge ?? live.packingCharge,
+    expectedDeliveryDate: p.expectedDeliveryDate ?? live.expectedDeliveryDate,
+    expectedDeliveryWithinDays: p.expectedDeliveryWithinDays ?? live.expectedDeliveryWithinDays,
+    industry_id: sameIndustry ? liveIndustry : (payloadIndustryId ?? liveIndustry),
+    status: p.status ?? live.status,
+  }
+}
+
+/** Merge PUT /quotation/update response (e.g. status after invalidating HOD approval). */
+const mergeQuotationUpdateIntoPrev = (prev, data, patch = {}) => {
+  if (!prev) return null
+  const d = data && typeof data === 'object' ? data : {}
+  const next = { ...prev, ...patch }
+  if (d.status != null) next.status = d.status
+  if (d.products != null) next.products = d.products
+  if (d.companyInfo != null) next.companyInfo = d.companyInfo
+  if (d.freightCharge !== undefined) next.freightCharge = d.freightCharge
+  if (d.packingCharge !== undefined) next.packingCharge = d.packingCharge
+  if (d.expectedDeliveryWithinDays !== undefined) next.expectedDeliveryWithinDays = d.expectedDeliveryWithinDays
+  if (d.expectedDeliveryDate !== undefined) next.expectedDeliveryDate = d.expectedDeliveryDate
+  if (d.industry_id !== undefined) next.industry_id = d.industry_id
+  return next
 }
 
 const QuotationView = () => {
@@ -177,7 +227,19 @@ const QuotationView = () => {
   const [savingPackingDelivery, setSavingPackingDelivery] = useState(false)
   const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0)
   const [quoteLogsOpen, setQuoteLogsOpen] = useState(false)
+  const [snapshotPreview, setSnapshotPreview] = useState(null)
+  const [quotationSnapshots, setQuotationSnapshots] = useState([])
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false)
+  const [snapshotsError, setSnapshotsError] = useState(null)
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/
+
+  const displayQuotation = useMemo(() => {
+    if (!quotation) return null
+    if (!snapshotPreview?.payload) return quotation
+    return buildViewQuotationFromSnapshot(quotation, snapshotPreview)
+  }, [quotation, snapshotPreview])
+
+  const isSnapshotPreview = !!snapshotPreview
 
   useEffect(() => {
     if (!id || !OBJECT_ID_REGEX.test(id)) {
@@ -210,8 +272,8 @@ const QuotationView = () => {
   }, [id])
 
 
-  const companyInfo = quotation?.companyInfo || null
-  const products = Array.isArray(quotation?.products) ? quotation.products : []
+  const companyInfo = displayQuotation?.companyInfo || null
+  const products = Array.isArray(displayQuotation?.products) ? displayQuotation.products : []
   const branchSignature = quotation?.branchSignature || null
   const branchSignatureId =
     branchSignature && typeof branchSignature === 'object'
@@ -232,7 +294,7 @@ const QuotationView = () => {
   const productsWithoutRate = products.filter((p) => !hasRate(p))
 
   useEffect(() => {
-    const ci = quotation?.companyInfo
+    const ci = displayQuotation?.companyInfo
     if (ci) {
       const pm = Array.isArray(ci.purchaseManagers) && ci.purchaseManagers.length > 0 ? ci.purchaseManagers[0] : {}
       setCompanyForm({
@@ -244,9 +306,9 @@ const QuotationView = () => {
         purchaseManagerPhone: pm.phone || '',
         purchaseManagerEmail: pm.email || '',
       })
-    } else if (quotation) {
+    } else if (displayQuotation) {
       setCompanyForm({
-        name: quotation.customerName || '',
+        name: displayQuotation.customerName || '',
         location: '',
         area: '',
         address: '',
@@ -255,13 +317,13 @@ const QuotationView = () => {
         purchaseManagerEmail: '',
       })
     }
-  }, [quotation])
+  }, [displayQuotation])
 
   useEffect(() => {
-    if (quotation) {
-      const freight = quotation.freightCharge
-      const packing = quotation.packingCharge
-      const expWithinDays = quotation.expectedDeliveryWithinDays
+    if (displayQuotation) {
+      const freight = displayQuotation.freightCharge
+      const packing = displayQuotation.packingCharge
+      const expWithinDays = displayQuotation.expectedDeliveryWithinDays
       setPackingDeliveryForm({
         freightCharge:
           freight != null && freight !== '' ? String(freight) : '',
@@ -272,7 +334,33 @@ const QuotationView = () => {
             : '',
       })
     }
-  }, [quotation])
+  }, [displayQuotation])
+
+  useEffect(() => {
+    if (!id || !OBJECT_ID_REGEX.test(id) || activeTab !== 'history') return
+    let cancelled = false
+    setSnapshotsLoading(true)
+    setSnapshotsError(null)
+    quotationService
+      .listSnapshots(id)
+      .then((res) => {
+        if (cancelled) return
+        const data = res?.data?.data ?? res?.data ?? res
+        const list = Array.isArray(data?.snapshots) ? data.snapshots : []
+        setQuotationSnapshots(list)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        const msg = err?.response?.data?.message || err?.message || 'Failed to load history'
+        setSnapshotsError(msg)
+        setQuotationSnapshots([])
+        toastError(msg)
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotsLoading(false)
+      })
+    return () => { cancelled = true }
+  }, [id, activeTab])
 
   // Resolve zone ID to name for display in Company Information
   useEffect(() => {
@@ -321,8 +409,7 @@ const QuotationView = () => {
       })
       const data = res?.data?.data ?? res?.data ?? res
       if (data) {
-        setQuotation((prev) => (prev ? {
-          ...prev,
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, {
           freightCharge: data.freightCharge ?? packingDeliveryForm.freightCharge,
           packingCharge: data.packingCharge ?? packingDeliveryForm.packingCharge,
           expectedDeliveryWithinDays:
@@ -330,7 +417,7 @@ const QuotationView = () => {
             (packingDeliveryForm.expectedDeliveryWithinDays === ''
               ? null
               : Number(packingDeliveryForm.expectedDeliveryWithinDays)),
-        } : null))
+        }))
       }
       toastSuccess('Packing & delivery updated')
     } catch (err) {
@@ -359,9 +446,11 @@ const QuotationView = () => {
       })
       const data = res?.data?.data ?? res?.data ?? res
       if (data?.companyInfo) {
-        setQuotation((prev) => (prev ? { ...prev, companyInfo: data.companyInfo } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { companyInfo: data.companyInfo }))
       } else {
-        setQuotation((prev) => (prev ? { ...prev, companyInfo: { name: companyForm.name, location: companyForm.location, area: companyForm.area, address: companyForm.address, purchaseManagers } } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, {
+          companyInfo: { name: companyForm.name, location: companyForm.location, area: companyForm.area, address: companyForm.address, purchaseManagers },
+        }))
       }
       toastSuccess('Company information updated')
     } catch (err) {
@@ -584,9 +673,9 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
       const data = res?.data?.data ?? res?.data ?? res
       if (data?.products) {
-        setQuotation((prev) => (prev ? { ...prev, products: data.products } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: data.products }))
       } else {
-        setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
       setQuoteLogsRefreshKey((prev) => prev + 1)
       toastSuccess('Product updated')
@@ -736,13 +825,13 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
       const data = res?.data?.data ?? res?.data ?? res
       if (data?.products) {
-        setQuotation((prev) => (prev ? { ...prev, products: data.products } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: data.products }))
         setProductListRateEdits((prev) => { const next = { ...prev }; delete next[idx]; return next })
         setProductListGstEdits((prev) => { const next = { ...prev }; delete next[idx]; return next })
         setProductListApplyDiscount((prev) => { const next = { ...prev }; delete next[idx]; return next })
         setProductListDiscountPct((prev) => { const next = { ...prev }; delete next[idx]; return next })
       } else {
-        setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
       setQuoteLogsRefreshKey((prev) => prev + 1)
       toastSuccess('Rate and GST updated')
@@ -795,7 +884,7 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
       const data = res?.data?.data ?? res?.data ?? res
       const nextProducts = data?.products || updatedProducts
-      setQuotation((prev) => (prev ? { ...prev, products: nextProducts } : null))
+      setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: nextProducts }))
       setDeleteProductModalVisible(false)
       setDeleteProductIndex(null)
       toastSuccess('Product deleted from quotation')
@@ -839,9 +928,9 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
       const data = res?.data?.data ?? res?.data ?? res
       if (data?.products) {
-        setQuotation((prev) => (prev ? { ...prev, products: data.products } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: data.products }))
       } else {
-        setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
       toastSuccess('Product marked as not available')
       setNotAvailableModalVisible(false)
@@ -888,9 +977,9 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
       const data = res?.data?.data ?? res?.data ?? res
       if (data?.products) {
-        setQuotation((prev) => (prev ? { ...prev, products: data.products } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: data.products }))
       } else {
-        setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
       toastSuccess('Product marked as available again')
     } catch (err) {
@@ -1073,9 +1162,9 @@ const QuotationView = () => {
       const res = await quotationService.update(quotation.id, { products: updatedProducts })
       const data = res?.data?.data ?? res?.data ?? res
       if (data?.products) {
-        setQuotation((prev) => (prev ? { ...prev, products: data.products } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: data.products }))
       } else {
-        setQuotation((prev) => (prev ? { ...prev, products: updatedProducts } : null))
+        setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
       clearNewProductForm()
       toastSuccess('Product added to quotation')
@@ -1139,6 +1228,7 @@ const QuotationView = () => {
   const isCurrentProductNotAvailable = !!currentProduct?.notAvailable
 
   const handleMarkApproved = async () => {
+    if (isSnapshotPreview) return
     if (!quotation?.id) return
     try {
       await quotationService.updateStatus(quotation.id, 'hod_approved')
@@ -1250,9 +1340,12 @@ const QuotationView = () => {
               style={{ fontSize: '1rem', letterSpacing: '0.3px', backgroundColor: '#eef4ff' }}
             >
               {quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}
+              {snapshotPreview?.snapshotCode ? (
+                <span className="ms-2 small text-secondary fw-normal">({snapshotPreview.snapshotCode})</span>
+              ) : null}
             </div>
             <div className="d-flex flex-wrap align-items-center justify-content-lg-end gap-2 gap-md-3" style={{ minWidth: 0 }}>
-              {getStatusBadge(quotation.status)}
+              {getStatusBadge(displayQuotation?.status)}
               <span
                 className="text-nowrap fw-semibold text-secondary px-2 py-1 rounded border"
                 style={{ backgroundColor: '#ffffff' }}
@@ -1304,7 +1397,7 @@ const QuotationView = () => {
                 <CButton
                   color="primary"
                   onClick={handleMarkApproved}
-                  disabled={isHodApproved}
+                  disabled={isHodApproved || isSnapshotPreview}
                   className="d-inline-flex align-items-center px-3 fw-semibold"
                   style={{ height: 40 }}
                 >
@@ -1315,7 +1408,7 @@ const QuotationView = () => {
                 color="secondary"
                 variant="outline"
                 onClick={handleDownloadProductsPdf}
-                disabled={exportingPdf || !isHodApproved}
+                disabled={exportingPdf || !isHodApproved || isSnapshotPreview}
                 title={!isHodApproved ? 'Available after HOD approval' : undefined}
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
@@ -1327,7 +1420,7 @@ const QuotationView = () => {
               <CButton
                 color="primary"
                 variant="outline"
-                disabled={!isHodApproved}
+                disabled={!isHodApproved || isSnapshotPreview}
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
               >
@@ -1338,6 +1431,29 @@ const QuotationView = () => {
           </div>
         </CCardBody>
       </CCard>
+
+      {isSnapshotPreview ? (
+        <CAlert color="info" className="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-2 mb-4">
+          <span>
+            Viewing saved snapshot <strong>{snapshotPreview.snapshotCode}</strong>
+            {snapshotPreview.capturedAt ? (
+              <span className="text-muted ms-md-2 d-block d-md-inline">
+                ({formatIstDisplayDate(snapshotPreview.capturedAt)})
+              </span>
+            ) : null}
+            . Other tabs show this snapshot data (read-only).
+          </span>
+          <CButton
+            color="dark"
+            variant="outline"
+            size="sm"
+            className="text-nowrap"
+            onClick={() => setSnapshotPreview(null)}
+          >
+            Back to current quotation
+          </CButton>
+        </CAlert>
+      ) : null}
 
       <CCard className="mb-4">
         <CCardHeader className="border-bottom" style={{ backgroundColor: '#fbfcfe' }}>
@@ -1438,6 +1554,23 @@ const QuotationView = () => {
                 Product List ({products.length})
               </CNavLink>
             </CNavItem>
+            <CNavItem>
+              <CNavLink
+                active={activeTab === 'history'}
+                onClick={() => setActiveTab('history')}
+                style={{
+                  cursor: 'pointer',
+                  border: 'none',
+                  borderBottom: activeTab === 'history' ? '2px solid #321fdb' : '2px solid transparent',
+                  color: activeTab === 'history' ? '#321fdb' : '#6c757d',
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
+                <CIcon icon={cilHistory} className="me-1" />
+                Quotation History
+              </CNavLink>
+            </CNavItem>
           </CNav>
         </CCardHeader>
         <CCardBody>
@@ -1493,7 +1626,7 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell>
                                 {companyForm.name ||
-                                  quotation?.customerName ||
+                                  displayQuotation?.customerName ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1503,7 +1636,7 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell style={{ whiteSpace: 'pre-wrap' }}>
                                 {companyForm.address ||
-                                  quotation?.companyInfo?.address ||
+                                  displayQuotation?.companyInfo?.address ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1513,8 +1646,8 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell>
                                 {companyForm.purchaseManagerName ||
-                                  quotation?.companyInfo?.purchaseManagers?.[0]?.name ||
-                                  quotation?.industry_id?.purchase_manager_name ||
+                                  displayQuotation?.companyInfo?.purchaseManagers?.[0]?.name ||
+                                  displayQuotation?.industry_id?.purchase_manager_name ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1524,8 +1657,8 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell>
                                 {companyForm.purchaseManagerPhone ||
-                                  quotation?.companyInfo?.purchaseManagers?.[0]?.phone ||
-                                  quotation?.industry_id?.purchase_manager_phone ||
+                                  displayQuotation?.companyInfo?.purchaseManagers?.[0]?.phone ||
+                                  displayQuotation?.industry_id?.purchase_manager_phone ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1535,10 +1668,10 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell>
                                 {companyForm.purchaseManagerEmail ||
-                                  quotation?.companyInfo?.purchaseManagers?.[0]?.email ||
-                                  quotation?.companyInfo?.email ||
-                                  quotation?.industry_id?.email ||
-                                  quotation?.customerEmail ||
+                                  displayQuotation?.companyInfo?.purchaseManagers?.[0]?.email ||
+                                  displayQuotation?.companyInfo?.email ||
+                                  displayQuotation?.industry_id?.email ||
+                                  displayQuotation?.customerEmail ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1547,8 +1680,8 @@ const QuotationView = () => {
                                 GST Number
                               </CTableHeaderCell>
                               <CTableDataCell>
-                                {quotation?.companyInfo?.gstNumber ||
-                                  quotation?.industry_id?.gstNumber ||
+                                {displayQuotation?.companyInfo?.gstNumber ||
+                                  displayQuotation?.industry_id?.gstNumber ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1565,7 +1698,7 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell style={{ whiteSpace: 'pre-wrap' }}>
                                 {companyForm.address ||
-                                  quotation?.companyInfo?.address ||
+                                  displayQuotation?.companyInfo?.address ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1575,8 +1708,8 @@ const QuotationView = () => {
                               </CTableHeaderCell>
                               <CTableDataCell>
                                 {companyForm.purchaseManagerName ||
-                                  quotation?.companyInfo?.purchaseManagers?.[0]?.name ||
-                                  quotation?.industry_id?.purchase_manager_name ||
+                                  displayQuotation?.companyInfo?.purchaseManagers?.[0]?.name ||
+                                  displayQuotation?.industry_id?.purchase_manager_name ||
                                   '–'}
                               </CTableDataCell>
                             </CTableRow>
@@ -1589,10 +1722,12 @@ const QuotationView = () => {
                               `QT-${String(quotation?.id || '').slice(-6)}` ||
                               '–'}
                           </div>
-                          {quotation?.createdAt && (
+                          {(snapshotPreview?.capturedAt || quotation?.createdAt) && (
                             <div className="mt-1">
                               <span className="fw-semibold">Quotation Date:</span>{' '}
-                              {new Date(quotation.createdAt).toLocaleString()}
+                              {snapshotPreview?.capturedAt
+                                ? formatIstDisplayDate(snapshotPreview.capturedAt)
+                                : formatIstDisplayDate(quotation.createdAt)}
                             </div>
                           )}
                           {queryId && (
@@ -1871,7 +2006,7 @@ const QuotationView = () => {
                               Freight Charge
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
-                              {formatQuotationFreightDisplay(quotation?.freightCharge)}
+                              {formatQuotationFreightDisplay(displayQuotation?.freightCharge)}
                             </CTableDataCell>
                           </CTableRow>
                           <CTableRow>
@@ -1880,7 +2015,7 @@ const QuotationView = () => {
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
                               ₹
-                              {(Number(quotation?.packingCharge) || 0).toLocaleString(
+                              {(Number(displayQuotation?.packingCharge) || 0).toLocaleString(
                                 undefined,
                                 {
                                   minimumFractionDigits: 2,
@@ -1894,9 +2029,9 @@ const QuotationView = () => {
                               Expected Delivery Within
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
-                              {quotation?.expectedDeliveryWithinDays != null &&
-                              !Number.isNaN(Number(quotation.expectedDeliveryWithinDays))
-                                ? `${Number(quotation.expectedDeliveryWithinDays)} Days`
+                              {displayQuotation?.expectedDeliveryWithinDays != null &&
+                              !Number.isNaN(Number(displayQuotation.expectedDeliveryWithinDays))
+                                ? `${Number(displayQuotation.expectedDeliveryWithinDays)} Days`
                                 : 'NA'}
                             </CTableDataCell>
                           </CTableRow>
@@ -1906,9 +2041,9 @@ const QuotationView = () => {
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end">
                               {(() => {
-                                const freight = parseQuotationFreightNumeric(quotation?.freightCharge)
+                                const freight = parseQuotationFreightNumeric(displayQuotation?.freightCharge)
                                 const packing =
-                                  Number(quotation?.packingCharge) || 0
+                                  Number(displayQuotation?.packingCharge) || 0
                                 const taxableAfterCharges =
                                   calculatedTotalTaxable + freight + packing
                                 return `₹${taxableAfterCharges.toLocaleString(
@@ -1939,9 +2074,9 @@ const QuotationView = () => {
                             </CTableHeaderCell>
                             <CTableDataCell className="text-end fw-semibold">
                               {(() => {
-                                const freight = parseQuotationFreightNumeric(quotation?.freightCharge)
+                                const freight = parseQuotationFreightNumeric(displayQuotation?.freightCharge)
                                 const packing =
-                                  Number(quotation?.packingCharge) || 0
+                                  Number(displayQuotation?.packingCharge) || 0
                                 const taxableAfterCharges =
                                   calculatedTotalTaxable + freight + packing
                                 const totalAmount =
@@ -1989,15 +2124,16 @@ const QuotationView = () => {
                     <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>Company name</CFormLabel>
-                        <CFormInput value={companyForm.name} onChange={(e) => updateCompanyForm('name', e.target.value)} placeholder="Company name" />
+                        <CFormInput readOnly={isSnapshotPreview} value={companyForm.name} onChange={(e) => updateCompanyForm('name', e.target.value)} placeholder="Company name" />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Location</CFormLabel>
-                        <CFormInput value={companyForm.location} onChange={(e) => updateCompanyForm('location', e.target.value)} placeholder="Location" />
+                        <CFormInput readOnly={isSnapshotPreview} value={companyForm.location} onChange={(e) => updateCompanyForm('location', e.target.value)} placeholder="Location" />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Zone</CFormLabel>
                         <CFormInput
+                          readOnly={isSnapshotPreview}
                           value={zoneNameDisplay ?? companyForm.area}
                           onChange={(e) => updateCompanyForm('area', e.target.value)}
                           placeholder="Zone"
@@ -2007,24 +2143,24 @@ const QuotationView = () => {
                     <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>Address</CFormLabel>
-                        <CFormTextarea rows={3} value={companyForm.address} onChange={(e) => updateCompanyForm('address', e.target.value)} placeholder="Address" />
+                        <CFormTextarea readOnly={isSnapshotPreview} rows={3} value={companyForm.address} onChange={(e) => updateCompanyForm('address', e.target.value)} placeholder="Address" />
                       </div>
-                      <CButton color="primary" onClick={handleSaveCompanyInfo} disabled={savingCompany}>
+                      <CButton color="primary" onClick={handleSaveCompanyInfo} disabled={savingCompany || isSnapshotPreview}>
                         {savingCompany ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
                       </CButton>
                     </CCol>
                     <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>Purchase manager name</CFormLabel>
-                        <CFormInput value={companyForm.purchaseManagerName} onChange={(e) => updateCompanyForm('purchaseManagerName', e.target.value)} placeholder="Name" />
+                        <CFormInput readOnly={isSnapshotPreview} value={companyForm.purchaseManagerName} onChange={(e) => updateCompanyForm('purchaseManagerName', e.target.value)} placeholder="Name" />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Purchase manager phone</CFormLabel>
-                        <CFormInput value={companyForm.purchaseManagerPhone} onChange={(e) => updateCompanyForm('purchaseManagerPhone', e.target.value)} placeholder="Phone" />
+                        <CFormInput readOnly={isSnapshotPreview} value={companyForm.purchaseManagerPhone} onChange={(e) => updateCompanyForm('purchaseManagerPhone', e.target.value)} placeholder="Phone" />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Purchase manager email</CFormLabel>
-                        <CFormInput type="email" value={companyForm.purchaseManagerEmail} onChange={(e) => updateCompanyForm('purchaseManagerEmail', e.target.value)} placeholder="Email" />
+                        <CFormInput readOnly={isSnapshotPreview} type="email" value={companyForm.purchaseManagerEmail} onChange={(e) => updateCompanyForm('purchaseManagerEmail', e.target.value)} placeholder="Email" />
                       </div>
                     </CCol>
                   </CRow>
@@ -2050,12 +2186,12 @@ const QuotationView = () => {
                   ) : (
                     <p className="mb-0 text-muted">No related query.</p>
                   )}
-                  {quotation.remark && (
+                  {displayQuotation?.remark ? (
                     <div className="mt-3 pt-3 border-top">
                       <strong>Remark</strong>
-                      <div className="mt-1">{quotation.remark}</div>
+                      <div className="mt-1">{displayQuotation.remark}</div>
                     </div>
-                  )}
+                  ) : null}
                 </CCardBody>
               </CCard>
             </CTabPane>
@@ -2070,6 +2206,7 @@ const QuotationView = () => {
                       <div className="mb-3">
                         <CFormLabel>Freight charge</CFormLabel>
                         <CFormInput
+                          readOnly={isSnapshotPreview}
                           type="text"
                           value={packingDeliveryForm.freightCharge}
                           onChange={(e) =>
@@ -2086,6 +2223,7 @@ const QuotationView = () => {
                       <div className="mb-3">
                         <CFormLabel>Packing Charge (₹)</CFormLabel>
                         <CFormInput
+                          readOnly={isSnapshotPreview}
                           type="number"
                           min={0}
                           step="0.01"
@@ -2099,6 +2237,7 @@ const QuotationView = () => {
                       <div className="mb-3">
                         <CFormLabel>Expected Delivery Within (Days)</CFormLabel>
                         <CFormInput
+                          readOnly={isSnapshotPreview}
                           type="number"
                           min={0}
                           step="1"
@@ -2110,7 +2249,7 @@ const QuotationView = () => {
                       </div>
                     </CCol>
                   </CRow>
-                  <CButton color="primary" onClick={handleSavePackingDelivery} disabled={savingPackingDelivery}>
+                  <CButton color="primary" onClick={handleSavePackingDelivery} disabled={savingPackingDelivery || isSnapshotPreview}>
                     {savingPackingDelivery ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
                   </CButton>
                 </CCardBody>
@@ -2147,7 +2286,7 @@ const QuotationView = () => {
                               value={editingProduct.productName || ''}
                               onChange={(e) => updateFormField('productName', e.target.value)}
                               placeholder="Product name"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2157,7 +2296,7 @@ const QuotationView = () => {
                               value={editingProduct.description || ''}
                               onChange={(e) => updateFormField('description', e.target.value)}
                               placeholder="Description"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2166,7 +2305,7 @@ const QuotationView = () => {
                               value={editingProduct.remark || ''}
                               onChange={(e) => updateFormField('remark', e.target.value)}
                               placeholder="Remark"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                         </CCol>
@@ -2179,7 +2318,7 @@ const QuotationView = () => {
                               value={editingProduct.quantity ?? ''}
                               onChange={(e) => updateFormField('quantity', e.target.value)}
                               placeholder="Quantity"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2188,7 +2327,7 @@ const QuotationView = () => {
                               value={editingProduct.unit || ''}
                               onChange={(e) => updateFormField('unit', e.target.value)}
                               placeholder="Unit"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2200,7 +2339,7 @@ const QuotationView = () => {
                               value={editingProduct.rate ?? ''}
                               onChange={(e) => updateFormField('rate', e.target.value)}
                               placeholder="Rate"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                         </CCol>
@@ -2211,7 +2350,7 @@ const QuotationView = () => {
                               value={editingProduct.hsnNumber || ''}
                               onChange={(e) => updateFormField('hsnNumber', e.target.value)}
                               placeholder="HSN Number"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2220,7 +2359,7 @@ const QuotationView = () => {
                               value={editingProduct.modelNumber || ''}
                               onChange={(e) => updateFormField('modelNumber', e.target.value)}
                               placeholder="Model Number"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                           <div className="mb-3">
@@ -2233,7 +2372,7 @@ const QuotationView = () => {
                               value={editingProduct.gstPercentage ?? ''}
                               onChange={(e) => updateFormField('gstPercentage', e.target.value)}
                               placeholder="GST %"
-                              disabled={isCurrentProductNotAvailable}
+                              disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                             />
                           </div>
                         </CCol>
@@ -2269,7 +2408,7 @@ const QuotationView = () => {
                                     style={{ top: 4, right: 4, width: 20, height: 20, minWidth: 20 }}
                                     onClick={() => removeEditingProductImage(index)}
                                     title="Remove image"
-                                    disabled={isCurrentProductNotAvailable}
+                                    disabled={isSnapshotPreview || isCurrentProductNotAvailable}
                                   >
                                     <CIcon icon={cilX} size="sm" />
                                   </CButton>
@@ -2283,7 +2422,7 @@ const QuotationView = () => {
                             type="file"
                             accept="image/*"
                             multiple
-                            disabled={uploadingProductImages || isCurrentProductNotAvailable}
+                            disabled={isSnapshotPreview || uploadingProductImages || isCurrentProductNotAvailable}
                             onChange={async (e) => {
                               const files = Array.from(e.target.files || [])
                               if (!files.length) return
@@ -2300,7 +2439,7 @@ const QuotationView = () => {
                         <CButton
                           color="secondary"
                           variant="outline"
-                          disabled={updating || uploadingProductImages || productIndex <= 0}
+                          disabled={updating || isSnapshotPreview || uploadingProductImages || productIndex <= 0}
                           onClick={() => setProductIndex((i) => Math.max(0, i - 1))}
                         >
                           <CIcon icon={cilArrowLeft} className="me-1" />
@@ -2308,7 +2447,7 @@ const QuotationView = () => {
                         </CButton>
                         <CButton
                           color="primary"
-                          disabled={updating || uploadingProductImages || isCurrentProductNotAvailable}
+                          disabled={updating || isSnapshotPreview || uploadingProductImages || isCurrentProductNotAvailable}
                           onClick={handleUpdateProduct}
                         >
                           {updating ? <><CSpinner size="sm" className="me-2" />Updating...</> : 'Update'}
@@ -2316,7 +2455,7 @@ const QuotationView = () => {
                         <CButton
                           color="info"
                           variant="outline"
-                          disabled={updating || uploadingProductImages || productIndex >= products.length - 1}
+                          disabled={updating || isSnapshotPreview || uploadingProductImages || productIndex >= products.length - 1}
                           onClick={handleNextProduct}
                         >
                           Next
@@ -2421,7 +2560,7 @@ const QuotationView = () => {
                     </CCol>
                   </CRow>
                   <div className="mt-3">
-                    <CButton color="primary" onClick={handleAddNewProduct} disabled={addingNewProduct}>
+                    <CButton color="primary" onClick={handleAddNewProduct} disabled={addingNewProduct || isSnapshotPreview}>
                       {addingNewProduct ? <><CSpinner size="sm" className="me-2" />Adding...</> : 'Add Product'}
                     </CButton>
                   </div>
@@ -2488,7 +2627,7 @@ const QuotationView = () => {
                                 onChange={(e) => setListGst(idx, e.target.value)}
                                 placeholder="%"
                                 title="GST % (required, 0–100)"
-                                disabled={!!p.notAvailable}
+                                disabled={!!p.notAvailable || isSnapshotPreview}
                               />
                             </CTableDataCell>
                             <CTableDataCell className="text-center py-1">
@@ -2540,7 +2679,7 @@ const QuotationView = () => {
                                 value={rateVal}
                                 onChange={(e) => setListRate(idx, e.target.value)}
                                 placeholder="Rate"
-                                disabled={!!p.notAvailable}
+                                disabled={!!p.notAvailable || isSnapshotPreview}
                               />
                             </CTableDataCell>
                             <CTableDataCell className="text-center py-1">
@@ -2549,7 +2688,7 @@ const QuotationView = () => {
                                   id={`discount-cb-${idx}`}
                                   checked={!!applyDiscount}
                                   onChange={(e) => setListApplyDiscount(idx, e.target.checked)}
-                                  disabled={!!p.notAvailable}
+                                  disabled={!!p.notAvailable || isSnapshotPreview}
                                   style={{ cursor: 'pointer' }}
                                 />
                                 <CFormLabel htmlFor={`discount-cb-${idx}`} className="mb-0 small" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Apply</CFormLabel>
@@ -2580,7 +2719,7 @@ const QuotationView = () => {
                                 value={totalVal}
                                 onChange={(e) => setListTotal(idx, e.target.value)}
                                 placeholder="Total"
-                                disabled={!!p.notAvailable}
+                                disabled={!!p.notAvailable || isSnapshotPreview}
                               />
                             </CTableDataCell>
                             <CTableDataCell className="text-center py-1">
@@ -2590,7 +2729,7 @@ const QuotationView = () => {
                                     <CButton color="warning" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => { setNotAvailableModalIndex(idx); setNotAvailableRemark(''); setNotAvailableModalVisible(true) }}>
                                       Not available
                                     </CButton>
-                                    <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating}>
+                                    <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating || isSnapshotPreview}>
                                       Update
                                     </CButton>
                                     <CButton
@@ -2599,17 +2738,17 @@ const QuotationView = () => {
                                       className="w-100"
                                       style={{ minWidth: 90, fontSize: '0.75rem' }}
                                       onClick={() => openDeleteProductModal(idx)}
-                                      disabled={updating}
+                                      disabled={updating || isSnapshotPreview}
                                     >
                                       Delete
                                     </CButton>
                                   </>
                                 ) : (
                                   <>
-                                    <CButton color="success" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleRevokeNotAvailable(idx)} disabled={updating}>
+                                    <CButton color="success" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleRevokeNotAvailable(idx)} disabled={updating || isSnapshotPreview}>
                                       Revoke
                                     </CButton>
-                                    <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating}>
+                                    <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating || isSnapshotPreview}>
                                       Update
                                     </CButton>
                                     <CButton
@@ -2618,7 +2757,7 @@ const QuotationView = () => {
                                       className="w-100"
                                       style={{ minWidth: 90, fontSize: '0.75rem' }}
                                       onClick={() => openDeleteProductModal(idx)}
-                                      disabled={updating}
+                                      disabled={updating || isSnapshotPreview}
                                     >
                                       Delete
                                     </CButton>
@@ -2643,6 +2782,69 @@ const QuotationView = () => {
                 <p className="text-muted mb-0">No products in this quotation.</p>
               )}
               </div>
+            </CTabPane>
+
+            <CTabPane visible={activeTab === 'history'}>
+              <CCard className="mb-0 border-0">
+                <CCardBody>
+                  <p className="text-muted small mb-3">
+                    Versions saved when HOD approved this quotation. Restore loads that snapshot into Preview, Company,
+                    Packing &amp; Delivery, Product, and Product List (read-only).
+                  </p>
+                  {snapshotsLoading ? (
+                    <div className="text-center py-4">
+                      <CSpinner />
+                    </div>
+                  ) : snapshotsError ? (
+                    <p className="text-danger mb-0">{snapshotsError}</p>
+                  ) : quotationSnapshots.length === 0 ? (
+                    <p className="text-muted mb-0">
+                      No snapshots yet. Mark the quotation as HOD Approved to create the first snapshot.
+                    </p>
+                  ) : (
+                    <CTable hover responsive bordered className="align-middle">
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell scope="col">Snapshot code</CTableHeaderCell>
+                          <CTableHeaderCell scope="col">Captured</CTableHeaderCell>
+                          <CTableHeaderCell scope="col" className="text-center" style={{ width: 96 }}>
+                            Restore
+                          </CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {quotationSnapshots.map((row) => (
+                          <CTableRow key={row._id}>
+                            <CTableDataCell className="fw-semibold text-break">{row.snapshotCode}</CTableDataCell>
+                            <CTableDataCell>{row.createdAt ? formatIstDisplayDate(row.createdAt) : '–'}</CTableDataCell>
+                            <CTableDataCell className="text-center">
+                              <CButton
+                                color="primary"
+                                variant="ghost"
+                                size="sm"
+                                className="p-1"
+                                title="Show this snapshot in all tabs"
+                                onClick={() => {
+                                  setSnapshotPreview({
+                                    _id: row._id,
+                                    snapshotCode: row.snapshotCode,
+                                    payload: row.payload,
+                                    capturedAt: row.createdAt,
+                                  })
+                                  setActiveTab('preview')
+                                  toastSuccess(`Showing ${row.snapshotCode}`)
+                                }}
+                              >
+                                <CIcon icon={cilActionUndo} size="lg" />
+                              </CButton>
+                            </CTableDataCell>
+                          </CTableRow>
+                        ))}
+                      </CTableBody>
+                    </CTable>
+                  )}
+                </CCardBody>
+              </CCard>
             </CTabPane>
 
           </CTabContent>
@@ -2796,11 +2998,11 @@ const QuotationView = () => {
           <CButton
             color="secondary"
             onClick={() => { setDeleteProductModalVisible(false); setDeleteProductIndex(null) }}
-            disabled={updating}
+            disabled={updating || isSnapshotPreview}
           >
             Cancel
           </CButton>
-          <CButton color="danger" onClick={handleConfirmDeleteProduct} disabled={updating}>
+          <CButton color="danger" onClick={handleConfirmDeleteProduct} disabled={updating || isSnapshotPreview}>
             {updating ? <><CSpinner size="sm" className="me-2" />Deleting...</> : 'Delete'}
           </CButton>
         </CModalFooter>
@@ -2824,7 +3026,7 @@ const QuotationView = () => {
           <CButton color="secondary" onClick={() => { setNotAvailableModalVisible(false); setNotAvailableModalIndex(null); setNotAvailableRemark('') }}>
             Cancel
           </CButton>
-          <CButton color="warning" onClick={handleSaveNotAvailable} disabled={updating || !notAvailableRemark.trim()}>
+          <CButton color="warning" onClick={handleSaveNotAvailable} disabled={updating || isSnapshotPreview || !notAvailableRemark.trim()}>
             {updating ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save & mark Not available'}
           </CButton>
         </CModalFooter>

@@ -90,6 +90,8 @@ const EmployeeForm = React.lazy(() => import('./views/admin/EmployeeForm'))
 const AreaList = React.lazy(() => import('./views/admin/AreaList'))
 const AreaForm = React.lazy(() => import('./views/admin/AreaForm'))
 const AreaView = React.lazy(() => import('./views/admin/AreaView'))
+const SubZoneList = React.lazy(() => import('./views/admin/SubZoneList'))
+const SubZoneForm = React.lazy(() => import('./views/admin/SubZoneForm'))
 
 // Industries
 const IndustryList = React.lazy(() => import('./views/admin/IndustryList'))
@@ -211,6 +213,9 @@ const routes = [
   { path: '/zones/new', name: 'Add Zone', element: AreaForm, module: 'zones', action: 'create' },
   { path: '/zones/edit/:id', name: 'Edit Zone', element: AreaForm, module: 'zones', action: 'update' },
   { path: '/zones/:id', name: 'Zone Details', element: AreaView, module: 'zones', action: 'read' },
+
+  { path: '/sub-zones', name: 'Sub-zones', element: SubZoneList, module: 'zones', action: 'read' },
+  { path: '/sub-zones/new', name: 'Add sub-zone', element: SubZoneForm, module: 'zones', action: 'create' },
 
   // Industries
   { path: '/industries', name: 'Clients', element: IndustryList, module: 'industries', action: 'read' },

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   CAlert,
@@ -23,6 +23,7 @@ import {
 import employeeService from '../../services/employeeService'
 import branchService from '../../services/branchService'
 import areaService from '../../services/areaService'
+import subZoneService from '../../services/subZoneService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -47,6 +48,8 @@ const EmployeeForm = () => {
   const [error, setError] = useState('')
   const [permissions, setPermissions] = useState([])
   const [zones, setZones] = useState([])
+  const [subZones, setSubZones] = useState([])
+  const prevZoneIdRef = useRef('')
 
   const roleOptions = useMemo(
     () => [
@@ -133,6 +136,7 @@ const EmployeeForm = () => {
         ...(isEdit ? {} : { password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters') }),
         branchId: yup.string().required('Branch is required'),
         zoneId: yup.string().optional().nullable(),
+        subZoneId: yup.string().optional().nullable(),
         categories: yup.string().trim().optional().nullable().transform((v, o) => (o === '' ? null : v)),
         assets: yup.object({
           bike: yup.object({
@@ -174,6 +178,7 @@ const EmployeeForm = () => {
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(schema),
@@ -191,6 +196,7 @@ const EmployeeForm = () => {
       role: '',
       branchId: '',
       zoneId: '',
+      subZoneId: '',
       categories: '',
       designation: '',
       address: '',
@@ -244,6 +250,7 @@ const EmployeeForm = () => {
   const mobileEnabled = !!watch('assets.mobile.enabled')
   const simCardEnabled = !!watch('assets.simCard.enabled')
   const selectedBranchId = watch('branchId')
+  const selectedZoneId = watch('zoneId')
 
   const normalizeId = (item) => ({
     ...item,
@@ -278,7 +285,10 @@ const EmployeeForm = () => {
   useEffect(() => {
     const loadZones = async () => {
       try {
-        const response = await areaService.getAll({ pageSize: 100 })
+        const response = await areaService.getAll({
+          pageSize: 100,
+          ...(selectedBranchId ? { branchId: selectedBranchId } : {}),
+        })
         const data = response?.data?.data || response?.data || response
         const list = data?.areas || data || []
         const normalized = list.map(normalizeId)
@@ -291,6 +301,37 @@ const EmployeeForm = () => {
 
     loadZones()
   }, [selectedBranchId])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadSubZones = async () => {
+      if (!selectedZoneId) {
+        setSubZones([])
+        setValue('subZoneId', '')
+        prevZoneIdRef.current = ''
+        return
+      }
+      if (prevZoneIdRef.current && prevZoneIdRef.current !== selectedZoneId) {
+        setValue('subZoneId', '')
+      }
+      prevZoneIdRef.current = selectedZoneId
+      try {
+        const response = await subZoneService.listByZone(selectedZoneId)
+        const data = response?.data?.data || response?.data || response
+        const list = data?.subZones || []
+        if (!cancelled) setSubZones(list)
+      } catch {
+        if (!cancelled) {
+          setSubZones([])
+          setValue('subZoneId', '')
+        }
+      }
+    }
+    loadSubZones()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedZoneId, setValue])
 
   useEffect(() => {
     const loadEmployee = async () => {
@@ -326,6 +367,7 @@ const EmployeeForm = () => {
           role: employee.role || '',
           branchId: employee.branchId || '',
           zoneId: employee.zoneId || '',
+          subZoneId: employee.subZoneId || '',
           categories: employee.categories || '',
           designation: employee.designation || '',
           address: employee.address || '',
@@ -455,6 +497,7 @@ const EmployeeForm = () => {
             roleOptions={roleOptions}
             branches={branches}
             zones={zones}
+            subZones={subZones}
             designationOptions={designationOptions}
             lockBranch={!canSelectBranch && !!userBranchId}
           />

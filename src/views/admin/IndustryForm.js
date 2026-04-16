@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -24,6 +24,7 @@ import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
 import { phoneOptional, gstinOptional, gstinRequired, MSG } from '../../utils/validation'
 import industryService from '../../services/industryService'
 import areaService from '../../services/areaService'
+import subZoneService from '../../services/subZoneService'
 import branchService from '../../services/branchService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -44,6 +45,7 @@ const industrySchema = yup.object({
     .optional()
     .nullable(),
   area: yup.string().optional().nullable(),
+  subZoneId: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
   gstNumber: yup.string().when('$isEdit', {
@@ -67,6 +69,7 @@ const defaultValues = {
   name: '',
   category: '',
   area: '',
+  subZoneId: '',
   location: '',
   address: '',
   gstNumber: '',
@@ -88,6 +91,8 @@ const IndustryForm = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [areas, setAreas] = useState([])
+  const [subZones, setSubZones] = useState([])
+  const prevAreaRef = useRef('')
 
   const {
     register,
@@ -108,6 +113,8 @@ const IndustryForm = () => {
     control,
     name: 'purchaseManagers',
   })
+
+  const selectedAreaId = watch('area')
 
   useEffect(() => {
     fetchAreas()
@@ -147,6 +154,37 @@ const IndustryForm = () => {
     if (defaultId) setValue('branchId', defaultId)
   }, [branches, isEdit, userBranchId, setValue, currentBranchId])
 
+  useEffect(() => {
+    let cancelled = false
+    const run = async () => {
+      if (!selectedAreaId) {
+        setSubZones([])
+        setValue('subZoneId', '')
+        prevAreaRef.current = ''
+        return
+      }
+      if (prevAreaRef.current && prevAreaRef.current !== selectedAreaId) {
+        setValue('subZoneId', '')
+      }
+      prevAreaRef.current = selectedAreaId
+      try {
+        const res = await subZoneService.listByZone(selectedAreaId)
+        const data = res?.data?.data || res?.data || res
+        const list = data?.subZones || []
+        if (!cancelled) setSubZones(list || [])
+      } catch {
+        if (!cancelled) {
+          setSubZones([])
+          setValue('subZoneId', '')
+        }
+      }
+    }
+    run()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedAreaId, setValue])
+
   const fetchAreas = async () => {
     try {
       const res = await areaService.getAll({ pageSize: 100 })
@@ -173,6 +211,8 @@ const IndustryForm = () => {
         name: data?.name || '',
         category: data?.category || '',
         area: typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || '',
+        subZoneId:
+          typeof data?.subZoneId === 'object' ? data?.subZoneId?._id || '' : data?.subZoneId || '',
         location: data?.location || '',
         address: data?.address || '',
         gstNumber: data?.gstNumber || '',
@@ -182,6 +222,7 @@ const IndustryForm = () => {
         purchaseManagers: purchaseManagers.length ? purchaseManagers : [],
         branchId: branchId || '',
       })
+      prevAreaRef.current = typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || ''
     } catch (err) {
       toastError(err?.message || 'Failed to fetch client')
     } finally {
@@ -201,6 +242,7 @@ const IndustryForm = () => {
         const payload = {
           location: values.location || '',
           address: values.address || '',
+          subZoneId: (values.subZoneId && String(values.subZoneId).trim()) || null,
           purchaseManagers: (values.purchaseManagers || []).filter(
             (pm) => (pm.name || '').trim(),
           ).map((pm) => ({
@@ -366,6 +408,24 @@ const IndustryForm = () => {
                 )}
               </div>
             </CCol>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>Sub-zone</CFormLabel>
+                <CFormSelect {...register('subZoneId')} disabled={!subZones.length}>
+                  <option value="">{subZones.length ? 'Optional' : 'No sub-zones for this zone'}</option>
+                  {subZones.map((sz) => {
+                    const sid = sz._id || sz.id
+                    return (
+                      <option key={sid} value={sid}>
+                        {(sz.subZoneCode ? `${sz.subZoneCode} — ` : '') + (sz.name || '')}
+                      </option>
+                    )
+                  })}
+                </CFormSelect>
+              </div>
+            </CCol>
+          </CRow>
+          <CRow>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Location ( Google Map URL )</CFormLabel>

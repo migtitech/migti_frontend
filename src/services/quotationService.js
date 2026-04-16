@@ -21,6 +21,13 @@ const quotationService = {
     return response
   },
 
+  listSnapshots: async (quotationId) => {
+    const response = await api.get(QUOTATIONS.SNAPSHOTS_LIST, {
+      params: { quotationId },
+    })
+    return response
+  },
+
   update: async (id, data) => {
     const response = await api.put(QUOTATIONS.UPDATE, data, {
       params: { quotationId: id },

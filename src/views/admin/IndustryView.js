@@ -677,3 +677,4 @@ const IndustryView = () => {
 export default IndustryView
 
 
+

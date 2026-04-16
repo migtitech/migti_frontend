@@ -159,6 +159,14 @@ export const AREAS = {
   DELETE: '/areas/delete',
 }
 
+export const SUB_ZONES = {
+  CREATE: '/sub-zones/create',
+  LIST: '/sub-zones/list',
+  LIST_GROUPED: '/sub-zones/list-grouped',
+  UPDATE: '/sub-zones/update',
+  DELETE: '/sub-zones/delete',
+}
+
 export const INDUSTRIES = {
   CREATE: '/industries/create',
   LIST: '/industries/list',
@@ -204,6 +212,7 @@ export const QUOTATIONS = {
   LIST: '/quotations/list',
   BY_INDUSTRY: '/quotations/by-industry',
   GET_BY_ID: '/quotations/get-by-id',
+  SNAPSHOTS_LIST: '/quotations/snapshots/list',
   UPDATE: '/quotations/update',
   UPDATE_STATUS: '/quotations/update-status',
   EXPORT_PDF: '/quotations/export-pdf',

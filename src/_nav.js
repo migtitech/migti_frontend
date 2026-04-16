@@ -67,6 +67,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'SubZone',
+    to: '/sub-zones',
+    icon: <CIcon icon={cilLayers} customClassName="nav-icon" />,
+    module: 'zones',
+  },
+  {
+    component: CNavItem,
     name: 'Clients',
     to: '/industries',
     icon: <CIcon icon={cilIndustry} customClassName="nav-icon" />,

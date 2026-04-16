@@ -14,6 +14,7 @@ const EmployeeCompanyInfoSection = ({
   roleOptions,
   branches,
   zones = [],
+  subZones = [],
   designationOptions = [],
   lockBranch = false,
 }) => (
@@ -129,6 +130,29 @@ const EmployeeCompanyInfoSection = ({
             ))}
           </CFormSelect>
           <CFormFeedback invalid>{errors.zoneId?.message}</CFormFeedback>
+        </div>
+      </CCol>
+      <CCol md={6}>
+        <div className="mb-3">
+          <CFormLabel htmlFor="subZoneId">Sub-zone</CFormLabel>
+          <CFormSelect
+            id="subZoneId"
+            {...register('subZoneId')}
+            invalid={!!errors.subZoneId}
+            disabled={!subZones.length}
+          >
+            <option value="">{subZones.length ? 'Select sub-zone (optional)' : 'No sub-zones for this zone'}</option>
+            {subZones.map((sz) => {
+              const sid = sz._id || sz.id
+              return (
+                <option key={sid} value={sid}>
+                  {sz.subZoneCode ? `${sz.subZoneCode} — ` : ''}
+                  {sz.name}
+                </option>
+              )
+            })}
+          </CFormSelect>
+          <CFormFeedback invalid>{errors.subZoneId?.message}</CFormFeedback>
         </div>
       </CCol>
     </CRow>
