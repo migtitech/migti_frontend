@@ -36,6 +36,7 @@ import {
   cilX,
   cilCloudDownload,
   cilBan,
+  cilLocationPin,
 } from '@coreui/icons'
 import { getAssetsUrl } from '../../api/endpoints'
 import queryService from '../../services/queryService'
@@ -75,6 +76,28 @@ const fetchUserById = async (userId) => {
     if (usr && (usr.name || usr.email || usr.firstName)) return { ...usr, role: usr.role || 'admin' }
   } catch {}
   return null
+}
+
+const isLocationUrl = (value) => {
+  const s = String(value || '').trim()
+  if (!s) return false
+  return /^https?:\/\//i.test(s) || /^www\./i.test(s)
+}
+
+const toOpenableLocationUrl = (value) => {
+  const s = String(value || '').trim()
+  if (!s) return ''
+  if (/^www\./i.test(s)) return `https://${s}`
+  return s
+}
+
+const openLocationInNewTab = (value) => {
+  const url = toOpenableLocationUrl(value)
+  if (!url) return
+  const win = window.open(url, '_blank', 'noopener,noreferrer')
+  if (!win) {
+    toastError('Pop-up blocked. Allow pop-ups to open this location.')
+  }
 }
 
 const QueryView = () => {
@@ -382,9 +405,24 @@ const QueryView = () => {
                 <span className="small text-muted me-2">Company</span>
                 <span className="fw-semibold">{companyName}</span>
               </div>
-              <div className="px-3 py-2 rounded border bg-white">
-                <span className="small text-muted me-2">Location</span>
-                <span className="fw-semibold">{companyLocation}</span>
+              <div className="px-3 py-2 rounded border bg-white d-inline-flex align-items-center flex-wrap gap-2">
+                <span className="small text-muted">Location</span>
+                {isLocationUrl(companyLocation) ? (
+                  <CButton
+                    type="button"
+                    size="sm"
+                    color="primary"
+                    variant="outline"
+                    className="d-inline-flex align-items-center"
+                    onClick={() => openLocationInNewTab(companyLocation)}
+                    title="Open location in new tab"
+                  >
+                    <CIcon icon={cilLocationPin} className="me-1" />
+                    Open location
+                  </CButton>
+                ) : (
+                  <span className="fw-semibold">{companyLocation}</span>
+                )}
               </div>
               <div className="px-3 py-2 rounded border bg-white d-inline-flex align-items-center gap-2">
                 <span className="small text-muted">Status</span>
@@ -510,9 +548,24 @@ const QueryView = () => {
                   <strong>Company name</strong>
                   <span>{companyName}</span>
                 </CListGroupItem>
-                <CListGroupItem className="d-flex flex-column flex-md-row justify-content-between gap-1">
+                <CListGroupItem className="d-flex flex-column flex-md-row justify-content-between gap-2 align-items-md-center">
                   <strong>Location</strong>
-                  <span>{companyLocation}</span>
+                  {isLocationUrl(companyLocation) ? (
+                    <CButton
+                      type="button"
+                      size="sm"
+                      color="primary"
+                      variant="outline"
+                      className="d-inline-flex align-items-center align-self-start align-self-md-end"
+                      onClick={() => openLocationInNewTab(companyLocation)}
+                      title="Open location in new tab"
+                    >
+                      <CIcon icon={cilLocationPin} className="me-1" />
+                      Open location
+                    </CButton>
+                  ) : (
+                    <span>{companyLocation}</span>
+                  )}
                 </CListGroupItem>
                 <CListGroupItem><strong>Purchase managers</strong><div className="mt-1">{(ci.purchaseManagers || []).length > 0 ? (ci.purchaseManagers || []).map((m, i) => <div key={i}>{m.name || '–'}{m.phone ? ` • ${m.phone}` : ''}{m.email ? ` • ${m.email}` : ''}</div>) : (ci.purchase_manager_name || ci.purchase_manager_phone) ? `${ci.purchase_manager_name || '–'} • ${ci.purchase_manager_phone || ''}` : '–'}</div></CListGroupItem>
                 <CListGroupItem><strong>Address</strong><div className="mt-1">{ci.address || '-'}</div></CListGroupItem>

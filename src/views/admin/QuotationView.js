@@ -61,11 +61,6 @@ import { ROLES, ROLE_LABELS } from '../../context/AuthContext'
 import QuoteLogsSidebar from './QuoteLogsSidebar'
 
 const PURCHASE_ROLES = [ROLES.PURCHASE_MANAGER, ROLES.PURCHASE_EXICUTIVE, 'purchase_executive']
-const BACK_OFFICE_ROLES = new Set([
-  ROLES.BACK_OFFICE_EXICUTIVE,
-  'back_office_executive',
-  'boe',
-])
 
 const getCurrentUserRole = () => {
   try {
@@ -141,7 +136,7 @@ const buildViewQuotationFromSnapshot = (live, preview) => {
   }
 }
 
-/** Merge PUT /quotation/update response (e.g. status after invalidating HOD approval). */
+/** Merge PUT /quotation/update response into local quotation state. */
 const mergeQuotationUpdateIntoPrev = (prev, data, patch = {}) => {
   if (!prev) return null
   const d = data && typeof data === 'object' ? data : {}
@@ -155,6 +150,42 @@ const mergeQuotationUpdateIntoPrev = (prev, data, patch = {}) => {
   if (d.expectedDeliveryDate !== undefined) next.expectedDeliveryDate = d.expectedDeliveryDate
   if (d.industry_id !== undefined) next.industry_id = d.industry_id
   return next
+}
+
+/** Draft reason for "Not available" modal (per quotation line); survives navigation until saved or revoked. */
+const notAvailableReasonDraftKey = (quotationId, productIndex) =>
+  quotationId != null && productIndex != null
+    ? `migticrm_quotation_na_reason_${String(quotationId)}_${String(productIndex)}`
+    : null
+
+const readNotAvailableReasonDraft = (quotationId, productIndex) => {
+  const key = notAvailableReasonDraftKey(quotationId, productIndex)
+  if (!key) return ''
+  try {
+    return localStorage.getItem(key) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+const persistNotAvailableReasonDraft = (quotationId, productIndex, text) => {
+  const key = notAvailableReasonDraftKey(quotationId, productIndex)
+  if (!key) return
+  try {
+    localStorage.setItem(key, text)
+  } catch {
+    /* ignore */
+  }
+}
+
+const clearNotAvailableReasonDraft = (quotationId, productIndex) => {
+  const key = notAvailableReasonDraftKey(quotationId, productIndex)
+  if (!key) return
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    /* ignore */
+  }
 }
 
 const QuotationView = () => {
@@ -932,6 +963,7 @@ const QuotationView = () => {
       } else {
         setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
+      clearNotAvailableReasonDraft(quotation.id, idx)
       toastSuccess('Product marked as not available')
       setNotAvailableModalVisible(false)
       setNotAvailableModalIndex(null)
@@ -981,6 +1013,7 @@ const QuotationView = () => {
       } else {
         setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { products: updatedProducts }))
       }
+      clearNotAvailableReasonDraft(quotation.id, idx)
       toastSuccess('Product marked as available again')
     } catch (err) {
       toastError(err?.message || 'Failed to revoke')
@@ -1221,26 +1254,12 @@ const QuotationView = () => {
   }
 
 
-  const isHodApproved = quotation?.status === 'hod_approved'
-  const isBackOfficeExecutive = BACK_OFFICE_ROLES.has(getCurrentUserRole())
   const canCreateQuotation = hasPermission('quotations', 'create')
   const canUpdateQuotation = hasPermission('quotations', 'update')
   const canDeleteQuotation = hasPermission('quotations', 'delete')
   const currentProduct =
     products.length > 0 ? products[Math.min(productIndex, products.length - 1)] : null
   const isCurrentProductNotAvailable = !!currentProduct?.notAvailable
-
-  const handleMarkApproved = async () => {
-    if (isSnapshotPreview) return
-    if (!quotation?.id) return
-    try {
-      await quotationService.updateStatus(quotation.id, 'hod_approved')
-      setQuotation((prev) => (prev ? { ...prev, status: 'hod_approved' } : null))
-      toastSuccess('Quotation marked as HOD Approved')
-    } catch (err) {
-      toastError(err?.response?.data?.message || err?.message || 'Failed to update status')
-    }
-  }
 
   const openImageGallery = (images, startIndex = 0) => {
     if (!images?.length) return
@@ -1304,7 +1323,7 @@ const QuotationView = () => {
       case 'draft':
         return <CBadge color="secondary" className="text-uppercase fw-semibold px-3 py-2">Draft</CBadge>
       case 'hod_approved':
-        return <CBadge color="success" className="text-uppercase fw-semibold px-3 py-2">HOD Approved</CBadge>
+        return <CBadge color="success" className="text-uppercase fw-semibold px-3 py-2">Approved</CBadge>
       case 'sent':
       case 'sentToClient':
         return <CBadge color="info" className="text-uppercase fw-semibold px-3 py-2">Sent</CBadge>
@@ -1396,23 +1415,11 @@ const QuotationView = () => {
               >
                 {quoteLogsOpen ? 'Hide Quote Logs' : 'Show Quote Logs'}
               </CButton>
-              {!isBackOfficeExecutive && canUpdateQuotation && (
-                <CButton
-                  color="primary"
-                  onClick={handleMarkApproved}
-                  disabled={isHodApproved || isSnapshotPreview}
-                  className="d-inline-flex align-items-center px-3 fw-semibold"
-                  style={{ height: 40 }}
-                >
-                  Mark Approved
-                </CButton>
-              )}
               <CButton
                 color="secondary"
                 variant="outline"
                 onClick={handleDownloadProductsPdf}
-                disabled={exportingPdf || !isHodApproved || isSnapshotPreview}
-                title={!isHodApproved ? 'Available after HOD approval' : undefined}
+                disabled={exportingPdf || isSnapshotPreview}
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
               >
@@ -1423,7 +1430,7 @@ const QuotationView = () => {
               <CButton
                 color="primary"
                 variant="outline"
-                disabled={!isHodApproved || isSnapshotPreview}
+                disabled={isSnapshotPreview}
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
               >
@@ -2736,7 +2743,20 @@ const QuotationView = () => {
                                 {!p.notAvailable ? (
                                   <>
                                     {canUpdateQuotation ? (
-                                      <CButton color="warning" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => { setNotAvailableModalIndex(idx); setNotAvailableRemark(''); setNotAvailableModalVisible(true) }}>
+                                      <CButton
+                                        color="warning"
+                                        size="sm"
+                                        className="w-100"
+                                        style={{ minWidth: 90, fontSize: '0.75rem' }}
+                                        onClick={() => {
+                                          setNotAvailableModalIndex(idx)
+                                          const qid = quotation?.id
+                                          const fromSaved = products[idx]?.notAvailableRemark || ''
+                                          const draft = readNotAvailableReasonDraft(qid, idx)
+                                          setNotAvailableRemark(fromSaved || draft || '')
+                                          setNotAvailableModalVisible(true)
+                                        }}
+                                      >
                                         Not available
                                       </CButton>
                                     ) : null}
@@ -2809,8 +2829,8 @@ const QuotationView = () => {
               <CCard className="mb-0 border-0">
                 <CCardBody>
                   <p className="text-muted small mb-3">
-                    Versions saved when HOD approved this quotation. Restore loads that snapshot into Preview, Company,
-                    Packing &amp; Delivery, Product, and Product List (read-only).
+                    Saved versions of this quotation. Restore loads a snapshot into Preview, Company, Packing &amp;
+                    Delivery, Product, and Product List (read-only).
                   </p>
                   {snapshotsLoading ? (
                     <div className="text-center py-4">
@@ -2819,9 +2839,7 @@ const QuotationView = () => {
                   ) : snapshotsError ? (
                     <p className="text-danger mb-0">{snapshotsError}</p>
                   ) : quotationSnapshots.length === 0 ? (
-                    <p className="text-muted mb-0">
-                      No snapshots yet. Mark the quotation as HOD Approved to create the first snapshot.
-                    </p>
+                    <p className="text-muted mb-0">No snapshots yet.</p>
                   ) : (
                     <CTable hover responsive bordered className="align-middle">
                       <CTableHead>
@@ -3039,7 +3057,13 @@ const QuotationView = () => {
           <CFormTextarea
             rows={3}
             value={notAvailableRemark}
-            onChange={(e) => setNotAvailableRemark(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value
+              setNotAvailableRemark(v)
+              if (quotation?.id != null && notAvailableModalIndex != null) {
+                persistNotAvailableReasonDraft(quotation.id, notAvailableModalIndex, v)
+              }
+            }}
             placeholder="e.g. Out of stock, discontinued, etc."
           />
         </CModalBody>

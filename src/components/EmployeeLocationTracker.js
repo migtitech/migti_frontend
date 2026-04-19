@@ -69,9 +69,12 @@ const getLocalityAndCity = async (latitude, longitude) => {
 const EmployeeLocationTracker = () => {
   const { isAuthenticated, user } = useAuth()
   const watchIdRef = useRef(null)
+  const intervalIdRef = useRef(null)
   const deniedRef = useRef(false)
-  const lastSentAtRef = useRef(0)
+  const lastPositionRef = useRef(null)
+  const sendInFlightRef = useRef(false)
   const lastReverseGeoAtRef = useRef(0)
+  const lastSentAtRef = useRef(0)
   const cachedCityRef = useRef('')
   const cachedLocalityRef = useRef('')
 
@@ -81,8 +84,10 @@ const EmployeeLocationTracker = () => {
     }
 
     deniedRef.current = false
-    lastSentAtRef.current = 0
+    lastPositionRef.current = null
+    sendInFlightRef.current = false
     lastReverseGeoAtRef.current = 0
+    lastSentAtRef.current = 0
     cachedCityRef.current = ''
     cachedLocalityRef.current = ''
 
@@ -147,7 +152,21 @@ const EmployeeLocationTracker = () => {
       },
     )
 
+    intervalIdRef.current = window.setInterval(() => {
+      if (deniedRef.current) return
+      const position = lastPositionRef.current
+      if (!position || sendInFlightRef.current) return
+      sendInFlightRef.current = true
+      void sendWithPosition(position).finally(() => {
+        sendInFlightRef.current = false
+      })
+    }, SEND_INTERVAL_MS)
+
     return () => {
+      if (intervalIdRef.current != null) {
+        window.clearInterval(intervalIdRef.current)
+        intervalIdRef.current = null
+      }
       if (watchIdRef.current != null) {
         navigator.geolocation.clearWatch(watchIdRef.current)
         watchIdRef.current = null

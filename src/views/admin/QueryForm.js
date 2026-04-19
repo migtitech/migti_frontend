@@ -128,8 +128,6 @@ const QueryForm = () => {
   const [companyInfo, setCompanyInfo] = useState(INITIAL_COMPANY)
   const [areas, setAreas] = useState([])
   const [querySubZones, setQuerySubZones] = useState([])
-  const [addSubZoneModal, setAddSubZoneModal] = useState({ visible: false, name: '' })
-  const [addingSubZone, setAddingSubZone] = useState(false)
   const companyDropdownRef = useRef(null)
 
   // Products – form for add/edit one, then table of all added
@@ -958,37 +956,6 @@ const QueryForm = () => {
     return `${match.subZoneCode ? `${match.subZoneCode} — ` : ''}${match.name || ''}`
   }
 
-  const handleCreateSubZoneFromQuery = async () => {
-    const zoneId = companyInfo.area
-    const name = (addSubZoneModal.name || '').trim()
-    if (!zoneId) {
-      toastError('Select a zone first')
-      return
-    }
-    if (!name) {
-      toastError('Sub-zone name is required')
-      return
-    }
-    setAddingSubZone(true)
-    try {
-      const res = await subZoneService.create({ zoneId, name })
-      const created = res?.data?.data || res?.data || res
-      const id = created?._id || created?.id
-      const listRes = await subZoneService.listByZone(zoneId)
-      const data = listRes?.data?.data || listRes?.data || listRes
-      setQuerySubZones(data?.subZones || [])
-      if (id) {
-        setCompanyInfo((c) => ({ ...c, subZoneId: String(id) }))
-      }
-      setAddSubZoneModal({ visible: false, name: '' })
-      toastSuccess('Sub-zone created')
-    } catch (err) {
-      toastError(err?.message || 'Failed to create sub-zone')
-    } finally {
-      setAddingSubZone(false)
-    }
-  }
-
   const getStepStatus = (stepId) => {
     if (stepId < currentStep) return 'completed'
     if (stepId === currentStep) return 'active'
@@ -1335,20 +1302,6 @@ const QueryForm = () => {
                           )
                         })}
                       </CFormSelect>
-                    </div>
-                  </CCol>
-                  <CCol md={6} className="d-flex align-items-end">
-                    <div className="mb-3 w-100">
-                      <CButton
-                        type="button"
-                        color="secondary"
-                        variant="outline"
-                        disabled={!companyInfo.area}
-                        onClick={() => setAddSubZoneModal({ visible: true, name: '' })}
-                      >
-                        <CIcon icon={cilPlus} className="me-1" />
-                        Add sub-zone for this zone
-                      </CButton>
                     </div>
                   </CCol>
                 </CRow>
@@ -2300,32 +2253,6 @@ const QueryForm = () => {
           </CCardBody>
         </CCard>
       </CForm>
-
-      <CModal
-        visible={addSubZoneModal.visible}
-        onClose={() => setAddSubZoneModal({ visible: false, name: '' })}
-      >
-        <CModalHeader closeButton>
-          <CModalTitle>New sub-zone</CModalTitle>
-        </CModalHeader>
-        <CModalBody>
-          <CFormLabel>Name</CFormLabel>
-          <CFormInput
-            value={addSubZoneModal.name}
-            onChange={(e) => setAddSubZoneModal((m) => ({ ...m, name: e.target.value }))}
-            maxLength={200}
-            placeholder="Sub-zone display name"
-          />
-        </CModalBody>
-        <CModalFooter>
-          <CButton color="secondary" variant="outline" onClick={() => setAddSubZoneModal({ visible: false, name: '' })}>
-            Cancel
-          </CButton>
-          <CButton color="primary" onClick={handleCreateSubZoneFromQuery} disabled={addingSubZone}>
-            {addingSubZone ? 'Creating…' : 'Create'}
-          </CButton>
-        </CModalFooter>
-      </CModal>
 
       <FindProductModal
         visible={showFindProductModal}

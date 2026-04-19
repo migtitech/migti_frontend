@@ -4,7 +4,13 @@ import { useAuth } from '../context/AuthContext'
 import usePermissions from '../hooks/usePermissions'
 import Loader from './Loader/Loader'
 
-const ProtectedRoute = ({ children, module, action = 'read' }) => {
+const normalizeRole = (role) =>
+  String(role || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, '_')
+
+const ProtectedRoute = ({ children, module, action = 'read', allowedRoles }) => {
   const { loading, isAuthenticated, user } = useAuth()
   const { hasPermission, isFullAccess } = usePermissions()
 
@@ -18,6 +24,14 @@ const ProtectedRoute = ({ children, module, action = 'read' }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  if (allowedRoles?.length) {
+    const u = normalizeRole(user?.role)
+    const ok = allowedRoles.some((r) => normalizeRole(r) === u)
+    if (!ok) {
+      return <Navigate to="/unauthorized" replace />
+    }
   }
 
   // If no module specified, allow all authenticated users (e.g., dashboard)

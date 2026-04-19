@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { CChartBar, CChartDoughnut } from '@coreui/react-chartjs'
 import {
   CButton,
   CCard,
@@ -78,6 +79,16 @@ const formatDateParts = (value) => {
   return { date: date || '-', time: time || '' }
 }
 
+const formatDateOnly = (value) => {
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '-'
+  const dd = String(d.getDate()).padStart(2, '0')
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const yy = String(d.getFullYear()).slice(-2)
+  return `${dd}/${mm}/${yy}`
+}
+
 const getTodayInputDate = () => {
   const d = new Date()
   const yyyy = d.getFullYear()
@@ -121,21 +132,19 @@ const PurchaseOrderSidebar = () => {
   })
 
   const [companies, setCompanies] = useState([])
-  const [salespeople, setSalespeople] = useState([])
   const [industrySearchText, setIndustrySearchText] = useState('')
 
   const [poModal, setPoModal] = useState(false)
   const [billingModal, setBillingModal] = useState(false)
   const [poForm, setPoForm] = useState({
     companyId: '',
-    salespersonId: '',
     amount: '',
     entryDate: getTodayInputDate(),
+    dispatchmentDate: '',
     remark: '',
   })
   const [billingForm, setBillingForm] = useState({
     companyId: '',
-    salespersonId: '',
     amount: '',
     entryDate: getTodayInputDate(),
     remark: '',
@@ -153,6 +162,36 @@ const PurchaseOrderSidebar = () => {
   const safePage = pagination.currentPage || currentPage
   const totalPages = pagination.totalPages || 1
   const companiesList = useMemo(() => companies, [companies])
+  const poVsBillingChart = useMemo(
+    () => ({
+      labels: ['PO amount', 'Billing amount'],
+      datasets: [
+        {
+          label: 'Amount (₹)',
+          backgroundColor: ['rgba(13, 110, 253, 0.7)', 'rgba(25, 135, 84, 0.7)'],
+          borderColor: ['#0d6efd', '#198754'],
+          borderWidth: 1,
+          data: [Number(metrics.poAmount || 0), Number(metrics.billingAmount || 0)],
+        },
+      ],
+    }),
+    [metrics.poAmount, metrics.billingAmount],
+  )
+
+  const poBillingCountDoughnut = useMemo(
+    () => ({
+      labels: ['PO entries', 'Billing entries'],
+      datasets: [
+        {
+          backgroundColor: ['#0d6efd', '#198754'],
+          borderWidth: 1,
+          data: [Number(metrics.totalPoCount || 0), Number(metrics.totalBillingCount || 0)],
+        },
+      ],
+    }),
+    [metrics.totalPoCount, metrics.totalBillingCount],
+  )
+
   const visibleCompanies = useMemo(() => {
     const q = industrySearchText.trim().toLowerCase()
     const filtered = !q
@@ -160,8 +199,6 @@ const PurchaseOrderSidebar = () => {
       : companiesList.filter((c) => String(c?.name || '').toLowerCase().includes(q))
     return filtered.slice(0, 50)
   }, [companiesList, industrySearchText])
-  const salespeopleList = useMemo(() => salespeople, [salespeople])
-
   useEffect(() => {
     const load = async () => {
       setLoadingInit(true)
@@ -172,14 +209,7 @@ const PurchaseOrderSidebar = () => {
         const formOptionsPayload = unwrapResponse(formOptionsRes)
         const companiesData =
           formOptionsPayload?.data?.companies || formOptionsPayload?.companies || []
-        const employeesData =
-          formOptionsPayload?.data?.salespeople || formOptionsPayload?.salespeople || []
         setCompanies((companiesData || []).map((c) => ({ ...c, id: c._id || c.id })))
-        setSalespeople(
-          (employeesData || [])
-            .filter((e) => String(e?.role || '').toLowerCase().includes('sales'))
-            .map((e) => ({ ...e, id: e._id || e.id })),
-        )
       } catch (err) {
         toastError(err?.message || 'Failed to load form options')
       } finally {
@@ -331,14 +361,13 @@ const PurchaseOrderSidebar = () => {
 
   const onCreatePo = async () => {
     const amountValue = Number(poForm.amount)
-    if (!poForm.companyId || !poForm.salespersonId || !amountValue || amountValue <= 0) {
-      toastError('Company, salesperson and amount are required')
+    if (!poForm.companyId || !amountValue || amountValue <= 0) {
+      toastError('Company and amount are required')
       return
     }
     try {
       await poBillingService.createPo({
         companyId: poForm.companyId,
-        salespersonId: poForm.salespersonId,
         amount: amountValue,
         entryDate: poForm.entryDate || undefined,
         remark: poForm.remark,
@@ -350,9 +379,9 @@ const PurchaseOrderSidebar = () => {
       setPoAttachment(null)
       setPoForm({
         companyId: '',
-        salespersonId: '',
         amount: '',
         entryDate: getTodayInputDate(),
+        dispatchmentDate: '',
         remark: '',
       })
       loadAnalytics()
@@ -363,14 +392,13 @@ const PurchaseOrderSidebar = () => {
 
   const onCreateBilling = async () => {
     const amountValue = Number(billingForm.amount)
-    if (!billingForm.companyId || !billingForm.salespersonId || !amountValue || amountValue <= 0) {
-      toastError('Company, salesperson and amount are required')
+    if (!billingForm.companyId || !amountValue || amountValue <= 0) {
+      toastError('Company and amount are required')
       return
     }
     try {
       await poBillingService.createBilling({
         companyId: billingForm.companyId,
-        salespersonId: billingForm.salespersonId,
         amount: amountValue,
         entryDate: billingForm.entryDate || undefined,
         remark: billingForm.remark,
@@ -382,7 +410,6 @@ const PurchaseOrderSidebar = () => {
       setBillingAttachment(null)
       setBillingForm({
         companyId: '',
-        salespersonId: '',
         amount: '',
         entryDate: getTodayInputDate(),
         remark: '',
@@ -465,22 +492,99 @@ const PurchaseOrderSidebar = () => {
               </div>
             ) : (
               <>
-                <CRow className="g-3 mb-4">
+                <CRow className="g-3 mb-3">
                   {[
-                    { label: 'Total PO Count', value: metrics.totalPoCount || 0 },
-                    { label: 'Total Billing Count', value: metrics.totalBillingCount || 0 },
-                    { label: 'PO Amount', value: formatAmount(metrics.poAmount || 0) },
-                    { label: 'Billing Amount', value: formatAmount(metrics.billingAmount || 0) },
+                    {
+                      label: 'PO count',
+                      value: metrics.totalPoCount || 0,
+                      border: 'primary',
+                      hint: 'Entries in range',
+                    },
+                    {
+                      label: 'Billing count',
+                      value: metrics.totalBillingCount || 0,
+                      border: 'success',
+                      hint: 'Entries in range',
+                    },
+                    {
+                      label: 'PO amount',
+                      value: formatAmount(metrics.poAmount || 0),
+                      border: 'primary',
+                      hint: 'Sum for filters',
+                    },
+                    {
+                      label: 'Billing amount',
+                      value: formatAmount(metrics.billingAmount || 0),
+                      border: 'success',
+                      hint: 'Sum for filters',
+                    },
                   ].map((item) => (
                     <CCol md={3} sm={6} xs={12} key={item.label}>
-                      <CCard>
-                        <CCardBody>
-                          <div className="text-muted small">{item.label}</div>
+                      <CCard className={`h-100 border-start border-${item.border} border-4 shadow-sm`}>
+                        <CCardBody className="py-3">
+                          <div className="text-body-secondary small text-uppercase">{item.label}</div>
                           <div className="fs-5 fw-semibold">{item.value}</div>
+                          <div className="small text-muted mt-1">{item.hint}</div>
                         </CCardBody>
                       </CCard>
                     </CCol>
                   ))}
+                </CRow>
+
+                <CRow className="g-3 mb-4">
+                  <CCol lg={7}>
+                    <CCard className="h-100 shadow-sm">
+                      <CCardHeader className="py-2">
+                        <strong className="small">Amount comparison</strong>
+                        <span className="text-body-secondary small ms-2">PO vs billing (₹)</span>
+                      </CCardHeader>
+                      <CCardBody style={{ minHeight: 260 }}>
+                        <CChartBar
+                          data={poVsBillingChart}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              legend: { display: false },
+                              tooltip: {
+                                callbacks: {
+                                  label: (ctx) =>
+                                    ` ₹${Number(ctx.parsed.y || 0).toLocaleString('en-IN', {
+                                      maximumFractionDigits: 0,
+                                    })}`,
+                                },
+                              },
+                            },
+                            scales: {
+                              y: { beginAtZero: true },
+                            },
+                          }}
+                          style={{ height: 240 }}
+                        />
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
+                  <CCol lg={5}>
+                    <CCard className="h-100 shadow-sm">
+                      <CCardHeader className="py-2">
+                        <strong className="small">Volume split</strong>
+                        <span className="text-body-secondary small ms-2">PO vs billing rows</span>
+                      </CCardHeader>
+                      <CCardBody className="d-flex justify-content-center align-items-center" style={{ minHeight: 260 }}>
+                        <CChartDoughnut
+                          data={poBillingCountDoughnut}
+                          options={{
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                              legend: { position: 'bottom' },
+                            },
+                          }}
+                          style={{ height: 220, maxWidth: 320 }}
+                        />
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
                 </CRow>
 
                 <CNav variant="tabs" className="mb-3">
@@ -509,7 +613,6 @@ const PurchaseOrderSidebar = () => {
                             <CCardBody>
                               <div className="small text-muted mb-1">#{(safePage - 1) * pageSize + index + 1}</div>
                               <div className="small mb-1"><strong>Company:</strong> {item.companyName || '-'}</div>
-                              <div className="small mb-1"><strong>Salesperson:</strong> {item.salespersonName || '-'}</div>
                               <div className="small mb-1"><strong>Amount:</strong> {formatAmount(item.amount)}</div>
                               <div className="small mb-1">
                                 <strong>Date:</strong> {dateInfo.date} {dateInfo.time ? ` ${dateInfo.time}` : ''}
@@ -546,9 +649,9 @@ const PurchaseOrderSidebar = () => {
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Company</CTableHeaderCell>
-                      <CTableHeaderCell>Salesperson</CTableHeaderCell>
                       <CTableHeaderCell>Amount</CTableHeaderCell>
                       <CTableHeaderCell>Date</CTableHeaderCell>
+                      <CTableHeaderCell>Dispatchment</CTableHeaderCell>
                       <CTableHeaderCell>Attachment</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
@@ -560,7 +663,6 @@ const PurchaseOrderSidebar = () => {
                         <CTableRow key={item._id || `${index}`}>
                           <CTableDataCell>{(safePage - 1) * pageSize + index + 1}</CTableDataCell>
                           <CTableDataCell>{item.companyName || '-'}</CTableDataCell>
-                          <CTableDataCell>{item.salespersonName || '-'}</CTableDataCell>
                           <CTableDataCell>{formatAmount(item.amount)}</CTableDataCell>
                           <CTableDataCell>
                             <div>{dateInfo.date}</div>
@@ -723,25 +825,19 @@ const PurchaseOrderSidebar = () => {
               </div>
             </CCol>
             <CCol md={12}>
-              <CFormLabel>Salesperson</CFormLabel>
-              <CFormSelect
-                value={poForm.salespersonId}
-                onChange={(e) => setPoForm((p) => ({ ...p, salespersonId: e.target.value }))}
-              >
-                <option value="">Select salesperson</option>
-                {salespeopleList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || s.id}
-                  </option>
-                ))}
-              </CFormSelect>
-            </CCol>
-            <CCol md={12}>
               <CFormLabel>Date</CFormLabel>
               <CFormInput
                 type="date"
                 value={poForm.entryDate}
                 onChange={(e) => setPoForm((p) => ({ ...p, entryDate: e.target.value }))}
+              />
+            </CCol>
+            <CCol md={12}>
+              <CFormLabel>Dispatchment date</CFormLabel>
+              <CFormInput
+                type="date"
+                value={poForm.dispatchmentDate}
+                onChange={(e) => setPoForm((p) => ({ ...p, dispatchmentDate: e.target.value }))}
               />
             </CCol>
             <CCol md={12}>
@@ -873,20 +969,6 @@ const PurchaseOrderSidebar = () => {
               <div className="small text-muted mt-1">
                 Showing {visibleCompanies.length} of {companiesList.length} clients
               </div>
-            </CCol>
-            <CCol md={12}>
-              <CFormLabel>Salesperson</CFormLabel>
-              <CFormSelect
-                value={billingForm.salespersonId}
-                onChange={(e) => setBillingForm((p) => ({ ...p, salespersonId: e.target.value }))}
-              >
-                <option value="">Select salesperson</option>
-                {salespeopleList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name || s.id}
-                  </option>
-                ))}
-              </CFormSelect>
             </CCol>
             <CCol md={12}>
               <CFormLabel>Date</CFormLabel>

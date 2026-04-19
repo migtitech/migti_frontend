@@ -45,6 +45,10 @@ const AppSidebar = () => {
     }
 
     const filterItem = (item) => {
+      if (item.roles?.length) {
+        const allowed = item.roles.map((r) => String(r).toLowerCase())
+        if (!allowed.includes(role)) return false
+      }
       // No module = accessible to all (e.g., Dashboard)
       if (!item.module) return true
       // Show Sub-zones by default only to HOD; other roles need explicit permission.
@@ -61,6 +65,10 @@ const AppSidebar = () => {
         // For groups with sub-items, filter sub-items too
         if (item.items) {
           const filteredItems = item.items.filter((subItem) => {
+            if (subItem.roles?.length) {
+              const allowed = subItem.roles.map((r) => String(r).toLowerCase())
+              if (!allowed.includes(role)) return false
+            }
             if (!subItem.module) return true
             if (subItem.module === 'sub_zones') return isHod || hasAnyPermission('sub_zones')
             if (isFullAccess) return true

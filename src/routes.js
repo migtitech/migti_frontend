@@ -85,6 +85,7 @@ const DmgBucket = React.lazy(() => import('./views/admin/DmgBucket'))
 const EmployeeList = React.lazy(() => import('./views/admin/EmployeeList'))
 const EmployeeView = React.lazy(() => import('./views/admin/EmployeeView'))
 const EmployeeForm = React.lazy(() => import('./views/admin/EmployeeForm'))
+const EmployeeLocations = React.lazy(() => import('./views/hod/EmployeeLocations'))
 
 // Areas
 const AreaList = React.lazy(() => import('./views/admin/AreaList'))
@@ -203,6 +204,13 @@ const routes = [
   { path: '/dmg', name: 'DMG Bucket', element: DmgBucket, module: 'dmg', action: 'read' },
 
   // Employees
+  {
+    path: '/employee-locations',
+    name: 'Employee locations',
+    element: EmployeeLocations,
+    module: null,
+    allowedRoles: ['head_of_department', 'hod'],
+  },
   { path: '/employees', name: 'Employees', element: EmployeeList, module: 'employees', action: 'read' },
   { path: '/employees/new', name: 'Add Employee', element: EmployeeForm, module: 'employees', action: 'create' },
   { path: '/employees/edit/:id', name: 'Edit Employee', element: EmployeeForm, module: 'employees', action: 'update' },

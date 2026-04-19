@@ -46,6 +46,14 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: 'Employee locations',
+    to: '/employee-locations',
+    icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
+    module: null,
+    roles: ['head_of_department', 'hod'],
+  },
+  {
+    component: CNavItem,
     name: 'Companies',
     to: '/companies',
     icon: <CIcon icon={cilBuilding} customClassName="nav-icon" />,

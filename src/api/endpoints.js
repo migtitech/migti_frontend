@@ -256,6 +256,9 @@ export const VISITS = {
 export const EMPLOYEE_LOCATIONS = {
   CREATE: '/employee-locations/create',
   LIST: '/employee-locations/list',
+  LATEST: '/employee-locations/latest',
+  TEAM_LATEST: '/employee-locations/team-latest',
+  HISTORY_BINNED: '/employee-locations/history-binned',
 }
 
 export const TASK_MANAGEMENT = {

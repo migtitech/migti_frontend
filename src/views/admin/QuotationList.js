@@ -112,7 +112,6 @@ const STATUS_OPTIONS = [
   { value: 'draft', label: 'Drafted' },
   { value: 'partial', label: 'Partially Fulfilled' },
   { value: 'fulfilled', label: 'Fulfilled' },
-  { value: 'hod_approved', label: 'HOD Approved' },
   { value: 'ready', label: 'Ready' },
   { value: 'sentToClient', label: 'Sent to Client' },
   { value: 'poReceived', label: 'PO Received' },
@@ -144,7 +143,7 @@ const QuotationList = () => {
 
   const handleDownloadPdf = async (e, quotation) => {
     e?.stopPropagation()
-    if (!quotation?.id || quotation.status !== 'hod_approved') return
+    if (!quotation?.id) return
     setExportingPdfId(quotation.id)
     try {
       const response = await quotationService.exportPdf(quotation.id)
@@ -307,7 +306,7 @@ const QuotationList = () => {
       case 'fulfilled':
         return <CBadge color="info">Fulfilled</CBadge>
       case 'hod_approved':
-        return <CBadge color="success">HOD Approved</CBadge>
+        return <CBadge color="success">Approved</CBadge>
       case 'sent':
       case 'sentToClient':
         return <CBadge color="info">Sent</CBadge>
@@ -330,7 +329,7 @@ const QuotationList = () => {
   const endItem = Math.min(currentPage * pageSize, totalItems)
 
   return (
-    <CRow style={{ zoom: '0.8' }}>
+    <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
@@ -420,13 +419,11 @@ const QuotationList = () => {
               <div>
                 {filteredQuotations && filteredQuotations.length > 0 ? (
                   filteredQuotations.map((quotation, index) => {
-                    const isHodApproved = quotation.status === 'hod_approved'
-                    const rowBg = isHodApproved ? { backgroundColor: '#d4edda' } : {}
                     return (
                       <CCard
                         key={quotation.id}
                         className="mb-3 border"
-                        style={{ cursor: 'pointer', ...rowBg }}
+                        style={{ cursor: 'pointer' }}
                         onClick={() => navigate(`/quotations/${quotation.id}`)}
                       >
                         <CCardBody>
@@ -464,8 +461,8 @@ const QuotationList = () => {
                               color="success"
                               variant="ghost"
                               size="sm"
-                              title={isHodApproved ? 'Download PDF' : 'Available after HOD approval'}
-                              disabled={!isHodApproved || exportingPdfId === quotation.id}
+                              title="Download PDF"
+                              disabled={exportingPdfId === quotation.id}
                               onClick={(e) => handleDownloadPdf(e, quotation)}
                             >
                               {exportingPdfId === quotation.id ? (
@@ -517,21 +514,19 @@ const QuotationList = () => {
               <CTableBody>
                 {filteredQuotations && filteredQuotations.length > 0 ? (
                   filteredQuotations.map((quotation, index) => {
-                    const isHodApproved = quotation.status === 'hod_approved'
-                    const rowBg = isHodApproved ? { backgroundColor: '#d4edda' } : {}
                     return (
                     <CTableRow
                       key={quotation.id}
                       onClick={() => navigate(`/quotations/${quotation.id}`)}
-                      style={{ cursor: 'pointer', ...rowBg }}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         {(currentPage - 1) * pageSize + index + 1}
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         <strong>{quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}</strong>
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         <strong>{quotation.companyInfo?.name || quotation.customerName || '-'}</strong>
                         {(quotation.companyInfo?.email || quotation.customerEmail) && (
                           <>
@@ -542,7 +537,7 @@ const QuotationList = () => {
                           </>
                         )}
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         <small>
                           {Array.isArray(quotation.products) && quotation.products.length > 0
                             ? `${quotation.products.length} product(s)`
@@ -550,16 +545,16 @@ const QuotationList = () => {
                           {quotation.items && quotation.items.length > 50 && !quotation.products?.length ? '...' : ''}
                         </small>
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         ₹{formatInrAmount(quotation.totalAmount)}
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         {getStatusBadge(quotation.status)}
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg}>
+                      <CTableDataCell>
                         {quotation.createdAt ? formatDateDdMmYyyy(quotation.createdAt) : '-'}
                       </CTableDataCell>
-                      <CTableDataCell style={rowBg} onClick={(e) => e.stopPropagation()}>
+                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CButton
                           color="info"
                           variant="ghost"
@@ -577,8 +572,8 @@ const QuotationList = () => {
                           color="success"
                           variant="ghost"
                           size="sm"
-                          title={isHodApproved ? 'Download PDF' : 'Available after HOD approval'}
-                          disabled={!isHodApproved || exportingPdfId === quotation.id}
+                          title="Download PDF"
+                          disabled={exportingPdfId === quotation.id}
                           onClick={(e) => handleDownloadPdf(e, quotation)}
                         >
                           {exportingPdfId === quotation.id ? (

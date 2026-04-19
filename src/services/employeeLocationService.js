@@ -11,6 +11,21 @@ const employeeLocationService = {
     const response = await api.get(EMPLOYEE_LOCATIONS.LIST, { params })
     return response
   },
+
+  getLatest: async () => {
+    const response = await api.get(EMPLOYEE_LOCATIONS.LATEST)
+    return response
+  },
+
+  getTeamLatest: async () => {
+    const response = await api.get(EMPLOYEE_LOCATIONS.TEAM_LATEST)
+    return response
+  },
+
+  getHistoryBinned: async (params) => {
+    const response = await api.get(EMPLOYEE_LOCATIONS.HISTORY_BINNED, { params })
+    return response
+  },
 }
 
 export default employeeLocationService

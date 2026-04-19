@@ -28,6 +28,7 @@ import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const FILTERS_LOCKED_KEY = 'migti_queries_list_filters_locked'
 const FILTERS_STATUS_KEY = 'migti_queries_list_filters_status'
@@ -115,9 +116,17 @@ const formatDateDdMmYyyy = (iso) => {
   return `${dd}/${mm}/${yyyy}`
 }
 
+const QUERY_STATUS_OPTIONS = [
+  { value: '', label: 'All' },
+  { value: 'drafted', label: 'Drafted' },
+  { value: 'convertedToQuotation', label: 'Converted to Quotation' },
+  { value: 'closed', label: 'Closed' },
+]
+
 const QueryList = () => {
   const MOBILE_BREAKPOINT = 576
   const navigate = useNavigate()
+  const { canDelete, canUpdate } = usePermissions()
   const [filterInit] = useState(() => getInitialFilterState())
   const [queries, setQueries] = useState([])
   const [pagination, setPagination] = useState(null)
@@ -128,12 +137,6 @@ const QueryList = () => {
   const [dateTo, setDateTo] = useState(filterInit.dateTo)
   const [pageNumber, setPageNumber] = useState(1)
 
-  const STATUS_OPTIONS = [
-    { value: '', label: 'All' },
-    { value: 'drafted', label: 'Drafted' },
-    { value: 'convertedToQuotation', label: 'Converted to Quotation' },
-    { value: 'closed', label: 'Closed' },
-  ]
   const [pageSize] = useState(10)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -285,7 +288,7 @@ const QueryList = () => {
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
                     >
-                      {STATUS_OPTIONS.map((opt) => (
+                      {QUERY_STATUS_OPTIONS.map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -541,7 +544,7 @@ const QueryList = () => {
                               >
                                 <EyeIcon />
                               </CButton>
-                              {q.status !== 'closed' && (
+                              {canUpdate('queries') && q.status !== 'closed' && (
                                 <CButton
                                   color="warning"
                                   variant="ghost"
@@ -555,18 +558,20 @@ const QueryList = () => {
                                   <CIcon icon={cilPencil} />
                                 </CButton>
                               )}
-                              <CButton
-                                color="danger"
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteClick(q._id || q.id)
-                                }}
-                                title="Delete"
-                              >
-                                <CIcon icon={cilTrash} />
-                              </CButton>
+                              {canDelete('queries') && (
+                                <CButton
+                                  color="danger"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteClick(q._id || q.id)
+                                  }}
+                                  title="Delete"
+                                >
+                                  <CIcon icon={cilTrash} />
+                                </CButton>
+                              )}
                             </CTableDataCell>
                           </CTableRow>
                         ))
