@@ -2,6 +2,7 @@ import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { AppContent, AppSidebar, AppFooter, AppHeader, Loader } from '../components/index'
 import { useAuth } from '../context/AuthContext'
+import EmployeeLocationTracker from '../components/EmployeeLocationTracker'
 
 const DefaultLayout = () => {
   const { isAuthenticated, loading } = useAuth()
@@ -20,6 +21,7 @@ const DefaultLayout = () => {
 
   return (
     <div>
+      <EmployeeLocationTracker />
       <AppSidebar />
       <div className="wrapper d-flex flex-column min-vh-100">
         <AppHeader />

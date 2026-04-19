@@ -25,6 +25,9 @@ const BranchCards = ({
   onView,
   onEdit,
   onDelete,
+  canCreate,
+  canUpdate,
+  canDelete,
 }) => {
   const companyById = useMemo(() => {
     const map = new Map()
@@ -85,24 +88,28 @@ const BranchCards = ({
                   >
                     <EyeIcon />
                   </CButton>
-                  <CButton
-                    color="warning"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(branch)}
-                    title="Edit"
-                  >
-                    <CIcon icon={cilPencil} />
-                  </CButton>
-                  <CButton
-                    color="danger"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onDelete(branch.id)}
-                    title="Delete"
-                  >
-                    <CIcon icon={cilTrash} />
-                  </CButton>
+                  {canUpdate ? (
+                    <CButton
+                      color="warning"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onEdit(branch)}
+                      title="Edit"
+                    >
+                      <CIcon icon={cilPencil} />
+                    </CButton>
+                  ) : null}
+                  {canDelete ? (
+                    <CButton
+                      color="danger"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => onDelete(branch.id)}
+                      title="Delete"
+                    >
+                      <CIcon icon={cilTrash} />
+                    </CButton>
+                  ) : null}
                 </CCardFooter>
               </CCard>
             </CCol>
@@ -113,11 +120,13 @@ const BranchCards = ({
         <CCol xs={12}>
           <CCard>
             <CCardBody className="text-center py-5">
-              <p className="text-muted mb-3">No branches found. Click "Add Branch" to create one.</p>
-              <CButton color="primary" onClick={onAdd}>
-                <CIcon icon={cilPlus} className="me-2" />
-                Add Branch
-              </CButton>
+              <p className="text-muted mb-3">No branches found.</p>
+              {canCreate ? (
+                <CButton color="primary" onClick={onAdd}>
+                  <CIcon icon={cilPlus} className="me-2" />
+                  Add Branch
+                </CButton>
+              ) : null}
             </CCardBody>
           </CCard>
         </CCol>

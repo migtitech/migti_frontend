@@ -24,6 +24,7 @@ import usePermissions from '../../hooks/usePermissions'
 const SubZoneForm = () => {
   const navigate = useNavigate()
   const { canCreate } = usePermissions()
+  const canCreateSubZones = canCreate('sub_zones')
   const [zones, setZones] = useState([])
   const [zoneId, setZoneId] = useState('')
   const [name, setName] = useState('')
@@ -50,10 +51,6 @@ const SubZoneForm = () => {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    if (!canCreate('sub_zones')) {
-      toastError('You do not have permission to create sub-zones')
-      return
-    }
     if (!zoneId) {
       setError('Please select a zone')
       return
@@ -133,9 +130,11 @@ const SubZoneForm = () => {
                 </div>
               </CCol>
             </CRow>
-            <CButton color="primary" type="submit" disabled={submitting || !canCreate('sub_zones')}>
-              {submitting ? 'Saving…' : 'Create sub-zone'}
-            </CButton>
+            {canCreateSubZones ? (
+              <CButton color="primary" type="submit" disabled={submitting}>
+                {submitting ? 'Saving…' : 'Create sub-zone'}
+              </CButton>
+            ) : null}
           </CForm>
         </CCardBody>
       </CCard>

@@ -133,7 +133,7 @@ const TaskBucket = () => {
                 tasks.map((task, index) => (
                   <CCol key={task._id || index} xs={12} md={6} lg={4}>
                     <CCard
-                      className="h-100"
+                      className="h-100 border"
                       style={{ cursor: 'pointer' }}
                       onClick={() => navigate(`/task-bucket/${task._id}`)}
                     >

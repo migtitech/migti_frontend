@@ -34,6 +34,7 @@ import usePermissions from '../../hooks/usePermissions'
 import useBranchContext from '../../hooks/useBranchContext'
 
 const IndustryList = () => {
+  const MOBILE_BREAKPOINT = 576
   const navigate = useNavigate()
   const { canCreate, canUpdate, canDelete } = usePermissions()
   const { branchId: userBranchId, canSelectBranch } = useBranchContext()
@@ -48,6 +49,7 @@ const IndustryList = () => {
   const [branches, setBranches] = useState([])
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [isMobileView, setIsMobileView] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -107,6 +109,19 @@ const IndustryList = () => {
     return () => clearTimeout(timer)
   }, [fetchIndustries])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
+    const onChange = (event) => setIsMobileView(event.matches)
+    setIsMobileView(mediaQuery.matches)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', onChange)
+      return () => mediaQuery.removeEventListener('change', onChange)
+    }
+    mediaQuery.addListener(onChange)
+    return () => mediaQuery.removeListener(onChange)
+  }, [])
+
   const branchById = useMemo(() => {
     const map = new Map()
     branches.forEach((b) => {
@@ -131,6 +146,38 @@ const IndustryList = () => {
     } catch (err) {
       toastError(err?.message || 'Failed to delete client')
     }
+  }
+
+  const getBranchLabel = (industry) => {
+    if (typeof industry.branchId === 'object' && industry.branchId?.name) return industry.branchId.name
+    if (industry.branchId) return branchById.get(String(industry.branchId)) || industry.branchId
+    return '-'
+  }
+
+  const getZoneLabel = (industry) => {
+    if (typeof industry.area === 'object') return industry.area?.name || '-'
+    return industry.area || '-'
+  }
+
+  const getPurchaseManagerLabel = (industry) => {
+    const pms = industry.purchaseManagers || []
+    if (pms.length > 0) {
+      const first = pms[0]
+      const name = first.name || ''
+      const phone = first.phone || ''
+      if (name && phone) return `${name} - ${phone}`
+      if (name) return name
+      if (phone) return phone
+      return '-'
+    }
+    if (industry.purchase_manager_name || industry.purchase_manager_phone) {
+      const name = industry.purchase_manager_name || ''
+      const phone = industry.purchase_manager_phone || ''
+      if (name && phone) return `${name} - ${phone}`
+      if (name) return name
+      if (phone) return phone
+    }
+    return '-'
   }
 
   return (
@@ -208,121 +255,168 @@ const IndustryList = () => {
               <Loader message="Loading industries..." />
             ) : (
               <>
-                <CTable hover responsive bordered>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Client name</CTableHeaderCell>
-                      <CTableHeaderCell>Branch</CTableHeaderCell>
-                      <CTableHeaderCell>Category</CTableHeaderCell>
-                      <CTableHeaderCell>GST No</CTableHeaderCell>
-                      <CTableHeaderCell>Zone</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase Manager</CTableHeaderCell>
-                      <CTableHeaderCell>Address</CTableHeaderCell>
-                      <CTableHeaderCell>Actions</CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {industries.map((industry, index) => (
-                      <CTableRow
-                        key={industry._id}
-                        onClick={() => navigate(`/industries/${industry._id}`)}
-                        style={{ cursor: 'pointer' }}
-                      >
-                        <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
-                        <CTableDataCell>
-                          <strong>{industry.name}</strong>
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {typeof industry.branchId === 'object' && industry.branchId?.name
-                            ? industry.branchId.name
-                            : industry.branchId
-                              ? branchById.get(String(industry.branchId)) || industry.branchId
-                              : '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>{industry.category || '-'}</CTableDataCell>
-                        <CTableDataCell>{industry.gstNumber || '-'}</CTableDataCell>
-                        <CTableDataCell>
-                          {typeof industry.area === 'object'
-                            ? industry.area?.name || '-'
-                            : industry.area || '-'}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {(() => {
-                            const pms = industry.purchaseManagers || []
-                            if (pms.length > 0) {
-                              const first = pms[0]
-                              const name = first.name || ''
-                              const phone = first.phone || ''
-                              if (name && phone) return `${name} - ${phone}`
-                              if (name) return name
-                              if (phone) return phone
-                              return '-'
-                            }
-                            if (industry.purchase_manager_name || industry.purchase_manager_phone) {
-                              const name = industry.purchase_manager_name || ''
-                              const phone = industry.purchase_manager_phone || ''
-                              if (name && phone) return `${name} - ${phone}`
-                              if (name) return name
-                              if (phone) return phone
-                            }
-                            return '-'
-                          })()}
-                        </CTableDataCell>
-                        <CTableDataCell>{industry.address || '-'}</CTableDataCell>
-                        <CTableDataCell>
-                          <CButton
-                            color="info"
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/industries/${industry._id}`)
-                            }}
-                            title="View"
-                          >
-                            <EyeIcon />
-                          </CButton>
-                          {canUpdate('industries') && (
-                            <CButton
-                              color="warning"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/industries/edit/${industry._id}`)}}
-                              title="Edit"
-                            >
-                              <CIcon icon={cilPencil} />
-                            </CButton>
-                          )}
-                          {canDelete('industries') && (
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(industry._id)}}
-                              title="Delete"
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          )}
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                    {industries.length === 0 && (
-                      <CTableRow>
-                        <CTableDataCell colSpan={9} className="text-center">
-                          {searchTerm
-                            ? 'No clients match the current search.'
-                            : 'No clients found. Click "Add client" to create one.'}
-                        </CTableDataCell>
-                      </CTableRow>
+                {isMobileView ? (
+                  <>
+                    {industries.length === 0 ? (
+                      <div className="text-center text-muted py-4">
+                        {searchTerm
+                          ? 'No clients match the current search.'
+                          : 'No clients found. Click "Add client" to create one.'}
+                      </div>
+                    ) : (
+                      industries.map((industry, index) => (
+                        <CCard
+                          key={industry._id}
+                          className="mb-3 shadow-sm"
+                          onClick={() => navigate(`/industries/${industry._id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <CCardBody>
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <div className="small text-muted">#{(page - 1) * 10 + index + 1}</div>
+                                <h6 className="mb-0">{industry.name || '-'}</h6>
+                              </div>
+                            </div>
+                            <div className="small">
+                              <div className="mb-1"><strong>Category:</strong> {industry.category || '-'}</div>
+                              <div className="mb-1"><strong>GST No:</strong> {industry.gstNumber || '-'}</div>
+                              <div className="mb-1"><strong>Zone:</strong> {getZoneLabel(industry)}</div>
+                              <div className="mb-1"><strong>Purchase Manager:</strong> {getPurchaseManagerLabel(industry)}</div>
+                            </div>
+                            <div className="mt-3 d-flex gap-2">
+                              <CButton
+                                color="info"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/industries/${industry._id}`)
+                                }}
+                                title="View"
+                              >
+                                <EyeIcon />
+                              </CButton>
+                              {canUpdate('industries') && (
+                                <CButton
+                                  color="warning"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigate(`/industries/edit/${industry._id}`)
+                                  }}
+                                  title="Edit"
+                                >
+                                  <CIcon icon={cilPencil} />
+                                </CButton>
+                              )}
+                              {canDelete('industries') && (
+                                <CButton
+                                  color="danger"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteClick(industry._id)
+                                  }}
+                                  title="Delete"
+                                >
+                                  <CIcon icon={cilTrash} />
+                                </CButton>
+                              )}
+                            </div>
+                          </CCardBody>
+                        </CCard>
+                      ))
                     )}
-                  </CTableBody>
-                </CTable>
+                  </>
+                ) : (
+                  <CTable hover responsive bordered>
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>S No</CTableHeaderCell>
+                        <CTableHeaderCell>Client name</CTableHeaderCell>
+                        <CTableHeaderCell>Category</CTableHeaderCell>
+                        <CTableHeaderCell>GST No</CTableHeaderCell>
+                        <CTableHeaderCell>Zone</CTableHeaderCell>
+                        <CTableHeaderCell>Purchase Manager</CTableHeaderCell>
+                        <CTableHeaderCell>Address</CTableHeaderCell>
+                        <CTableHeaderCell>Actions</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {industries.map((industry, index) => (
+                        <CTableRow
+                          key={industry._id}
+                          onClick={() => navigate(`/industries/${industry._id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
+                          <CTableDataCell>
+                            <strong>{industry.name}</strong>
+                          </CTableDataCell>
+                          <CTableDataCell>{industry.category || '-'}</CTableDataCell>
+                          <CTableDataCell>{industry.gstNumber || '-'}</CTableDataCell>
+                          <CTableDataCell>{getZoneLabel(industry)}</CTableDataCell>
+                          <CTableDataCell>{getPurchaseManagerLabel(industry)}</CTableDataCell>
+                          <CTableDataCell>{industry.address || '-'}</CTableDataCell>
+                          <CTableDataCell>
+                            <CButton
+                              color="info"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/industries/${industry._id}`)
+                              }}
+                              title="View"
+                            >
+                              <EyeIcon />
+                            </CButton>
+                            {canUpdate('industries') && (
+                              <CButton
+                                color="warning"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/industries/edit/${industry._id}`)
+                                }}
+                                title="Edit"
+                              >
+                                <CIcon icon={cilPencil} />
+                              </CButton>
+                            )}
+                            {canDelete('industries') && (
+                              <CButton
+                                color="danger"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(industry._id)
+                                }}
+                                title="Delete"
+                              >
+                                <CIcon icon={cilTrash} />
+                              </CButton>
+                            )}
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                      {industries.length === 0 && (
+                        <CTableRow>
+                          <CTableDataCell colSpan={9} className="text-center">
+                            {searchTerm
+                              ? 'No clients match the current search.'
+                              : 'No clients found. Click "Add client" to create one.'}
+                          </CTableDataCell>
+                        </CTableRow>
+                      )}
+                    </CTableBody>
+                  </CTable>
+                )}
                 {pagination.totalPages > 1 && (
                   <CPagination className="justify-content-center">
                     <CPaginationItem

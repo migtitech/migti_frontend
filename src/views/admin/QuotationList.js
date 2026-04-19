@@ -122,6 +122,7 @@ const STATUS_OPTIONS = [
 ]
 
 const QuotationList = () => {
+  const MOBILE_BREAKPOINT = 576
   const navigate = useNavigate()
   const [qFilterInit] = useState(() => getQInitialFilterState())
   const [quotations, setQuotations] = useState([])
@@ -139,6 +140,7 @@ const QuotationList = () => {
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, quotation: null })
   const [deletingId, setDeletingId] = useState(null)
   const latestFetchIdRef = useRef(0)
+  const [isMobileView, setIsMobileView] = useState(false)
 
   const handleDownloadPdf = async (e, quotation) => {
     e?.stopPropagation()
@@ -225,6 +227,19 @@ const QuotationList = () => {
       return prev
     })
   }, [dateFrom])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
+    const onChange = (event) => setIsMobileView(event.matches)
+    setIsMobileView(mediaQuery.matches)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', onChange)
+      return () => mediaQuery.removeEventListener('change', onChange)
+    }
+    mediaQuery.addListener(onChange)
+    return () => mediaQuery.removeListener(onChange)
+  }, [])
 
   const toggleFiltersLock = () => {
     if (filtersLocked) {
@@ -401,6 +416,90 @@ const QuotationList = () => {
               </CCol>
             </CRow>
             {loading && <Loader />}
+            {isMobileView ? (
+              <div>
+                {filteredQuotations && filteredQuotations.length > 0 ? (
+                  filteredQuotations.map((quotation, index) => {
+                    const isHodApproved = quotation.status === 'hod_approved'
+                    const rowBg = isHodApproved ? { backgroundColor: '#d4edda' } : {}
+                    return (
+                      <CCard
+                        key={quotation.id}
+                        className="mb-3 border"
+                        style={{ cursor: 'pointer', ...rowBg }}
+                        onClick={() => navigate(`/quotations/${quotation.id}`)}
+                      >
+                        <CCardBody>
+                          <div className="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                              <div className="small text-muted">#{(currentPage - 1) * pageSize + index + 1}</div>
+                              <strong>{quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`}</strong>
+                            </div>
+                            <div>{getStatusBadge(quotation.status)}</div>
+                          </div>
+                          <div className="small mb-1"><strong>Company:</strong> {quotation.companyInfo?.name || quotation.customerName || '-'}</div>
+                          <div className="small mb-1">
+                            <strong>Products / Items:</strong>{' '}
+                            {Array.isArray(quotation.products) && quotation.products.length > 0
+                              ? `${quotation.products.length} product(s)`
+                              : (quotation.items?.substring(0, 50) || '')}
+                            {quotation.items && quotation.items.length > 50 && !quotation.products?.length ? '...' : ''}
+                          </div>
+                          <div className="small mb-1"><strong>Total Amount:</strong> ₹{formatInrAmount(quotation.totalAmount)}</div>
+                          <div className="small mb-2"><strong>Date:</strong> {quotation.createdAt ? formatDateDdMmYyyy(quotation.createdAt) : '-'}</div>
+                          <div className="d-flex gap-2" onClick={(e) => e.stopPropagation()}>
+                            <CButton
+                              color="info"
+                              variant="ghost"
+                              size="sm"
+                              title="View"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/quotations/${quotation.id}`)
+                              }}
+                            >
+                              <EyeIcon />
+                            </CButton>
+                            <CButton
+                              color="success"
+                              variant="ghost"
+                              size="sm"
+                              title={isHodApproved ? 'Download PDF' : 'Available after HOD approval'}
+                              disabled={!isHodApproved || exportingPdfId === quotation.id}
+                              onClick={(e) => handleDownloadPdf(e, quotation)}
+                            >
+                              {exportingPdfId === quotation.id ? (
+                                <CSpinner size="sm" />
+                              ) : (
+                                <CIcon icon={cilCloudDownload} />
+                              )}
+                            </CButton>
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              title="Edit"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/quotations/edit/${quotation.id}`)
+                              }}
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          </div>
+                        </CCardBody>
+                      </CCard>
+                    )
+                  })
+                ) : (
+                  <div className="text-center text-muted py-4">
+                    {!loading && (quotations?.length === 0
+                      ? 'No quotations available.'
+                      : 'No quotations match your search.')}
+                  </div>
+                )}
+              </div>
+            ) : (
             <CTable hover responsive bordered>
               <CTableHead>
                 <CTableRow>
@@ -516,6 +615,7 @@ const QuotationList = () => {
                 )}
               </CTableBody>
             </CTable>
+            )}
             {totalPages > 1 && (
               <>
                 <div className="small text-body-secondary text-center mt-2">

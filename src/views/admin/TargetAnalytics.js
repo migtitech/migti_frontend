@@ -12,6 +12,7 @@ import employeeService from '../../services/employeeService'
 import targetAnalyticsService from '../../services/targetAnalyticsService'
 import { Loader } from '../../components'
 import { toastError, toastSuccess } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const PERIOD_OPTIONS = [{ value: 'weekly', label: 'Weekly' }, { value: 'monthly', label: 'Monthly' }]
 const SIDEBAR_WIDTH = 380
@@ -33,6 +34,10 @@ const normalizeId = (value) => {
   if (!value) return ''
   if (typeof value === 'object') return String(value._id || value.id || '')
   return String(value)
+}
+const getEmployeePrimaryZoneId = (employee) => {
+  if (Array.isArray(employee?.zoneIds) && employee.zoneIds.length) return normalizeId(employee.zoneIds[0])
+  return normalizeId(employee?.zoneId)
 }
 const formatAmount = (value) => `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
 const formatDate = (value) => (value ? new Date(value).toLocaleDateString() : '-')
@@ -75,6 +80,8 @@ const decodeTokenPayload = (token) => {
 }
 
 const TargetAnalytics = () => {
+  const { canCreate } = usePermissions()
+  const canCreateTargetAnalytics = canCreate('target_analytics')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -233,7 +240,7 @@ const TargetAnalytics = () => {
       employees.find((e) => String(e.id) === String(currentEmployeeId)) ||
       employees.find((e) => String(e._id) === String(currentEmployeeId))
     if (!self) return
-    const zoneId = normalizeId(self.zoneId)
+    const zoneId = getEmployeePrimaryZoneId(self)
     setSummaryEmployeeId(String(self.id || self._id || ''))
     setFormEmployeeId(String(self.id || self._id || ''))
     setSummaryZoneId(zoneId)
@@ -268,7 +275,7 @@ const TargetAnalytics = () => {
         const emp = employees.find((e) => String(e.id) === String(formEmployeeId))
         await targetAnalyticsService.upsertEmployeeTarget({
           branchId: formBranchId,
-          zoneId: emp?.zoneId || null,
+          zoneId: getEmployeePrimaryZoneId(emp) || null,
           employeeId: formEmployeeId,
           period: formPeriod,
           dateFrom: formDateFrom,
@@ -301,7 +308,9 @@ const TargetAnalytics = () => {
           <CCardHeader>
             <div className="d-flex justify-content-between align-items-center">
               <strong>Target Analytics</strong>
-              <CButton color="primary" onClick={openAddTargetSidebar}>Add Target</CButton>
+              {canCreateTargetAnalytics ? (
+                <CButton color="primary" onClick={openAddTargetSidebar}>Add Target</CButton>
+              ) : null}
             </div>
           </CCardHeader>
           <CCardBody>
@@ -399,6 +408,7 @@ const TargetAnalytics = () => {
           </CCardBody>
         </CCard>
       </CCol>
+      {canCreateTargetAnalytics ? (
       <div style={{ position: 'fixed', top: 0, right: isSidebarOpen ? 0 : -SIDEBAR_WIDTH, width: SIDEBAR_WIDTH, height: '100vh', background: '#fff', borderLeft: '1px solid #dee2e6', boxShadow: '0 0 16px rgba(0,0,0,0.08)', zIndex: 2999, transition: 'right 0.2s ease', padding: 12, display: 'flex', flexDirection: 'column' }}>
         <div className="d-flex justify-content-between align-items-center mb-3">
           <h6 className="mb-0">Add {viewTab === VIEW_TAB.branch ? 'Branch' : viewTab === VIEW_TAB.zone ? 'Zone' : 'Employee'} Target</h6>
@@ -425,6 +435,7 @@ const TargetAnalytics = () => {
           <CButton color="primary" onClick={onSave} disabled={saving} className="w-100">{saving ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save Target'}</CButton>
         </div>
       </div>
+      ) : null}
     </CRow>
   )
 }

@@ -1223,6 +1223,9 @@ const QuotationView = () => {
 
   const isHodApproved = quotation?.status === 'hod_approved'
   const isBackOfficeExecutive = BACK_OFFICE_ROLES.has(getCurrentUserRole())
+  const canCreateQuotation = hasPermission('quotations', 'create')
+  const canUpdateQuotation = hasPermission('quotations', 'update')
+  const canDeleteQuotation = hasPermission('quotations', 'delete')
   const currentProduct =
     products.length > 0 ? products[Math.min(productIndex, products.length - 1)] : null
   const isCurrentProductNotAvailable = !!currentProduct?.notAvailable
@@ -1393,7 +1396,7 @@ const QuotationView = () => {
               >
                 {quoteLogsOpen ? 'Hide Quote Logs' : 'Show Quote Logs'}
               </CButton>
-              {!isBackOfficeExecutive && (
+              {!isBackOfficeExecutive && canUpdateQuotation && (
                 <CButton
                   color="primary"
                   onClick={handleMarkApproved}
@@ -2145,9 +2148,11 @@ const QuotationView = () => {
                         <CFormLabel>Address</CFormLabel>
                         <CFormTextarea readOnly={isSnapshotPreview} rows={3} value={companyForm.address} onChange={(e) => updateCompanyForm('address', e.target.value)} placeholder="Address" />
                       </div>
-                      <CButton color="primary" onClick={handleSaveCompanyInfo} disabled={savingCompany || isSnapshotPreview}>
-                        {savingCompany ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
-                      </CButton>
+                      {canUpdateQuotation ? (
+                        <CButton color="primary" onClick={handleSaveCompanyInfo} disabled={savingCompany || isSnapshotPreview}>
+                          {savingCompany ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
+                        </CButton>
+                      ) : null}
                     </CCol>
                     <CCol md={4}>
                       <div className="mb-3">
@@ -2249,9 +2254,11 @@ const QuotationView = () => {
                       </div>
                     </CCol>
                   </CRow>
-                  <CButton color="primary" onClick={handleSavePackingDelivery} disabled={savingPackingDelivery || isSnapshotPreview}>
-                    {savingPackingDelivery ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
-                  </CButton>
+                  {canUpdateQuotation ? (
+                    <CButton color="primary" onClick={handleSavePackingDelivery} disabled={savingPackingDelivery || isSnapshotPreview}>
+                      {savingPackingDelivery ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save'}
+                    </CButton>
+                  ) : null}
                 </CCardBody>
               </CCard>
             </CTabPane>
@@ -2447,7 +2454,7 @@ const QuotationView = () => {
                         </CButton>
                         <CButton
                           color="primary"
-                          disabled={updating || isSnapshotPreview || uploadingProductImages || isCurrentProductNotAvailable}
+                          disabled={updating || isSnapshotPreview || uploadingProductImages || isCurrentProductNotAvailable || !canUpdateQuotation}
                           onClick={handleUpdateProduct}
                         >
                           {updating ? <><CSpinner size="sm" className="me-2" />Updating...</> : 'Update'}
@@ -2560,9 +2567,11 @@ const QuotationView = () => {
                     </CCol>
                   </CRow>
                   <div className="mt-3">
-                    <CButton color="primary" onClick={handleAddNewProduct} disabled={addingNewProduct || isSnapshotPreview}>
-                      {addingNewProduct ? <><CSpinner size="sm" className="me-2" />Adding...</> : 'Add Product'}
-                    </CButton>
+                    {canCreateQuotation ? (
+                      <CButton color="primary" onClick={handleAddNewProduct} disabled={addingNewProduct || isSnapshotPreview}>
+                        {addingNewProduct ? <><CSpinner size="sm" className="me-2" />Adding...</> : 'Add Product'}
+                      </CButton>
+                    ) : null}
                   </div>
                 </CCardBody>
               </CCard>
@@ -2726,41 +2735,53 @@ const QuotationView = () => {
                               <div className="d-flex flex-column gap-1 align-items-center">
                                 {!p.notAvailable ? (
                                   <>
-                                    <CButton color="warning" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => { setNotAvailableModalIndex(idx); setNotAvailableRemark(''); setNotAvailableModalVisible(true) }}>
-                                      Not available
-                                    </CButton>
-                                    <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating || isSnapshotPreview}>
-                                      Update
-                                    </CButton>
-                                    <CButton
-                                      color="danger"
-                                      size="sm"
-                                      className="w-100"
-                                      style={{ minWidth: 90, fontSize: '0.75rem' }}
-                                      onClick={() => openDeleteProductModal(idx)}
-                                      disabled={updating || isSnapshotPreview}
-                                    >
-                                      Delete
-                                    </CButton>
+                                    {canUpdateQuotation ? (
+                                      <CButton color="warning" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => { setNotAvailableModalIndex(idx); setNotAvailableRemark(''); setNotAvailableModalVisible(true) }}>
+                                        Not available
+                                      </CButton>
+                                    ) : null}
+                                    {canUpdateQuotation ? (
+                                      <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating || isSnapshotPreview}>
+                                        Update
+                                      </CButton>
+                                    ) : null}
+                                    {canDeleteQuotation ? (
+                                      <CButton
+                                        color="danger"
+                                        size="sm"
+                                        className="w-100"
+                                        style={{ minWidth: 90, fontSize: '0.75rem' }}
+                                        onClick={() => openDeleteProductModal(idx)}
+                                        disabled={updating || isSnapshotPreview}
+                                      >
+                                        Delete
+                                      </CButton>
+                                    ) : null}
                                   </>
                                 ) : (
                                   <>
-                                    <CButton color="success" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleRevokeNotAvailable(idx)} disabled={updating || isSnapshotPreview}>
-                                      Revoke
-                                    </CButton>
-                                    <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating || isSnapshotPreview}>
-                                      Update
-                                    </CButton>
-                                    <CButton
-                                      color="danger"
-                                      size="sm"
-                                      className="w-100"
-                                      style={{ minWidth: 90, fontSize: '0.75rem' }}
-                                      onClick={() => openDeleteProductModal(idx)}
-                                      disabled={updating || isSnapshotPreview}
-                                    >
-                                      Delete
-                                    </CButton>
+                                    {canUpdateQuotation ? (
+                                      <CButton color="success" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleRevokeNotAvailable(idx)} disabled={updating || isSnapshotPreview}>
+                                        Revoke
+                                      </CButton>
+                                    ) : null}
+                                    {canUpdateQuotation ? (
+                                      <CButton color="primary" size="sm" className="w-100" style={{ minWidth: 90, fontSize: '0.75rem' }} onClick={() => handleUpdateProductFromList(idx)} disabled={updating || isSnapshotPreview}>
+                                        Update
+                                      </CButton>
+                                    ) : null}
+                                    {canDeleteQuotation ? (
+                                      <CButton
+                                        color="danger"
+                                        size="sm"
+                                        className="w-100"
+                                        style={{ minWidth: 90, fontSize: '0.75rem' }}
+                                        onClick={() => openDeleteProductModal(idx)}
+                                        disabled={updating || isSnapshotPreview}
+                                      >
+                                        Delete
+                                      </CButton>
+                                    ) : null}
                                   </>
                                 )}
                               </div>
@@ -2887,7 +2908,7 @@ const QuotationView = () => {
           <CButton color="secondary" onClick={() => setAssignTaskModalVisible(false)}>
             Cancel
           </CButton>
-          <CButton color="primary" onClick={handleAssignTask} disabled={assigningTask}>
+          <CButton color="primary" onClick={handleAssignTask} disabled={assigningTask || !canUpdateQuotation}>
             {assigningTask ? <><CSpinner size="sm" className="me-2" />Assigning...</> : 'Assign'}
           </CButton>
         </CModalFooter>
@@ -2977,7 +2998,7 @@ const QuotationView = () => {
           <CButton
             color="primary"
             onClick={handleProductListAssignTask}
-            disabled={productListAssigningTask || !productListAssignEmployeeId}
+            disabled={productListAssigningTask || !productListAssignEmployeeId || !canUpdateQuotation}
           >
             {productListAssigningTask ? <><CSpinner size="sm" className="me-2" />Assigning...</> : 'Assign'}
           </CButton>
@@ -3002,7 +3023,7 @@ const QuotationView = () => {
           >
             Cancel
           </CButton>
-          <CButton color="danger" onClick={handleConfirmDeleteProduct} disabled={updating || isSnapshotPreview}>
+          <CButton color="danger" onClick={handleConfirmDeleteProduct} disabled={updating || isSnapshotPreview || !canDeleteQuotation}>
             {updating ? <><CSpinner size="sm" className="me-2" />Deleting...</> : 'Delete'}
           </CButton>
         </CModalFooter>
@@ -3026,7 +3047,7 @@ const QuotationView = () => {
           <CButton color="secondary" onClick={() => { setNotAvailableModalVisible(false); setNotAvailableModalIndex(null); setNotAvailableRemark('') }}>
             Cancel
           </CButton>
-          <CButton color="warning" onClick={handleSaveNotAvailable} disabled={updating || isSnapshotPreview || !notAvailableRemark.trim()}>
+          <CButton color="warning" onClick={handleSaveNotAvailable} disabled={updating || isSnapshotPreview || !notAvailableRemark.trim() || !canUpdateQuotation}>
             {updating ? <><CSpinner size="sm" className="me-2" />Saving...</> : 'Save & mark Not available'}
           </CButton>
         </CModalFooter>

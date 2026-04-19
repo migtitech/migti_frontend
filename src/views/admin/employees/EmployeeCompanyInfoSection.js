@@ -14,6 +14,8 @@ const EmployeeCompanyInfoSection = ({
   roleOptions,
   branches,
   zones = [],
+  selectedZoneIds = [],
+  onZoneIdsChange,
   subZones = [],
   designationOptions = [],
   lockBranch = false,
@@ -120,16 +122,24 @@ const EmployeeCompanyInfoSection = ({
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="zoneId">Zone</CFormLabel>
-          <CFormSelect id="zoneId" {...register('zoneId')} invalid={!!errors.zoneId}>
-            <option value="">Select Zone</option>
+          <CFormLabel htmlFor="zoneIds">Zones</CFormLabel>
+          <CFormSelect
+            id="zoneIds"
+            multiple
+            value={selectedZoneIds}
+            onChange={(e) => {
+              const values = Array.from(e.target.selectedOptions || []).map((opt) => opt.value).filter(Boolean)
+              onZoneIdsChange(values)
+            }}
+            invalid={!!errors.zoneIds}
+          >
             {zones.map((zone) => (
               <option key={zone.id} value={zone.id}>
                 {zone.name}
               </option>
             ))}
           </CFormSelect>
-          <CFormFeedback invalid>{errors.zoneId?.message}</CFormFeedback>
+          <CFormFeedback invalid>{errors.zoneIds?.message}</CFormFeedback>
         </div>
       </CCol>
       <CCol md={6}>
@@ -139,9 +149,13 @@ const EmployeeCompanyInfoSection = ({
             id="subZoneId"
             {...register('subZoneId')}
             invalid={!!errors.subZoneId}
-            disabled={!subZones.length}
+            disabled={selectedZoneIds.length !== 1 || !subZones.length}
           >
-            <option value="">{subZones.length ? 'Select sub-zone (optional)' : 'No sub-zones for this zone'}</option>
+            <option value="">
+              {selectedZoneIds.length !== 1
+                ? 'Select exactly one zone to choose sub-zone'
+                : (subZones.length ? 'Select sub-zone (optional)' : 'No sub-zones for this zone')}
+            </option>
             {subZones.map((sz) => {
               const sid = sz._id || sz.id
               return (

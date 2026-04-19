@@ -27,6 +27,7 @@ const AppSidebar = () => {
   // Filter navigation items based on permissions (or use purchase-only nav for PM/PE)
   const filteredNavigation = useMemo(() => {
     const role = String(user?.role || '').toLowerCase()
+    const isHod = role === 'head_of_department'
 
     // Fixed sidebar for admin role only.
     if (role === 'admin') {
@@ -46,6 +47,8 @@ const AppSidebar = () => {
     const filterItem = (item) => {
       // No module = accessible to all (e.g., Dashboard)
       if (!item.module) return true
+      // Show Sub-zones by default only to HOD; other roles need explicit permission.
+      if (item.module === 'sub_zones') return isHod || hasAnyPermission('sub_zones')
       // Full-access roles see everything
       if (isFullAccess) return true
       // Check if user has any permission for this module
@@ -59,6 +62,7 @@ const AppSidebar = () => {
         if (item.items) {
           const filteredItems = item.items.filter((subItem) => {
             if (!subItem.module) return true
+            if (subItem.module === 'sub_zones') return isHod || hasAnyPermission('sub_zones')
             if (isFullAccess) return true
             return hasAnyPermission(subItem.module)
           })

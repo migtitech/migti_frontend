@@ -35,7 +35,7 @@ const EmployeeView = () => {
   const navigate = useNavigate()
   const [employee, setEmployee] = useState(null)
   const [branch, setBranch] = useState(null)
-  const [zone, setZone] = useState(null)
+  const [zones, setZones] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -140,19 +140,21 @@ const EmployeeView = () => {
           setBranch(null)
         }
 
-        if (normalizedEmployee?.zoneId) {
+        const zoneIds = Array.isArray(normalizedEmployee?.zoneIds)
+          ? normalizedEmployee.zoneIds
+          : (normalizedEmployee?.zoneId ? [normalizedEmployee.zoneId] : [])
+        if (zoneIds.length) {
           try {
-            const zoneResponse = await areaService.getById(normalizedEmployee.zoneId)
-            const zonePayload =
-              zoneResponse?.data?.data ||
-              zoneResponse?.data ||
-              zoneResponse
-            setZone(zonePayload || null)
+            const zoneResponses = await Promise.all(zoneIds.map((zid) => areaService.getById(zid)))
+            const zoneList = zoneResponses
+              .map((zoneResponse) => zoneResponse?.data?.data || zoneResponse?.data || zoneResponse)
+              .filter(Boolean)
+            setZones(zoneList)
           } catch {
-            setZone(null)
+            setZones([])
           }
         } else {
-          setZone(null)
+          setZones([])
         }
       } catch (err) {
         toastError(err?.message || 'Failed to load employee')
@@ -300,7 +302,10 @@ const EmployeeView = () => {
                 <InfoRow label="Designation" value={e.designation} />
                 <InfoRow label="ID Number" value={e.idnumber} />
                 <InfoRow label="Branch" value={branch?.name} />
-                <InfoRow label="Zone" value={zone?.name} />
+                <InfoRow
+                  label="Zones"
+                  value={zones.length ? zones.map((z) => z?.name).filter(Boolean).join(', ') : '-'}
+                />
                 <InfoRow label="Salary Type" value={e.salaryType} />
                 <CListGroupItem className="d-flex justify-content-between align-items-center">
                   <strong>Salary</strong>

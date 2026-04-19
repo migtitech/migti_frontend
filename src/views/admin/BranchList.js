@@ -10,9 +10,14 @@ import { ConfirmDialog } from '../../components'
 import BranchHeader from './branches/BranchHeader'
 import BranchCards from './branches/BranchCards'
 import BranchFormModal from './branches/BranchFormModal'
+import usePermissions from '../../hooks/usePermissions'
 
 const BranchList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const canCreateBranches = canCreate('branches')
+  const canUpdateBranches = canUpdate('branches')
+  const canDeleteBranches = canDelete('branches')
   const [companies, setCompanies] = useState([])
   const [branches, setBranches] = useState([])
   const [loading, setLoading] = useState(false)
@@ -188,7 +193,7 @@ const BranchList = () => {
 
   return (
     <>
-      <BranchHeader onAdd={() => handleOpenModal()} />
+      <BranchHeader onAdd={() => handleOpenModal()} canCreate={canCreateBranches} />
       <BranchCards
         branches={branches}
         companies={companies}
@@ -199,17 +204,22 @@ const BranchList = () => {
         onView={(branchId) => navigate(`/branches/${branchId}`)}
         onEdit={handleOpenModal}
         onDelete={handleDeleteClick}
+        canCreate={canCreateBranches}
+        canUpdate={canUpdateBranches}
+        canDelete={canDeleteBranches}
         onViewUsers={handleViewUsers}
       />
-      <BranchFormModal
-        visible={showModal}
-        onClose={handleCloseModal}
-        onSubmit={onSubmit}
-        submitting={submitting}
-        companies={companies}
-        editingBranch={editingBranch}
-        defaultValues={defaultValues}
-      />
+      {(canCreateBranches || (canUpdateBranches && editingBranch)) ? (
+        <BranchFormModal
+          visible={showModal}
+          onClose={handleCloseModal}
+          onSubmit={onSubmit}
+          submitting={submitting}
+          companies={companies}
+          editingBranch={editingBranch}
+          defaultValues={defaultValues}
+        />
+      ) : null}
       <ConfirmDialog
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}

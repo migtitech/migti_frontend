@@ -135,7 +135,7 @@ const EmployeeForm = () => {
         }),
         ...(isEdit ? {} : { password: yup.string().required('Password is required').min(6, 'Password must be at least 6 characters') }),
         branchId: yup.string().required('Branch is required'),
-        zoneId: yup.string().optional().nullable(),
+        zoneIds: yup.array().of(yup.string()).optional().default([]),
         subZoneId: yup.string().optional().nullable(),
         categories: yup.string().trim().optional().nullable().transform((v, o) => (o === '' ? null : v)),
         assets: yup.object({
@@ -195,7 +195,7 @@ const EmployeeForm = () => {
       companyPhone: '',
       role: '',
       branchId: '',
-      zoneId: '',
+      zoneIds: [],
       subZoneId: '',
       categories: '',
       designation: '',
@@ -250,7 +250,8 @@ const EmployeeForm = () => {
   const mobileEnabled = !!watch('assets.mobile.enabled')
   const simCardEnabled = !!watch('assets.simCard.enabled')
   const selectedBranchId = watch('branchId')
-  const selectedZoneId = watch('zoneId')
+  const selectedZoneIds = watch('zoneIds') || []
+  const selectedSingleZoneId = selectedZoneIds.length === 1 ? selectedZoneIds[0] : ''
 
   const normalizeId = (item) => ({
     ...item,
@@ -305,18 +306,18 @@ const EmployeeForm = () => {
   useEffect(() => {
     let cancelled = false
     const loadSubZones = async () => {
-      if (!selectedZoneId) {
+      if (!selectedSingleZoneId) {
         setSubZones([])
         setValue('subZoneId', '')
         prevZoneIdRef.current = ''
         return
       }
-      if (prevZoneIdRef.current && prevZoneIdRef.current !== selectedZoneId) {
+      if (prevZoneIdRef.current && prevZoneIdRef.current !== selectedSingleZoneId) {
         setValue('subZoneId', '')
       }
-      prevZoneIdRef.current = selectedZoneId
+      prevZoneIdRef.current = selectedSingleZoneId
       try {
-        const response = await subZoneService.listByZone(selectedZoneId)
+        const response = await subZoneService.listByZone(selectedSingleZoneId)
         const data = response?.data?.data || response?.data || response
         const list = data?.subZones || []
         if (!cancelled) setSubZones(list)
@@ -331,7 +332,7 @@ const EmployeeForm = () => {
     return () => {
       cancelled = true
     }
-  }, [selectedZoneId, setValue])
+  }, [selectedSingleZoneId, setValue])
 
   useEffect(() => {
     const loadEmployee = async () => {
@@ -366,7 +367,9 @@ const EmployeeForm = () => {
           companyPhone: employee.companyPhone || '',
           role: employee.role || '',
           branchId: employee.branchId || '',
-          zoneId: employee.zoneId || '',
+          zoneIds: Array.isArray(employee.zoneIds)
+            ? employee.zoneIds
+            : (employee.zoneId ? [employee.zoneId] : []),
           subZoneId: employee.subZoneId || '',
           categories: employee.categories || '',
           designation: employee.designation || '',
@@ -430,6 +433,12 @@ const EmployeeForm = () => {
     setError('')
     try {
       const payload = { ...data }
+      payload.zoneIds = Array.isArray(payload.zoneIds)
+        ? payload.zoneIds.filter(Boolean)
+        : []
+      if (payload.zoneIds.length !== 1) {
+        payload.subZoneId = ''
+      }
       if (isEdit) {
         delete payload.password
       }
@@ -497,6 +506,8 @@ const EmployeeForm = () => {
             roleOptions={roleOptions}
             branches={branches}
             zones={zones}
+            selectedZoneIds={selectedZoneIds}
+            onZoneIdsChange={(ids) => setValue('zoneIds', ids, { shouldValidate: true, shouldDirty: true })}
             subZones={subZones}
             designationOptions={designationOptions}
             lockBranch={!canSelectBranch && !!userBranchId}

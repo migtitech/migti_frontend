@@ -253,6 +253,11 @@ export const VISITS = {
   COMPLETE_WITH_REMARK: '/visits/complete-with-remark',
 }
 
+export const EMPLOYEE_LOCATIONS = {
+  CREATE: '/employee-locations/create',
+  LIST: '/employee-locations/list',
+}
+
 export const TASK_MANAGEMENT = {
   CREATE: '/task-management/create',
   LIST: '/task-management/list',
@@ -295,5 +300,6 @@ export default {
   PURCHASE_TASKS,
   PO_BILLING,
   VISITS,
+  EMPLOYEE_LOCATIONS,
   TASK_MANAGEMENT,
 }

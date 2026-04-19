@@ -31,6 +31,7 @@ import { cilPlus, cilPencil, cilTrash, cilArrowLeft } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import { ROLE_LABELS } from '../../context/AuthContext'
 import { ConfirmDialog } from '../../components'
+import usePermissions from '../../hooks/usePermissions'
 
 const BRANCH_ROLES = [
   'head_of_department',
@@ -53,6 +54,10 @@ const BranchUserManagement = () => {
     updateBranchUser,
     deleteBranchUser,
   } = useData()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const canCreateBranches = canCreate('branches')
+  const canUpdateBranches = canUpdate('branches')
+  const canDeleteBranches = canDelete('branches')
 
   const company = getCompanyById(parseInt(companyId))
   const branch = getBranchById(parseInt(branchId))
@@ -176,10 +181,12 @@ const BranchUserManagement = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Users</strong>
-              <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
-                <CIcon icon={cilPlus} className="me-1" />
-                Add User
-              </CButton>
+              {canCreateBranches ? (
+                <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
+                  <CIcon icon={cilPlus} className="me-1" />
+                  Add User
+                </CButton>
+              ) : null}
             </CCardHeader>
             <CCardBody>
               <CTable hover responsive bordered>
@@ -208,37 +215,41 @@ const BranchUserManagement = () => {
                         </CBadge>
                       </CTableDataCell>
                       <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                        <CButton
-                          color="warning"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleOpenModal(user)
-                          }}
-                          title="Edit"
-                        >
-                          <CIcon icon={cilPencil} />
-                        </CButton>
-                        <CButton
-                          color="danger"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteClick(user.id)
-                          }}
-                          title="Delete"
-                        >
-                          <CIcon icon={cilTrash} />
-                        </CButton>
+                        {canUpdateBranches ? (
+                          <CButton
+                            color="warning"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenModal(user)
+                            }}
+                            title="Edit"
+                          >
+                            <CIcon icon={cilPencil} />
+                          </CButton>
+                        ) : null}
+                        {canDeleteBranches ? (
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(user.id)
+                            }}
+                            title="Delete"
+                          >
+                            <CIcon icon={cilTrash} />
+                          </CButton>
+                        ) : null}
                       </CTableDataCell>
                     </CTableRow>
                   ))}
                   {users.length === 0 && (
                     <CTableRow>
                       <CTableDataCell colSpan={5} className="text-center text-body-secondary">
-                        No users found. Click &quot;Add User&quot; to create one.
+                        No users found.
                       </CTableDataCell>
                     </CTableRow>
                   )}
@@ -249,7 +260,7 @@ const BranchUserManagement = () => {
         </CCol>
       </CRow>
 
-      {/* Add/Edit User Modal */}
+      {(canCreateBranches || (canUpdateBranches && editingUser)) ? (
       <CModal visible={showModal} onClose={handleCloseModal}>
         <CForm onSubmit={handleSubmit}>
           <CModalHeader>
@@ -305,16 +316,19 @@ const BranchUserManagement = () => {
           </CModalFooter>
         </CForm>
       </CModal>
+      ) : null}
 
-      <ConfirmDialog
-        visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete User?"
-        message="Are you sure you want to delete this user? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
+      {canDeleteBranches ? (
+        <ConfirmDialog
+          visible={confirmDelete.visible}
+          onClose={() => setConfirmDelete({ visible: false, id: null })}
+          onConfirm={handleDeleteConfirm}
+          title="Delete User?"
+          message="Are you sure you want to delete this user? This action cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+      ) : null}
     </>
   )
 }

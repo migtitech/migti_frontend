@@ -35,6 +35,7 @@ import {
 } from '@coreui/icons'
 import { useData } from '../../context/DataContext'
 import { ConfirmDialog } from '../../components'
+import usePermissions from '../../hooks/usePermissions'
 
 const BranchManagement = () => {
   const { companyId } = useParams()
@@ -47,6 +48,10 @@ const BranchManagement = () => {
     deleteBranch,
     getUsersByBranch,
   } = useData()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const canCreateBranches = canCreate('branches')
+  const canUpdateBranches = canUpdate('branches')
+  const canDeleteBranches = canDelete('branches')
 
   const company = getCompanyById(parseInt(companyId))
   const branches = getBranchesByCompany(parseInt(companyId))
@@ -150,10 +155,12 @@ const BranchManagement = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Branches</strong>
-              <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
-                <CIcon icon={cilPlus} className="me-1" />
-                Add Branch
-              </CButton>
+              {canCreateBranches ? (
+                <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
+                  <CIcon icon={cilPlus} className="me-1" />
+                  Add Branch
+                </CButton>
+              ) : null}
             </CCardHeader>
             <CCardBody>
               <CTable hover responsive bordered>
@@ -203,37 +210,41 @@ const BranchManagement = () => {
                         >
                           <CIcon icon={cilPeople} />
                         </CButton>
-                        <CButton
-                          color="warning"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleOpenModal(branch)
-                          }}
-                          title="Edit"
-                        >
-                          <CIcon icon={cilPencil} />
-                        </CButton>
-                        <CButton
-                          color="danger"
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDeleteClick(branch.id)
-                          }}
-                          title="Delete"
-                        >
-                          <CIcon icon={cilTrash} />
-                        </CButton>
+                        {canUpdateBranches ? (
+                          <CButton
+                            color="warning"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleOpenModal(branch)
+                            }}
+                            title="Edit"
+                          >
+                            <CIcon icon={cilPencil} />
+                          </CButton>
+                        ) : null}
+                        {canDeleteBranches ? (
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(branch.id)
+                            }}
+                            title="Delete"
+                          >
+                            <CIcon icon={cilTrash} />
+                          </CButton>
+                        ) : null}
                       </CTableDataCell>
                     </CTableRow>
                   ))}
                   {branches.length === 0 && (
                     <CTableRow>
                       <CTableDataCell colSpan={6} className="text-center text-body-secondary">
-                        No branches found. Click &quot;Add Branch&quot; to create one.
+                        No branches found.
                       </CTableDataCell>
                     </CTableRow>
                   )}
@@ -244,7 +255,7 @@ const BranchManagement = () => {
         </CCol>
       </CRow>
 
-      {/* Add/Edit Branch Modal */}
+      {(canCreateBranches || (canUpdateBranches && editingBranch)) ? (
       <CModal visible={showModal} onClose={handleCloseModal}>
         <CForm onSubmit={handleSubmit}>
           <CModalHeader>
@@ -305,16 +316,19 @@ const BranchManagement = () => {
           </CModalFooter>
         </CForm>
       </CModal>
+      ) : null}
 
-      <ConfirmDialog
-        visible={confirmDelete.visible}
-        onClose={() => setConfirmDelete({ visible: false, id: null })}
-        onConfirm={handleDeleteConfirm}
-        title="Delete Branch?"
-        message="Are you sure you want to delete this branch? All users will also be removed."
-        confirmText="Delete"
-        cancelText="Cancel"
-      />
+      {canDeleteBranches ? (
+        <ConfirmDialog
+          visible={confirmDelete.visible}
+          onClose={() => setConfirmDelete({ visible: false, id: null })}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Branch?"
+          message="Are you sure you want to delete this branch? All users will also be removed."
+          confirmText="Delete"
+          cancelText="Cancel"
+        />
+      ) : null}
     </>
   )
 }

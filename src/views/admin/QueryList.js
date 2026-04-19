@@ -116,6 +116,7 @@ const formatDateDdMmYyyy = (iso) => {
 }
 
 const QueryList = () => {
+  const MOBILE_BREAKPOINT = 576
   const navigate = useNavigate()
   const [filterInit] = useState(() => getInitialFilterState())
   const [queries, setQueries] = useState([])
@@ -137,6 +138,7 @@ const QueryList = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [isMobileView, setIsMobileView] = useState(false)
 
   const fetchQueries = async () => {
     setLoading(true)
@@ -192,6 +194,19 @@ const QueryList = () => {
       return prev
     })
   }, [dateFrom])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
+    const onChange = (event) => setIsMobileView(event.matches)
+    setIsMobileView(mediaQuery.matches)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', onChange)
+      return () => mediaQuery.removeEventListener('change', onChange)
+    }
+    mediaQuery.addListener(onChange)
+    return () => mediaQuery.removeListener(onChange)
+  }, [])
 
   const toggleFiltersLock = () => {
     if (filtersLocked) {
@@ -304,6 +319,115 @@ const QueryList = () => {
                 </div>
               ) : (
                 <>
+                  {isMobileView ? (
+                    <div>
+                      {queries?.length > 0 ? (
+                        queries.map((q, index) => (
+                          <CCard
+                            key={q._id || q.id}
+                            className="mb-3 border"
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => navigate(`/queries/${q._id || q.id}`)}
+                          >
+                            <CCardBody>
+                              <div className="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                  <div className="small text-muted">#{(currentPage - 1) * pageSize + index + 1}</div>
+                                  <strong>{q.queryCode || '—'}</strong>
+                                </div>
+                                <div>
+                                  <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
+                                    {q.status || 'pending'}
+                                  </CBadge>
+                                </div>
+                              </div>
+                              <div className="small mb-1"><strong>Company:</strong> {q.companyInfo?.name || '-'}</div>
+                              <div className="small mb-1">
+                                <strong>Products:</strong> {q.products?.length ? `${q.products.length} item(s)` : '-'}
+                              </div>
+                              <div className="small mb-1">
+                                <strong>Quotation no.:</strong>{' '}
+                                {Array.isArray(q.convertedQuotations) && q.convertedQuotations.length > 0
+                                  ? q.convertedQuotations.map((ref, idx) => {
+                                      const qid = ref.quotationId?._id ?? ref.quotationId
+                                      const code = ref.quotationCode || qid || '—'
+                                      return (
+                                        <span key={String(qid || idx)}>
+                                          <span
+                                            role="link"
+                                            tabIndex={0}
+                                            className="text-primary text-decoration-underline"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              if (qid) navigate(`/quotations/${qid}`)
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault()
+                                                e.stopPropagation()
+                                                if (qid) navigate(`/quotations/${qid}`)
+                                              }
+                                            }}
+                                          >
+                                            {code}
+                                          </span>
+                                          {idx < q.convertedQuotations.length - 1 ? ', ' : ''}
+                                        </span>
+                                      )
+                                    })
+                                  : '—'}
+                              </div>
+                              <div className="small mb-2">
+                                <strong>Date:</strong> {q.createdAt ? `${formatDateDdMmYyyy(q.createdAt)} ${new Date(q.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '-'}
+                              </div>
+                              <div className="d-flex gap-2">
+                                <CButton
+                                  color="info"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    navigate(`/queries/${q._id || q.id}`)
+                                  }}
+                                  title="View"
+                                >
+                                  <EyeIcon />
+                                </CButton>
+                                {q.status !== 'closed' && (
+                                  <CButton
+                                    color="warning"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      navigate(`/queries/edit/${q._id || q.id}`)
+                                    }}
+                                    title="Edit"
+                                  >
+                                    <CIcon icon={cilPencil} />
+                                  </CButton>
+                                )}
+                                <CButton
+                                  color="danger"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleDeleteClick(q._id || q.id)
+                                  }}
+                                  title="Delete"
+                                >
+                                  <CIcon icon={cilTrash} />
+                                </CButton>
+                              </div>
+                            </CCardBody>
+                          </CCard>
+                        ))
+                      ) : (
+                        <div className="text-center text-muted py-4">No queries found.</div>
+                      )}
+                    </div>
+                  ) : (
                   <CTable hover responsive bordered>
                     <CTableHead>
                       <CTableRow>
@@ -455,6 +579,7 @@ const QueryList = () => {
                       )}
                     </CTableBody>
                   </CTable>
+                  )}
 
                   {totalPages > 1 && (
                     <CPagination className="mt-3 justify-content-center">

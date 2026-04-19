@@ -29,6 +29,7 @@ import { getAssetsUrl } from '../../api/endpoints'
 import poBillingService from '../../services/poBillingService'
 import documentService from '../../services/documentService'
 import useBranchContext from '../../hooks/useBranchContext'
+import usePermissions from '../../hooks/usePermissions'
 import { Loader } from '../../components'
 import { toastError, toastSuccess } from '../../utils/toast'
 
@@ -93,8 +94,11 @@ const unwrapResponse = (response) => {
 const isImageMime = (mime) => /^image\//i.test(String(mime || ''))
 
 const PurchaseOrderSidebar = () => {
+  const MOBILE_BREAKPOINT = 576
   const drawerWidth = 420
   const { branchId } = useBranchContext()
+  const { canCreate } = usePermissions()
+  const canCreatePurchaseOrders = canCreate('purchase_orders')
   const [loadingInit, setLoadingInit] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
   const [activeTab, setActiveTab] = useState(TAB_KEYS.po)
@@ -141,6 +145,7 @@ const PurchaseOrderSidebar = () => {
   const [poAttachmentUploading, setPoAttachmentUploading] = useState(false)
   const [billingAttachmentUploading, setBillingAttachmentUploading] = useState(false)
   const latestAnalyticsRequestRef = useRef(0)
+  const [isMobileView, setIsMobileView] = useState(false)
 
   const pageSize = 10
   const activePage = tabPages[activeTab] || 1
@@ -235,6 +240,19 @@ const PurchaseOrderSidebar = () => {
   useEffect(() => {
     loadAnalytics()
   }, [activeTab, period, dateFrom, dateTo, activePage])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
+    const onChange = (event) => setIsMobileView(event.matches)
+    setIsMobileView(mediaQuery.matches)
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', onChange)
+      return () => mediaQuery.removeEventListener('change', onChange)
+    }
+    mediaQuery.addListener(onChange)
+    return () => mediaQuery.removeListener(onChange)
+  }, [])
 
   /** Opens file in a new tab. Uses the signed S3 URL from the API (navigation avoids S3 CORS on XHR). */
   const openAttachmentInNewTab = (attachment) => {
@@ -382,30 +400,32 @@ const PurchaseOrderSidebar = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Purchase Order</strong>
-            <div className="d-flex gap-2">
-              <CButton
-                color="primary"
-                onClick={() => {
-                  setBillingModal(false)
-                  setBillingAttachment(null)
-                  setPoAttachment(null)
-                  setPoModal(true)
-                }}
-              >
-                Add PO
-              </CButton>
-              <CButton
-                color="success"
-                onClick={() => {
-                  setPoModal(false)
-                  setPoAttachment(null)
-                  setBillingAttachment(null)
-                  setBillingModal(true)
-                }}
-              >
-                Add Billing
-              </CButton>
-            </div>
+            {canCreatePurchaseOrders ? (
+              <div className="d-flex gap-2">
+                <CButton
+                  color="primary"
+                  onClick={() => {
+                    setBillingModal(false)
+                    setBillingAttachment(null)
+                    setPoAttachment(null)
+                    setPoModal(true)
+                  }}
+                >
+                  Add PO
+                </CButton>
+                <CButton
+                  color="success"
+                  onClick={() => {
+                    setPoModal(false)
+                    setPoAttachment(null)
+                    setBillingAttachment(null)
+                    setBillingModal(true)
+                  }}
+                >
+                  Add Billing
+                </CButton>
+              </div>
+            ) : null}
           </CCardHeader>
           <CCardBody>
             <CRow className="mb-3 g-3 align-items-end">
@@ -479,6 +499,48 @@ const PurchaseOrderSidebar = () => {
                   </CNavItem>
                 </CNav>
 
+                {isMobileView ? (
+                  <div>
+                    {rows.length > 0 ? (
+                      rows.map((item, index) => {
+                        const dateInfo = formatDateParts(item.entryDate)
+                        return (
+                          <CCard key={item._id || `${index}`} className="mb-3 border">
+                            <CCardBody>
+                              <div className="small text-muted mb-1">#{(safePage - 1) * pageSize + index + 1}</div>
+                              <div className="small mb-1"><strong>Company:</strong> {item.companyName || '-'}</div>
+                              <div className="small mb-1"><strong>Salesperson:</strong> {item.salespersonName || '-'}</div>
+                              <div className="small mb-1"><strong>Amount:</strong> {formatAmount(item.amount)}</div>
+                              <div className="small mb-1">
+                                <strong>Date:</strong> {dateInfo.date} {dateInfo.time ? ` ${dateInfo.time}` : ''}
+                              </div>
+                              <div className="small">
+                                <strong>Attachment:</strong>{' '}
+                                {item.attachment?.documentId ? (
+                                  <span className="d-inline-flex align-items-center gap-2">
+                                    <span className="text-muted">{isImageMime(item.attachment.mimeType) ? 'Image' : 'PDF'}</span>
+                                    <CButton
+                                      color="link"
+                                      className="p-0 small"
+                                      title="Open in new tab"
+                                      onClick={() => openAttachmentInNewTab(item.attachment)}
+                                    >
+                                      View
+                                    </CButton>
+                                  </span>
+                                ) : '-'}
+                              </div>
+                            </CCardBody>
+                          </CCard>
+                        )
+                      })
+                    ) : (
+                      <div className="text-center text-muted py-4">
+                        No {activeTab} data found for selected filters.
+                      </div>
+                    )}
+                  </div>
+                ) : (
                 <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
@@ -557,6 +619,7 @@ const PurchaseOrderSidebar = () => {
                     )}
                   </CTableBody>
                 </CTable>
+                )}
 
                 {totalPages > 1 && (
                   <CPagination className="mt-3 justify-content-center">
