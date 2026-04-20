@@ -506,7 +506,7 @@ const QueryView = () => {
                     Delete
                   </CButton>
                 )}
-                {canUpdate('queries') && query.status !== 'closed' && (
+                {canDelete('queries') && query.status !== 'closed' && (
                   <CButton
                     color="dark"
                     variant="outline"

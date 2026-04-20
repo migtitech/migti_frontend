@@ -73,6 +73,8 @@ const getCurrentUserRole = () => {
   }
 }
 
+const normalizeRole = (role) => String(role || '').trim().toLowerCase().replace(/[\s-]+/g, '_')
+
 const getImageUrl = (img) => {
   if (!img) return ''
   if (typeof img === 'string') return img.startsWith('http') ? img : getAssetsUrl(img)
@@ -196,6 +198,7 @@ const QuotationView = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [approvingHod, setApprovingHod] = useState(false)
   const [activeTab, setActiveTab] = useState('preview')
   const [productIndex, setProductIndex] = useState(0)
   const [editingProduct, setEditingProduct] = useState(null)
@@ -1212,6 +1215,10 @@ const QuotationView = () => {
 
   const handleDownloadProductsPdf = async () => {
     if (!quotation?.id) return
+    if (displayQuotation?.status !== 'hod_approved') {
+      toastError('PDF export is available only after HOD approval')
+      return
+    }
     setExportingPdf(true)
     try {
       const response = await quotationService.exportPdf(quotation.id)
@@ -1257,9 +1264,28 @@ const QuotationView = () => {
   const canCreateQuotation = hasPermission('quotations', 'create')
   const canUpdateQuotation = hasPermission('quotations', 'update')
   const canDeleteQuotation = hasPermission('quotations', 'delete')
+  const currentUserRole = normalizeRole(getCurrentUserRole())
+  const isHodUser = currentUserRole === normalizeRole(ROLES.HEAD_OF_DEPARTMENT) || currentUserRole === 'hod'
+  const canApproveAsHod = isHodUser && canUpdateQuotation
+  const isHodApprovedStatus = displayQuotation?.status === 'hod_approved'
   const currentProduct =
     products.length > 0 ? products[Math.min(productIndex, products.length - 1)] : null
   const isCurrentProductNotAvailable = !!currentProduct?.notAvailable
+
+  const handleHodApproveQuotation = async () => {
+    if (!quotation?.id || !canApproveAsHod || isHodApprovedStatus) return
+    setApprovingHod(true)
+    try {
+      const res = await quotationService.updateStatus(quotation.id, 'hod_approved')
+      const data = res?.data?.data ?? res?.data ?? res
+      setQuotation((prev) => mergeQuotationUpdateIntoPrev(prev, data, { status: 'hod_approved' }))
+      toastSuccess('Quotation approved by HOD')
+    } catch (err) {
+      toastError(err?.response?.data?.message || err?.message || 'Failed to approve quotation')
+    } finally {
+      setApprovingHod(false)
+    }
+  }
 
   const openImageGallery = (images, startIndex = 0) => {
     if (!images?.length) return
@@ -1419,7 +1445,12 @@ const QuotationView = () => {
                 color="secondary"
                 variant="outline"
                 onClick={handleDownloadProductsPdf}
-                disabled={exportingPdf || isSnapshotPreview}
+                disabled={exportingPdf || isSnapshotPreview || displayQuotation?.status !== 'hod_approved'}
+                title={
+                  displayQuotation?.status === 'hod_approved'
+                    ? 'Download PDF'
+                    : 'Download disabled until HOD approval'
+                }
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
               >
@@ -1427,6 +1458,20 @@ const QuotationView = () => {
                 {!exportingPdf && <CIcon icon={cilCloudDownload} className="me-2" />}
                 {exportingPdf ? 'Generating PDF...' : 'Download PDF'}
               </CButton>
+              {canApproveAsHod ? (
+                <CButton
+                  color={isHodApprovedStatus ? 'success' : 'warning'}
+                  variant={isHodApprovedStatus ? 'outline' : undefined}
+                  disabled={approvingHod || isSnapshotPreview || isHodApprovedStatus}
+                  onClick={handleHodApproveQuotation}
+                  className="d-inline-flex align-items-center px-3"
+                  style={{ height: 40 }}
+                  title={isHodApprovedStatus ? 'Already HOD approved' : 'Approve quotation as HOD'}
+                >
+                  {approvingHod && <CSpinner size="sm" className="me-2" />}
+                  {isHodApprovedStatus ? 'HOD Approved' : (approvingHod ? 'Approving...' : 'Approve (HOD)')}
+                </CButton>
+              ) : null}
               <CButton
                 color="primary"
                 variant="outline"

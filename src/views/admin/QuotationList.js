@@ -106,6 +106,7 @@ const formatDateDdMmYyyy = (iso) => {
 
 const formatInrAmount = (value) =>
   Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })
+const isHodApproved = (quotation) => quotation?.status === 'hod_approved'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All' },
@@ -144,6 +145,10 @@ const QuotationList = () => {
   const handleDownloadPdf = async (e, quotation) => {
     e?.stopPropagation()
     if (!quotation?.id) return
+    if (!isHodApproved(quotation)) {
+      toastError('PDF export is available only after HOD approval')
+      return
+    }
     setExportingPdfId(quotation.id)
     try {
       const response = await quotationService.exportPdf(quotation.id)
@@ -461,8 +466,12 @@ const QuotationList = () => {
                               color="success"
                               variant="ghost"
                               size="sm"
-                              title="Download PDF"
-                              disabled={exportingPdfId === quotation.id}
+                              title={
+                                isHodApproved(quotation)
+                                  ? 'Download PDF'
+                                  : 'Download disabled until HOD approval'
+                              }
+                              disabled={exportingPdfId === quotation.id || !isHodApproved(quotation)}
                               onClick={(e) => handleDownloadPdf(e, quotation)}
                             >
                               {exportingPdfId === quotation.id ? (
@@ -572,8 +581,12 @@ const QuotationList = () => {
                           color="success"
                           variant="ghost"
                           size="sm"
-                          title="Download PDF"
-                          disabled={exportingPdfId === quotation.id}
+                          title={
+                            isHodApproved(quotation)
+                              ? 'Download PDF'
+                              : 'Download disabled until HOD approval'
+                          }
+                          disabled={exportingPdfId === quotation.id || !isHodApproved(quotation)}
                           onClick={(e) => handleDownloadPdf(e, quotation)}
                         >
                           {exportingPdfId === quotation.id ? (
