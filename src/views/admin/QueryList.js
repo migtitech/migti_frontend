@@ -24,6 +24,7 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash, cilLockLocked, cilLockUnlocked } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import queryService from '../../services/queryService'
+import areaService from '../../services/areaService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -126,11 +127,13 @@ const QUERY_STATUS_OPTIONS = [
 const QueryList = () => {
   const MOBILE_BREAKPOINT = 576
   const navigate = useNavigate()
-  const { canDelete, canUpdate } = usePermissions()
+  const { canRead, canDelete, canUpdate } = usePermissions()
   const [filterInit] = useState(() => getInitialFilterState())
   const [queries, setQueries] = useState([])
   const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
+  const [areas, setAreas] = useState([])
+  const [selectedAreaIds, setSelectedAreaIds] = useState([])
   const [statusFilter, setStatusFilter] = useState(filterInit.statusFilter)
   const [filtersLocked, setFiltersLocked] = useState(filterInit.filtersLocked)
   const [dateFrom, setDateFrom] = useState(filterInit.dateFrom)
@@ -153,6 +156,7 @@ const QueryList = () => {
           pageSize,
           search: searchDebounced.trim() || undefined,
           status: statusFilter || undefined,
+          areaIds: selectedAreaIds.length ? selectedAreaIds.join(',') : undefined,
           dateFrom: dateFrom.trim() || undefined,
           dateTo: dateTo.trim() || undefined,
         }),
@@ -178,8 +182,30 @@ const QueryList = () => {
   }, [searchTerm])
 
   useEffect(() => {
+    let cancelled = false
+    const fetchAreas = async () => {
+      try {
+        const res = await areaService.getAll({ pageSize: 1000 })
+        const data = res?.data || res
+        const list = data?.areas || []
+        if (cancelled) return
+        setAreas(list)
+        setSelectedAreaIds(list.map((a) => String(a._id || a.id)).filter(Boolean))
+      } catch {
+        if (cancelled) return
+        setAreas([])
+        setSelectedAreaIds([])
+      }
+    }
+    fetchAreas()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     setPageNumber(1)
-  }, [searchDebounced, statusFilter, dateFrom, dateTo])
+  }, [searchDebounced, statusFilter, selectedAreaIds, dateFrom, dateTo])
 
   useEffect(() => {
     if (!filtersLocked) return
@@ -188,7 +214,7 @@ const QueryList = () => {
 
   useEffect(() => {
     fetchQueries()
-  }, [pageNumber, pageSize, searchDebounced, statusFilter, dateFrom, dateTo])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter, selectedAreaIds, dateFrom, dateTo])
 
   useEffect(() => {
     if (!dateFrom) return
@@ -295,6 +321,29 @@ const QueryList = () => {
                       ))}
                     </CFormSelect>
                   </div>
+                  {canRead('queries') && (
+                    <div className="flex-grow-1" style={{ minWidth: 180 }}>
+                      <CFormLabel className="mb-1 small text-muted">Zones</CFormLabel>
+                      <CFormSelect
+                        multiple
+                        value={selectedAreaIds}
+                        onChange={(e) => {
+                          const values = Array.from(e.target.selectedOptions || []).map((opt) => opt.value)
+                          setSelectedAreaIds(values)
+                        }}
+                      >
+                        {areas.map((a) => {
+                          const id = String(a._id || a.id)
+                          return (
+                            <option key={id} value={id}>
+                              {a.name}
+                              {a.city ? ` - ${a.city}` : ''}
+                            </option>
+                          )
+                        })}
+                      </CFormSelect>
+                    </div>
+                  )}
                   <CButton
                     type="button"
                     color={filtersLocked ? 'warning' : 'secondary'}
