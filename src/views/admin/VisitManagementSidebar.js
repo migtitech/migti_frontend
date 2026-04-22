@@ -403,20 +403,26 @@ const VisitManagementSidebar = () => {
                   </CTable>
 
                   {pagination.totalPages > 1 && (
-                    <CPagination className="mt-3 justify-content-center">
-                      <CPaginationItem disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active>
-                        {page} / {pagination.totalPages}
-                      </CPaginationItem>
-                      <CPaginationItem
-                        disabled={page >= pagination.totalPages}
-                        onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <div className="small text-medium-emphasis">
+                        Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                        -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                      </div>
+                      <CPagination className="mb-0">
+                        <CPaginationItem disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))}>
+                          Previous
+                        </CPaginationItem>
+                        <CPaginationItem active>
+                          {page} / {pagination.totalPages}
+                        </CPaginationItem>
+                        <CPaginationItem
+                          disabled={page >= pagination.totalPages}
+                          onClick={() => setPage((prev) => Math.min(pagination.totalPages, prev + 1))}
+                        >
+                          Next
+                        </CPaginationItem>
+                      </CPagination>
+                    </div>
                   )}
                 </>
               )}

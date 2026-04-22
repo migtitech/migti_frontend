@@ -224,23 +224,29 @@ const EmployeeLocations = () => {
                 </CTable>
               </div>
               {totalHistoryPages > 1 && (
-                <CPagination className="mt-3 justify-content-center">
-                  <CPaginationItem
-                    disabled={currentHistoryPage <= 1}
-                    onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </CPaginationItem>
-                  <CPaginationItem active>
-                    {currentHistoryPage} / {totalHistoryPages}
-                  </CPaginationItem>
-                  <CPaginationItem
-                    disabled={currentHistoryPage >= totalHistoryPages}
-                    onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
-                  >
-                    Next
-                  </CPaginationItem>
-                </CPagination>
+                <div className="d-flex justify-content-between align-items-center mt-3">
+                  <div className="small text-medium-emphasis">
+                    Showing {((historyPagination?.currentPage ?? 1) - 1) * (historyPagination?.itemsPerPage ?? 10) + 1}
+                    -{Math.min((historyPagination?.currentPage ?? 1) * (historyPagination?.itemsPerPage ?? 10), historyPagination?.totalItems ?? 0)} of {historyPagination?.totalItems ?? 0}
+                  </div>
+                  <CPagination className="mb-0">
+                    <CPaginationItem
+                      disabled={currentHistoryPage <= 1}
+                      onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                    >
+                      Previous
+                    </CPaginationItem>
+                    <CPaginationItem active>
+                      {currentHistoryPage} / {totalHistoryPages}
+                    </CPaginationItem>
+                    <CPaginationItem
+                      disabled={currentHistoryPage >= totalHistoryPages}
+                      onClick={() => setHistoryPage((p) => Math.min(totalHistoryPages, p + 1))}
+                    >
+                      Next
+                    </CPaginationItem>
+                  </CPagination>
+                </div>
               )}
             </>
           )}

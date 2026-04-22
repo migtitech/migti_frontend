@@ -127,13 +127,13 @@ const QUERY_STATUS_OPTIONS = [
 const QueryList = () => {
   const MOBILE_BREAKPOINT = 576
   const navigate = useNavigate()
-  const { canRead, canDelete, canUpdate } = usePermissions()
+  const { canDelete, canUpdate } = usePermissions()
   const [filterInit] = useState(() => getInitialFilterState())
   const [queries, setQueries] = useState([])
   const [pagination, setPagination] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [areas, setAreas] = useState([])
-  const [selectedAreaIds, setSelectedAreaIds] = useState([])
+  const [selectedAreaId, setSelectedAreaId] = useState('')
   const [statusFilter, setStatusFilter] = useState(filterInit.statusFilter)
   const [filtersLocked, setFiltersLocked] = useState(filterInit.filtersLocked)
   const [dateFrom, setDateFrom] = useState(filterInit.dateFrom)
@@ -156,7 +156,7 @@ const QueryList = () => {
           pageSize,
           search: searchDebounced.trim() || undefined,
           status: statusFilter || undefined,
-          areaIds: selectedAreaIds.length ? selectedAreaIds.join(',') : undefined,
+          areaIds: selectedAreaId || undefined,
           dateFrom: dateFrom.trim() || undefined,
           dateTo: dateTo.trim() || undefined,
         }),
@@ -185,16 +185,27 @@ const QueryList = () => {
     let cancelled = false
     const fetchAreas = async () => {
       try {
-        const res = await areaService.getAll({ pageSize: 1000 })
-        const data = res?.data || res
-        const list = data?.areas || []
+        const allAreas = []
+        let pageNumber = 1
+        let hasNextPage = true
+
+        while (hasNextPage) {
+          const res = await areaService.getAll({ pageNumber, pageSize: 100 })
+          const data = res?.data || res
+          const pagePayload = data || {}
+          const pageAreas = pagePayload?.areas || []
+          const pagePagination = pagePayload?.pagination || {}
+          allAreas.push(...pageAreas)
+          hasNextPage = Boolean(pagePagination?.hasNextPage)
+          pageNumber += 1
+        }
+
         if (cancelled) return
-        setAreas(list)
-        setSelectedAreaIds(list.map((a) => String(a._id || a.id)).filter(Boolean))
+        setAreas(allAreas)
       } catch {
         if (cancelled) return
         setAreas([])
-        setSelectedAreaIds([])
+        setSelectedAreaId('')
       }
     }
     fetchAreas()
@@ -205,7 +216,7 @@ const QueryList = () => {
 
   useEffect(() => {
     setPageNumber(1)
-  }, [searchDebounced, statusFilter, selectedAreaIds, dateFrom, dateTo])
+  }, [searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo])
 
   useEffect(() => {
     if (!filtersLocked) return
@@ -214,7 +225,7 @@ const QueryList = () => {
 
   useEffect(() => {
     fetchQueries()
-  }, [pageNumber, pageSize, searchDebounced, statusFilter, selectedAreaIds, dateFrom, dateTo])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo])
 
   useEffect(() => {
     if (!dateFrom) return
@@ -307,8 +318,8 @@ const QueryList = () => {
                     onChange={(e) => setDateTo(e.target.value)}
                   />
                 </CCol>
-                <CCol md={3} className="d-flex flex-wrap align-items-end gap-2">
-                  <div className="flex-grow-1" style={{ minWidth: 140 }}>
+                <CCol md={2}>
+                  <div>
                     <CFormLabel className="mb-1 small text-muted">Status</CFormLabel>
                     <CFormSelect
                       value={statusFilter}
@@ -321,29 +332,28 @@ const QueryList = () => {
                       ))}
                     </CFormSelect>
                   </div>
-                  {canRead('queries') && (
-                    <div className="flex-grow-1" style={{ minWidth: 180 }}>
-                      <CFormLabel className="mb-1 small text-muted">Zones</CFormLabel>
-                      <CFormSelect
-                        multiple
-                        value={selectedAreaIds}
-                        onChange={(e) => {
-                          const values = Array.from(e.target.selectedOptions || []).map((opt) => opt.value)
-                          setSelectedAreaIds(values)
-                        }}
-                      >
-                        {areas.map((a) => {
-                          const id = String(a._id || a.id)
-                          return (
-                            <option key={id} value={id}>
-                              {a.name}
-                              {a.city ? ` - ${a.city}` : ''}
-                            </option>
-                          )
-                        })}
-                      </CFormSelect>
-                    </div>
-                  )}
+                </CCol>
+                <CCol md={3}>
+                  <div>
+                    <CFormLabel className="mb-1 small text-muted">Zones</CFormLabel>
+                    <CFormSelect
+                      value={selectedAreaId}
+                      onChange={(e) => setSelectedAreaId(e.target.value)}
+                    >
+                      <option value="">All Zones</option>
+                      {areas.map((a) => {
+                        const id = String(a._id || a.id)
+                        return (
+                          <option key={id} value={id}>
+                            {a.name}
+                            {a.city ? ` - ${a.city}` : ''}
+                          </option>
+                        )
+                      })}
+                    </CFormSelect>
+                  </div>
+                </CCol>
+                <CCol md={2} className="d-flex align-items-end">
                   <CButton
                     type="button"
                     color={filtersLocked ? 'warning' : 'secondary'}
@@ -636,23 +646,29 @@ const QueryList = () => {
                   )}
 
                   {totalPages > 1 && (
-                    <CPagination className="mt-3 justify-content-center">
-                      <CPaginationItem
-                        disabled={currentPage <= 1}
-                        onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active>
-                        {currentPage} / {totalPages}
-                      </CPaginationItem>
-                      <CPaginationItem
-                        disabled={currentPage >= totalPages}
-                        onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <div className="small text-medium-emphasis">
+                        Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                        -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                      </div>
+                      <CPagination className="mb-0">
+                        <CPaginationItem
+                          disabled={currentPage <= 1}
+                          onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                        >
+                          Previous
+                        </CPaginationItem>
+                        <CPaginationItem active>
+                          {currentPage} / {totalPages}
+                        </CPaginationItem>
+                        <CPaginationItem
+                          disabled={currentPage >= totalPages}
+                          onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
+                        >
+                          Next
+                        </CPaginationItem>
+                      </CPagination>
+                    </div>
                   )}
                 </>
               )}

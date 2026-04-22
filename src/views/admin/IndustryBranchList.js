@@ -238,29 +238,35 @@ const IndustryBranchList = () => {
                   </CTableBody>
                 </CTable>
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center mt-3">
-                    <CPaginationItem
-                      disabled={!pagination.hasPrevPage}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => (
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-medium-emphasis">
+                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                    </div>
+                    <CPagination className="mb-0">
                       <CPaginationItem
-                        key={i + 1}
-                        active={page === i + 1}
-                        onClick={() => setPage(i + 1)}
+                        disabled={!pagination.hasPrevPage}
+                        onClick={() => setPage(page - 1)}
                       >
-                        {i + 1}
+                        Previous
                       </CPaginationItem>
-                    ))}
-                    <CPaginationItem
-                      disabled={!pagination.hasNextPage}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                      {Array.from({ length: pagination.totalPages }, (_, i) => (
+                        <CPaginationItem
+                          key={i + 1}
+                          active={page === i + 1}
+                          onClick={() => setPage(i + 1)}
+                        >
+                          {i + 1}
+                        </CPaginationItem>
+                      ))}
+                      <CPaginationItem
+                        disabled={!pagination.hasNextPage}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}

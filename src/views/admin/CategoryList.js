@@ -398,29 +398,35 @@ const CategoryList = () => {
                   </CTableBody>
                 </CTable>
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center mt-3">
-                    <CPaginationItem
-                      disabled={!pagination.hasPrevPage}
-                      onClick={() => {
-                        if (pagination.hasPrevPage) {
-                          setPage(page - 1)
-                        }
-                      }}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    {renderPageNumbers()}
-                    <CPaginationItem
-                      disabled={!pagination.hasNextPage}
-                      onClick={() => {
-                        if (pagination.hasNextPage) {
-                          setPage(page + 1)
-                        }
-                      }}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-medium-emphasis">
+                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                    </div>
+                    <CPagination className="mb-0">
+                      <CPaginationItem
+                        disabled={!pagination.hasPrevPage}
+                        onClick={() => {
+                          if (pagination.hasPrevPage) {
+                            setPage(page - 1)
+                          }
+                        }}
+                      >
+                        Previous
+                      </CPaginationItem>
+                      {renderPageNumbers()}
+                      <CPaginationItem
+                        disabled={!pagination.hasNextPage}
+                        onClick={() => {
+                          if (pagination.hasNextPage) {
+                            setPage(page + 1)
+                          }
+                        }}
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}

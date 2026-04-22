@@ -27,6 +27,7 @@ import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import industryService from '../../services/industryService'
 import branchService from '../../services/branchService'
+import areaService from '../../services/areaService'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -44,6 +45,8 @@ const IndustryList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
   const [categoryFilter, setCategoryFilter] = useState('')
+  const [areas, setAreas] = useState([])
+  const [selectedAreaId, setSelectedAreaId] = useState('')
   const [branchFilter, setBranchFilter] = useState('')
   const [branchDefaultApplied, setBranchDefaultApplied] = useState(false)
   const [branches, setBranches] = useState([])
@@ -68,6 +71,36 @@ const IndustryList = () => {
     return () => { cancelled = true }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const fetchAreas = async () => {
+      try {
+        const allAreas = []
+        let pageNumber = 1
+        let hasNextPage = true
+        while (hasNextPage) {
+          const res = await areaService.getAll({ pageNumber, pageSize: 100 })
+          const data = res?.data || res
+          const payload = data || {}
+          const pageAreas = payload?.areas || []
+          const pagePagination = payload?.pagination || {}
+          allAreas.push(...pageAreas)
+          hasNextPage = Boolean(pagePagination?.hasNextPage)
+          pageNumber += 1
+        }
+        if (cancelled) return
+        setAreas(allAreas)
+      } catch {
+        if (cancelled) return
+        setAreas([])
+      }
+    }
+    fetchAreas()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   // Branch isolation: default to user's branch so list shows only that branch's data
   useEffect(() => {
     if (branchDefaultApplied || !userBranchId || branches.length === 0) return
@@ -87,6 +120,7 @@ const IndustryList = () => {
         pageSize: 10,
         search: searchTerm || undefined,
         category: categoryFilter || undefined,
+        areaIds: selectedAreaId || undefined,
       }
       // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
       const effectiveBranchId = branchFilter || userBranchId
@@ -100,7 +134,7 @@ const IndustryList = () => {
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm, categoryFilter, branchFilter, userBranchId])
+  }, [page, searchTerm, categoryFilter, selectedAreaId, branchFilter, userBranchId])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -248,6 +282,27 @@ const IndustryList = () => {
                   <option value="B">B</option>
                   <option value="C">C</option>
                   <option value="D">D</option>
+                </CFormSelect>
+              </CCol>
+              <CCol md={2}>
+                <CFormLabel className="small text-muted">Zones</CFormLabel>
+                <CFormSelect
+                  value={selectedAreaId}
+                  onChange={(e) => {
+                    setSelectedAreaId(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">All Zones</option>
+                  {areas.map((a) => {
+                    const id = String(a._id || a.id)
+                    return (
+                      <option key={id} value={id}>
+                        {a.name}
+                        {a.city ? ` - ${a.city}` : ''}
+                      </option>
+                    )
+                  })}
                 </CFormSelect>
               </CCol>
             </CRow>
@@ -418,29 +473,35 @@ const IndustryList = () => {
                   </CTable>
                 )}
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center">
-                    <CPaginationItem
-                      disabled={!pagination.hasPrevPage}
-                      onClick={() => setPage(page - 1)}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    {Array.from({ length: pagination.totalPages }, (_, i) => (
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-medium-emphasis">
+                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                    </div>
+                    <CPagination className="mb-0">
                       <CPaginationItem
-                        key={i + 1}
-                        active={page === i + 1}
-                        onClick={() => setPage(i + 1)}
+                        disabled={!pagination.hasPrevPage}
+                        onClick={() => setPage(page - 1)}
                       >
-                        {i + 1}
+                        Previous
                       </CPaginationItem>
-                    ))}
-                    <CPaginationItem
-                      disabled={!pagination.hasNextPage}
-                      onClick={() => setPage(page + 1)}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                      {Array.from({ length: pagination.totalPages }, (_, i) => (
+                        <CPaginationItem
+                          key={i + 1}
+                          active={page === i + 1}
+                          onClick={() => setPage(i + 1)}
+                        >
+                          {i + 1}
+                        </CPaginationItem>
+                      ))}
+                      <CPaginationItem
+                        disabled={!pagination.hasNextPage}
+                        onClick={() => setPage(page + 1)}
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}

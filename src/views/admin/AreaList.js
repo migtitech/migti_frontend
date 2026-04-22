@@ -235,25 +235,31 @@ const AreaList = () => {
                   </CTableBody>
                 </CTable>
                 {pagination.totalPages > 1 && (
-                  <CPagination className="mt-3 justify-content-center">
-                    <CPaginationItem
-                      disabled={!pagination.hasPrevPage}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active style={{ cursor: 'pointer' }}>
-                      {pagination.currentPage} / {pagination.totalPages}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={!pagination.hasNextPage}
-                      onClick={() => setPage((p) => p + 1)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-medium-emphasis">
+                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                    </div>
+                    <CPagination className="mb-0">
+                      <CPaginationItem
+                        disabled={!pagination.hasPrevPage}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        Previous
+                      </CPaginationItem>
+                      <CPaginationItem active style={{ cursor: 'pointer' }}>
+                        {pagination.currentPage} / {pagination.totalPages}
+                      </CPaginationItem>
+                      <CPaginationItem
+                        disabled={!pagination.hasNextPage}
+                        onClick={() => setPage((p) => p + 1)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}

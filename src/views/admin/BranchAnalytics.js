@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { CChartBar, CChartDoughnut } from '@coreui/react-chartjs'
 import {
   CCard,
   CCardBody,
@@ -19,6 +20,7 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CBadge,
 } from '@coreui/react'
 import branchService from '../../services/branchService'
 import branchAnalyticsService from '../../services/branchAnalyticsService'
@@ -87,6 +89,7 @@ const formatDate = (value) => {
 
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
+
 const BranchAnalytics = () => {
   const [loadingFilters, setLoadingFilters] = useState(false)
   const [loadingData, setLoadingData] = useState(false)
@@ -163,6 +166,85 @@ const BranchAnalytics = () => {
   const currentPage = tabPages[activeTab] || 1
   const totalPages = tablePagination?.totalPages || 1
   const safePage = tablePagination?.currentPage || currentPage
+  const summaryCards = useMemo(
+    () => [
+      {
+        label: 'Total Queries',
+        value: metrics.totalQueries || 0,
+        className: 'bg-primary text-white',
+      },
+      {
+        label: 'Total Quotations',
+        value: metrics.totalQuotation || 0,
+        className: 'bg-info text-white',
+      },
+      {
+        label: 'Quoted Amount',
+        value: formatAmount(metrics.quotedAmount || 0),
+        className: 'bg-warning text-dark',
+      },
+      {
+        label: 'Total PO',
+        value: metrics.totalPo || 0,
+        className: 'bg-success text-white',
+      },
+      {
+        label: 'PO Amount',
+        value: formatAmount(metrics.poAmount || 0),
+        className: 'bg-danger text-white',
+      },
+      {
+        label: 'Total Billing',
+        value: metrics.totalBilling || 0,
+        className: 'bg-secondary text-white',
+      },
+      {
+        label: 'Billing Amount',
+        value: formatAmount(metrics.billingAmount || 0),
+        className: 'bg-dark text-white',
+      },
+    ],
+    [metrics],
+  )
+
+  const volumeChartData = useMemo(
+    () => ({
+      labels: ['Queries', 'Quotations', 'PO', 'Billing'],
+      datasets: [
+        {
+          label: 'Count',
+          backgroundColor: ['#321fdb', '#39f', '#2eb85c', '#f9b115'],
+          borderColor: ['#321fdb', '#39f', '#2eb85c', '#f9b115'],
+          borderWidth: 1,
+          borderRadius: 8,
+          data: [
+            Number(metrics.totalQueries || 0),
+            Number(metrics.totalQuotation || 0),
+            Number(metrics.totalPo || 0),
+            Number(metrics.totalBilling || 0),
+          ],
+        },
+      ],
+    }),
+    [metrics],
+  )
+
+  const amountChartData = useMemo(
+    () => ({
+      labels: ['Quoted', 'PO', 'Billing'],
+      datasets: [
+        {
+          backgroundColor: ['#8a93ff', '#2eb85c', '#f9b115'],
+          data: [
+            Number(metrics.quotedAmount || 0),
+            Number(metrics.poAmount || 0),
+            Number(metrics.billingAmount || 0),
+          ],
+        },
+      ],
+    }),
+    [metrics],
+  )
 
   useEffect(() => {
     setTabPages({
@@ -281,24 +363,57 @@ const BranchAnalytics = () => {
             ) : (
               <>
                 <CRow className="g-3 mb-4">
-                  {[
-                    { label: 'Total Queries', value: metrics.totalQueries || 0 },
-                    { label: 'Total Quotation', value: metrics.totalQuotation || 0 },
-                    { label: 'Quoted Amount', value: formatAmount(metrics.quotedAmount || 0) },
-                    { label: 'Total PO', value: metrics.totalPo || 0 },
-                    { label: 'PO Amount', value: formatAmount(metrics.poAmount || 0) },
-                    { label: 'Total Billing', value: metrics.totalBilling || 0 },
-                    { label: 'Billing Amount', value: formatAmount(metrics.billingAmount || 0) },
-                  ].map((item) => (
+                  {summaryCards.map((item) => (
                     <CCol md={3} sm={6} xs={12} key={item.label}>
-                      <CCard>
+                      <CCard className={item.className} style={{ border: 'none' }}>
                         <CCardBody>
-                          <div className="text-muted small">{item.label}</div>
+                          <div className="small opacity-75 d-flex justify-content-between align-items-center">
+                            {item.label}
+                            <CBadge color={item.className.includes('text-white') ? 'light' : 'dark'}>
+                              Live
+                            </CBadge>
+                          </div>
                           <div className="fs-5 fw-semibold">{item.value}</div>
                         </CCardBody>
                       </CCard>
                     </CCol>
                   ))}
+                </CRow>
+
+                <CRow className="g-3 mb-4">
+                  <CCol md={8}>
+                    <CCard className="h-100 border-0 shadow-sm">
+                      <CCardHeader className="bg-light">
+                        <strong>Volume Overview</strong>
+                      </CCardHeader>
+                      <CCardBody>
+                        <CChartBar
+                          data={volumeChartData}
+                          options={{
+                            responsive: true,
+                            plugins: { legend: { display: false } },
+                            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+                          }}
+                        />
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
+                  <CCol md={4}>
+                    <CCard className="h-100 border-0 shadow-sm">
+                      <CCardHeader className="bg-light">
+                        <strong>Amount Distribution</strong>
+                      </CCardHeader>
+                      <CCardBody>
+                        <CChartDoughnut
+                          data={amountChartData}
+                          options={{
+                            responsive: true,
+                            plugins: { legend: { position: 'bottom' } },
+                          }}
+                        />
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
                 </CRow>
 
                 <CNav variant="tabs" className="mb-3">
@@ -468,23 +583,29 @@ const BranchAnalytics = () => {
                 )}
 
                 {totalPages > 1 && (
-                  <CPagination className="mt-3 justify-content-center">
-                    <CPaginationItem
-                      disabled={safePage <= 1}
-                      onClick={() => setPageForActiveTab(Math.max(1, safePage - 1))}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active>
-                      {safePage} / {totalPages}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={safePage >= totalPages}
-                      onClick={() => setPageForActiveTab(Math.min(totalPages, safePage + 1))}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-medium-emphasis">
+                      Showing {((tablePagination?.currentPage ?? 1) - 1) * (tablePagination?.itemsPerPage ?? 10) + 1}
+                      -{Math.min((tablePagination?.currentPage ?? 1) * (tablePagination?.itemsPerPage ?? 10), tablePagination?.totalItems ?? 0)} of {tablePagination?.totalItems ?? 0}
+                    </div>
+                    <CPagination className="mb-0">
+                      <CPaginationItem
+                        disabled={safePage <= 1}
+                        onClick={() => setPageForActiveTab(Math.max(1, safePage - 1))}
+                      >
+                        Previous
+                      </CPaginationItem>
+                      <CPaginationItem active>
+                        {safePage} / {totalPages}
+                      </CPaginationItem>
+                      <CPaginationItem
+                        disabled={safePage >= totalPages}
+                        onClick={() => setPageForActiveTab(Math.min(totalPages, safePage + 1))}
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}

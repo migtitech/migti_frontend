@@ -28,6 +28,7 @@ import CIcon from '@coreui/icons-react'
 import { cilX } from '@coreui/icons'
 import { getAssetsUrl } from '../../api/endpoints'
 import poBillingService from '../../services/poBillingService'
+import areaService from '../../services/areaService'
 import documentService from '../../services/documentService'
 import useBranchContext from '../../hooks/useBranchContext'
 import usePermissions from '../../hooks/usePermissions'
@@ -116,6 +117,8 @@ const PurchaseOrderSidebar = () => {
   const [period, setPeriod] = useState('all')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [areas, setAreas] = useState([])
+  const [selectedAreaId, setSelectedAreaId] = useState('')
   const [tabPages, setTabPages] = useState({ [TAB_KEYS.po]: 1, [TAB_KEYS.billing]: 1 })
   const [rows, setRows] = useState([])
   const [pagination, setPagination] = useState({
@@ -220,6 +223,36 @@ const PurchaseOrderSidebar = () => {
   }, [branchId])
 
   useEffect(() => {
+    let cancelled = false
+    const fetchAreas = async () => {
+      try {
+        const allAreas = []
+        let pageNumber = 1
+        let hasNextPage = true
+        while (hasNextPage) {
+          const res = await areaService.getAll({ pageNumber, pageSize: 100 })
+          const data = res?.data || res
+          const payload = data || {}
+          const pageAreas = payload?.areas || []
+          const pagePagination = payload?.pagination || {}
+          allAreas.push(...pageAreas)
+          hasNextPage = Boolean(pagePagination?.hasNextPage)
+          pageNumber += 1
+        }
+        if (cancelled) return
+        setAreas(allAreas)
+      } catch {
+        if (cancelled) return
+        setAreas([])
+      }
+    }
+    fetchAreas()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     const nextRange = getPeriodRange(period)
     setDateFrom(nextRange.from)
     setDateTo(nextRange.to)
@@ -239,6 +272,7 @@ const PurchaseOrderSidebar = () => {
         period,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
+        areaIds: selectedAreaId || undefined,
         tab: activeTab,
         pageNumber: activePage,
         pageSize,
@@ -269,7 +303,7 @@ const PurchaseOrderSidebar = () => {
 
   useEffect(() => {
     loadAnalytics()
-  }, [activeTab, period, dateFrom, dateTo, activePage])
+  }, [activeTab, period, dateFrom, dateTo, selectedAreaId, activePage])
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined
@@ -483,6 +517,27 @@ const PurchaseOrderSidebar = () => {
                   min={dateFrom || undefined}
                   onChange={(e) => setDateTo(e.target.value)}
                 />
+              </CCol>
+              <CCol md={4}>
+                <CFormLabel className="small text-muted mb-1">Zones</CFormLabel>
+                <CFormSelect
+                  value={selectedAreaId}
+                  onChange={(e) => {
+                    setSelectedAreaId(e.target.value)
+                    setTabPages({ [TAB_KEYS.po]: 1, [TAB_KEYS.billing]: 1 })
+                  }}
+                >
+                  <option value="">All Zones</option>
+                  {areas.map((a) => {
+                    const id = String(a._id || a.id)
+                    return (
+                      <option key={id} value={id}>
+                        {a.name}
+                        {a.city ? ` - ${a.city}` : ''}
+                      </option>
+                    )
+                  })}
+                </CFormSelect>
               </CCol>
             </CRow>
 
@@ -724,30 +779,36 @@ const PurchaseOrderSidebar = () => {
                 )}
 
                 {totalPages > 1 && (
-                  <CPagination className="mt-3 justify-content-center">
-                    <CPaginationItem
-                      disabled={safePage <= 1}
-                      onClick={() =>
-                        setTabPages((prev) => ({ ...prev, [activeTab]: Math.max(1, safePage - 1) }))
-                      }
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active>
-                      {safePage} / {totalPages}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={safePage >= totalPages}
-                      onClick={() =>
-                        setTabPages((prev) => ({
-                          ...prev,
-                          [activeTab]: Math.min(totalPages, safePage + 1),
-                        }))
-                      }
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <div className="small text-medium-emphasis">
+                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                    </div>
+                    <CPagination className="mb-0">
+                      <CPaginationItem
+                        disabled={safePage <= 1}
+                        onClick={() =>
+                          setTabPages((prev) => ({ ...prev, [activeTab]: Math.max(1, safePage - 1) }))
+                        }
+                      >
+                        Previous
+                      </CPaginationItem>
+                      <CPaginationItem active>
+                        {safePage} / {totalPages}
+                      </CPaginationItem>
+                      <CPaginationItem
+                        disabled={safePage >= totalPages}
+                        onClick={() =>
+                          setTabPages((prev) => ({
+                            ...prev,
+                            [activeTab]: Math.min(totalPages, safePage + 1),
+                          }))
+                        }
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}

@@ -246,13 +246,6 @@ const SalesDashboard = () => {
     load()
   }, [])
 
-  const rangeLabel = () => {
-    const a = dashboard.monthlyFrom ? formatDateTime(dashboard.monthlyFrom) : ''
-    const b = dashboard.monthlyTo ? formatDateTime(dashboard.monthlyTo) : ''
-    if (!a && !b) return ''
-    return `This month: ${a} – ${b}`
-  }
-
   const targetPeriodLabel = (fromIso, toIso) => {
     const a = formatDdMmYy(fromIso)
     const b = formatDdMmYy(toIso)
@@ -341,10 +334,9 @@ const SalesDashboard = () => {
                 <CWidgetStatsA
                   color="primary"
                   value={String(dashboard.monthlyQueriesCount)}
-                  title="Queries (this month)"
+                  title="Queries"
                   chart={<CIcon icon={cilNotes} height={52} className="my-4 text-white opacity-25" />}
                 />
-                <div className="small text-body-secondary mt-1 px-1">{rangeLabel()}</div>
               </div>
             </CCol>
             <CCol sm={6} lg={3}>
@@ -352,10 +344,9 @@ const SalesDashboard = () => {
                 <CWidgetStatsA
                   color="info"
                   value={String(dashboard.monthlyQuotationsCount)}
-                  title="Quotations (this month)"
+                  title="Quotations"
                   chart={<CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />}
                 />
-                <div className="small text-body-secondary mt-1 px-1">{rangeLabel()}</div>
               </div>
             </CCol>
             <CCol sm={6} lg={3}>
@@ -363,10 +354,9 @@ const SalesDashboard = () => {
                 <CWidgetStatsA
                   color="success"
                   value={String(dashboard.monthlyPurchaseOrdersCount)}
-                  title="Purchase orders (this month)"
+                  title="Purchase orders"
                   chart={<CIcon icon={cilBasket} height={52} className="my-4 text-white opacity-25" />}
                 />
-                <div className="small text-body-secondary mt-1 px-1">{rangeLabel()}</div>
               </div>
             </CCol>
             <CCol sm={6} lg={3}>
@@ -377,9 +367,7 @@ const SalesDashboard = () => {
                   title="Pending collection"
                   chart={<CIcon icon={cilDollar} height={52} className="my-4 text-white opacity-25" />}
                 />
-                <div className="small text-body-secondary mt-1 px-1">
-                  Outstanding on open purchase orders (after payments)
-                </div>
+              
               </div>
             </CCol>
           </CRow>

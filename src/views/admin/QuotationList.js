@@ -25,6 +25,7 @@ import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilCloudDownload, cilLockLocked, cilLockUnlocked } from '@coreui/icons'
 import { EyeIcon } from '../../components'
 import quotationService from '../../services/quotationService'
+import areaService from '../../services/areaService'
 import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
@@ -130,6 +131,8 @@ const QuotationList = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
   const [statusFilter, setStatusFilter] = useState(qFilterInit.statusFilter)
+  const [areas, setAreas] = useState([])
+  const [selectedAreaId, setSelectedAreaId] = useState('')
   const [filtersLocked, setFiltersLocked] = useState(qFilterInit.filtersLocked)
   const [dateFrom, setDateFrom] = useState(qFilterInit.dateFrom)
   const [dateTo, setDateTo] = useState(qFilterInit.dateTo)
@@ -216,8 +219,38 @@ const QuotationList = () => {
   }, [searchTerm])
 
   useEffect(() => {
+    let cancelled = false
+    const fetchAreas = async () => {
+      try {
+        const allAreas = []
+        let pageNumber = 1
+        let hasNextPage = true
+        while (hasNextPage) {
+          const res = await areaService.getAll({ pageNumber, pageSize: 100 })
+          const data = res?.data || res
+          const payload = data || {}
+          const pageAreas = payload?.areas || []
+          const pagePagination = payload?.pagination || {}
+          allAreas.push(...pageAreas)
+          hasNextPage = Boolean(pagePagination?.hasNextPage)
+          pageNumber += 1
+        }
+        if (cancelled) return
+        setAreas(allAreas)
+      } catch {
+        if (cancelled) return
+        setAreas([])
+      }
+    }
+    fetchAreas()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     setPageNumber(1)
-  }, [searchDebounced, statusFilter, dateFrom, dateTo])
+  }, [searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo])
 
   useEffect(() => {
     if (!filtersLocked) return
@@ -266,6 +299,7 @@ const QuotationList = () => {
           pageSize,
           search: searchDebounced.trim() || undefined,
           status: statusFilter || undefined,
+          areaIds: selectedAreaId || undefined,
           dateFrom: dateFrom.trim() || undefined,
           dateTo: dateTo.trim() || undefined,
         }),
@@ -300,7 +334,7 @@ const QuotationList = () => {
 
   useEffect(() => {
     fetchQuotations()
-  }, [pageNumber, pageSize, searchDebounced, statusFilter, dateFrom, dateTo])
+  }, [pageNumber, pageSize, searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo])
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -371,7 +405,7 @@ const QuotationList = () => {
                   onChange={(e) => setDateTo(e.target.value)}
                 />
               </CCol>
-              <CCol xs={12} sm={6} md={6} lg={3} className="d-flex flex-wrap align-items-end gap-2">
+              <CCol xs={12} sm={6} md={6} lg={2}>
                 <div className="flex-grow-1" style={{ minWidth: 140 }}>
                   <CFormLabel className="mb-1 small text-body-secondary">Status</CFormLabel>
                   <CFormSelect
@@ -387,6 +421,26 @@ const QuotationList = () => {
                     ))}
                   </CFormSelect>
                 </div>
+              </CCol>
+              <CCol xs={12} sm={6} md={6} lg={2}>
+                <CFormLabel className="mb-1 small text-body-secondary">Zones</CFormLabel>
+                <CFormSelect
+                  value={selectedAreaId}
+                  onChange={(e) => setSelectedAreaId(e.target.value)}
+                >
+                  <option value="">All Zones</option>
+                  {areas.map((a) => {
+                    const id = String(a._id || a.id)
+                    return (
+                      <option key={id} value={id}>
+                        {a.name}
+                        {a.city ? ` - ${a.city}` : ''}
+                      </option>
+                    )
+                  })}
+                </CFormSelect>
+              </CCol>
+              <CCol xs={12} sm={6} md={6} lg={1} className="d-flex align-items-end">
                 <CButton
                   type="button"
                   color={filtersLocked ? 'warning' : 'secondary'}
@@ -626,38 +680,40 @@ const QuotationList = () => {
             )}
             {totalPages > 1 && (
               <>
-                <div className="small text-body-secondary text-center mt-2">
-                  Showing {startItem}-{endItem} of {totalItems}
+                <div className="d-flex justify-content-between align-items-center mt-2">
+                  <div className="small text-medium-emphasis">
+                    Showing {startItem}-{endItem} of {totalItems}
+                  </div>
+                  <CPagination className="mb-0">
+                    <CPaginationItem
+                      disabled={loading || currentPage <= 1}
+                      onClick={() => setPageNumber(1)}
+                    >
+                      First
+                    </CPaginationItem>
+                    <CPaginationItem
+                      disabled={loading || currentPage <= 1}
+                      onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                    >
+                      Previous
+                    </CPaginationItem>
+                    <CPaginationItem active>
+                      {currentPage} / {totalPages}
+                    </CPaginationItem>
+                    <CPaginationItem
+                      disabled={loading || currentPage >= totalPages}
+                      onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
+                    >
+                      Next
+                    </CPaginationItem>
+                    <CPaginationItem
+                      disabled={loading || currentPage >= totalPages}
+                      onClick={() => setPageNumber(totalPages)}
+                    >
+                      Last
+                    </CPaginationItem>
+                  </CPagination>
                 </div>
-                <CPagination className="mt-2 justify-content-center">
-                <CPaginationItem
-                  disabled={loading || currentPage <= 1}
-                  onClick={() => setPageNumber(1)}
-                >
-                  First
-                </CPaginationItem>
-                <CPaginationItem
-                  disabled={loading || currentPage <= 1}
-                  onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                >
-                  Previous
-                </CPaginationItem>
-                <CPaginationItem active>
-                  {currentPage} / {totalPages}
-                </CPaginationItem>
-                <CPaginationItem
-                  disabled={loading || currentPage >= totalPages}
-                  onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
-                >
-                  Next
-                </CPaginationItem>
-                <CPaginationItem
-                  disabled={loading || currentPage >= totalPages}
-                  onClick={() => setPageNumber(totalPages)}
-                >
-                  Last
-                </CPaginationItem>
-              </CPagination>
               </>
             )}
           </CCardBody>

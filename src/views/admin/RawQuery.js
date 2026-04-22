@@ -298,29 +298,35 @@ const RawQuery = () => {
                 </CTableBody>
               </CTable>
               {pagination && pagination.totalPages > 1 && (
-                <CPagination className="mt-3" aria-label="Raw query pages">
-                  <CPaginationItem
-                    disabled={!pagination.hasPrevPage}
-                    onClick={() => setPageNumber((prev) => Math.max(1, prev - 1))}
-                  >
-                    Previous
-                  </CPaginationItem>
-                  {Array.from({ length: pagination.totalPages }, (_, index) => index + 1).map((page) => (
+                <div className="d-flex justify-content-between align-items-center mt-3">
+                  <div className="small text-medium-emphasis">
+                    Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
+                    -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                  </div>
+                  <CPagination className="mb-0" aria-label="Raw query pages">
                     <CPaginationItem
-                      key={page}
-                      active={page === pagination.currentPage}
-                      onClick={() => setPageNumber(page)}
+                      disabled={!pagination.hasPrevPage}
+                      onClick={() => setPageNumber((prev) => Math.max(1, prev - 1))}
                     >
-                      {page}
+                      Previous
                     </CPaginationItem>
-                  ))}
-                  <CPaginationItem
-                    disabled={!pagination.hasNextPage}
-                    onClick={() => setPageNumber((prev) => prev + 1)}
-                  >
-                    Next
-                  </CPaginationItem>
-                </CPagination>
+                    {Array.from({ length: pagination.totalPages }, (_, index) => index + 1).map((page) => (
+                      <CPaginationItem
+                        key={page}
+                        active={page === pagination.currentPage}
+                        onClick={() => setPageNumber(page)}
+                      >
+                        {page}
+                      </CPaginationItem>
+                    ))}
+                    <CPaginationItem
+                      disabled={!pagination.hasNextPage}
+                      onClick={() => setPageNumber((prev) => prev + 1)}
+                    >
+                      Next
+                    </CPaginationItem>
+                  </CPagination>
+                </div>
               )}
             </CCardBody>
           </CCard>

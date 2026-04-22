@@ -23,11 +23,13 @@ import {
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
+import { CChartBar } from '@coreui/react-chartjs'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft, cilPencil } from '@coreui/icons'
 import industryService from '../../services/industryService'
 import queryService from '../../services/queryService'
 import quotationService from '../../services/quotationService'
+import poBillingService from '../../services/poBillingService'
 import { EyeIcon, Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError } from '../../utils/toast'
@@ -83,6 +85,7 @@ const IndustryView = () => {
   const [quotationsLoading, setQuotationsLoading] = useState(false)
   const [purchaseOrders, setPurchaseOrders] = useState([])
   const [poPagination, setPoPagination] = useState(null)
+  const [poAmount, setPoAmount] = useState(null)
   const [poLoading, setPoLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('company')
   const [loadingIndustry, setLoadingIndustry] = useState(true)
@@ -122,6 +125,7 @@ const IndustryView = () => {
     setQuotationPage(1)
     setPoPage(1)
     setQuotationTotalAmountSum(null)
+    setPoAmount(null)
   }, [id])
 
   useEffect(() => {
@@ -196,19 +200,22 @@ const IndustryView = () => {
     const loadPo = async () => {
       setPoLoading(true)
       try {
-        const res = await quotationService.getByIndustry({
+        const res = await poBillingService.getAnalytics({
+          tab: 'po',
           industryId: id,
           pageNumber: poPage,
           pageSize: PAGE_SIZE,
-          status: 'poReceived',
         })
         if (cancelled) return
         const result = unwrapPayload(res)
-        setPurchaseOrders(result?.quotations || [])
-        setPoPagination(result?.pagination || null)
+        setPurchaseOrders(result?.table?.rows || [])
+        setPoPagination(result?.table?.pagination || null)
+        if (result?.metrics?.poAmount !== undefined && result?.metrics?.poAmount !== null) {
+          setPoAmount(Number(result.metrics.poAmount) || 0)
+        }
       } catch (err) {
         if (!cancelled) {
-          toastError(err?.message || 'Failed to load PO quotations')
+          toastError(err?.message || 'Failed to load PO entries')
           setPurchaseOrders([])
           setPoPagination(null)
         }
@@ -253,6 +260,16 @@ const IndustryView = () => {
       return sum + (Number.isNaN(amount) ? 0 : amount)
     }, 0)
   }, [quotationTotalAmountSum, quotations])
+
+  const totalPoAmount = useMemo(() => {
+    if (poAmount != null && !Number.isNaN(Number(poAmount))) {
+      return Number(poAmount)
+    }
+    return purchaseOrders.reduce((sum, po) => {
+      const amount = Number(po?.amount)
+      return sum + (Number.isNaN(amount) ? 0 : amount)
+    }, 0)
+  }, [poAmount, purchaseOrders])
 
   const industryEntries = useMemo(() => {
     if (!industry) return []
@@ -485,21 +502,27 @@ const IndustryView = () => {
                     </CTableBody>
                   </CTable>
                   {queryTotalPages > 1 && (
-                    <CPagination className="mt-3 justify-content-center">
-                      <CPaginationItem
-                        disabled={queriesLoading || queryPage <= 1}
-                        onClick={() => setQueryPage((prev) => Math.max(1, prev - 1))}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active>{queryPage} / {queryTotalPages}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={queriesLoading || queryPage >= queryTotalPages}
-                        onClick={() => setQueryPage((prev) => Math.min(queryTotalPages, prev + 1))}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <div className="small text-medium-emphasis">
+                        Showing {((queryPagination?.currentPage ?? 1) - 1) * (queryPagination?.itemsPerPage ?? PAGE_SIZE) + 1}
+                        -{Math.min((queryPagination?.currentPage ?? 1) * (queryPagination?.itemsPerPage ?? PAGE_SIZE), queryPagination?.totalItems ?? 0)} of {queryPagination?.totalItems ?? 0}
+                      </div>
+                      <CPagination className="mb-0">
+                        <CPaginationItem
+                          disabled={queriesLoading || queryPage <= 1}
+                          onClick={() => setQueryPage((prev) => Math.max(1, prev - 1))}
+                        >
+                          Previous
+                        </CPaginationItem>
+                        <CPaginationItem active>{queryPage} / {queryTotalPages}</CPaginationItem>
+                        <CPaginationItem
+                          disabled={queriesLoading || queryPage >= queryTotalPages}
+                          onClick={() => setQueryPage((prev) => Math.min(queryTotalPages, prev + 1))}
+                        >
+                          Next
+                        </CPaginationItem>
+                      </CPagination>
+                    </div>
                   )}
                 </CTabPane>
 
@@ -555,21 +578,27 @@ const IndustryView = () => {
                     </CTableBody>
                   </CTable>
                   {quotationTotalPages > 1 && (
-                    <CPagination className="mt-3 justify-content-center">
-                      <CPaginationItem
-                        disabled={quotationsLoading || quotationPage <= 1}
-                        onClick={() => setQuotationPage((prev) => Math.max(1, prev - 1))}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active>{quotationPage} / {quotationTotalPages}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={quotationsLoading || quotationPage >= quotationTotalPages}
-                        onClick={() => setQuotationPage((prev) => Math.min(quotationTotalPages, prev + 1))}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <div className="small text-medium-emphasis">
+                        Showing {((quotationPagination?.currentPage ?? 1) - 1) * (quotationPagination?.itemsPerPage ?? PAGE_SIZE) + 1}
+                        -{Math.min((quotationPagination?.currentPage ?? 1) * (quotationPagination?.itemsPerPage ?? PAGE_SIZE), quotationPagination?.totalItems ?? 0)} of {quotationPagination?.totalItems ?? 0}
+                      </div>
+                      <CPagination className="mb-0">
+                        <CPaginationItem
+                          disabled={quotationsLoading || quotationPage <= 1}
+                          onClick={() => setQuotationPage((prev) => Math.max(1, prev - 1))}
+                        >
+                          Previous
+                        </CPaginationItem>
+                        <CPaginationItem active>{quotationPage} / {quotationTotalPages}</CPaginationItem>
+                        <CPaginationItem
+                          disabled={quotationsLoading || quotationPage >= quotationTotalPages}
+                          onClick={() => setQuotationPage((prev) => Math.min(quotationTotalPages, prev + 1))}
+                        >
+                          Next
+                        </CPaginationItem>
+                      </CPagination>
+                    </div>
                   )}
                 </CTabPane>
 
@@ -583,55 +612,63 @@ const IndustryView = () => {
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
-                        <CTableHeaderCell>Quotation Code</CTableHeaderCell>
-                        <CTableHeaderCell>Status</CTableHeaderCell>
-                        <CTableHeaderCell>Total Amount</CTableHeaderCell>
-                        <CTableHeaderCell>Expected Delivery</CTableHeaderCell>
-                        <CTableHeaderCell>Created At</CTableHeaderCell>
+                        <CTableHeaderCell>PO Number</CTableHeaderCell>
+                        <CTableHeaderCell>Salesperson</CTableHeaderCell>
+                        <CTableHeaderCell>Amount</CTableHeaderCell>
+                        <CTableHeaderCell>Entry Date</CTableHeaderCell>
+                        <CTableHeaderCell>Dispatchment Date</CTableHeaderCell>
+                        <CTableHeaderCell>Remark</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
                     <CTableBody>
                       {purchaseOrders.map((po, idx) => (
                         <CTableRow key={po._id || idx}>
                           <CTableDataCell>{(poListPage - 1) * PAGE_SIZE + idx + 1}</CTableDataCell>
-                          <CTableDataCell>{po.quotationCode || '-'}</CTableDataCell>
-                          <CTableDataCell>{formatStatus(po.status)}</CTableDataCell>
-                          <CTableDataCell>{formatINRCurrency(po.totalAmount)}</CTableDataCell>
-                          <CTableDataCell>{formatDate(po.expectedDeliveryDate)}</CTableDataCell>
-                          <CTableDataCell>{formatDate(po.createdAt)}</CTableDataCell>
+                          <CTableDataCell>{po.number || '-'}</CTableDataCell>
+                          <CTableDataCell>{po.salespersonName || '-'}</CTableDataCell>
+                          <CTableDataCell>{formatINRCurrency(po.amount)}</CTableDataCell>
+                          <CTableDataCell>{formatDate(po.entryDate)}</CTableDataCell>
+                          <CTableDataCell>{formatDate(po.dispatchmentDate)}</CTableDataCell>
+                          <CTableDataCell>{po.remark || '-'}</CTableDataCell>
                         </CTableRow>
                       ))}
                       {!poLoading && purchaseOrders.length === 0 && (
                         <CTableRow>
-                          <CTableDataCell colSpan={6} className="text-center">
-                            No PO entries found (from quotation status `poReceived`).
+                          <CTableDataCell colSpan={7} className="text-center">
+                            No PO entries found for this company.
                           </CTableDataCell>
                         </CTableRow>
                       )}
                     </CTableBody>
                   </CTable>
                   {poTotalPages > 1 && (
-                    <CPagination className="mt-3 justify-content-center">
-                      <CPaginationItem
-                        disabled={poLoading || poPage <= 1}
-                        onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active>{poPage} / {poTotalPages}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={poPage >= poTotalPages}
-                        onClick={() => setPoPage((prev) => Math.min(poTotalPages, prev + 1))}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <div className="small text-medium-emphasis">
+                        Showing {((poPagination?.currentPage ?? 1) - 1) * (poPagination?.itemsPerPage ?? PAGE_SIZE) + 1}
+                        -{Math.min((poPagination?.currentPage ?? 1) * (poPagination?.itemsPerPage ?? PAGE_SIZE), poPagination?.totalItems ?? 0)} of {poPagination?.totalItems ?? 0}
+                      </div>
+                      <CPagination className="mb-0">
+                        <CPaginationItem
+                          disabled={poLoading || poPage <= 1}
+                          onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
+                        >
+                          Previous
+                        </CPaginationItem>
+                        <CPaginationItem active>{poPage} / {poTotalPages}</CPaginationItem>
+                        <CPaginationItem
+                          disabled={poPage >= poTotalPages}
+                          onClick={() => setPoPage((prev) => Math.min(poTotalPages, prev + 1))}
+                        >
+                          Next
+                        </CPaginationItem>
+                      </CPagination>
+                    </div>
                   )}
                 </CTabPane>
 
                 <CTabPane visible={activeTab === 'analytics'}>
                   <CRow className="g-3">
-                    <CCol md={3}>
+                    <CCol md={4}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">Total Queries</div>
@@ -639,7 +676,7 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={3}>
+                    <CCol md={4}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">Total Quotations</div>
@@ -647,7 +684,7 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={3}>
+                    <CCol md={4}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">PO Received</div>
@@ -655,11 +692,94 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={3}>
+                    <CCol md={6}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">Quotation Value</div>
                           <h4 className="mb-0">{formatINRCurrency(totalQuotationValue)}</h4>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                    <CCol md={6}>
+                      <CCard>
+                        <CCardBody>
+                          <div className="text-muted small">PO Amount</div>
+                          <h4 className="mb-0">{formatINRCurrency(totalPoAmount)}</h4>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                  </CRow>
+
+                  <CRow className="g-3 mt-1">
+                    <CCol md={5}>
+                      <CCard>
+                        <CCardHeader>
+                          <strong>Value Split</strong>
+                        </CCardHeader>
+                        <CCardBody>
+                          <div style={{ height: '220px', maxWidth: '360px', margin: '0 auto' }}>
+                            <CChartBar
+                              data={{
+                                labels: ['Quotation Value', 'PO Amount'],
+                                datasets: [
+                                  {
+                                    data: [Math.max(0, totalQuotationValue), Math.max(0, totalPoAmount)],
+                                    backgroundColor: ['#39f', '#2eb85c'],
+                                  },
+                                ],
+                              }}
+                              options={{
+                                maintainAspectRatio: false,
+                                plugins: {
+                                  legend: { display: false },
+                                },
+                                scales: {
+                                  y: {
+                                    beginAtZero: true,
+                                  },
+                                },
+                              }}
+                            />
+                          </div>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                    <CCol md={7}>
+                      <CCard>
+                        <CCardHeader>
+                          <strong>Records Overview</strong>
+                        </CCardHeader>
+                        <CCardBody>
+                          <div style={{ height: '180px', maxWidth: '360px', margin: '0 auto' }}>
+                            <CChartBar
+                              data={{
+                                labels: ['Queries', 'Quotations', 'PO'],
+                                datasets: [
+                                  {
+                                    label: 'Count',
+                                    backgroundColor: ['#5856d6', '#39f', '#2eb85c'],
+                                    data: [
+                                      queryPagination?.totalItems ?? 0,
+                                      quotationPagination?.totalItems ?? 0,
+                                      poPagination?.totalItems ?? 0,
+                                    ],
+                                  },
+                                ],
+                              }}
+                              options={{
+                                maintainAspectRatio: false,
+                                plugins: {
+                                  legend: { display: false },
+                                },
+                                scales: {
+                                  y: {
+                                    beginAtZero: true,
+                                    ticks: { precision: 0 },
+                                  },
+                                },
+                              }}
+                            />
+                          </div>
                         </CCardBody>
                       </CCard>
                     </CCol>
@@ -675,6 +795,7 @@ const IndustryView = () => {
 }
 
 export default IndustryView
+
 
 
 
