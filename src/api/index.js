@@ -1,4 +1,10 @@
-export { default as axiosClient, api, getAccessToken, setTokens, clearTokens } from './axiosClient'
+export {
+  default as axiosClient,
+  api,
+  getAccessToken,
+  setTokens,
+  clearTokens,
+} from "./axiosClient";
 export {
   default as endpoints,
   BASE_URL,
@@ -10,4 +16,4 @@ export {
   EMPLOYEES,
   RAW_QUERIES,
   DASHBOARD,
-} from './endpoints'
+} from "./endpoints";

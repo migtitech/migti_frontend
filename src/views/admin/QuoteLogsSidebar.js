@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from "react";
 import {
   CBadge,
   CButton,
@@ -8,28 +8,31 @@ import {
   CFormLabel,
   CFormSelect,
   CSpinner,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilX } from '@coreui/icons'
-import rateLogService from '../../services/rateLogService'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilX } from "@coreui/icons";
+import rateLogService from "../../services/rateLogService";
 
-const sidebarWidth = 380
+const sidebarWidth = 380;
 
 const formatMoney = (value) => {
-  const amount = Number(value)
-  if (Number.isNaN(amount)) return '0.00'
-  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return "0.00";
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
 const formatDateTime = (value) => {
-  if (!value) return '—'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return '—'
-  const dd = String(date.getDate()).padStart(2, '0')
-  const mm = String(date.getMonth() + 1).padStart(2, '0')
-  const yy = String(date.getFullYear()).slice(-2)
-  return `${dd}/${mm}/${yy}`
-}
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yy = String(date.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+};
 
 const QuoteLogsSidebar = ({
   refreshKey = 0,
@@ -37,95 +40,97 @@ const QuoteLogsSidebar = ({
   onToggle = () => {},
   showFloatingToggle = true,
 }) => {
-  const [loading, setLoading] = useState(false)
-  const [logs, setLogs] = useState([])
-  const [industryOptions, setIndustryOptions] = useState([])
-  const [industrySearchText, setIndustrySearchText] = useState('')
-  const [searchText, setSearchText] = useState('')
-  const [industryName, setIndustryName] = useState('')
+  const [loading, setLoading] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [industryOptions, setIndustryOptions] = useState([]);
+  const [industrySearchText, setIndustrySearchText] = useState("");
+  const [searchText, setSearchText] = useState("");
+  const [industryName, setIndustryName] = useState("");
 
   const fetchLogs = async ({ silent = false } = {}) => {
-    if (!silent) setLoading(true)
+    if (!silent) setLoading(true);
     try {
       const res = await rateLogService.getAll({
         pageNumber: 1,
         pageSize: 100,
         search: searchText,
         industryName,
-      })
-      const data = res?.data ?? res
-      const result = data?.data ?? data
-      setLogs(result?.items || [])
-      setIndustryOptions(result?.filters?.industries || [])
+      });
+      const data = res?.data ?? res;
+      const result = data?.data ?? data;
+      setLogs(result?.items || []);
+      setIndustryOptions(result?.filters?.industries || []);
     } catch (_err) {
       if (!silent) {
-        setLogs([])
+        setLogs([]);
       }
     } finally {
-      if (!silent) setLoading(false)
+      if (!silent) setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchLogs()
+    fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, industryName])
+  }, [searchText, industryName]);
 
   useEffect(() => {
-    fetchLogs({ silent: true })
+    fetchLogs({ silent: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey])
+  }, [refreshKey]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchLogs({ silent: true })
-    }, 8000)
-    return () => clearInterval(interval)
+      fetchLogs({ silent: true });
+    }, 8000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, industryName])
+  }, [searchText, industryName]);
 
-  const logCount = useMemo(() => logs.length, [logs])
+  const logCount = useMemo(() => logs.length, [logs]);
   const visibleIndustryOptions = useMemo(() => {
-    const normalizedSearch = industrySearchText.trim().toLowerCase()
+    const normalizedSearch = industrySearchText.trim().toLowerCase();
     const filtered = !normalizedSearch
       ? industryOptions
-      : industryOptions.filter((name) => name.toLowerCase().includes(normalizedSearch))
-    return filtered.slice(0, 20)
-  }, [industryOptions, industrySearchText])
+      : industryOptions.filter((name) =>
+          name.toLowerCase().includes(normalizedSearch),
+        );
+    return filtered.slice(0, 20);
+  }, [industryOptions, industrySearchText]);
 
   return (
     <>
       {showFloatingToggle && (
         <div
           style={{
-            position: 'fixed',
+            position: "fixed",
             right: isOpen ? sidebarWidth + 12 : 12,
             bottom: 16,
             zIndex: 3000,
-            transition: 'right 0.2s ease',
+            transition: "right 0.2s ease",
           }}
         >
           <CButton color="primary" onClick={onToggle}>
-            {isOpen ? 'Hide Quote Logs' : 'Show Quote Logs'}
+            {isOpen ? "Hide Quote Logs" : "Show Quote Logs"}
           </CButton>
         </div>
       )}
 
       <div
         style={{
-          position: 'fixed',
+          position: "fixed",
           top: 0,
           right: isOpen ? 0 : -sidebarWidth,
           width: sidebarWidth,
-          height: '100vh',
-          background: '#fff',
-          borderLeft: '1px solid #dee2e6',
-          boxShadow: '0 0 16px rgba(0,0,0,0.08)',
+          height: "100vh",
+          background: "#fff",
+          borderLeft: "1px solid #dee2e6",
+          boxShadow: "0 0 16px rgba(0,0,0,0.08)",
           zIndex: 2999,
-          transition: 'right 0.2s ease',
+          transition: "right 0.2s ease",
           padding: 12,
-          display: 'flex',
-          flexDirection: 'column',
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <div className="d-flex justify-content-between align-items-center mb-2">
@@ -172,15 +177,18 @@ const QuoteLogsSidebar = ({
           >
             <option value="">All clients</option>
             {visibleIndustryOptions.map((name) => (
-              <option key={name} value={name}>{name}</option>
+              <option key={name} value={name}>
+                {name}
+              </option>
             ))}
           </CFormSelect>
           <div className="small text-muted mt-1">
-            Showing {visibleIndustryOptions.length} of {industryOptions.length} clients
+            Showing {visibleIndustryOptions.length} of {industryOptions.length}{" "}
+            clients
           </div>
         </div>
 
-        <div style={{ overflowY: 'auto', flex: 1 }}>
+        <div style={{ overflowY: "auto", flex: 1 }}>
           {loading ? (
             <div className="text-center py-4">
               <CSpinner size="sm" />
@@ -189,18 +197,28 @@ const QuoteLogsSidebar = ({
             <p className="text-muted small mb-0">No rate logs found.</p>
           ) : (
             logs.map((log) => (
-              <CCard key={log._id || `${log.product_title}-${log.created_at}`} className="mb-2">
+              <CCard
+                key={log._id || `${log.product_title}-${log.created_at}`}
+                className="mb-2"
+              >
                 <CCardBody className="py-2 px-2">
-                  <div className="fw-semibold">{log.product_title || 'Untitled product'}</div>
-                  <div className="text-muted small">{log.description || 'No description'}</div>
+                  <div className="fw-semibold">
+                    {log.product_title || "Untitled product"}
+                  </div>
+                  <div className="text-muted small">
+                    {log.description || "No description"}
+                  </div>
                   <div className="small mt-1">
-                    <strong>Variants:</strong> {(log.variants || []).join(', ') || '—'}
+                    <strong>Variants:</strong>{" "}
+                    {(log.variants || []).join(", ") || "—"}
                   </div>
                   <div className="d-flex justify-content-between mt-1">
-                    <span className="small text-muted">{log.industry_name || 'Unknown client'}</span>
+                    <span className="small text-muted">
+                      {log.industry_name || "Unknown client"}
+                    </span>
                     <span className="fw-bold text-primary">
                       Rs {formatMoney(log.amount)}
-                      {log.unit ? ` / ${log.unit}` : ''}
+                      {log.unit ? ` / ${log.unit}` : ""}
                     </span>
                   </div>
                   <div className="small text-muted mt-1">
@@ -213,7 +231,7 @@ const QuoteLogsSidebar = ({
         </div>
       </div>
     </>
-  )
-}
+  );
+};
 
-export default QuoteLogsSidebar
+export default QuoteLogsSidebar;

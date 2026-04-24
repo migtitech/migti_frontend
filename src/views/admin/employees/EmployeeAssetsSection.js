@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   CCol,
   CFormCheck,
@@ -6,7 +6,7 @@ import {
   CFormLabel,
   CFormSelect,
   CRow,
-} from '@coreui/react'
+} from "@coreui/react";
 
 const EmployeeAssetsSection = ({
   register,
@@ -22,7 +22,7 @@ const EmployeeAssetsSection = ({
           id="assetBike"
           label="Bike"
           type="checkbox"
-          {...register('assets.bike.enabled')}
+          {...register("assets.bike.enabled")}
         />
       </CCol>
       <CCol md={3}>
@@ -30,7 +30,7 @@ const EmployeeAssetsSection = ({
           id="assetLaptop"
           label="Laptop"
           type="checkbox"
-          {...register('assets.laptop.enabled')}
+          {...register("assets.laptop.enabled")}
         />
       </CCol>
       <CCol md={3}>
@@ -38,7 +38,7 @@ const EmployeeAssetsSection = ({
           id="assetMobile"
           label="Mobile"
           type="checkbox"
-          {...register('assets.mobile.enabled')}
+          {...register("assets.mobile.enabled")}
         />
       </CCol>
       <CCol md={3}>
@@ -46,7 +46,7 @@ const EmployeeAssetsSection = ({
           id="assetSimCard"
           label="Sim Card"
           type="checkbox"
-          {...register('assets.simCard.enabled')}
+          {...register("assets.simCard.enabled")}
         />
       </CCol>
     </CRow>
@@ -60,19 +60,28 @@ const EmployeeAssetsSection = ({
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="bikeModel">Model</CFormLabel>
-              <CFormInput id="bikeModel" {...register('assets.bike.model')} />
+              <CFormInput id="bikeModel" {...register("assets.bike.model")} />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
-              <CFormLabel htmlFor="bikeVehicleNumber">Vehicle Number</CFormLabel>
-              <CFormInput id="bikeVehicleNumber" {...register('assets.bike.vehicleNumber')} />
+              <CFormLabel htmlFor="bikeVehicleNumber">
+                Vehicle Number
+              </CFormLabel>
+              <CFormInput
+                id="bikeVehicleNumber"
+                {...register("assets.bike.vehicleNumber")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="bikeProvidedDate">Provided Date</CFormLabel>
-              <CFormInput type="date" id="bikeProvidedDate" {...register('assets.bike.providedDate')} />
+              <CFormInput
+                type="date"
+                id="bikeProvidedDate"
+                {...register("assets.bike.providedDate")}
+              />
             </div>
           </CCol>
         </CRow>
@@ -88,19 +97,31 @@ const EmployeeAssetsSection = ({
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="laptopModel">Model Number</CFormLabel>
-              <CFormInput id="laptopModel" {...register('assets.laptop.modelNumber')} />
+              <CFormInput
+                id="laptopModel"
+                {...register("assets.laptop.modelNumber")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="laptopCompany">Company Name</CFormLabel>
-              <CFormInput id="laptopCompany" {...register('assets.laptop.companyName')} />
+              <CFormInput
+                id="laptopCompany"
+                {...register("assets.laptop.companyName")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
-              <CFormLabel htmlFor="laptopProvidedDate">Provided Date</CFormLabel>
-              <CFormInput type="date" id="laptopProvidedDate" {...register('assets.laptop.providedDate')} />
+              <CFormLabel htmlFor="laptopProvidedDate">
+                Provided Date
+              </CFormLabel>
+              <CFormInput
+                type="date"
+                id="laptopProvidedDate"
+                {...register("assets.laptop.providedDate")}
+              />
             </div>
           </CCol>
         </CRow>
@@ -108,19 +129,28 @@ const EmployeeAssetsSection = ({
           <CCol md={3}>
             <div className="mb-3">
               <CFormLabel htmlFor="laptopRam">RAM</CFormLabel>
-              <CFormInput id="laptopRam" {...register('assets.laptop.configurationRam')} />
+              <CFormInput
+                id="laptopRam"
+                {...register("assets.laptop.configurationRam")}
+              />
             </div>
           </CCol>
           <CCol md={3}>
             <div className="mb-3">
               <CFormLabel htmlFor="laptopRom">ROM</CFormLabel>
-              <CFormInput id="laptopRom" {...register('assets.laptop.configurationRom')} />
+              <CFormInput
+                id="laptopRom"
+                {...register("assets.laptop.configurationRom")}
+              />
             </div>
           </CCol>
           <CCol md={3}>
             <div className="mb-3">
               <CFormLabel htmlFor="laptopStorage">SSD/HDD</CFormLabel>
-              <CFormSelect id="laptopStorage" {...register('assets.laptop.storageType')}>
+              <CFormSelect
+                id="laptopStorage"
+                {...register("assets.laptop.storageType")}
+              >
                 <option value="">Select</option>
                 <option value="ssd">SSD</option>
                 <option value="hdd">HDD</option>
@@ -140,13 +170,19 @@ const EmployeeAssetsSection = ({
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="mobileCompany">Company Name</CFormLabel>
-              <CFormInput id="mobileCompany" {...register('assets.mobile.companyName')} />
+              <CFormInput
+                id="mobileCompany"
+                {...register("assets.mobile.companyName")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="mobileType">Type</CFormLabel>
-              <CFormSelect id="mobileType" {...register('assets.mobile.phoneType')}>
+              <CFormSelect
+                id="mobileType"
+                {...register("assets.mobile.phoneType")}
+              >
                 <option value="">Select</option>
                 <option value="android">Android</option>
                 <option value="keypad">Keypad</option>
@@ -155,8 +191,14 @@ const EmployeeAssetsSection = ({
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
-              <CFormLabel htmlFor="mobileProvidedDate">Provided Date</CFormLabel>
-              <CFormInput type="date" id="mobileProvidedDate" {...register('assets.mobile.providedDate')} />
+              <CFormLabel htmlFor="mobileProvidedDate">
+                Provided Date
+              </CFormLabel>
+              <CFormInput
+                type="date"
+                id="mobileProvidedDate"
+                {...register("assets.mobile.providedDate")}
+              />
             </div>
           </CCol>
         </CRow>
@@ -164,13 +206,19 @@ const EmployeeAssetsSection = ({
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="mobileImei">IMEI Number</CFormLabel>
-              <CFormInput id="mobileImei" {...register('assets.mobile.imeiNumber')} />
+              <CFormInput
+                id="mobileImei"
+                {...register("assets.mobile.imeiNumber")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="mobileModel">Model Number</CFormLabel>
-              <CFormInput id="mobileModel" {...register('assets.mobile.modelNumber')} />
+              <CFormInput
+                id="mobileModel"
+                {...register("assets.mobile.modelNumber")}
+              />
             </div>
           </CCol>
         </CRow>
@@ -186,25 +234,35 @@ const EmployeeAssetsSection = ({
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="simCompany">Company Name</CFormLabel>
-              <CFormInput id="simCompany" {...register('assets.simCard.companyName')} />
+              <CFormInput
+                id="simCompany"
+                {...register("assets.simCard.companyName")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="simNumber">Number</CFormLabel>
-              <CFormInput id="simNumber" {...register('assets.simCard.number')} />
+              <CFormInput
+                id="simNumber"
+                {...register("assets.simCard.number")}
+              />
             </div>
           </CCol>
           <CCol md={4}>
             <div className="mb-3">
               <CFormLabel htmlFor="simProvidedDate">Provided Date</CFormLabel>
-              <CFormInput type="date" id="simProvidedDate" {...register('assets.simCard.providedDate')} />
+              <CFormInput
+                type="date"
+                id="simProvidedDate"
+                {...register("assets.simCard.providedDate")}
+              />
             </div>
           </CCol>
         </CRow>
       </>
     )}
   </>
-)
+);
 
-export default EmployeeAssetsSection
+export default EmployeeAssetsSection;

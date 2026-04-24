@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   CCol,
   CFormFeedback,
@@ -6,7 +6,7 @@ import {
   CFormLabel,
   CFormSelect,
   CRow,
-} from '@coreui/react'
+} from "@coreui/react";
 
 const EmployeeCompanyInfoSection = ({
   register,
@@ -28,7 +28,7 @@ const EmployeeCompanyInfoSection = ({
           <CFormInput
             type="email"
             id="companyEmail"
-            {...register('companyEmail')}
+            {...register("companyEmail")}
             invalid={!!errors.companyEmail}
           />
           <CFormFeedback invalid>{errors.companyEmail?.message}</CFormFeedback>
@@ -41,7 +41,7 @@ const EmployeeCompanyInfoSection = ({
             id="companyPhone"
             inputMode="numeric"
             pattern="\d*"
-            {...register('companyPhone')}
+            {...register("companyPhone")}
             invalid={!!errors.companyPhone}
           />
           <CFormFeedback invalid>{errors.companyPhone?.message}</CFormFeedback>
@@ -52,7 +52,7 @@ const EmployeeCompanyInfoSection = ({
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel htmlFor="role">Role *</CFormLabel>
-          <CFormSelect id="role" {...register('role')} invalid={!!errors.role}>
+          <CFormSelect id="role" {...register("role")} invalid={!!errors.role}>
             <option value="">Select Role</option>
             {roleOptions.map((role) => (
               <option key={role} value={role}>
@@ -66,7 +66,12 @@ const EmployeeCompanyInfoSection = ({
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel htmlFor="branchId">Branch *</CFormLabel>
-          <CFormSelect id="branchId" {...register('branchId')} invalid={!!errors.branchId} disabled={lockBranch}>
+          <CFormSelect
+            id="branchId"
+            {...register("branchId")}
+            invalid={!!errors.branchId}
+            disabled={lockBranch}
+          >
             <option value="">Select Branch</option>
             {branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
@@ -82,7 +87,11 @@ const EmployeeCompanyInfoSection = ({
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel htmlFor="designation">Designation *</CFormLabel>
-          <CFormSelect id="designation" {...register('designation')} invalid={!!errors.designation}>
+          <CFormSelect
+            id="designation"
+            {...register("designation")}
+            invalid={!!errors.designation}
+          >
             <option value="">Select Designation</option>
             {designationOptions.map((designation) => (
               <option key={designation} value={designation}>
@@ -96,7 +105,11 @@ const EmployeeCompanyInfoSection = ({
       <CCol md={3}>
         <div className="mb-3">
           <CFormLabel htmlFor="salaryType">Salary Type *</CFormLabel>
-          <CFormSelect id="salaryType" {...register('salaryType')} invalid={!!errors.salaryType}>
+          <CFormSelect
+            id="salaryType"
+            {...register("salaryType")}
+            invalid={!!errors.salaryType}
+          >
             <option value="monthly">Monthly</option>
             <option value="daily">Daily</option>
             <option value="hourly">Hourly</option>
@@ -112,7 +125,7 @@ const EmployeeCompanyInfoSection = ({
             id="salary"
             min="0"
             step="0.01"
-            {...register('salary')}
+            {...register("salary")}
             invalid={!!errors.salary}
           />
           <CFormFeedback invalid>{errors.salary?.message}</CFormFeedback>
@@ -128,8 +141,10 @@ const EmployeeCompanyInfoSection = ({
             multiple
             value={selectedZoneIds}
             onChange={(e) => {
-              const values = Array.from(e.target.selectedOptions || []).map((opt) => opt.value).filter(Boolean)
-              onZoneIdsChange(values)
+              const values = Array.from(e.target.selectedOptions || [])
+                .map((opt) => opt.value)
+                .filter(Boolean);
+              onZoneIdsChange(values);
             }}
             invalid={!!errors.zoneIds}
           >
@@ -147,23 +162,25 @@ const EmployeeCompanyInfoSection = ({
           <CFormLabel htmlFor="subZoneId">Sub-zone</CFormLabel>
           <CFormSelect
             id="subZoneId"
-            {...register('subZoneId')}
+            {...register("subZoneId")}
             invalid={!!errors.subZoneId}
             disabled={selectedZoneIds.length !== 1 || !subZones.length}
           >
             <option value="">
               {selectedZoneIds.length !== 1
-                ? 'Select exactly one zone to choose sub-zone'
-                : (subZones.length ? 'Select sub-zone (optional)' : 'No sub-zones for this zone')}
+                ? "Select exactly one zone to choose sub-zone"
+                : subZones.length
+                  ? "Select sub-zone (optional)"
+                  : "No sub-zones for this zone"}
             </option>
             {subZones.map((sz) => {
-              const sid = sz._id || sz.id
+              const sid = sz._id || sz.id;
               return (
                 <option key={sid} value={sid}>
-                  {sz.subZoneCode ? `${sz.subZoneCode} — ` : ''}
+                  {sz.subZoneCode ? `${sz.subZoneCode} — ` : ""}
                   {sz.name}
                 </option>
-              )
+              );
             })}
           </CFormSelect>
           <CFormFeedback invalid>{errors.subZoneId?.message}</CFormFeedback>
@@ -171,6 +188,6 @@ const EmployeeCompanyInfoSection = ({
       </CCol>
     </CRow>
   </>
-)
+);
 
-export default EmployeeCompanyInfoSection
+export default EmployeeCompanyInfoSection;

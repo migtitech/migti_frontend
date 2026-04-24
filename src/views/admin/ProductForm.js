@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import {
   CCard,
   CCardBody,
@@ -19,116 +19,153 @@ import {
   CAlert,
   CImage,
   CSpinner,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilTrash, cilArrowLeft } from '@coreui/icons'
-import productService from '../../services/productService'
-import categoryService from '../../services/categoryService'
-import brandService from '../../services/brandService'
-import groupService from '../../services/groupService'
-import { getAssetsUrl } from '../../api/endpoints'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilTrash, cilArrowLeft } from "@coreui/icons";
+import productService from "../../services/productService";
+import categoryService from "../../services/categoryService";
+import brandService from "../../services/brandService";
+import groupService from "../../services/groupService";
+import { getAssetsUrl } from "../../api/endpoints";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
 
 const VARIANT_TYPE_OPTIONS = [
-  { value: 'Color', label: 'Color' },
-  { value: 'Size', label: 'Size' },
-  { value: 'Quantity', label: 'Quantity' },
-  { value: 'Dimension', label: 'Dimension' },
-  { value: 'Build Material', label: 'Build Material' },
-]
+  { value: "Color", label: "Color" },
+  { value: "Size", label: "Size" },
+  { value: "Quantity", label: "Quantity" },
+  { value: "Dimension", label: "Dimension" },
+  { value: "Build Material", label: "Build Material" },
+];
 
 const numberField = (label, required = false) => {
   let schema = yup
     .number()
     .typeError(`${label} must be a number`)
     .min(0, `${label} must be 0 or more`)
-    .transform((value, original) => (original === '' ? undefined : value))
+    .transform((value, original) => (original === "" ? undefined : value));
   if (required) {
-    schema = schema.required(`${label} is required`)
+    schema = schema.required(`${label} is required`);
   } else {
-    schema = schema.notRequired()
+    schema = schema.notRequired();
   }
-  return schema
-}
+  return schema;
+};
 
 const productSchema = yup.object({
-  name: yup.string().trim().required('Product name is required').min(2, 'At least 2 characters').max(200, 'At most 200 characters'),
-  sku: yup.string().trim().required('SKU is required').min(1, 'At least 1 character').max(50, 'At most 50 characters'),
-  description: yup.string().trim().optional().default(''),
-  shortDescription: yup.string().trim().optional().default(''),
-  category: yup.string().required('Category is required'),
-  subcategory: yup.string().optional().nullable().transform((v, o) => (o === '' ? null : v)),
-  brand: yup.string().optional().nullable().transform((v, o) => (o === '' ? null : v)),
-  group: yup.string().optional().nullable().transform((v, o) => (o === '' ? null : v)),
-  hsnNumber: yup.string().trim().optional().max(50).default(''),
-  gstPercentage: yup.number().min(0, 'GST % must be 0 or more').max(100, 'GST % must be 100 or less').optional().nullable().transform((v, o) => (o === '' ? null : v)),
-  defaultModelNumber: yup.string().trim().optional().max(100).default(''),
+  name: yup
+    .string()
+    .trim()
+    .required("Product name is required")
+    .min(2, "At least 2 characters")
+    .max(200, "At most 200 characters"),
+  sku: yup
+    .string()
+    .trim()
+    .required("SKU is required")
+    .min(1, "At least 1 character")
+    .max(50, "At most 50 characters"),
+  description: yup.string().trim().optional().default(""),
+  shortDescription: yup.string().trim().optional().default(""),
+  category: yup.string().required("Category is required"),
+  subcategory: yup
+    .string()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v)),
+  brand: yup
+    .string()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v)),
+  group: yup
+    .string()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v)),
+  hsnNumber: yup.string().trim().optional().max(50).default(""),
+  gstPercentage: yup
+    .number()
+    .min(0, "GST % must be 0 or more")
+    .max(100, "GST % must be 100 or less")
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v)),
+  defaultModelNumber: yup.string().trim().optional().max(100).default(""),
   hasVariants: yup.boolean().default(false),
-  weight: numberField('Weight'),
-  weightUnit: yup.string().oneOf(['g', 'kg', 'lb', 'oz'], 'Invalid weight unit').default('g'),
+  weight: numberField("Weight"),
+  weightUnit: yup
+    .string()
+    .oneOf(["g", "kg", "lb", "oz"], "Invalid weight unit")
+    .default("g"),
   dimensions: yup.object({
-    length: numberField('Length'),
-    width: numberField('Width'),
-    height: numberField('Height'),
+    length: numberField("Length"),
+    width: numberField("Width"),
+    height: numberField("Height"),
   }),
-  dimensionUnit: yup.string().oneOf(['cm', 'in', 'm'], 'Invalid dimension unit').default('cm'),
-  tags: yup.string().optional().default(''),
-  status: yup.string().oneOf(['active', 'inactive', 'draft'], 'Invalid status').default('draft'),
-  unit: yup.string().optional().default('pcs'),
-})
+  dimensionUnit: yup
+    .string()
+    .oneOf(["cm", "in", "m"], "Invalid dimension unit")
+    .default("cm"),
+  tags: yup.string().optional().default(""),
+  status: yup
+    .string()
+    .oneOf(["active", "inactive", "draft"], "Invalid status")
+    .default("draft"),
+  unit: yup.string().optional().default("pcs"),
+});
 
 const defaultValues = {
-  name: '',
-  sku: '',
-  shortDescription: '',
-  category: '',
-  subcategory: '',
-  brand: '',
-  group: '',
-  hsnNumber: '',
-  gstPercentage: '',
-  defaultModelNumber: '',
+  name: "",
+  sku: "",
+  shortDescription: "",
+  category: "",
+  subcategory: "",
+  brand: "",
+  group: "",
+  hsnNumber: "",
+  gstPercentage: "",
+  defaultModelNumber: "",
   hasVariants: false,
-  weight: '',
-  weightUnit: 'g',
-  dimensions: { length: '', width: '', height: '' },
-  dimensionUnit: 'cm',
-  tags: '',
-  status: 'draft',
-  unit: 'pcs',
-}
+  weight: "",
+  weightUnit: "g",
+  dimensions: { length: "", width: "", height: "" },
+  dimensionUnit: "cm",
+  tags: "",
+  status: "draft",
+  unit: "pcs",
+};
 
-const PRODUCT_FORM_DRAFT_KEY = 'product_form_draft'
+const PRODUCT_FORM_DRAFT_KEY = "product_form_draft";
 
 const ProductForm = () => {
-  const navigate = useNavigate()
-  const { id } = useParams()
-  const isEdit = Boolean(id)
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
 
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
-  const [categories, setCategories] = useState([])
-  const [subcategories, setSubcategories] = useState([])
-  const [brands, setBrands] = useState([])
-  const [groups, setGroups] = useState([])
-  const [groupSearch, setGroupSearch] = useState('')
-  const [categorySearch, setCategorySearch] = useState('')
-  const [subcategorySearch, setSubcategorySearch] = useState('')
-  const [brandSearch, setBrandSearch] = useState('')
+  const [categories, setCategories] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
+  const [brands, setBrands] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [groupSearch, setGroupSearch] = useState("");
+  const [categorySearch, setCategorySearch] = useState("");
+  const [subcategorySearch, setSubcategorySearch] = useState("");
+  const [brandSearch, setBrandSearch] = useState("");
 
-  const [variants, setVariants] = useState([])
-  const [customVariantInput, setCustomVariantInput] = useState({})
+  const [variants, setVariants] = useState([]);
+  const [customVariantInput, setCustomVariantInput] = useState({});
 
-  const [imageFiles, setImageFiles] = useState([])
-  const [imagePreviews, setImagePreviews] = useState([])
-  const [existingImages, setExistingImages] = useState([])
-  const [variantCombinations, setVariantCombinations] = useState([])
-  const comboFileInputRefs = useRef({})
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [variantCombinations, setVariantCombinations] = useState([]);
+  const comboFileInputRefs = useRef({});
 
   const {
     register,
@@ -140,354 +177,383 @@ const ProductForm = () => {
   } = useForm({
     defaultValues,
     resolver: yupResolver(productSchema),
-    mode: 'onBlur',
-  })
+    mode: "onBlur",
+  });
 
-  const hasVariants = watch('hasVariants')
-  const selectedGroup = watch('group')
-  const selectedCategory = watch('category')
-  const selectedSubcategory = watch('subcategory')
-  const selectedBrand = watch('brand')
+  const hasVariants = watch("hasVariants");
+  const selectedGroup = watch("group");
+  const selectedCategory = watch("category");
+  const selectedSubcategory = watch("subcategory");
+  const selectedBrand = watch("brand");
 
-  const sectionHeaderStyle = { padding: '1rem 1.5rem', fontSize: '1.1rem' }
-  const sectionBodyStyle = { padding: '1.5rem 1.5rem' }
+  const sectionHeaderStyle = { padding: "1rem 1.5rem", fontSize: "1.1rem" };
+  const sectionBodyStyle = { padding: "1.5rem 1.5rem" };
 
   useEffect(() => {
-    fetchDropdownData()
+    fetchDropdownData();
     if (isEdit) {
-      fetchProduct()
+      fetchProduct();
     } else {
       // Load draft for new product form, if present
       try {
-        const raw = localStorage.getItem(PRODUCT_FORM_DRAFT_KEY)
+        const raw = localStorage.getItem(PRODUCT_FORM_DRAFT_KEY);
         if (raw) {
-          const stored = JSON.parse(raw)
-          reset({ ...defaultValues, ...stored })
+          const stored = JSON.parse(raw);
+          reset({ ...defaultValues, ...stored });
         } else {
-          reset(defaultValues)
+          reset(defaultValues);
         }
       } catch {
-        reset(defaultValues)
+        reset(defaultValues);
       }
     }
-  }, [id, isEdit, reset])
+  }, [id, isEdit, reset]);
 
   // Autosave draft for new product
   useEffect(() => {
-    if (isEdit) return
+    if (isEdit) return;
     const subscription = watch((values) => {
       try {
-        localStorage.setItem(PRODUCT_FORM_DRAFT_KEY, JSON.stringify(values))
+        localStorage.setItem(PRODUCT_FORM_DRAFT_KEY, JSON.stringify(values));
       } catch {
         // ignore storage errors
       }
-    })
-    return () => subscription.unsubscribe()
-  }, [watch, isEdit])
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, isEdit]);
 
   useEffect(() => {
     if (!hasVariants) {
-      setVariants([])
+      setVariants([]);
     }
-  }, [hasVariants])
+  }, [hasVariants]);
 
   const fetchDropdownData = async () => {
     try {
       const [brandRes, groupRes] = await Promise.all([
         brandService.getAll({ pageNumber: 1, pageSize: 100 }),
         groupService.getAll({ pageNumber: 1, pageSize: 100 }),
-      ])
-      const brandData = brandRes?.data || brandRes
-      const groupData = groupRes?.data || groupRes
-      setBrands(brandData?.brands || [])
-      setGroups(groupData?.groups || [])
+      ]);
+      const brandData = brandRes?.data || brandRes;
+      const groupData = groupRes?.data || groupRes;
+      setBrands(brandData?.brands || []);
+      setGroups(groupData?.groups || []);
     } catch (err) {
-      console.error('Failed to fetch dropdown data', err)
+      console.error("Failed to fetch dropdown data", err);
     }
-  }
+  };
 
   const handleClearDraft = () => {
     try {
-      localStorage.removeItem(PRODUCT_FORM_DRAFT_KEY)
+      localStorage.removeItem(PRODUCT_FORM_DRAFT_KEY);
     } catch {
       // ignore
     }
-    reset(defaultValues)
-    toastSuccess('Saved product form data cleared')
-  }
+    reset(defaultValues);
+    toastSuccess("Saved product form data cleared");
+  };
 
   const fetchSubcategories = async (parentId) => {
     if (!parentId) {
-      setSubcategories([])
-      return
+      setSubcategories([]);
+      return;
     }
     try {
       const res = await categoryService.getAll({
         pageNumber: 1,
         pageSize: 100,
         parent: parentId,
-      })
-      const data = res?.data || res
-      setSubcategories(data?.categories || [])
+      });
+      const data = res?.data || res;
+      setSubcategories(data?.categories || []);
     } catch (err) {
-      console.error('Failed to fetch subcategories', err)
+      console.error("Failed to fetch subcategories", err);
     }
-  }
+  };
 
   // When group changes, fetch categories for that group so category dropdown shows correctly
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const load = async () => {
       try {
-        const params = { pageNumber: 1, pageSize: 100, parent: 'null' }
-        if (selectedGroup) params.group = selectedGroup
-        const res = await categoryService.getAll(params)
-        if (cancelled) return
-        const data = res?.data || res
-        setCategories(data?.categories || [])
+        const params = { pageNumber: 1, pageSize: 100, parent: "null" };
+        if (selectedGroup) params.group = selectedGroup;
+        const res = await categoryService.getAll(params);
+        if (cancelled) return;
+        const data = res?.data || res;
+        setCategories(data?.categories || []);
       } catch (err) {
-        if (!cancelled) console.error('Failed to fetch categories by group', err)
+        if (!cancelled)
+          console.error("Failed to fetch categories by group", err);
       }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [selectedGroup])
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroup]);
 
   const filteredGroups = groups.filter((g) =>
-    (g.name || '').toLowerCase().includes((groupSearch || '').toLowerCase()),
-  )
+    (g.name || "").toLowerCase().includes((groupSearch || "").toLowerCase()),
+  );
 
   const filteredCategories = categories.filter((c) => {
-    const nameMatches = (c.name || '')
+    const nameMatches = (c.name || "")
       .toLowerCase()
-      .includes((categorySearch || '').toLowerCase())
+      .includes((categorySearch || "").toLowerCase());
     const categoryGroupId =
-      c.group && (c.group._id || c.group) ? (c.group._id || c.group) : ''
+      c.group && (c.group._id || c.group) ? c.group._id || c.group : "";
     const matchesGroup =
-      !selectedGroup ||
-      String(categoryGroupId) === String(selectedGroup)
-    return nameMatches && matchesGroup
-  })
+      !selectedGroup || String(categoryGroupId) === String(selectedGroup);
+    return nameMatches && matchesGroup;
+  });
 
   const filteredSubcategories = subcategories.filter((s) =>
-    (s.name || '').toLowerCase().includes((subcategorySearch || '').toLowerCase()),
-  )
+    (s.name || "")
+      .toLowerCase()
+      .includes((subcategorySearch || "").toLowerCase()),
+  );
 
   const filteredBrands = brands.filter((b) =>
-    (b.name || '').toLowerCase().includes((brandSearch || '').toLowerCase()),
-  )
+    (b.name || "").toLowerCase().includes((brandSearch || "").toLowerCase()),
+  );
 
   const fetchProduct = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await withMinimumDelay(() => productService.getById(id))
-      const product = res?.data || res
+      const res = await withMinimumDelay(() => productService.getById(id));
+      const product = res?.data || res;
       if (product) {
         reset({
-          name: product.name || '',
-          sku: product.sku || '',
-          shortDescription: product.shortDescription || '',
-          category: product.category?._id || product.category || '',
-          subcategory: product.subcategory?._id || product.subcategory || '',
-          brand: product.brand?._id || product.brand || '',
-          group: product.group?._id || product.group || '',
-          hsnNumber: product.hsnNumber || '',
-          gstPercentage: product.gstPercentage ?? '',
-          defaultModelNumber: product.defaultModelNumber || '',
+          name: product.name || "",
+          sku: product.sku || "",
+          shortDescription: product.shortDescription || "",
+          category: product.category?._id || product.category || "",
+          subcategory: product.subcategory?._id || product.subcategory || "",
+          brand: product.brand?._id || product.brand || "",
+          group: product.group?._id || product.group || "",
+          hsnNumber: product.hsnNumber || "",
+          gstPercentage: product.gstPercentage ?? "",
+          defaultModelNumber: product.defaultModelNumber || "",
           hasVariants: product.hasVariants || false,
-          weight: product.weight ?? '',
-          weightUnit: product.weightUnit || 'g',
-          dimensions: product.dimensions || { length: '', width: '', height: '' },
-          dimensionUnit: product.dimensionUnit || 'cm',
-          tags: (product.tags || []).join(', '),
-          status: product.status || 'draft',
-          unit: product.unit || 'pcs',
-        })
-        const loadedVariants = product.variants || []
-        setVariants(loadedVariants)
-        const customInputMap = {}
+          weight: product.weight ?? "",
+          weightUnit: product.weightUnit || "g",
+          dimensions: product.dimensions || {
+            length: "",
+            width: "",
+            height: "",
+          },
+          dimensionUnit: product.dimensionUnit || "cm",
+          tags: (product.tags || []).join(", "),
+          status: product.status || "draft",
+          unit: product.unit || "pcs",
+        });
+        const loadedVariants = product.variants || [];
+        setVariants(loadedVariants);
+        const customInputMap = {};
         loadedVariants.forEach((v, i) => {
           if (v.name && !VARIANT_TYPE_OPTIONS.some((o) => o.value === v.name)) {
-            customInputMap[i] = true
+            customInputMap[i] = true;
           }
-        })
-        setCustomVariantInput(customInputMap)
-        const imgs = product.images || []
-        setExistingImages(imgs.map((i) => (typeof i === 'object' && i?._id ? i._id : i)))
-        setImagePreviews(imgs.map((i) => (typeof i === 'object' && i?.path ? getAssetsUrl(i.path) : i)))
-        setVariantCombinations(product.variantCombinations || [])
+        });
+        setCustomVariantInput(customInputMap);
+        const imgs = product.images || [];
+        setExistingImages(
+          imgs.map((i) => (typeof i === "object" && i?._id ? i._id : i)),
+        );
+        setImagePreviews(
+          imgs.map((i) =>
+            typeof i === "object" && i?.path ? getAssetsUrl(i.path) : i,
+          ),
+        );
+        setVariantCombinations(product.variantCombinations || []);
         if (product.category?._id || product.category) {
-          fetchSubcategories(product.category?._id || product.category)
+          fetchSubcategories(product.category?._id || product.category);
         }
       }
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch product')
+      toastError(err?.message || "Failed to fetch product");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCategoryChange = (value) => {
-    setValue('subcategory', '')
-    fetchSubcategories(value)
-  }
+    setValue("subcategory", "");
+    fetchSubcategories(value);
+  };
 
   // Variant management
   const addVariant = () => {
-    setVariants((prev) => [...prev, { name: '', options: [] }])
-  }
+    setVariants((prev) => [...prev, { name: "", options: [] }]);
+  };
 
   const handleVariantTypeChange = (index, value) => {
-    if (value === '__custom__') {
-      setCustomVariantInput((prev) => ({ ...prev, [index]: true }))
+    if (value === "__custom__") {
+      setCustomVariantInput((prev) => ({ ...prev, [index]: true }));
       setVariants((prev) => {
-        const next = [...prev]
-        next[index] = { ...next[index], name: '' }
-        return next
-      })
+        const next = [...prev];
+        next[index] = { ...next[index], name: "" };
+        return next;
+      });
     } else {
-      setCustomVariantInput((prev) => ({ ...prev, [index]: false }))
+      setCustomVariantInput((prev) => ({ ...prev, [index]: false }));
       setVariants((prev) => {
-        const next = [...prev]
-        next[index] = { ...next[index], name: value }
-        return next
-      })
+        const next = [...prev];
+        next[index] = { ...next[index], name: value };
+        return next;
+      });
     }
-  }
+  };
 
   const updateVariantName = (index, name) => {
     setVariants((prev) => {
-      const next = [...prev]
-      next[index] = { ...next[index], name }
-      return next
-    })
-  }
+      const next = [...prev];
+      next[index] = { ...next[index], name };
+      return next;
+    });
+  };
 
   const removeVariant = (index) => {
-    setVariants((prev) => prev.filter((_, i) => i !== index))
-  }
+    setVariants((prev) => prev.filter((_, i) => i !== index));
+  };
 
   const addSubVariant = (variantIndex) => {
-    const variant = variants[variantIndex]
+    const variant = variants[variantIndex];
     if (!variant?.name) {
-      toastError('Please enter a variant name first.')
-      return
+      toastError("Please enter a variant name first.");
+      return;
     }
-    const newOption = ''
+    const newOption = "";
     setVariants((prev) => {
-      const next = [...prev]
+      const next = [...prev];
       next[variantIndex] = {
         ...next[variantIndex],
         options: [...next[variantIndex].options, newOption],
-      }
-      return next
-    })
-  }
+      };
+      return next;
+    });
+  };
 
   const updateSubVariantName = (variantIndex, optionIndex, value) => {
     setVariants((prev) => {
-      const next = [...prev]
-      const newOptions = [...next[variantIndex].options]
-      newOptions[optionIndex] = value
-      next[variantIndex] = { ...next[variantIndex], options: newOptions }
-      return next
-    })
-  }
+      const next = [...prev];
+      const newOptions = [...next[variantIndex].options];
+      newOptions[optionIndex] = value;
+      next[variantIndex] = { ...next[variantIndex], options: newOptions };
+      return next;
+    });
+  };
 
   const removeSubVariant = (variantIndex, optionIndex) => {
     setVariants((prev) => {
-      const next = [...prev]
-      const newOptions = next[variantIndex].options.filter((_, i) => i !== optionIndex)
-      next[variantIndex] = { ...next[variantIndex], options: newOptions }
-      return next
-    })
-  }
+      const next = [...prev];
+      const newOptions = next[variantIndex].options.filter(
+        (_, i) => i !== optionIndex,
+      );
+      next[variantIndex] = { ...next[variantIndex], options: newOptions };
+      return next;
+    });
+  };
 
   // Image handling
   const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files)
-    setImageFiles((prev) => [...prev, ...files])
-    const newPreviews = files.map((file) => URL.createObjectURL(file))
-    setImagePreviews((prev) => [...prev, ...newPreviews])
-  }
+    const files = Array.from(e.target.files);
+    setImageFiles((prev) => [...prev, ...files]);
+    const newPreviews = files.map((file) => URL.createObjectURL(file));
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
+  };
 
   const removeImage = (index) => {
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index))
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
     if (index < existingImages.length) {
-      setExistingImages((prev) => prev.filter((_, i) => i !== index))
+      setExistingImages((prev) => prev.filter((_, i) => i !== index));
     } else {
-      const fileIndex = index - existingImages.length
-      setImageFiles((prev) => prev.filter((_, i) => i !== fileIndex))
+      const fileIndex = index - existingImages.length;
+      setImageFiles((prev) => prev.filter((_, i) => i !== fileIndex));
     }
-  }
+  };
 
   const handleVariantComboImageUpload = async (comboIndex, files) => {
-    if (!files?.length) return
-    const fileList = Array.from(files)
+    if (!files?.length) return;
+    const fileList = Array.from(files);
     try {
-      const combo = variantCombinations[comboIndex]
-      const opts = id ? { productId: id, variantUniqueId: combo?.uniqueId } : {}
-      const uploadRes = await productService.uploadImages(fileList, opts)
-      const uploadData = uploadRes?.data ?? uploadRes
-      const documents = uploadData?.documents ?? uploadData?.data?.documents ?? []
+      const combo = variantCombinations[comboIndex];
+      const opts = id
+        ? { productId: id, variantUniqueId: combo?.uniqueId }
+        : {};
+      const uploadRes = await productService.uploadImages(fileList, opts);
+      const uploadData = uploadRes?.data ?? uploadRes;
+      const documents =
+        uploadData?.documents ?? uploadData?.data?.documents ?? [];
       if (documents.length > 0) {
         const newImages = documents.map((d) => ({
           _id: d._id || d.id,
-          path: d.path || d.url || '',
-        }))
+          path: d.path || d.url || "",
+        }));
         setVariantCombinations((prev) => {
-          const next = [...prev]
+          const next = [...prev];
           next[comboIndex] = {
             ...next[comboIndex],
             images: [...(next[comboIndex].images || []), ...newImages],
-          }
-          return next
-        })
-        toastSuccess(`${newImages.length} image(s) uploaded (S3)`)
+          };
+          return next;
+        });
+        toastSuccess(`${newImages.length} image(s) uploaded (S3)`);
       } else {
-        toastError('No documents returned from upload')
+        toastError("No documents returned from upload");
       }
     } catch (err) {
-      toastError(err?.message || 'Image upload failed')
+      toastError(err?.message || "Image upload failed");
     }
-  }
+  };
 
   const removeVariantComboImage = (comboIndex, imageIndex) => {
     setVariantCombinations((prev) => {
-      const next = [...prev]
+      const next = [...prev];
       next[comboIndex] = {
         ...next[comboIndex],
-        images: (next[comboIndex].images || []).filter((_, i) => i !== imageIndex),
-      }
-      return next
-    })
-  }
+        images: (next[comboIndex].images || []).filter(
+          (_, i) => i !== imageIndex,
+        ),
+      };
+      return next;
+    });
+  };
 
   /** Cartesian product of variant options -> array of { optionValues, uniqueId, sku, price, ... } */
   const generateSubvariantsFromVariants = () => {
-    const varsWithOptions = variants.filter((v) => v?.name && v?.options?.length > 0)
+    const varsWithOptions = variants.filter(
+      (v) => v?.name && v?.options?.length > 0,
+    );
     if (varsWithOptions.length === 0) {
-      toastError('Add at least one variant with sub-variant options.')
-      return
+      toastError("Add at least one variant with sub-variant options.");
+      return;
     }
-    const baseSku = watch('sku') || 'SKU'
-    const productHsn = watch('hsnNumber') || ''
-    const productDefaultModel = watch('defaultModelNumber') || ''
-    const productGst = watch('gstPercentage')
-    const productGstNum = productGst !== '' && productGst != null ? parseFloat(productGst) : 0
+    const baseSku = watch("sku") || "SKU";
+    const productHsn = watch("hsnNumber") || "";
+    const productDefaultModel = watch("defaultModelNumber") || "";
+    const productGst = watch("gstPercentage");
+    const productGstNum =
+      productGst !== "" && productGst != null ? parseFloat(productGst) : 0;
 
     const optionArrays = varsWithOptions.map((v) =>
-      (v.options || []).filter(Boolean).map((val) => ({ variantName: v.name, variantValue: val })),
-    )
+      (v.options || [])
+        .filter(Boolean)
+        .map((val) => ({ variantName: v.name, variantValue: val })),
+    );
     const combine = (arrs, i = 0) => {
-      if (i >= arrs.length) return [[]]
-      const rest = combine(arrs, i + 1)
-      return arrs[i].flatMap((opt) => rest.map((r) => [opt, ...r]))
-    }
-    const optionValueLists = combine(optionArrays)
+      if (i >= arrs.length) return [[]];
+      const rest = combine(arrs, i + 1);
+      return arrs[i].flatMap((opt) => rest.map((r) => [opt, ...r]));
+    };
+    const optionValueLists = combine(optionArrays);
     const newCombos = optionValueLists.map((optionValues, idx) => {
-      const slug = optionValues.map((o) => `${o.variantValue}`).join('-').replace(/\s+/g, '-')
-      const uniqueId = `combo-${slug}-${Date.now()}-${idx}`
+      const slug = optionValues
+        .map((o) => `${o.variantValue}`)
+        .join("-")
+        .replace(/\s+/g, "-");
+      const uniqueId = `combo-${slug}-${Date.now()}-${idx}`;
       return {
         uniqueId,
         optionValues,
@@ -497,66 +563,77 @@ const ProductForm = () => {
         costPrice: 0,
         quantity: 0,
         weight: 0,
-        weightUnit: 'g',
+        weightUnit: "g",
         dimensions: { length: 0, width: 0, height: 0 },
-        dimensionUnit: 'cm',
+        dimensionUnit: "cm",
         images: [],
         modelNumber: productDefaultModel,
         hsnNumber: productHsn,
         gstPercentage: productGstNum,
         isActive: true,
-      }
-    })
-    setVariantCombinations(newCombos)
-    toastSuccess(`Generated ${newCombos.length} subvariants. Upload images for each.`)
-  }
+      };
+    });
+    setVariantCombinations(newCombos);
+    toastSuccess(
+      `Generated ${newCombos.length} subvariants. Upload images for each.`,
+    );
+  };
 
   const updateVariantComboField = (comboIndex, field, value) => {
     setVariantCombinations((prev) => {
-      const next = [...prev]
-      next[comboIndex] = { ...next[comboIndex], [field]: value }
-      return next
-    })
-  }
+      const next = [...prev];
+      next[comboIndex] = { ...next[comboIndex], [field]: value };
+      return next;
+    });
+  };
 
   /** Remove a variant combination (subvariant) by index – use when you don't have product for that combo */
   const removeVariantCombo = (comboIndex) => {
-    setVariantCombinations((prev) => prev.filter((_, i) => i !== comboIndex))
-    toastSuccess('Combination removed.')
-  }
+    setVariantCombinations((prev) => prev.filter((_, i) => i !== comboIndex));
+    toastSuccess("Combination removed.");
+  };
 
   const onSubmit = async (values) => {
-    setSubmitting(true)
-    setError('')
-    setSuccess('')
+    setSubmitting(true);
+    setError("");
+    setSuccess("");
 
     try {
-      let uploadedImages = [...existingImages]
+      let uploadedImages = [...existingImages];
 
       if (imageFiles.length > 0) {
         try {
-          const opts = isEdit && id ? { productId: id } : {}
-          const uploadRes = await productService.uploadImages(imageFiles, opts)
-          const uploadData = uploadRes?.data || uploadRes
+          const opts = isEdit && id ? { productId: id } : {};
+          const uploadRes = await productService.uploadImages(imageFiles, opts);
+          const uploadData = uploadRes?.data || uploadRes;
           if (uploadData?.documents?.length) {
-            uploadedImages = [...uploadedImages, ...uploadData.documents.map((d) => d._id)]
+            uploadedImages = [
+              ...uploadedImages,
+              ...uploadData.documents.map((d) => d._id),
+            ];
           }
         } catch (uploadErr) {
-          console.error('Image upload failed, continuing without images', uploadErr)
+          console.error(
+            "Image upload failed, continuing without images",
+            uploadErr,
+          );
         }
       }
 
       const payload = {
         name: values.name,
         sku: values.sku,
-        shortDescription: values.shortDescription || '',
+        shortDescription: values.shortDescription || "",
         category: values.category,
         subcategory: values.subcategory || null,
         brand: values.brand || null,
         group: values.group || null,
-        hsnNumber: values.hsnNumber || '',
-        gstPercentage: values.gstPercentage !== '' && values.gstPercentage != null ? parseFloat(values.gstPercentage) : 0,
-        defaultModelNumber: values.defaultModelNumber || '',
+        hsnNumber: values.hsnNumber || "",
+        gstPercentage:
+          values.gstPercentage !== "" && values.gstPercentage != null
+            ? parseFloat(values.gstPercentage)
+            : 0,
+        defaultModelNumber: values.defaultModelNumber || "",
         hasVariants: values.hasVariants,
         variants: values.hasVariants ? variants : [],
         images: uploadedImages,
@@ -570,61 +647,78 @@ const ProductForm = () => {
         dimensionUnit: values.dimensionUnit,
         tags: values.tags
           ? values.tags
-              .split(',')
+              .split(",")
               .map((t) => t.trim())
               .filter(Boolean)
           : [],
         status: values.status,
         unit: values.unit,
-      }
+      };
       if (values.hasVariants && variantCombinations.length > 0) {
         payload.variantCombinations = variantCombinations.map((vc) => ({
           ...vc,
-          modelNumber: vc.modelNumber || '',
-          hsnNumber: vc.hsnNumber ?? '',
-          gstPercentage: vc.gstPercentage !== undefined && vc.gstPercentage !== '' ? parseFloat(vc.gstPercentage) : null,
-          images: (vc.images || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)),
-        }))
+          modelNumber: vc.modelNumber || "",
+          hsnNumber: vc.hsnNumber ?? "",
+          gstPercentage:
+            vc.gstPercentage !== undefined && vc.gstPercentage !== ""
+              ? parseFloat(vc.gstPercentage)
+              : null,
+          images: (vc.images || []).map((img) =>
+            typeof img === "object" && img?._id ? img._id : img,
+          ),
+        }));
       }
 
       if (isEdit) {
-        await productService.update(id, payload)
-        toastSuccess('Product updated successfully')
-        navigate('/products')
+        await productService.update(id, payload);
+        toastSuccess("Product updated successfully");
+        navigate("/products");
       } else {
-        const created = await productService.create(payload)
-        const createdProduct = created?.data?.data || created?.data
-        const productCode = createdProduct?.productCode
-        const variantCodes = createdProduct?.variantCombinations?.map((vc) => vc.variantCode).filter(Boolean)
-        let msg = 'Product created successfully.'
-        if (productCode) msg += ` Product Code: ${productCode}`
-        if (variantCodes?.length > 0) msg += ` Variants: ${variantCodes.join(', ')}`
-        toastSuccess(msg)
-        setTimeout(() => navigate(createdProduct?._id ? `/products/${createdProduct._id}` : '/products'), 1500)
+        const created = await productService.create(payload);
+        const createdProduct = created?.data?.data || created?.data;
+        const productCode = createdProduct?.productCode;
+        const variantCodes = createdProduct?.variantCombinations
+          ?.map((vc) => vc.variantCode)
+          .filter(Boolean);
+        let msg = "Product created successfully.";
+        if (productCode) msg += ` Product Code: ${productCode}`;
+        if (variantCodes?.length > 0)
+          msg += ` Variants: ${variantCodes.join(", ")}`;
+        toastSuccess(msg);
+        setTimeout(
+          () =>
+            navigate(
+              createdProduct?._id
+                ? `/products/${createdProduct._id}`
+                : "/products",
+            ),
+          1500,
+        );
       }
     } catch (err) {
-      toastError(err?.message || 'Failed to save product')
+      toastError(err?.message || "Failed to save product");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="text-center p-5">
         <Loader message="Loading product..." />
       </div>
-    )
+    );
   }
 
   return (
-    <CForm
-      onSubmit={handleSubmit(onSubmit)}
-      style={{ fontSize: '1.1rem' }}
-    >
+    <CForm onSubmit={handleSubmit(onSubmit)} style={{ fontSize: "1.1rem" }}>
       <CRow className="mb-3">
         <CCol>
-          <CButton color="light" onClick={() => navigate('/products')} className="me-2">
+          <CButton
+            color="light"
+            onClick={() => navigate("/products")}
+            className="me-2"
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to Products
           </CButton>
@@ -632,12 +726,12 @@ const ProductForm = () => {
       </CRow>
 
       {error && (
-        <CAlert color="danger" dismissible onClose={() => setError('')}>
+        <CAlert color="danger" dismissible onClose={() => setError("")}>
           {error}
         </CAlert>
       )}
       {success && (
-        <CAlert color="success" dismissible onClose={() => setSuccess('')}>
+        <CAlert color="success" dismissible onClose={() => setSuccess("")}>
           {success}
         </CAlert>
       )}
@@ -649,7 +743,12 @@ const ProductForm = () => {
         >
           <strong>Basic Information</strong>
           {!isEdit && (
-            <CButton color="secondary" size="sm" variant="outline" onClick={handleClearDraft}>
+            <CButton
+              color="secondary"
+              size="sm"
+              variant="outline"
+              onClick={handleClearDraft}
+            >
               Clear saved data
             </CButton>
           )}
@@ -659,18 +758,25 @@ const ProductForm = () => {
             <CCol md={8}>
               <div className="mb-3">
                 <CFormLabel>Product Name *</CFormLabel>
-                <CFormInput placeholder="Enter product name" {...register('name')} />
+                <CFormInput
+                  placeholder="Enter product name"
+                  {...register("name")}
+                />
                 {errors.name && (
-                  <div className="text-danger small mt-1">{errors.name.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.name.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>SKU *</CFormLabel>
-                <CFormInput placeholder="e.g., PROD-001" {...register('sku')} />
+                <CFormInput placeholder="e.g., PROD-001" {...register("sku")} />
                 {errors.sku && (
-                  <div className="text-danger small mt-1">{errors.sku.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.sku.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -679,7 +785,10 @@ const ProductForm = () => {
             <CCol md={12}>
               <div className="mb-3">
                 <CFormLabel>Short Description</CFormLabel>
-                <CFormInput placeholder="Brief product summary" {...register('shortDescription')} />
+                <CFormInput
+                  placeholder="Brief product summary"
+                  {...register("shortDescription")}
+                />
                 {errors.shortDescription && (
                   <div className="text-danger small mt-1">
                     {errors.shortDescription.message}
@@ -700,33 +809,39 @@ const ProductForm = () => {
                 {groupSearch && (
                   <div
                     className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: '200px', overflowY: 'auto' }}
+                    style={{ maxHeight: "200px", overflowY: "auto" }}
                   >
                     {filteredGroups.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">No matches</div>
+                      <div className="px-2 py-1 text-muted small">
+                        No matches
+                      </div>
                     )}
                     {filteredGroups.map((g) => {
-                      const id = g._id || g.id
-                      const isSelected = selectedGroup === id
+                      const id = g._id || g.id;
+                      const isSelected = selectedGroup === id;
                       return (
                         <div
                           key={id}
-                          className={`px-2 py-1 small ${isSelected ? 'bg-light' : ''}`}
-                          style={{ cursor: 'pointer' }}
+                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                          style={{ cursor: "pointer" }}
                           onClick={() => {
-                            const nextVal = id || ''
-                            setValue('group', nextVal, { shouldValidate: true })
-                            setGroupSearch(g.name || '')
+                            const nextVal = id || "";
+                            setValue("group", nextVal, {
+                              shouldValidate: true,
+                            });
+                            setGroupSearch(g.name || "");
                             // reset dependent fields
-                            setValue('category', '', { shouldValidate: true })
-                            setValue('subcategory', '', { shouldValidate: true })
-                            setCategorySearch('')
-                            setSubcategorySearch('')
+                            setValue("category", "", { shouldValidate: true });
+                            setValue("subcategory", "", {
+                              shouldValidate: true,
+                            });
+                            setCategorySearch("");
+                            setSubcategorySearch("");
                           }}
                         >
                           {g.name}
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
@@ -743,36 +858,42 @@ const ProductForm = () => {
                 {(categorySearch || selectedGroup) && (
                   <div
                     className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: '200px', overflowY: 'auto' }}
+                    style={{ maxHeight: "200px", overflowY: "auto" }}
                   >
                     {filteredCategories.length === 0 && (
                       <div className="px-2 py-1 text-muted small">
-                        {selectedGroup ? 'No categories in this group' : 'No matches'}
+                        {selectedGroup
+                          ? "No categories in this group"
+                          : "No matches"}
                       </div>
                     )}
                     {filteredCategories.map((cat) => {
-                      const id = cat._id || cat.id
-                      const isSelected = selectedCategory === id
+                      const id = cat._id || cat.id;
+                      const isSelected = selectedCategory === id;
                       return (
                         <div
                           key={id}
-                          className={`px-2 py-1 small ${isSelected ? 'bg-light' : ''}`}
-                          style={{ cursor: 'pointer' }}
+                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                          style={{ cursor: "pointer" }}
                           onClick={() => {
-                            const nextVal = id || ''
-                            setValue('category', nextVal, { shouldValidate: true })
-                            setCategorySearch(cat.name || '')
-                            handleCategoryChange(nextVal)
+                            const nextVal = id || "";
+                            setValue("category", nextVal, {
+                              shouldValidate: true,
+                            });
+                            setCategorySearch(cat.name || "");
+                            handleCategoryChange(nextVal);
                           }}
                         >
                           {cat.name}
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
                 {errors.category && (
-                  <div className="text-danger small mt-1">{errors.category.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.category.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -790,33 +911,39 @@ const ProductForm = () => {
                 {subcategorySearch && subcategories.length > 0 && (
                   <div
                     className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: '200px', overflowY: 'auto' }}
+                    style={{ maxHeight: "200px", overflowY: "auto" }}
                   >
                     {filteredSubcategories.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">No matches</div>
+                      <div className="px-2 py-1 text-muted small">
+                        No matches
+                      </div>
                     )}
                     {filteredSubcategories.map((sub) => {
-                      const id = sub._id || sub.id
-                      const isSelected = selectedSubcategory === id
+                      const id = sub._id || sub.id;
+                      const isSelected = selectedSubcategory === id;
                       return (
                         <div
                           key={id}
-                          className={`px-2 py-1 small ${isSelected ? 'bg-light' : ''}`}
-                          style={{ cursor: 'pointer' }}
+                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                          style={{ cursor: "pointer" }}
                           onClick={() => {
-                            const nextVal = id || ''
-                            setValue('subcategory', nextVal, { shouldValidate: true })
-                            setSubcategorySearch(sub.name || '')
+                            const nextVal = id || "";
+                            setValue("subcategory", nextVal, {
+                              shouldValidate: true,
+                            });
+                            setSubcategorySearch(sub.name || "");
                           }}
                         >
                           {sub.name}
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
                 {errors.subcategory && (
-                  <div className="text-danger small mt-1">{errors.subcategory.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.subcategory.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -831,33 +958,39 @@ const ProductForm = () => {
                 {brandSearch && (
                   <div
                     className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: '200px', overflowY: 'auto' }}
+                    style={{ maxHeight: "200px", overflowY: "auto" }}
                   >
                     {filteredBrands.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">No matches</div>
+                      <div className="px-2 py-1 text-muted small">
+                        No matches
+                      </div>
                     )}
                     {filteredBrands.map((b) => {
-                      const id = b._id || b.id
-                      const isSelected = selectedBrand === id
+                      const id = b._id || b.id;
+                      const isSelected = selectedBrand === id;
                       return (
                         <div
                           key={id}
-                          className={`px-2 py-1 small ${isSelected ? 'bg-light' : ''}`}
-                          style={{ cursor: 'pointer' }}
+                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                          style={{ cursor: "pointer" }}
                           onClick={() => {
-                            const nextVal = id || ''
-                            setValue('brand', nextVal, { shouldValidate: true })
-                            setBrandSearch(b.name || '')
+                            const nextVal = id || "";
+                            setValue("brand", nextVal, {
+                              shouldValidate: true,
+                            });
+                            setBrandSearch(b.name || "");
                           }}
                         >
                           {b.name}
                         </div>
-                      )
+                      );
                     })}
                   </div>
                 )}
                 {errors.brand && (
-                  <div className="text-danger small mt-1">{errors.brand.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.brand.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -866,9 +999,14 @@ const ProductForm = () => {
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>HSN Number</CFormLabel>
-                <CFormInput placeholder="e.g., 8471" {...register('hsnNumber')} />
+                <CFormInput
+                  placeholder="e.g., 8471"
+                  {...register("hsnNumber")}
+                />
                 {errors.hsnNumber && (
-                  <div className="text-danger small mt-1">{errors.hsnNumber.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.hsnNumber.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -877,7 +1015,7 @@ const ProductForm = () => {
                 <CFormLabel>Default Model Number</CFormLabel>
                 <CFormInput
                   placeholder="Default for subvariants"
-                  {...register('defaultModelNumber')}
+                  {...register("defaultModelNumber")}
                 />
                 {errors.defaultModelNumber && (
                   <div className="text-danger small mt-1">
@@ -895,10 +1033,12 @@ const ProductForm = () => {
                   max="100"
                   step="0.01"
                   placeholder="e.g., 18"
-                  {...register('gstPercentage')}
+                  {...register("gstPercentage")}
                 />
                 {errors.gstPercentage && (
-                  <div className="text-danger small mt-1">{errors.gstPercentage.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.gstPercentage.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -907,22 +1047,29 @@ const ProductForm = () => {
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Unit *</CFormLabel>
-                <CFormInput placeholder="e.g., pcs, kg, ltr" {...register('unit')} />
+                <CFormInput
+                  placeholder="e.g., pcs, kg, ltr"
+                  {...register("unit")}
+                />
                 {errors.unit && (
-                  <div className="text-danger small mt-1">{errors.unit.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.unit.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Status *</CFormLabel>
-                <CFormSelect {...register('status')}>
+                <CFormSelect {...register("status")}>
                   <option value="draft">Draft</option>
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </CFormSelect>
                 {errors.status && (
-                  <div className="text-danger small mt-1">{errors.status.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.status.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -931,10 +1078,12 @@ const ProductForm = () => {
                 <CFormLabel>Tags (comma separated)</CFormLabel>
                 <CFormInput
                   placeholder="e.g., electronics, gadgets, sale"
-                  {...register('tags')}
+                  {...register("tags")}
                 />
                 {errors.tags && (
-                  <div className="text-danger small mt-1">{errors.tags.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.tags.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -945,17 +1094,17 @@ const ProductForm = () => {
       <CCard className="mb-4">
         <CCardHeader
           className="d-flex justify-content-between align-items-center"
-          style={{ ...sectionHeaderStyle, cursor: 'pointer' }}
-          onClick={() => setValue('hasVariants', !hasVariants)}
+          style={{ ...sectionHeaderStyle, cursor: "pointer" }}
+          onClick={() => setValue("hasVariants", !hasVariants)}
         >
           <strong>Variants</strong>
           <CFormCheck
             id="hasVariants"
             label="This product has variants"
             checked={!!hasVariants}
-            {...register('hasVariants')}
+            {...register("hasVariants")}
             onClick={(e) => e.stopPropagation()}
-            style={{ transform: 'scale(1.5)', transformOrigin: 'right center' }}
+            style={{ transform: "scale(1.5)", transformOrigin: "right center" }}
           />
         </CCardHeader>
         {hasVariants && (
@@ -970,9 +1119,11 @@ const ProductForm = () => {
                         <CFormInput
                           size="sm"
                           value={variant.name}
-                          onChange={(e) => updateVariantName(vIndex, e.target.value)}
+                          onChange={(e) =>
+                            updateVariantName(vIndex, e.target.value)
+                          }
                           placeholder="Enter custom variant name"
-                          style={{ maxWidth: '200px' }}
+                          style={{ maxWidth: "200px" }}
                           autoFocus
                         />
                         <CButton
@@ -980,12 +1131,15 @@ const ProductForm = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => {
-                            setCustomVariantInput((prev) => ({ ...prev, [vIndex]: false }))
+                            setCustomVariantInput((prev) => ({
+                              ...prev,
+                              [vIndex]: false,
+                            }));
                             setVariants((prev) => {
-                              const next = [...prev]
-                              next[vIndex] = { ...next[vIndex], name: '' }
-                              return next
-                            })
+                              const next = [...prev];
+                              next[vIndex] = { ...next[vIndex], name: "" };
+                              return next;
+                            });
                           }}
                           title="Back to dropdown"
                         >
@@ -996,14 +1150,18 @@ const ProductForm = () => {
                       <CFormSelect
                         size="sm"
                         value={
-                          VARIANT_TYPE_OPTIONS.some((o) => o.value === variant.name)
+                          VARIANT_TYPE_OPTIONS.some(
+                            (o) => o.value === variant.name,
+                          )
                             ? variant.name
                             : variant.name
-                              ? '__custom__'
-                              : ''
+                              ? "__custom__"
+                              : ""
                         }
-                        onChange={(e) => handleVariantTypeChange(vIndex, e.target.value)}
-                        style={{ maxWidth: '250px' }}
+                        onChange={(e) =>
+                          handleVariantTypeChange(vIndex, e.target.value)
+                        }
+                        style={{ maxWidth: "250px" }}
                       >
                         <option value="" disabled>
                           Select variant type
@@ -1045,17 +1203,21 @@ const ProductForm = () => {
                       <div
                         key={oIndex}
                         className="border rounded mb-2"
-                        style={{ backgroundColor: '#fafafa' }}
+                        style={{ backgroundColor: "#fafafa" }}
                       >
                         <div className="d-flex align-items-center gap-2 p-2">
                           <CFormInput
                             size="sm"
                             value={option}
                             onChange={(e) =>
-                              updateSubVariantName(vIndex, oIndex, e.target.value)
+                              updateSubVariantName(
+                                vIndex,
+                                oIndex,
+                                e.target.value,
+                              )
                             }
-                            placeholder={`e.g., ${variant.name === 'Color' ? 'Red, Blue, Green' : variant.name === 'Size' ? 'S, M, L, XL' : 'Option name'}`}
-                            style={{ maxWidth: '200px' }}
+                            placeholder={`e.g., ${variant.name === "Color" ? "Red, Blue, Green" : variant.name === "Size" ? "S, M, L, XL" : "Option name"}`}
+                            style={{ maxWidth: "200px" }}
                           />
                           <span className="text-muted small">
                             Sub-variant {oIndex + 1}
@@ -1077,8 +1239,8 @@ const ProductForm = () => {
                 )}
                 {variant.options.length === 0 && (
                   <CCardBody className="text-muted text-center py-3">
-                    No sub-variants yet. Click &quot;Add Sub-variant&quot; to add options like Red,
-                    Blue, Green.
+                    No sub-variants yet. Click &quot;Add Sub-variant&quot; to
+                    add options like Red, Blue, Green.
                   </CCardBody>
                 )}
               </CCard>
@@ -1096,19 +1258,24 @@ const ProductForm = () => {
               <CCardHeader className="bg-light">
                 <strong>Subvariants (combinations)</strong>
                 <small className="text-muted ms-2">
-                  Generate combinations, then upload multiple images for each (stored on AWS S3).
+                  Generate combinations, then upload multiple images for each
+                  (stored on AWS S3).
                 </small>
               </CCardHeader>
               <CCardBody>
                 {variantCombinations.length === 0 ? (
                   <div>
                     <p className="text-muted mb-2">
-                      Add variant types and their options above (e.g. Color: Red, Blue; Size: S, M). Then click below to generate all subvariants.
+                      Add variant types and their options above (e.g. Color:
+                      Red, Blue; Size: S, M). Then click below to generate all
+                      subvariants.
                     </p>
                     <CButton
                       color="primary"
                       onClick={generateSubvariantsFromVariants}
-                      disabled={!variants.some((v) => v?.name && v?.options?.length > 0)}
+                      disabled={
+                        !variants.some((v) => v?.name && v?.options?.length > 0)
+                      }
                     >
                       <CIcon icon={cilPlus} className="me-1" />
                       Generate subvariants from variant options
@@ -1117,21 +1284,37 @@ const ProductForm = () => {
                 ) : (
                   <>
                     <div className="mb-2 d-flex justify-content-between align-items-center">
-                      <span className="text-muted">{variantCombinations.length} subvariant(s)</span>
-                      <CButton color="secondary" size="sm" onClick={generateSubvariantsFromVariants}>
+                      <span className="text-muted">
+                        {variantCombinations.length} subvariant(s)
+                      </span>
+                      <CButton
+                        color="secondary"
+                        size="sm"
+                        onClick={generateSubvariantsFromVariants}
+                      >
                         Regenerate
                       </CButton>
                     </div>
                     {variantCombinations.map((combo, cIdx) => (
-                      <CCard key={combo.uniqueId || cIdx} className="mb-3 border">
+                      <CCard
+                        key={combo.uniqueId || cIdx}
+                        className="mb-3 border"
+                      >
                         <CCardBody className="py-2">
                           <div className="mb-2 d-flex align-items-center gap-2 flex-wrap justify-content-between">
                             <div className="d-flex align-items-center gap-2 flex-wrap">
                               <strong>
-                                {combo.optionValues?.map((o) => `${o.variantName}: ${o.variantValue}`).join(' · ') || 'Subvariant'}
+                                {combo.optionValues
+                                  ?.map(
+                                    (o) =>
+                                      `${o.variantName}: ${o.variantValue}`,
+                                  )
+                                  .join(" · ") || "Subvariant"}
                               </strong>
                               {combo.variantCode && (
-                                <code className="text-primary small">Code: {combo.variantCode}</code>
+                                <code className="text-primary small">
+                                  Code: {combo.variantCode}
+                                </code>
                               )}
                             </div>
                             <CButton
@@ -1146,46 +1329,84 @@ const ProductForm = () => {
                           </div>
                           <div className="row g-2 mb-2">
                             <div className="col-md-4">
-                              <CFormLabel className="small text-muted">HSN Number</CFormLabel>
+                              <CFormLabel className="small text-muted">
+                                HSN Number
+                              </CFormLabel>
                               <CFormInput
                                 type="text"
                                 placeholder="Defaults to product HSN"
-                                value={combo.hsnNumber ?? ''}
-                                onChange={(e) => updateVariantComboField(cIdx, 'hsnNumber', e.target.value)}
+                                value={combo.hsnNumber ?? ""}
+                                onChange={(e) =>
+                                  updateVariantComboField(
+                                    cIdx,
+                                    "hsnNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="form-control form-control-sm"
                                 maxLength={50}
                               />
                             </div>
                             <div className="col-md-4">
-                              <CFormLabel className="small text-muted">Model Number</CFormLabel>
+                              <CFormLabel className="small text-muted">
+                                Model Number
+                              </CFormLabel>
                               <CFormInput
                                 type="text"
                                 placeholder="Defaults to product default"
-                                value={combo.modelNumber ?? ''}
-                                onChange={(e) => updateVariantComboField(cIdx, 'modelNumber', e.target.value)}
+                                value={combo.modelNumber ?? ""}
+                                onChange={(e) =>
+                                  updateVariantComboField(
+                                    cIdx,
+                                    "modelNumber",
+                                    e.target.value,
+                                  )
+                                }
                                 className="form-control form-control-sm"
                                 maxLength={100}
                               />
                             </div>
                             <div className="col-md-4">
-                              <CFormLabel className="small text-muted">GST %</CFormLabel>
+                              <CFormLabel className="small text-muted">
+                                GST %
+                              </CFormLabel>
                               <CFormInput
                                 type="number"
                                 min="0"
                                 max="100"
                                 step="0.01"
                                 placeholder="Defaults to product %"
-                                value={combo.gstPercentage !== undefined && combo.gstPercentage !== '' ? combo.gstPercentage : ''}
-                                onChange={(e) => updateVariantComboField(cIdx, 'gstPercentage', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                value={
+                                  combo.gstPercentage !== undefined &&
+                                  combo.gstPercentage !== ""
+                                    ? combo.gstPercentage
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  updateVariantComboField(
+                                    cIdx,
+                                    "gstPercentage",
+                                    e.target.value === ""
+                                      ? ""
+                                      : parseFloat(e.target.value),
+                                  )
+                                }
                                 className="form-control form-control-sm"
                               />
                             </div>
                           </div>
                           <div className="d-flex flex-wrap gap-2 align-items-start">
                             {(combo.images || []).map((img, iIdx) => (
-                              <div key={img?._id || iIdx} className="position-relative">
+                              <div
+                                key={img?._id || iIdx}
+                                className="position-relative"
+                              >
                                 <CImage
-                                  src={typeof img === 'object' && img?.path ? getAssetsUrl(img.path) : img}
+                                  src={
+                                    typeof img === "object" && img?.path
+                                      ? getAssetsUrl(img.path)
+                                      : img
+                                  }
                                   width={80}
                                   height={80}
                                   className="object-fit-cover rounded border"
@@ -1194,8 +1415,10 @@ const ProductForm = () => {
                                   color="danger"
                                   size="sm"
                                   className="position-absolute top-0 end-0"
-                                  style={{ transform: 'translate(50%, -50%)' }}
-                                  onClick={() => removeVariantComboImage(cIdx, iIdx)}
+                                  style={{ transform: "translate(50%, -50%)" }}
+                                  onClick={() =>
+                                    removeVariantComboImage(cIdx, iIdx)
+                                  }
                                 >
                                   &times;
                                 </CButton>
@@ -1206,12 +1429,15 @@ const ProductForm = () => {
                                 type="file"
                                 accept="image/*"
                                 multiple
-                                ref={(el) => { comboFileInputRefs.current[cIdx] = el }}
+                                ref={(el) => {
+                                  comboFileInputRefs.current[cIdx] = el;
+                                }}
                                 className="d-none"
                                 onChange={(e) => {
-                                  const files = e.target.files
-                                  if (files?.length) handleVariantComboImageUpload(cIdx, files)
-                                  e.target.value = ''
+                                  const files = e.target.files;
+                                  if (files?.length)
+                                    handleVariantComboImageUpload(cIdx, files);
+                                  e.target.value = "";
                                 }}
                               />
                               <CButton
@@ -1220,7 +1446,9 @@ const ProductForm = () => {
                                 type="button"
                                 className="mb-0"
                                 variant="outline"
-                                onClick={() => comboFileInputRefs.current[cIdx]?.click()}
+                                onClick={() =>
+                                  comboFileInputRefs.current[cIdx]?.click()
+                                }
                               >
                                 <CIcon icon={cilPlus} className="me-1" />
                                 Upload images
@@ -1247,32 +1475,48 @@ const ProductForm = () => {
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Weight</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('weight')} />
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register("weight")}
+                />
                 {errors.weight && (
-                  <div className="text-danger small mt-1">{errors.weight.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.weight.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Weight Unit *</CFormLabel>
-                <CFormSelect {...register('weightUnit')}>
+                <CFormSelect {...register("weightUnit")}>
                   <option value="g">Grams (g)</option>
                   <option value="kg">Kilograms (kg)</option>
                   <option value="lb">Pounds (lb)</option>
                   <option value="oz">Ounces (oz)</option>
                 </CFormSelect>
                 {errors.weightUnit && (
-                  <div className="text-danger small mt-1">{errors.weightUnit.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.weightUnit.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Length</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('dimensions.length')} />
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register("dimensions.length")}
+                />
                 {errors.dimensions?.length && (
-                  <div className="text-danger small mt-1">{errors.dimensions.length.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.dimensions.length.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -1281,31 +1525,47 @@ const ProductForm = () => {
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Width</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('dimensions.width')} />
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register("dimensions.width")}
+                />
                 {errors.dimensions?.width && (
-                  <div className="text-danger small mt-1">{errors.dimensions.width.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.dimensions.width.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Height</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('dimensions.height')} />
+                <CFormInput
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  {...register("dimensions.height")}
+                />
                 {errors.dimensions?.height && (
-                  <div className="text-danger small mt-1">{errors.dimensions.height.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.dimensions.height.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Dimension Unit *</CFormLabel>
-                <CFormSelect {...register('dimensionUnit')}>
+                <CFormSelect {...register("dimensionUnit")}>
                   <option value="cm">Centimeters (cm)</option>
                   <option value="in">Inches (in)</option>
                   <option value="m">Meters (m)</option>
                 </CFormSelect>
                 {errors.dimensionUnit && (
-                  <div className="text-danger small mt-1">{errors.dimensionUnit.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.dimensionUnit.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -1323,9 +1583,9 @@ const ProductForm = () => {
               <div
                 className="text-center p-4 h-100 d-flex flex-column justify-content-center"
                 style={{
-                  border: '2px dashed #d8dbe0',
-                  borderRadius: '0.5rem',
-                  backgroundColor: '#f8f9fa',
+                  border: "2px dashed #d8dbe0",
+                  borderRadius: "0.5rem",
+                  backgroundColor: "#f8f9fa",
                 }}
               >
                 <div className="mb-2">
@@ -1333,7 +1593,8 @@ const ProductForm = () => {
                   <span className="fw-semibold">Add product images</span>
                 </div>
                 <p className="text-muted small mb-3">
-                  JPG, PNG, or WebP. Up to 10 images. First image is used as the primary thumbnail.
+                  JPG, PNG, or WebP. Up to 10 images. First image is used as the
+                  primary thumbnail.
                 </p>
                 <div className="d-flex justify-content-center gap-2">
                   <CButton
@@ -1341,8 +1602,10 @@ const ProductForm = () => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const input = document.getElementById('product-images-input')
-                      input && input.click()
+                      const input = document.getElementById(
+                        "product-images-input",
+                      );
+                      input && input.click();
                     }}
                   >
                     Browse files
@@ -1354,8 +1617,8 @@ const ProductForm = () => {
                     disabled={imagePreviews.length === 0}
                     onClick={() => {
                       // Clear all newly added images & previews, keep existingImages
-                      setImageFiles([])
-                      setImagePreviews([])
+                      setImageFiles([]);
+                      setImagePreviews([]);
                     }}
                   >
                     Clear selection
@@ -1367,11 +1630,12 @@ const ProductForm = () => {
                   accept="image/*"
                   multiple
                   onChange={handleImageUpload}
-                  style={{ display: 'none' }}
+                  style={{ display: "none" }}
                 />
                 {imagePreviews.length > 0 && (
                   <div className="mt-3 text-muted small">
-                    {imagePreviews.length} image{imagePreviews.length > 1 ? 's' : ''} selected
+                    {imagePreviews.length} image
+                    {imagePreviews.length > 1 ? "s" : ""} selected
                   </div>
                 )}
               </div>
@@ -1379,8 +1643,9 @@ const ProductForm = () => {
             <CCol md={7}>
               {imagePreviews.length === 0 ? (
                 <div className="text-muted small">
-                  No images selected yet. Add a few high-quality photos to help users quickly
-                  understand the product (front, back, close-up, packaging, etc.).
+                  No images selected yet. Add a few high-quality photos to help
+                  users quickly understand the product (front, back, close-up,
+                  packaging, etc.).
                 </div>
               ) : (
                 <div className="d-flex flex-wrap gap-3">
@@ -1408,7 +1673,7 @@ const ProductForm = () => {
                         color="danger"
                         size="sm"
                         className="position-absolute top-0 end-0"
-                        style={{ transform: 'translate(25%, -25%)' }}
+                        style={{ transform: "translate(25%, -25%)" }}
                         onClick={() => removeImage(index)}
                       >
                         &times;
@@ -1424,16 +1689,22 @@ const ProductForm = () => {
 
       <CCard className="mb-4">
         <CCardBody className="d-flex justify-content-end gap-2">
-          <CButton color="secondary" onClick={() => navigate('/products')}>
+          <CButton color="secondary" onClick={() => navigate("/products")}>
             Cancel
           </CButton>
           <CButton color="primary" type="submit" disabled={submitting}>
-            {submitting ? <CSpinner size="sm" /> : isEdit ? 'Update Product' : 'Create Product'}
+            {submitting ? (
+              <CSpinner size="sm" />
+            ) : isEdit ? (
+              "Update Product"
+            ) : (
+              "Create Product"
+            )}
           </CButton>
         </CCardBody>
       </CCard>
     </CForm>
-  )
-}
+  );
+};
 
-export default ProductForm
+export default ProductForm;

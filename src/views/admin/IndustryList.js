@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -21,99 +21,111 @@ import {
   CInputGroup,
   CInputGroupText,
   CFormSelect,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilSearch } from '@coreui/icons'
-import { EyeIcon } from '../../components'
-import industryService from '../../services/industryService'
-import branchService from '../../services/branchService'
-import areaService from '../../services/areaService'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
-import useBranchContext from '../../hooks/useBranchContext'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilPencil, cilTrash, cilSearch } from "@coreui/icons";
+import { EyeIcon } from "../../components";
+import industryService from "../../services/industryService";
+import branchService from "../../services/branchService";
+import areaService from "../../services/areaService";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
+import useBranchContext from "../../hooks/useBranchContext";
 
 const IndustryList = () => {
-  const MOBILE_BREAKPOINT = 576
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
-  const [industries, setIndustries] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
-  const [categoryFilter, setCategoryFilter] = useState('')
-  const [areas, setAreas] = useState([])
-  const [selectedAreaId, setSelectedAreaId] = useState('')
-  const [branchFilter, setBranchFilter] = useState('')
-  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false)
-  const [branches, setBranches] = useState([])
-  const [pagination, setPagination] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
-  const [isMobileView, setIsMobileView] = useState(false)
+  const MOBILE_BREAKPOINT = 576;
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const [industries, setIndustries] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [areas, setAreas] = useState([]);
+  const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [branchFilter, setBranchFilter] = useState("");
+  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [pagination, setPagination] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
+  const [isMobileView, setIsMobileView] = useState(false);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const loadBranches = async () => {
       try {
-        const response = await branchService.getAll({ pageNumber: 1, pageSize: 100 })
-        if (cancelled) return
-        const list = response?.data?.branches ?? response?.data?.data?.branches ?? response?.branches ?? (Array.isArray(response?.data) ? response.data : [])
-        const arr = Array.isArray(list) ? list : []
-        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })))
+        const response = await branchService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        if (cancelled) return;
+        const list =
+          response?.data?.branches ??
+          response?.data?.data?.branches ??
+          response?.branches ??
+          (Array.isArray(response?.data) ? response.data : []);
+        const arr = Array.isArray(list) ? list : [];
+        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })));
       } catch {
-        if (!cancelled) setBranches([])
+        if (!cancelled) setBranches([]);
       }
-    }
-    loadBranches()
-    return () => { cancelled = true }
-  }, [])
+    };
+    loadBranches();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const fetchAreas = async () => {
       try {
-        const allAreas = []
-        let pageNumber = 1
-        let hasNextPage = true
+        const allAreas = [];
+        let pageNumber = 1;
+        let hasNextPage = true;
         while (hasNextPage) {
-          const res = await areaService.getAll({ pageNumber, pageSize: 100 })
-          const data = res?.data || res
-          const payload = data || {}
-          const pageAreas = payload?.areas || []
-          const pagePagination = payload?.pagination || {}
-          allAreas.push(...pageAreas)
-          hasNextPage = Boolean(pagePagination?.hasNextPage)
-          pageNumber += 1
+          const res = await areaService.getAll({ pageNumber, pageSize: 100 });
+          const data = res?.data || res;
+          const payload = data || {};
+          const pageAreas = payload?.areas || [];
+          const pagePagination = payload?.pagination || {};
+          allAreas.push(...pageAreas);
+          hasNextPage = Boolean(pagePagination?.hasNextPage);
+          pageNumber += 1;
         }
-        if (cancelled) return
-        setAreas(allAreas)
+        if (cancelled) return;
+        setAreas(allAreas);
       } catch {
-        if (cancelled) return
-        setAreas([])
+        if (cancelled) return;
+        setAreas([]);
       }
-    }
-    fetchAreas()
+    };
+    fetchAreas();
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   // Branch isolation: default to user's branch so list shows only that branch's data
   useEffect(() => {
-    if (branchDefaultApplied || !userBranchId || branches.length === 0) return
-    const id = String(userBranchId)
+    if (branchDefaultApplied || !userBranchId || branches.length === 0) return;
+    const id = String(userBranchId);
     if (branches.some((b) => String(b.id || b._id) === id)) {
-      setBranchFilter(id)
-      setBranchDefaultApplied(true)
+      setBranchFilter(id);
+      setBranchDefaultApplied(true);
     }
-  }, [userBranchId, branches, branchDefaultApplied])
+  }, [userBranchId, branches, branchDefaultApplied]);
 
   const fetchIndustries = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
       const params = {
         pageNumber: page,
@@ -121,98 +133,107 @@ const IndustryList = () => {
         search: searchTerm || undefined,
         category: categoryFilter || undefined,
         areaIds: selectedAreaId || undefined,
-      }
+      };
       // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
-      const effectiveBranchId = branchFilter || userBranchId
-      if (effectiveBranchId) params.branchId = effectiveBranchId
-      const res = await withMinimumDelay(() => industryService.getAll(params))
-      const data = res?.data || res
-      setIndustries(data?.industries || [])
-      setPagination(data?.pagination || {})
+      const effectiveBranchId = branchFilter || userBranchId;
+      if (effectiveBranchId) params.branchId = effectiveBranchId;
+      const res = await withMinimumDelay(() => industryService.getAll(params));
+      const data = res?.data || res;
+      setIndustries(data?.industries || []);
+      setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch industries')
+      toastError(err?.message || "Failed to fetch industries");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [page, searchTerm, categoryFilter, selectedAreaId, branchFilter, userBranchId])
+  }, [
+    page,
+    searchTerm,
+    categoryFilter,
+    selectedAreaId,
+    branchFilter,
+    userBranchId,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchIndustries()
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [fetchIndustries])
+      fetchIndustries();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchIndustries]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
-    const onChange = (event) => setIsMobileView(event.matches)
-    setIsMobileView(mediaQuery.matches)
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', onChange)
-      return () => mediaQuery.removeEventListener('change', onChange)
+    if (typeof window === "undefined") return undefined;
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const onChange = (event) => setIsMobileView(event.matches);
+    setIsMobileView(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", onChange);
+      return () => mediaQuery.removeEventListener("change", onChange);
     }
-    mediaQuery.addListener(onChange)
-    return () => mediaQuery.removeListener(onChange)
-  }, [])
+    mediaQuery.addListener(onChange);
+    return () => mediaQuery.removeListener(onChange);
+  }, []);
 
   const branchById = useMemo(() => {
-    const map = new Map()
+    const map = new Map();
     branches.forEach((b) => {
-      const id = b.id || b._id
-      if (id) map.set(String(id), b.name || b.branchcode || id)
-    })
-    return map
-  }, [branches])
+      const id = b.id || b._id;
+      if (id) map.set(String(id), b.name || b.branchcode || id);
+    });
+    return map;
+  }, [branches]);
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (!id) return
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (!id) return;
     try {
-      await industryService.delete(id)
-      toastSuccess('Client deleted successfully')
-      fetchIndustries()
+      await industryService.delete(id);
+      toastSuccess("Client deleted successfully");
+      fetchIndustries();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete client')
+      toastError(err?.message || "Failed to delete client");
     }
-  }
+  };
 
   const getBranchLabel = (industry) => {
-    if (typeof industry.branchId === 'object' && industry.branchId?.name) return industry.branchId.name
-    if (industry.branchId) return branchById.get(String(industry.branchId)) || industry.branchId
-    return '-'
-  }
+    if (typeof industry.branchId === "object" && industry.branchId?.name)
+      return industry.branchId.name;
+    if (industry.branchId)
+      return branchById.get(String(industry.branchId)) || industry.branchId;
+    return "-";
+  };
 
   const getZoneLabel = (industry) => {
-    if (typeof industry.area === 'object') return industry.area?.name || '-'
-    return industry.area || '-'
-  }
+    if (typeof industry.area === "object") return industry.area?.name || "-";
+    return industry.area || "-";
+  };
 
   const getPurchaseManagerLabel = (industry) => {
-    const pms = industry.purchaseManagers || []
+    const pms = industry.purchaseManagers || [];
     if (pms.length > 0) {
-      const first = pms[0]
-      const name = first.name || ''
-      const phone = first.phone || ''
-      if (name && phone) return `${name} - ${phone}`
-      if (name) return name
-      if (phone) return phone
-      return '-'
+      const first = pms[0];
+      const name = first.name || "";
+      const phone = first.phone || "";
+      if (name && phone) return `${name} - ${phone}`;
+      if (name) return name;
+      if (phone) return phone;
+      return "-";
     }
     if (industry.purchase_manager_name || industry.purchase_manager_phone) {
-      const name = industry.purchase_manager_name || ''
-      const phone = industry.purchase_manager_phone || ''
-      if (name && phone) return `${name} - ${phone}`
-      if (name) return name
-      if (phone) return phone
+      const name = industry.purchase_manager_name || "";
+      const phone = industry.purchase_manager_phone || "";
+      if (name && phone) return `${name} - ${phone}`;
+      if (name) return name;
+      if (phone) return phone;
     }
-    return '-'
-  }
+    return "-";
+  };
 
   return (
     <CRow>
@@ -220,8 +241,11 @@ const IndustryList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Clients</strong>
-            {canCreate('industries') && (
-              <CButton color="primary" onClick={() => navigate('/industries/new')}>
+            {canCreate("industries") && (
+              <CButton
+                color="primary"
+                onClick={() => navigate("/industries/new")}
+              >
                 <CIcon icon={cilPlus} className="me-2" />
                 Add client
               </CButton>
@@ -229,7 +253,7 @@ const IndustryList = () => {
           </CCardHeader>
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -244,8 +268,8 @@ const IndustryList = () => {
                     placeholder="Search industries..."
                     value={searchTerm}
                     onChange={(e) => {
-                      setSearchTerm(e.target.value)
-                      setPage(1)
+                      setSearchTerm(e.target.value);
+                      setPage(1);
                     }}
                   />
                 </CInputGroup>
@@ -255,8 +279,8 @@ const IndustryList = () => {
                 <CFormSelect
                   value={branchFilter}
                   onChange={(e) => {
-                    setBranchFilter(e.target.value)
-                    setPage(1)
+                    setBranchFilter(e.target.value);
+                    setPage(1);
                   }}
                   aria-label="Branch filter"
                 >
@@ -273,8 +297,8 @@ const IndustryList = () => {
                   label="Category"
                   value={categoryFilter}
                   onChange={(e) => {
-                    setCategoryFilter(e.target.value)
-                    setPage(1)
+                    setCategoryFilter(e.target.value);
+                    setPage(1);
                   }}
                 >
                   <option value="">All Categories</option>
@@ -289,19 +313,19 @@ const IndustryList = () => {
                 <CFormSelect
                   value={selectedAreaId}
                   onChange={(e) => {
-                    setSelectedAreaId(e.target.value)
-                    setPage(1)
+                    setSelectedAreaId(e.target.value);
+                    setPage(1);
                   }}
                 >
                   <option value="">All Zones</option>
                   {areas.map((a) => {
-                    const id = String(a._id || a.id)
+                    const id = String(a._id || a.id);
                     return (
                       <option key={id} value={id}>
                         {a.name}
-                        {a.city ? ` - ${a.city}` : ''}
+                        {a.city ? ` - ${a.city}` : ""}
                       </option>
-                    )
+                    );
                   })}
                 </CFormSelect>
               </CCol>
@@ -315,7 +339,7 @@ const IndustryList = () => {
                     {industries.length === 0 ? (
                       <div className="text-center text-muted py-4">
                         {searchTerm
-                          ? 'No clients match the current search.'
+                          ? "No clients match the current search."
                           : 'No clients found. Click "Add client" to create one.'}
                       </div>
                     ) : (
@@ -323,21 +347,36 @@ const IndustryList = () => {
                         <CCard
                           key={industry._id}
                           className="mb-3 shadow-sm"
-                          onClick={() => navigate(`/industries/${industry._id}`)}
-                          style={{ cursor: 'pointer' }}
+                          onClick={() =>
+                            navigate(`/industries/${industry._id}`)
+                          }
+                          style={{ cursor: "pointer" }}
                         >
                           <CCardBody>
                             <div className="d-flex justify-content-between align-items-start mb-2">
                               <div>
-                                <div className="small text-muted">#{(page - 1) * 10 + index + 1}</div>
-                                <h6 className="mb-0">{industry.name || '-'}</h6>
+                                <div className="small text-muted">
+                                  #{(page - 1) * 10 + index + 1}
+                                </div>
+                                <h6 className="mb-0">{industry.name || "-"}</h6>
                               </div>
                             </div>
                             <div className="small">
-                              <div className="mb-1"><strong>Category:</strong> {industry.category || '-'}</div>
-                              <div className="mb-1"><strong>GST No:</strong> {industry.gstNumber || '-'}</div>
-                              <div className="mb-1"><strong>Zone:</strong> {getZoneLabel(industry)}</div>
-                              <div className="mb-1"><strong>Purchase Manager:</strong> {getPurchaseManagerLabel(industry)}</div>
+                              <div className="mb-1">
+                                <strong>Category:</strong>{" "}
+                                {industry.category || "-"}
+                              </div>
+                              <div className="mb-1">
+                                <strong>GST No:</strong>{" "}
+                                {industry.gstNumber || "-"}
+                              </div>
+                              <div className="mb-1">
+                                <strong>Zone:</strong> {getZoneLabel(industry)}
+                              </div>
+                              <div className="mb-1">
+                                <strong>Purchase Manager:</strong>{" "}
+                                {getPurchaseManagerLabel(industry)}
+                              </div>
                             </div>
                             <div className="mt-3 d-flex gap-2">
                               <CButton
@@ -345,35 +384,37 @@ const IndustryList = () => {
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  navigate(`/industries/${industry._id}`)
+                                  e.stopPropagation();
+                                  navigate(`/industries/${industry._id}`);
                                 }}
                                 title="View"
                               >
                                 <EyeIcon />
                               </CButton>
-                              {canUpdate('industries') && (
+                              {canUpdate("industries") && (
                                 <CButton
                                   color="warning"
                                   variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    navigate(`/industries/edit/${industry._id}`)
+                                    e.stopPropagation();
+                                    navigate(
+                                      `/industries/edit/${industry._id}`,
+                                    );
                                   }}
                                   title="Edit"
                                 >
                                   <CIcon icon={cilPencil} />
                                 </CButton>
                               )}
-                              {canDelete('industries') && (
+                              {canDelete("industries") && (
                                 <CButton
                                   color="danger"
                                   variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteClick(industry._id)
+                                    e.stopPropagation();
+                                    handleDeleteClick(industry._id);
                                   }}
                                   title="Delete"
                                 >
@@ -404,53 +445,67 @@ const IndustryList = () => {
                       {industries.map((industry, index) => (
                         <CTableRow
                           key={industry._id}
-                          onClick={() => navigate(`/industries/${industry._id}`)}
-                          style={{ cursor: 'pointer' }}
+                          onClick={() =>
+                            navigate(`/industries/${industry._id}`)
+                          }
+                          style={{ cursor: "pointer" }}
                         >
-                          <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
+                          <CTableDataCell>
+                            {(page - 1) * 10 + index + 1}
+                          </CTableDataCell>
                           <CTableDataCell>
                             <strong>{industry.name}</strong>
                           </CTableDataCell>
-                          <CTableDataCell>{industry.category || '-'}</CTableDataCell>
-                          <CTableDataCell>{industry.gstNumber || '-'}</CTableDataCell>
-                          <CTableDataCell>{getZoneLabel(industry)}</CTableDataCell>
-                          <CTableDataCell>{getPurchaseManagerLabel(industry)}</CTableDataCell>
-                          <CTableDataCell>{industry.address || '-'}</CTableDataCell>
+                          <CTableDataCell>
+                            {industry.category || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {industry.gstNumber || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {getZoneLabel(industry)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {getPurchaseManagerLabel(industry)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {industry.address || "-"}
+                          </CTableDataCell>
                           <CTableDataCell>
                             <CButton
                               color="info"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/industries/${industry._id}`)
+                                e.stopPropagation();
+                                navigate(`/industries/${industry._id}`);
                               }}
                               title="View"
                             >
                               <EyeIcon />
                             </CButton>
-                            {canUpdate('industries') && (
+                            {canUpdate("industries") && (
                               <CButton
                                 color="warning"
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  navigate(`/industries/edit/${industry._id}`)
+                                  e.stopPropagation();
+                                  navigate(`/industries/edit/${industry._id}`);
                                 }}
                                 title="Edit"
                               >
                                 <CIcon icon={cilPencil} />
                               </CButton>
                             )}
-                            {canDelete('industries') && (
+                            {canDelete("industries") && (
                               <CButton
                                 color="danger"
                                 variant="ghost"
                                 size="sm"
                                 onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleDeleteClick(industry._id)
+                                  e.stopPropagation();
+                                  handleDeleteClick(industry._id);
                                 }}
                                 title="Delete"
                               >
@@ -464,7 +519,7 @@ const IndustryList = () => {
                         <CTableRow>
                           <CTableDataCell colSpan={9} className="text-center">
                             {searchTerm
-                              ? 'No clients match the current search.'
+                              ? "No clients match the current search."
                               : 'No clients found. Click "Add client" to create one.'}
                           </CTableDataCell>
                         </CTableRow>
@@ -475,8 +530,17 @@ const IndustryList = () => {
                 {pagination.totalPages > 1 && (
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     <div className="small text-medium-emphasis">
-                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
-                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                      Showing{" "}
+                      {((pagination?.currentPage ?? 1) - 1) *
+                        (pagination?.itemsPerPage ?? 10) +
+                        1}
+                      -
+                      {Math.min(
+                        (pagination?.currentPage ?? 1) *
+                          (pagination?.itemsPerPage ?? 10),
+                        pagination?.totalItems ?? 0,
+                      )}{" "}
+                      of {pagination?.totalItems ?? 0}
                     </div>
                     <CPagination className="mb-0">
                       <CPaginationItem
@@ -519,7 +583,7 @@ const IndustryList = () => {
         cancelText="Cancel"
       />
     </CRow>
-  )
-}
+  );
+};
 
-export default IndustryList
+export default IndustryList;

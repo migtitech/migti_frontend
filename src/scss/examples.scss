@@ -26,7 +26,7 @@
 
     > .form-control {
       + .form-control {
-        margin-top: .5rem;
+        margin-top: 0.5rem;
       }
     }
 
@@ -49,7 +49,7 @@
     // Images
     > svg + svg,
     > img + img {
-      margin-left: .5rem;
+      margin-left: 0.5rem;
     }
 
     // Buttons
@@ -57,10 +57,10 @@
     .col-auto > .btn,
     > .btn,
     > .btn-group {
-      margin: .25rem .125rem;
+      margin: 0.25rem 0.125rem;
     }
     > .btn-toolbar + .btn-toolbar {
-      margin-top: .5rem;
+      margin-top: 0.5rem;
     }
 
     // List groups
@@ -96,8 +96,8 @@
 
     // Pagination
     .pagination {
-      margin-top: .5rem;
-      margin-bottom: .5rem;
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
     }
 
     .docs-example-modal {

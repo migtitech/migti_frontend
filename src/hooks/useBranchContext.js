@@ -1,5 +1,5 @@
-import { useMemo } from 'react'
-import { useAuth, FULL_ACCESS_ROLES } from '../context/AuthContext'
+import { useMemo } from "react";
+import { useAuth, FULL_ACCESS_ROLES } from "../context/AuthContext";
 
 /**
  * Branch context for branch-based data isolation (same pattern as Queries/Quotations).
@@ -7,23 +7,23 @@ import { useAuth, FULL_ACCESS_ROLES } from '../context/AuthContext'
  * - canSelectBranch: true for admin/super_admin so UI can show branch dropdown and pass branchId in list params.
  */
 const useBranchContext = () => {
-  const { user } = useAuth()
+  const { user } = useAuth();
 
   const branchId = useMemo(() => {
-    const raw = user?.branchId ?? user?.branch_id
-    if (raw == null) return null
-    return String(raw)
-  }, [user?.branchId, user?.branch_id])
+    const raw = user?.branchId ?? user?.branch_id;
+    if (raw == null) return null;
+    return String(raw);
+  }, [user?.branchId, user?.branch_id]);
 
   const canSelectBranch = useMemo(
     () => !!user && FULL_ACCESS_ROLES.includes(user.role),
     [user],
-  )
+  );
 
   return {
     branchId,
     canSelectBranch,
-  }
-}
+  };
+};
 
-export default useBranchContext
+export default useBranchContext;

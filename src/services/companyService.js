@@ -1,5 +1,5 @@
-import { api } from '../api/axiosClient'
-import { COMPANIES } from '../api/endpoints'
+import { api } from "../api/axiosClient";
+import { COMPANIES } from "../api/endpoints";
 
 const companyService = {
   /**
@@ -8,8 +8,8 @@ const companyService = {
    * @returns {Promise}
    */
   getAll: async (params = {}) => {
-    const response = await api.get(COMPANIES.LIST, { params })
-    return response
+    const response = await api.get(COMPANIES.LIST, { params });
+    return response;
   },
 
   /**
@@ -20,8 +20,8 @@ const companyService = {
   getById: async (id) => {
     const response = await api.get(COMPANIES.GET_BY_ID, {
       params: { companyId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -30,8 +30,8 @@ const companyService = {
    * @returns {Promise}
    */
   create: async (companyData) => {
-    const response = await api.post(COMPANIES.CREATE, companyData)
-    return response
+    const response = await api.post(COMPANIES.CREATE, companyData);
+    return response;
   },
 
   /**
@@ -43,8 +43,8 @@ const companyService = {
   update: async (id, companyData) => {
     const response = await api.put(COMPANIES.UPDATE, companyData, {
       params: { companyId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -55,8 +55,8 @@ const companyService = {
   delete: async (id) => {
     const response = await api.delete(COMPANIES.DELETE, {
       params: { companyId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -65,13 +65,13 @@ const companyService = {
    * @returns {Promise<{ data: { url: string } }>}
    */
   uploadLogo: async (file) => {
-    const formData = new FormData()
-    formData.append('logo', file)
+    const formData = new FormData();
+    formData.append("logo", file);
     const response = await api.post(COMPANIES.UPLOAD_LOGO, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    })
-    return response
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response;
   },
-}
+};
 
-export default companyService
+export default companyService;

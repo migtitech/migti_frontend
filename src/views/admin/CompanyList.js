@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -15,62 +15,67 @@ import {
   CButton,
   CAlert,
   CBadge,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilLocationPin } from '@coreui/icons'
-import { EyeIcon } from '../../components'
-import Filtered from '../../filtered/Filtered'
-import companyService from '../../services/companyService'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilPencil, cilTrash, cilLocationPin } from "@coreui/icons";
+import { EyeIcon } from "../../components";
+import Filtered from "../../filtered/Filtered";
+import companyService from "../../services/companyService";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
 
 const CompanyList = () => {
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
-  const [companies, setCompanies] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [companies, setCompanies] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
 
   const fetchCompanies = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      const res = await withMinimumDelay(() => companyService.getAll({ search: searchTerm || '' }))
-      const data = res?.data || res
-      setCompanies(data?.companies || data || [])
+      const res = await withMinimumDelay(() =>
+        companyService.getAll({ search: searchTerm || "" }),
+      );
+      const data = res?.data || res;
+      setCompanies(data?.companies || data || []);
     } catch (err) {
-      setError(err?.message || 'Failed to fetch companies')
+      setError(err?.message || "Failed to fetch companies");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(fetchCompanies, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
+    const timer = setTimeout(fetchCompanies, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (!id) return
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (!id) return;
     try {
-      await companyService.delete(id)
-      toastSuccess('Company deleted successfully')
-      fetchCompanies()
+      await companyService.delete(id);
+      toastSuccess("Company deleted successfully");
+      fetchCompanies();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete company')
+      toastError(err?.message || "Failed to delete company");
     }
-  }
+  };
 
   return (
     <CRow>
@@ -78,8 +83,11 @@ const CompanyList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Companies</strong>
-            {canCreate('companies') && (
-              <CButton color="primary" onClick={() => navigate('/companies/new')}>
+            {canCreate("companies") && (
+              <CButton
+                color="primary"
+                onClick={() => navigate("/companies/new")}
+              >
                 <CIcon icon={cilPlus} className="me-2" />
                 Add Company
               </CButton>
@@ -88,7 +96,12 @@ const CompanyList = () => {
 
           <CCardBody>
             {error && (
-              <CAlert color="danger" className="mb-3" dismissible onClose={() => setError('')}>
+              <CAlert
+                color="danger"
+                className="mb-3"
+                dismissible
+                onClose={() => setError("")}
+              >
                 {error}
               </CAlert>
             )}
@@ -113,30 +126,42 @@ const CompanyList = () => {
 
                 <CTableBody>
                   {companies.map((company, index) => {
-                    const id = company._id || company.id
+                    const id = company._id || company.id;
                     return (
-                      <CTableRow key={id} 
+                      <CTableRow
+                        key={id}
                         onClick={() => navigate(`/companies/${id}`)}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: "pointer" }}
                       >
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>{company.name}</CTableDataCell>
                         <CTableDataCell>{company.brandName}</CTableDataCell>
                         <CTableDataCell>{company.email}</CTableDataCell>
                         <CTableDataCell>
-                          {(company.logoDisplayUrl || company.logoUrl) ? (
+                          {company.logoDisplayUrl || company.logoUrl ? (
                             <img
                               src={company.logoDisplayUrl || company.logoUrl}
                               alt="Logo"
-                              style={{ height: 32, width: 'auto', maxWidth: 80, objectFit: 'contain' }}
+                              style={{
+                                height: 32,
+                                width: "auto",
+                                maxWidth: 80,
+                                objectFit: "contain",
+                              }}
                             />
                           ) : (
-                            '-'
+                            "-"
                           )}
                         </CTableDataCell>
                         <CTableDataCell>
-                          <CBadge color={company.isActive !== false ? 'success' : 'secondary'}>
-                            {company.isActive !== false ? 'Active' : 'Inactive'}
+                          <CBadge
+                            color={
+                              company.isActive !== false
+                                ? "success"
+                                : "secondary"
+                            }
+                          >
+                            {company.isActive !== false ? "Active" : "Inactive"}
                           </CBadge>
                         </CTableDataCell>
                         <CTableDataCell onClick={(e) => e.stopPropagation()}>
@@ -146,43 +171,45 @@ const CompanyList = () => {
                             size="sm"
                             title="View"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/companies/${id}`)
+                              e.stopPropagation();
+                              navigate(`/companies/${id}`);
                             }}
                           >
                             <EyeIcon />
                           </CButton>
 
-                          {canUpdate('companies') && (
+                          {canUpdate("companies") && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
                               title="Edit"
-                              onClick={(e) =>{
-                                e.stopPropagation()
-                                navigate(`/companies/edit/${id}`)}}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/companies/edit/${id}`);
+                              }}
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
 
-                          {canDelete('companies') && (
+                          {canDelete("companies") && (
                             <CButton
                               color="danger"
                               variant="ghost"
                               size="sm"
                               title="Delete"
-                              onClick={(e) =>{
-                                e.stopPropagation()
-                                handleDeleteClick(id)}}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteClick(id);
+                              }}
                             >
                               <CIcon icon={cilTrash} />
                             </CButton>
                           )}
                         </CTableDataCell>
                       </CTableRow>
-                    )
+                    );
                   })}
 
                   {companies.length === 0 && (
@@ -211,7 +238,7 @@ const CompanyList = () => {
         cancelText="Cancel"
       />
     </CRow>
-  )
-}
+  );
+};
 
-export default CompanyList
+export default CompanyList;

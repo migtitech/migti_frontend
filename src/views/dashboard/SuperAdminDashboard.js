@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   CCard,
   CCardBody,
@@ -13,29 +13,36 @@ import {
   CTableBody,
   CTableDataCell,
   CBadge,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPeople, cilBuilding, cilBriefcase, cilChartLine } from '@coreui/icons'
-import { useData } from '../../context/DataContext'
-import { useAuth } from '../../context/AuthContext'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import {
+  cilPeople,
+  cilBuilding,
+  cilBriefcase,
+  cilChartLine,
+} from "@coreui/icons";
+import { useData } from "../../context/DataContext";
+import { useAuth } from "../../context/AuthContext";
 
 const SuperAdminDashboard = () => {
-  const { companies, branches, branchUsers } = useData()
-  const { user } = useAuth()
+  const { companies, branches, branchUsers } = useData();
+  const { user } = useAuth();
 
   const stats = {
     totalCompanies: companies.length,
     totalBranches: branches.length,
     totalUsers: branchUsers.length,
     activeUsers: branchUsers.length, // In real app, filter by status
-  }
+  };
 
   return (
     <>
       <CRow className="mb-4">
         <CCol>
           <h2>Welcome, {user?.name}</h2>
-          <p className="text-body-secondary">Super Admin Dashboard - MigtiCRM</p>
+          <p className="text-body-secondary">
+            Super Admin Dashboard - MigtiCRM
+          </p>
         </CCol>
       </CRow>
 
@@ -47,7 +54,11 @@ const SuperAdminDashboard = () => {
             value={stats.totalCompanies.toString()}
             title="Total Companies"
             chart={
-              <CIcon icon={cilBuilding} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilBuilding}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -58,7 +69,11 @@ const SuperAdminDashboard = () => {
             value={stats.totalBranches.toString()}
             title="Total Branches"
             chart={
-              <CIcon icon={cilBriefcase} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilBriefcase}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -69,7 +84,11 @@ const SuperAdminDashboard = () => {
             value={stats.totalUsers.toString()}
             title="Total Users"
             chart={
-              <CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilPeople}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -80,7 +99,11 @@ const SuperAdminDashboard = () => {
             value={stats.activeUsers.toString()}
             title="Active Users"
             chart={
-              <CIcon icon={cilChartLine} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilChartLine}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -108,7 +131,10 @@ const SuperAdminDashboard = () => {
                       <CTableDataCell>{company.location}</CTableDataCell>
                       <CTableDataCell>
                         <CBadge color="info">
-                          {branches.filter((b) => b.companyId === company.id).length}
+                          {
+                            branches.filter((b) => b.companyId === company.id)
+                              .length
+                          }
                         </CBadge>
                       </CTableDataCell>
                     </CTableRow>
@@ -135,18 +161,26 @@ const SuperAdminDashboard = () => {
                 </CTableHead>
                 <CTableBody>
                   {branches.slice(0, 5).map((branch) => {
-                    const company = companies.find((c) => c.id === branch.companyId)
+                    const company = companies.find(
+                      (c) => c.id === branch.companyId,
+                    );
                     return (
                       <CTableRow key={branch.id}>
                         <CTableDataCell>{branch.name}</CTableDataCell>
-                        <CTableDataCell>{company?.name || 'N/A'}</CTableDataCell>
+                        <CTableDataCell>
+                          {company?.name || "N/A"}
+                        </CTableDataCell>
                         <CTableDataCell>
                           <CBadge color="success">
-                            {branchUsers.filter((u) => u.branchId === branch.id).length}
+                            {
+                              branchUsers.filter(
+                                (u) => u.branchId === branch.id,
+                              ).length
+                            }
                           </CBadge>
                         </CTableDataCell>
                       </CTableRow>
-                    )
+                    );
                   })}
                 </CTableBody>
               </CTable>
@@ -165,19 +199,27 @@ const SuperAdminDashboard = () => {
               <CRow>
                 <CCol md={4}>
                   <div className="border-start border-start-4 border-start-primary py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Platform</div>
+                    <div className="text-body-secondary text-truncate small">
+                      Platform
+                    </div>
                     <div className="fs-5 fw-semibold">MigtiCRM v1.0</div>
                   </div>
                 </CCol>
                 <CCol md={4}>
                   <div className="border-start border-start-4 border-start-info py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Organization</div>
-                    <div className="fs-5 fw-semibold">Migti Industrial Pvt Ltd</div>
+                    <div className="text-body-secondary text-truncate small">
+                      Organization
+                    </div>
+                    <div className="fs-5 fw-semibold">
+                      Migti Industrial Pvt Ltd
+                    </div>
                   </div>
                 </CCol>
                 <CCol md={4}>
                   <div className="border-start border-start-4 border-start-success py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Status</div>
+                    <div className="text-body-secondary text-truncate small">
+                      Status
+                    </div>
                     <div className="fs-5 fw-semibold text-success">Active</div>
                   </div>
                 </CCol>
@@ -187,7 +229,7 @@ const SuperAdminDashboard = () => {
         </CCol>
       </CRow>
     </>
-  )
-}
+  );
+};
 
-export default SuperAdminDashboard
+export default SuperAdminDashboard;

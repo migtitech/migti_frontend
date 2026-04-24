@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -10,37 +10,39 @@ import {
   CAlert,
   CListGroup,
   CListGroupItem,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil } from '@coreui/icons'
-import industryBranchService from '../../services/industryBranchService'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft, cilPencil } from "@coreui/icons";
+import industryBranchService from "../../services/industryBranchService";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastError } from "../../utils/toast";
 
 const IndustryBranchView = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [branch, setBranch] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [branch, setBranch] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const fetchBranch = async () => {
-      setLoading(true)
-      setError('')
+      setLoading(true);
+      setError("");
       try {
-        const res = await withMinimumDelay(() => industryBranchService.getById(id))
-        const data = res?.data?.data || res?.data || res
-        setBranch(data)
+        const res = await withMinimumDelay(() =>
+          industryBranchService.getById(id),
+        );
+        const data = res?.data?.data || res?.data || res;
+        setBranch(data);
       } catch (err) {
-        toastError(err?.message || 'Failed to fetch client branch')
+        toastError(err?.message || "Failed to fetch client branch");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    fetchBranch()
-  }, [id])
+    };
+    fetchBranch();
+  }, [id]);
 
   if (loading) {
     return (
@@ -49,39 +51,39 @@ const IndustryBranchView = () => {
           <Loader message="Loading client branch..." />
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   if (error) {
     return (
       <CAlert color="danger">
         {error}
-        <CButton color="link" onClick={() => navigate('/industry-branches')}>
+        <CButton color="link" onClick={() => navigate("/industry-branches")}>
           Back to client branches
         </CButton>
       </CAlert>
-    )
+    );
   }
 
   if (!branch) {
     return (
       <CAlert color="warning">
         Client branch not found.
-        <CButton color="link" onClick={() => navigate('/industry-branches')}>
+        <CButton color="link" onClick={() => navigate("/industry-branches")}>
           Back to client branches
         </CButton>
       </CAlert>
-    )
+    );
   }
 
   const industryName =
-    typeof branch.industryId === 'object' ? branch.industryId?.name : '-'
+    typeof branch.industryId === "object" ? branch.industryId?.name : "-";
 
   return (
     <>
       <CRow className="mb-3">
         <CCol className="d-flex gap-2">
-          <CButton color="light" onClick={() => navigate('/industry-branches')}>
+          <CButton color="light" onClick={() => navigate("/industry-branches")}>
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back
           </CButton>
@@ -109,16 +111,16 @@ const IndustryBranchView = () => {
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Location:</strong>
-                  <span>{branch.location || '-'}</span>
+                  <span>{branch.location || "-"}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>GST Number:</strong>
-                  <span>{branch.gst || '-'}</span>
+                  <span>{branch.gst || "-"}</span>
                 </CListGroupItem>
                 <CListGroupItem>
                   <strong>Address:</strong>
                   <p className="mb-0 mt-2">
-                    {branch.address || 'No address provided'}
+                    {branch.address || "No address provided"}
                   </p>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
@@ -126,7 +128,7 @@ const IndustryBranchView = () => {
                   <span>
                     {branch.createdAt
                       ? new Date(branch.createdAt).toLocaleDateString()
-                      : '-'}
+                      : "-"}
                   </span>
                 </CListGroupItem>
               </CListGroup>
@@ -135,7 +137,7 @@ const IndustryBranchView = () => {
         </CCol>
       </CRow>
     </>
-  )
-}
+  );
+};
 
-export default IndustryBranchView
+export default IndustryBranchView;

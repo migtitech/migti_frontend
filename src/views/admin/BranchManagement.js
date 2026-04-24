@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -24,22 +24,22 @@ import {
   CFormLabel,
   CBreadcrumb,
   CBreadcrumbItem,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
 import {
   cilPlus,
   cilPencil,
   cilTrash,
   cilPeople,
   cilArrowLeft,
-} from '@coreui/icons'
-import { useData } from '../../context/DataContext'
-import { ConfirmDialog } from '../../components'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/icons";
+import { useData } from "../../context/DataContext";
+import { ConfirmDialog } from "../../components";
+import usePermissions from "../../hooks/usePermissions";
 
 const BranchManagement = () => {
-  const { companyId } = useParams()
-  const navigate = useNavigate()
+  const { companyId } = useParams();
+  const navigate = useNavigate();
   const {
     getCompanyById,
     getBranchesByCompany,
@@ -47,91 +47,94 @@ const BranchManagement = () => {
     updateBranch,
     deleteBranch,
     getUsersByBranch,
-  } = useData()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-  const canCreateBranches = canCreate('branches')
-  const canUpdateBranches = canUpdate('branches')
-  const canDeleteBranches = canDelete('branches')
+  } = useData();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateBranches = canCreate("branches");
+  const canUpdateBranches = canUpdate("branches");
+  const canDeleteBranches = canDelete("branches");
 
-  const company = getCompanyById(parseInt(companyId))
-  const branches = getBranchesByCompany(parseInt(companyId))
+  const company = getCompanyById(parseInt(companyId));
+  const branches = getBranchesByCompany(parseInt(companyId));
 
-  const [showModal, setShowModal] = useState(false)
-  const [editingBranch, setEditingBranch] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [showModal, setShowModal] = useState(false);
+  const [editingBranch, setEditingBranch] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    location: '',
-    logo: '',
-  })
+    name: "",
+    email: "",
+    location: "",
+    logo: "",
+  });
 
   if (!company) {
     return (
       <CCard>
         <CCardBody className="text-center">
           <h4>Company not found</h4>
-          <CButton color="primary" onClick={() => navigate('/admin/dashboard')}>
+          <CButton color="primary" onClick={() => navigate("/admin/dashboard")}>
             Back to Dashboard
           </CButton>
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   const handleOpenModal = (branch = null) => {
     if (branch) {
-      setEditingBranch(branch)
+      setEditingBranch(branch);
       setFormData({
         name: branch.name,
         email: branch.email,
         location: branch.location,
-        logo: branch.logo || '',
-      })
+        logo: branch.logo || "",
+      });
     } else {
-      setEditingBranch(null)
-      setFormData({ name: '', email: '', location: '', logo: '' })
+      setEditingBranch(null);
+      setFormData({ name: "", email: "", location: "", logo: "" });
     }
-    setShowModal(true)
-  }
+    setShowModal(true);
+  };
 
   const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingBranch(null)
-    setFormData({ name: '', email: '', location: '', logo: '' })
-  }
+    setShowModal(false);
+    setEditingBranch(null);
+    setFormData({ name: "", email: "", location: "", logo: "" });
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (editingBranch) {
-      updateBranch(editingBranch.id, formData)
+      updateBranch(editingBranch.id, formData);
     } else {
-      addBranch({ ...formData, companyId: parseInt(companyId) })
+      addBranch({ ...formData, companyId: parseInt(companyId) });
     }
-    handleCloseModal()
-  }
+    handleCloseModal();
+  };
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (id != null) deleteBranch(id)
-  }
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (id != null) deleteBranch(id);
+  };
 
   const handleViewUsers = (branchId) => {
-    navigate(`/admin/companies/${companyId}/branches/${branchId}/users`)
-  }
+    navigate(`/admin/companies/${companyId}/branches/${branchId}/users`);
+  };
 
   return (
     <>
       <CBreadcrumb className="mb-4">
         <CBreadcrumbItem>
           <span
-            style={{ cursor: 'pointer', color: 'var(--cui-link-color)' }}
-            onClick={() => navigate('/dashboard')}
+            style={{ cursor: "pointer", color: "var(--cui-link-color)" }}
+            onClick={() => navigate("/dashboard")}
           >
             Dashboard
           </span>
@@ -141,7 +144,11 @@ const BranchManagement = () => {
 
       <CRow className="mb-4">
         <CCol>
-          <CButton color="link" className="p-0 mb-2" onClick={() => navigate('/dashboard')}>
+          <CButton
+            color="link"
+            className="p-0 mb-2"
+            onClick={() => navigate("/dashboard")}
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to Companies
           </CButton>
@@ -156,7 +163,11 @@ const BranchManagement = () => {
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Branches</strong>
               {canCreateBranches ? (
-                <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
+                <CButton
+                  color="primary"
+                  size="sm"
+                  onClick={() => handleOpenModal()}
+                >
                   <CIcon icon={cilPlus} className="me-1" />
                   Add Branch
                 </CButton>
@@ -178,7 +189,7 @@ const BranchManagement = () => {
                   {branches.map((branch, index) => (
                     <CTableRow
                       key={branch.id}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: "pointer" }}
                       onClick={() => navigate(`/branches/${branch.id}`)}
                     >
                       <CTableDataCell>{index + 1}</CTableDataCell>
@@ -188,10 +199,10 @@ const BranchManagement = () => {
                       <CTableDataCell onClick={(e) => e.stopPropagation()}>
                         <CBadge
                           color="success"
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: "pointer" }}
                           onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewUsers(branch.id)
+                            e.stopPropagation();
+                            handleViewUsers(branch.id);
                           }}
                         >
                           {getUsersByBranch(branch.id).length} Users
@@ -203,8 +214,8 @@ const BranchManagement = () => {
                           variant="ghost"
                           size="sm"
                           onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewUsers(branch.id)
+                            e.stopPropagation();
+                            handleViewUsers(branch.id);
                           }}
                           title="Manage Users"
                         >
@@ -216,8 +227,8 @@ const BranchManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenModal(branch)
+                              e.stopPropagation();
+                              handleOpenModal(branch);
                             }}
                             title="Edit"
                           >
@@ -230,8 +241,8 @@ const BranchManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteClick(branch.id)
+                              e.stopPropagation();
+                              handleDeleteClick(branch.id);
                             }}
                             title="Delete"
                           >
@@ -243,7 +254,10 @@ const BranchManagement = () => {
                   ))}
                   {branches.length === 0 && (
                     <CTableRow>
-                      <CTableDataCell colSpan={6} className="text-center text-body-secondary">
+                      <CTableDataCell
+                        colSpan={6}
+                        className="text-center text-body-secondary"
+                      >
                         No branches found.
                       </CTableDataCell>
                     </CTableRow>
@@ -255,67 +269,77 @@ const BranchManagement = () => {
         </CCol>
       </CRow>
 
-      {(canCreateBranches || (canUpdateBranches && editingBranch)) ? (
-      <CModal visible={showModal} onClose={handleCloseModal}>
-        <CForm onSubmit={handleSubmit}>
-          <CModalHeader>
-            <CModalTitle>{editingBranch ? 'Edit Branch' : 'Add New Branch'}</CModalTitle>
-          </CModalHeader>
-          <CModalBody>
-            <div className="mb-3">
-              <CFormLabel htmlFor="name">Branch Name</CFormLabel>
-              <CFormInput
-                id="name"
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter branch name"
-                required
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel htmlFor="email">Email</CFormLabel>
-              <CFormInput
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="Enter branch email"
-                required
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel htmlFor="location">Location</CFormLabel>
-              <CFormInput
-                id="location"
-                type="text"
-                value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                placeholder="Enter branch location"
-                required
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel htmlFor="logo">Logo URL (Optional)</CFormLabel>
-              <CFormInput
-                id="logo"
-                type="text"
-                value={formData.logo}
-                onChange={(e) => setFormData({ ...formData, logo: e.target.value })}
-                placeholder="Enter logo URL"
-              />
-            </div>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={handleCloseModal}>
-              Cancel
-            </CButton>
-            <CButton color="primary" type="submit">
-              {editingBranch ? 'Update' : 'Create'}
-            </CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
+      {canCreateBranches || (canUpdateBranches && editingBranch) ? (
+        <CModal visible={showModal} onClose={handleCloseModal}>
+          <CForm onSubmit={handleSubmit}>
+            <CModalHeader>
+              <CModalTitle>
+                {editingBranch ? "Edit Branch" : "Add New Branch"}
+              </CModalTitle>
+            </CModalHeader>
+            <CModalBody>
+              <div className="mb-3">
+                <CFormLabel htmlFor="name">Branch Name</CFormLabel>
+                <CFormInput
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="Enter branch name"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <CFormLabel htmlFor="email">Email</CFormLabel>
+                <CFormInput
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="Enter branch email"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <CFormLabel htmlFor="location">Location</CFormLabel>
+                <CFormInput
+                  id="location"
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                  placeholder="Enter branch location"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <CFormLabel htmlFor="logo">Logo URL (Optional)</CFormLabel>
+                <CFormInput
+                  id="logo"
+                  type="text"
+                  value={formData.logo}
+                  onChange={(e) =>
+                    setFormData({ ...formData, logo: e.target.value })
+                  }
+                  placeholder="Enter logo URL"
+                />
+              </div>
+            </CModalBody>
+            <CModalFooter>
+              <CButton color="secondary" onClick={handleCloseModal}>
+                Cancel
+              </CButton>
+              <CButton color="primary" type="submit">
+                {editingBranch ? "Update" : "Create"}
+              </CButton>
+            </CModalFooter>
+          </CForm>
+        </CModal>
       ) : null}
 
       {canDeleteBranches ? (
@@ -330,7 +354,7 @@ const BranchManagement = () => {
         />
       ) : null}
     </>
-  )
-}
+  );
+};
 
-export default BranchManagement
+export default BranchManagement;

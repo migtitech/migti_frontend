@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -19,55 +19,61 @@ import {
   CFormSelect,
   CFormInput,
   CFormLabel,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilLockLocked, cilLockUnlocked } from '@coreui/icons'
-import { EyeIcon } from '../../components'
-import queryService from '../../services/queryService'
-import areaService from '../../services/areaService'
-import Filtered from '../../filtered/Filtered'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import {
+  cilPlus,
+  cilPencil,
+  cilTrash,
+  cilLockLocked,
+  cilLockUnlocked,
+} from "@coreui/icons";
+import { EyeIcon } from "../../components";
+import queryService from "../../services/queryService";
+import areaService from "../../services/areaService";
+import Filtered from "../../filtered/Filtered";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
 
-const FILTERS_LOCKED_KEY = 'migti_queries_list_filters_locked'
-const FILTERS_STATUS_KEY = 'migti_queries_list_filters_status'
-const FILTERS_DATE_FROM_KEY = 'migti_queries_list_filters_date_from'
-const FILTERS_DATE_TO_KEY = 'migti_queries_list_filters_date_to'
+const FILTERS_LOCKED_KEY = "migti_queries_list_filters_locked";
+const FILTERS_STATUS_KEY = "migti_queries_list_filters_status";
+const FILTERS_DATE_FROM_KEY = "migti_queries_list_filters_date_from";
+const FILTERS_DATE_TO_KEY = "migti_queries_list_filters_date_to";
 /** Previous single-field lock (migrated on next save) */
-const LEGACY_STATUS_LOCK_KEY = 'migti_queries_list_status_filter_locked'
-const LEGACY_STATUS_VALUE_KEY = 'migti_queries_list_status_filter'
+const LEGACY_STATUS_LOCK_KEY = "migti_queries_list_status_filter_locked";
+const LEGACY_STATUS_VALUE_KEY = "migti_queries_list_status_filter";
 
 const readFiltersLocked = () => {
   try {
-    if (localStorage.getItem(FILTERS_LOCKED_KEY) === '1') return true
-    return localStorage.getItem(LEGACY_STATUS_LOCK_KEY) === '1'
+    if (localStorage.getItem(FILTERS_LOCKED_KEY) === "1") return true;
+    return localStorage.getItem(LEGACY_STATUS_LOCK_KEY) === "1";
   } catch {
-    return false
+    return false;
   }
-}
+};
 
 const readPersistedFilters = () => {
   if (!readFiltersLocked()) {
-    return { status: '', dateFrom: '', dateTo: '' }
+    return { status: "", dateFrom: "", dateTo: "" };
   }
   try {
     const status =
       localStorage.getItem(FILTERS_STATUS_KEY) ??
       localStorage.getItem(LEGACY_STATUS_VALUE_KEY) ??
-      ''
-    const dateFrom = localStorage.getItem(FILTERS_DATE_FROM_KEY) ?? ''
-    let dateTo = localStorage.getItem(FILTERS_DATE_TO_KEY) ?? ''
-    if (dateFrom && dateTo && dateTo < dateFrom) dateTo = ''
-    return { status, dateFrom, dateTo }
+      "";
+    const dateFrom = localStorage.getItem(FILTERS_DATE_FROM_KEY) ?? "";
+    let dateTo = localStorage.getItem(FILTERS_DATE_TO_KEY) ?? "";
+    if (dateFrom && dateTo && dateTo < dateFrom) dateTo = "";
+    return { status, dateFrom, dateTo };
   } catch {
-    return { status: '', dateFrom: '', dateTo: '' }
+    return { status: "", dateFrom: "", dateTo: "" };
   }
-}
+};
 
 const clearPersistedFilters = () => {
-  ;[
+  [
     FILTERS_LOCKED_KEY,
     LEGACY_STATUS_LOCK_KEY,
     FILTERS_STATUS_KEY,
@@ -76,79 +82,82 @@ const clearPersistedFilters = () => {
     FILTERS_DATE_TO_KEY,
   ].forEach((k) => {
     try {
-      localStorage.removeItem(k)
+      localStorage.removeItem(k);
     } catch {
       /* ignore */
     }
-  })
-}
+  });
+};
 
 const persistLockedFilters = (status, from, to) => {
   try {
-    localStorage.setItem(FILTERS_LOCKED_KEY, '1')
-    localStorage.setItem(FILTERS_STATUS_KEY, status)
-    localStorage.setItem(FILTERS_DATE_FROM_KEY, from)
-    localStorage.setItem(FILTERS_DATE_TO_KEY, to)
-    localStorage.removeItem(LEGACY_STATUS_LOCK_KEY)
-    localStorage.removeItem(LEGACY_STATUS_VALUE_KEY)
+    localStorage.setItem(FILTERS_LOCKED_KEY, "1");
+    localStorage.setItem(FILTERS_STATUS_KEY, status);
+    localStorage.setItem(FILTERS_DATE_FROM_KEY, from);
+    localStorage.setItem(FILTERS_DATE_TO_KEY, to);
+    localStorage.removeItem(LEGACY_STATUS_LOCK_KEY);
+    localStorage.removeItem(LEGACY_STATUS_VALUE_KEY);
   } catch {
     /* ignore */
   }
-}
+};
 
 const getInitialFilterState = () => {
-  const filtersLocked = readFiltersLocked()
-  const f = readPersistedFilters()
+  const filtersLocked = readFiltersLocked();
+  const f = readPersistedFilters();
   return {
     filtersLocked,
     statusFilter: f.status,
     dateFrom: f.dateFrom,
     dateTo: f.dateTo,
-  }
-}
+  };
+};
 
 const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yyyy = String(d.getFullYear())
-  return `${dd}/${mm}/${yyyy}`
-}
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(d.getFullYear());
+  return `${dd}/${mm}/${yyyy}`;
+};
 
 const QUERY_STATUS_OPTIONS = [
-  { value: '', label: 'All' },
-  { value: 'drafted', label: 'Drafted' },
-  { value: 'convertedToQuotation', label: 'Converted to Quotation' },
-  { value: 'closed', label: 'Closed' },
-]
+  { value: "", label: "All" },
+  { value: "drafted", label: "Drafted" },
+  { value: "convertedToQuotation", label: "Converted to Quotation" },
+  { value: "closed", label: "Closed" },
+];
 
 const QueryList = () => {
-  const MOBILE_BREAKPOINT = 576
-  const navigate = useNavigate()
-  const { canDelete, canUpdate } = usePermissions()
-  const [filterInit] = useState(() => getInitialFilterState())
-  const [queries, setQueries] = useState([])
-  const [pagination, setPagination] = useState(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [areas, setAreas] = useState([])
-  const [selectedAreaId, setSelectedAreaId] = useState('')
-  const [statusFilter, setStatusFilter] = useState(filterInit.statusFilter)
-  const [filtersLocked, setFiltersLocked] = useState(filterInit.filtersLocked)
-  const [dateFrom, setDateFrom] = useState(filterInit.dateFrom)
-  const [dateTo, setDateTo] = useState(filterInit.dateTo)
-  const [pageNumber, setPageNumber] = useState(1)
+  const MOBILE_BREAKPOINT = 576;
+  const navigate = useNavigate();
+  const { canDelete, canUpdate } = usePermissions();
+  const [filterInit] = useState(() => getInitialFilterState());
+  const [queries, setQueries] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [areas, setAreas] = useState([]);
+  const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [statusFilter, setStatusFilter] = useState(filterInit.statusFilter);
+  const [filtersLocked, setFiltersLocked] = useState(filterInit.filtersLocked);
+  const [dateFrom, setDateFrom] = useState(filterInit.dateFrom);
+  const [dateTo, setDateTo] = useState(filterInit.dateTo);
+  const [pageNumber, setPageNumber] = useState(1);
 
-  const [pageSize] = useState(10)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
-  const [isMobileView, setIsMobileView] = useState(false)
+  const [pageSize] = useState(10);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
+  const [isMobileView, setIsMobileView] = useState(false);
 
   const fetchQueries = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
       const res = await withMinimumDelay(() =>
         queryService.getAll({
@@ -160,124 +169,132 @@ const QueryList = () => {
           dateFrom: dateFrom.trim() || undefined,
           dateTo: dateTo.trim() || undefined,
         }),
-      )
-      const data = res?.data || res
-      const result = data?.data ?? data
-      setQueries(result?.queries || [])
-      setPagination(result?.pagination || null)
+      );
+      const data = res?.data || res;
+      const result = data?.data ?? data;
+      setQueries(result?.queries || []);
+      setPagination(result?.pagination || null);
     } catch (err) {
-      toastError(err?.message || 'Failed to load queries')
-      setError(err?.message || 'Failed to load queries')
-      setQueries([])
-      setPagination(null)
+      toastError(err?.message || "Failed to load queries");
+      setError(err?.message || "Failed to load queries");
+      setQueries([]);
+      setPagination(null);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  const [searchDebounced, setSearchDebounced] = useState(searchTerm)
+  const [searchDebounced, setSearchDebounced] = useState(searchTerm);
   useEffect(() => {
-    const t = setTimeout(() => setSearchDebounced(searchTerm), 400)
-    return () => clearTimeout(t)
-  }, [searchTerm])
+    const t = setTimeout(() => setSearchDebounced(searchTerm), 400);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const fetchAreas = async () => {
       try {
-        const allAreas = []
-        let pageNumber = 1
-        let hasNextPage = true
+        const allAreas = [];
+        let pageNumber = 1;
+        let hasNextPage = true;
 
         while (hasNextPage) {
-          const res = await areaService.getAll({ pageNumber, pageSize: 100 })
-          const data = res?.data || res
-          const pagePayload = data || {}
-          const pageAreas = pagePayload?.areas || []
-          const pagePagination = pagePayload?.pagination || {}
-          allAreas.push(...pageAreas)
-          hasNextPage = Boolean(pagePagination?.hasNextPage)
-          pageNumber += 1
+          const res = await areaService.getAll({ pageNumber, pageSize: 100 });
+          const data = res?.data || res;
+          const pagePayload = data || {};
+          const pageAreas = pagePayload?.areas || [];
+          const pagePagination = pagePayload?.pagination || {};
+          allAreas.push(...pageAreas);
+          hasNextPage = Boolean(pagePagination?.hasNextPage);
+          pageNumber += 1;
         }
 
-        if (cancelled) return
-        setAreas(allAreas)
+        if (cancelled) return;
+        setAreas(allAreas);
       } catch {
-        if (cancelled) return
-        setAreas([])
-        setSelectedAreaId('')
+        if (cancelled) return;
+        setAreas([]);
+        setSelectedAreaId("");
       }
-    }
-    fetchAreas()
+    };
+    fetchAreas();
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
-    setPageNumber(1)
-  }, [searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo])
+    setPageNumber(1);
+  }, [searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo]);
 
   useEffect(() => {
-    if (!filtersLocked) return
-    persistLockedFilters(statusFilter, dateFrom, dateTo)
-  }, [statusFilter, dateFrom, dateTo, filtersLocked])
+    if (!filtersLocked) return;
+    persistLockedFilters(statusFilter, dateFrom, dateTo);
+  }, [statusFilter, dateFrom, dateTo, filtersLocked]);
 
   useEffect(() => {
-    fetchQueries()
-  }, [pageNumber, pageSize, searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo])
+    fetchQueries();
+  }, [
+    pageNumber,
+    pageSize,
+    searchDebounced,
+    statusFilter,
+    selectedAreaId,
+    dateFrom,
+    dateTo,
+  ]);
 
   useEffect(() => {
-    if (!dateFrom) return
+    if (!dateFrom) return;
     setDateTo((prev) => {
-      if (prev && prev < dateFrom) return ''
-      return prev
-    })
-  }, [dateFrom])
+      if (prev && prev < dateFrom) return "";
+      return prev;
+    });
+  }, [dateFrom]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return undefined
-    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`)
-    const onChange = (event) => setIsMobileView(event.matches)
-    setIsMobileView(mediaQuery.matches)
-    if (typeof mediaQuery.addEventListener === 'function') {
-      mediaQuery.addEventListener('change', onChange)
-      return () => mediaQuery.removeEventListener('change', onChange)
+    if (typeof window === "undefined") return undefined;
+    const mediaQuery = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT}px)`);
+    const onChange = (event) => setIsMobileView(event.matches);
+    setIsMobileView(mediaQuery.matches);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", onChange);
+      return () => mediaQuery.removeEventListener("change", onChange);
     }
-    mediaQuery.addListener(onChange)
-    return () => mediaQuery.removeListener(onChange)
-  }, [])
+    mediaQuery.addListener(onChange);
+    return () => mediaQuery.removeListener(onChange);
+  }, []);
 
   const toggleFiltersLock = () => {
     if (filtersLocked) {
-      setFiltersLocked(false)
-      clearPersistedFilters()
-      return
+      setFiltersLocked(false);
+      clearPersistedFilters();
+      return;
     }
-    setFiltersLocked(true)
-    persistLockedFilters(statusFilter, dateFrom, dateTo)
-  }
+    setFiltersLocked(true);
+    persistLockedFilters(statusFilter, dateFrom, dateTo);
+  };
 
   const handleDeleteClick = (queryId) => {
-    setConfirmDelete({ visible: true, id: queryId })
-  }
+    setConfirmDelete({ visible: true, id: queryId });
+  };
 
   const handleDeleteConfirm = async () => {
-    const queryId = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (queryId == null) return
+    const queryId = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (queryId == null) return;
     try {
-      await queryService.delete(queryId)
-      toastSuccess('Query deleted successfully')
-      fetchQueries()
+      await queryService.delete(queryId);
+      toastSuccess("Query deleted successfully");
+      fetchQueries();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete query')
+      toastError(err?.message || "Failed to delete query");
     }
-  }
+  };
 
-  const pag = pagination
-  const totalPages = pag?.totalPages ?? 1
-  const currentPage = pag?.currentPage ?? 1
+  const pag = pagination;
+  const totalPages = pag?.totalPages ?? 1;
+  const currentPage = pag?.currentPage ?? 1;
 
   return (
     <>
@@ -286,7 +303,7 @@ const QueryList = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Queries</strong>
-              <CButton color="primary" onClick={() => navigate('/queries/new')}>
+              <CButton color="primary" onClick={() => navigate("/queries/new")}>
                 <CIcon icon={cilPlus} className="me-2" />
                 Add Query
               </CButton>
@@ -301,7 +318,9 @@ const QueryList = () => {
                   />
                 </CCol>
                 <CCol md={2}>
-                  <CFormLabel className="mb-1 small text-muted">From date</CFormLabel>
+                  <CFormLabel className="mb-1 small text-muted">
+                    From date
+                  </CFormLabel>
                   <CFormInput
                     type="date"
                     value={dateFrom}
@@ -310,7 +329,9 @@ const QueryList = () => {
                   />
                 </CCol>
                 <CCol md={2}>
-                  <CFormLabel className="mb-1 small text-muted">To date</CFormLabel>
+                  <CFormLabel className="mb-1 small text-muted">
+                    To date
+                  </CFormLabel>
                   <CFormInput
                     type="date"
                     value={dateTo}
@@ -320,7 +341,9 @@ const QueryList = () => {
                 </CCol>
                 <CCol md={2}>
                   <div>
-                    <CFormLabel className="mb-1 small text-muted">Status</CFormLabel>
+                    <CFormLabel className="mb-1 small text-muted">
+                      Status
+                    </CFormLabel>
                     <CFormSelect
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
@@ -335,20 +358,22 @@ const QueryList = () => {
                 </CCol>
                 <CCol md={3}>
                   <div>
-                    <CFormLabel className="mb-1 small text-muted">Zones</CFormLabel>
+                    <CFormLabel className="mb-1 small text-muted">
+                      Zones
+                    </CFormLabel>
                     <CFormSelect
                       value={selectedAreaId}
                       onChange={(e) => setSelectedAreaId(e.target.value)}
                     >
                       <option value="">All Zones</option>
                       {areas.map((a) => {
-                        const id = String(a._id || a.id)
+                        const id = String(a._id || a.id);
                         return (
                           <option key={id} value={id}>
                             {a.name}
-                            {a.city ? ` - ${a.city}` : ''}
+                            {a.city ? ` - ${a.city}` : ""}
                           </option>
-                        )
+                        );
                       })}
                     </CFormSelect>
                   </div>
@@ -356,24 +381,24 @@ const QueryList = () => {
                 <CCol md={2} className="d-flex align-items-end">
                   <CButton
                     type="button"
-                    color={filtersLocked ? 'warning' : 'secondary'}
+                    color={filtersLocked ? "warning" : "secondary"}
                     variant="outline"
                     className="mb-0"
                     title={
                       filtersLocked
-                        ? 'Unlock filters (status and date range will not persist when you leave this page)'
-                        : 'Lock filters (status and from/to dates stay when you return to Queries)'
+                        ? "Unlock filters (status and date range will not persist when you leave this page)"
+                        : "Lock filters (status and from/to dates stay when you return to Queries)"
                     }
                     onClick={toggleFiltersLock}
                   >
-                    <CIcon icon={filtersLocked ? cilLockLocked : cilLockUnlocked} />
+                    <CIcon
+                      icon={filtersLocked ? cilLockLocked : cilLockUnlocked}
+                    />
                   </CButton>
                 </CCol>
               </CRow>
 
-              {error && (
-                <div className="text-danger small mb-2">{error}</div>
-              )}
+              {error && <div className="text-danger small mb-2">{error}</div>}
 
               {loading ? (
                 <div className="text-center p-5">
@@ -388,31 +413,57 @@ const QueryList = () => {
                           <CCard
                             key={q._id || q.id}
                             className="mb-3 border"
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => navigate(`/queries/${q._id || q.id}`)}
+                            style={{ cursor: "pointer" }}
+                            onClick={() =>
+                              navigate(`/queries/${q._id || q.id}`)
+                            }
                           >
                             <CCardBody>
                               <div className="d-flex justify-content-between align-items-start mb-2">
                                 <div>
-                                  <div className="small text-muted">#{(currentPage - 1) * pageSize + index + 1}</div>
-                                  <strong>{q.queryCode || '—'}</strong>
+                                  <div className="small text-muted">
+                                    #{(currentPage - 1) * pageSize + index + 1}
+                                  </div>
+                                  <strong>{q.queryCode || "—"}</strong>
                                 </div>
                                 <div>
-                                  <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
-                                    {q.status || 'pending'}
+                                  <CBadge
+                                    color={
+                                      q.status === "closed"
+                                        ? "secondary"
+                                        : q.status === "convertedToQuotation"
+                                          ? "success"
+                                          : q.status === "progress"
+                                            ? "primary"
+                                            : q.status &&
+                                                q.status.startsWith("followup")
+                                              ? "warning"
+                                              : "info"
+                                    }
+                                  >
+                                    {q.status || "pending"}
                                   </CBadge>
                                 </div>
                               </div>
-                              <div className="small mb-1"><strong>Company:</strong> {q.companyInfo?.name || '-'}</div>
                               <div className="small mb-1">
-                                <strong>Products:</strong> {q.products?.length ? `${q.products.length} item(s)` : '-'}
+                                <strong>Company:</strong>{" "}
+                                {q.companyInfo?.name || "-"}
                               </div>
                               <div className="small mb-1">
-                                <strong>Quotation no.:</strong>{' '}
-                                {Array.isArray(q.convertedQuotations) && q.convertedQuotations.length > 0
+                                <strong>Products:</strong>{" "}
+                                {q.products?.length
+                                  ? `${q.products.length} item(s)`
+                                  : "-"}
+                              </div>
+                              <div className="small mb-1">
+                                <strong>Quotation no.:</strong>{" "}
+                                {Array.isArray(q.convertedQuotations) &&
+                                q.convertedQuotations.length > 0
                                   ? q.convertedQuotations.map((ref, idx) => {
-                                      const qid = ref.quotationId?._id ?? ref.quotationId
-                                      const code = ref.quotationCode || qid || '—'
+                                      const qid =
+                                        ref.quotationId?._id ?? ref.quotationId;
+                                      const code =
+                                        ref.quotationCode || qid || "—";
                                       return (
                                         <span key={String(qid || idx)}>
                                           <span
@@ -420,27 +471,40 @@ const QueryList = () => {
                                             tabIndex={0}
                                             className="text-primary text-decoration-underline"
                                             onClick={(e) => {
-                                              e.stopPropagation()
-                                              if (qid) navigate(`/quotations/${qid}`)
+                                              e.stopPropagation();
+                                              if (qid)
+                                                navigate(`/quotations/${qid}`);
                                             }}
                                             onKeyDown={(e) => {
-                                              if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault()
-                                                e.stopPropagation()
-                                                if (qid) navigate(`/quotations/${qid}`)
+                                              if (
+                                                e.key === "Enter" ||
+                                                e.key === " "
+                                              ) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                if (qid)
+                                                  navigate(
+                                                    `/quotations/${qid}`,
+                                                  );
                                               }
                                             }}
                                           >
                                             {code}
                                           </span>
-                                          {idx < q.convertedQuotations.length - 1 ? ', ' : ''}
+                                          {idx <
+                                          q.convertedQuotations.length - 1
+                                            ? ", "
+                                            : ""}
                                         </span>
-                                      )
+                                      );
                                     })
-                                  : '—'}
+                                  : "—"}
                               </div>
                               <div className="small mb-2">
-                                <strong>Date:</strong> {q.createdAt ? `${formatDateDdMmYyyy(q.createdAt)} ${new Date(q.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}` : '-'}
+                                <strong>Date:</strong>{" "}
+                                {q.createdAt
+                                  ? `${formatDateDdMmYyyy(q.createdAt)} ${new Date(q.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                                  : "-"}
                               </div>
                               <div className="d-flex gap-2">
                                 <CButton
@@ -448,21 +512,23 @@ const QueryList = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    navigate(`/queries/${q._id || q.id}`)
+                                    e.stopPropagation();
+                                    navigate(`/queries/${q._id || q.id}`);
                                   }}
                                   title="View"
                                 >
                                   <EyeIcon />
                                 </CButton>
-                                {q.status !== 'closed' && (
+                                {q.status !== "closed" && (
                                   <CButton
                                     color="warning"
                                     variant="ghost"
                                     size="sm"
                                     onClick={(e) => {
-                                      e.stopPropagation()
-                                      navigate(`/queries/edit/${q._id || q.id}`)
+                                      e.stopPropagation();
+                                      navigate(
+                                        `/queries/edit/${q._id || q.id}`,
+                                      );
                                     }}
                                     title="Edit"
                                   >
@@ -474,8 +540,8 @@ const QueryList = () => {
                                   variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteClick(q._id || q.id)
+                                    e.stopPropagation();
+                                    handleDeleteClick(q._id || q.id);
                                   }}
                                   title="Delete"
                                 >
@@ -486,175 +552,225 @@ const QueryList = () => {
                           </CCard>
                         ))
                       ) : (
-                        <div className="text-center text-muted py-4">No queries found.</div>
+                        <div className="text-center text-muted py-4">
+                          No queries found.
+                        </div>
                       )}
                     </div>
                   ) : (
-                  <CTable hover responsive bordered>
-                    <CTableHead>
-                      <CTableRow>
-                        <CTableHeaderCell>S No</CTableHeaderCell>
-                        <CTableHeaderCell>Query code</CTableHeaderCell>
-                        <CTableHeaderCell>Status</CTableHeaderCell>
-                        <CTableHeaderCell>Company</CTableHeaderCell>
-                        <CTableHeaderCell>Products</CTableHeaderCell>
-                        <CTableHeaderCell>Quotation no.</CTableHeaderCell>
-                        <CTableHeaderCell>Date</CTableHeaderCell>
-                        <CTableHeaderCell>Actions</CTableHeaderCell>
-                      </CTableRow>
-                    </CTableHead>
-                    <CTableBody>
-                      {queries?.length > 0 ? (
-                        queries.map((q, index) => (
-                          <CTableRow
-                            key={q._id || q.id}
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => navigate(`/queries/${q._id || q.id}`)}
-                          >
-                            <CTableDataCell>{(currentPage - 1) * pageSize + index + 1}</CTableDataCell>
-                            <CTableDataCell>
-                              <strong>{q.queryCode || '—'}</strong>
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <CBadge color={q.status === 'closed' ? 'secondary' : q.status === 'convertedToQuotation' ? 'success' : q.status === 'progress' ? 'primary' : q.status && q.status.startsWith('followup') ? 'warning' : 'info'}>
-                                {q.status || 'pending'}
-                              </CBadge>
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <strong>{q.companyInfo?.name || '-'}</strong>
-                              {(q.companyInfo?.purchaseManagers?.length > 0
-                                ? (q.companyInfo.purchaseManagers || []).map((m) => m.name || m.phone).filter(Boolean).join(', ')
-                                : q.companyInfo?.purchase_manager_name || q.companyInfo?.purchase_manager_phone
-                              ) && (
+                    <CTable hover responsive bordered>
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell>S No</CTableHeaderCell>
+                          <CTableHeaderCell>Query code</CTableHeaderCell>
+                          <CTableHeaderCell>Status</CTableHeaderCell>
+                          <CTableHeaderCell>Company</CTableHeaderCell>
+                          <CTableHeaderCell>Products</CTableHeaderCell>
+                          <CTableHeaderCell>Quotation no.</CTableHeaderCell>
+                          <CTableHeaderCell>Date</CTableHeaderCell>
+                          <CTableHeaderCell>Actions</CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {queries?.length > 0 ? (
+                          queries.map((q, index) => (
+                            <CTableRow
+                              key={q._id || q.id}
+                              style={{ cursor: "pointer" }}
+                              onClick={() =>
+                                navigate(`/queries/${q._id || q.id}`)
+                              }
+                            >
+                              <CTableDataCell>
+                                {(currentPage - 1) * pageSize + index + 1}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                <strong>{q.queryCode || "—"}</strong>
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                <CBadge
+                                  color={
+                                    q.status === "closed"
+                                      ? "secondary"
+                                      : q.status === "convertedToQuotation"
+                                        ? "success"
+                                        : q.status === "progress"
+                                          ? "primary"
+                                          : q.status &&
+                                              q.status.startsWith("followup")
+                                            ? "warning"
+                                            : "info"
+                                  }
+                                >
+                                  {q.status || "pending"}
+                                </CBadge>
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                <strong>{q.companyInfo?.name || "-"}</strong>
+                                {(q.companyInfo?.purchaseManagers?.length > 0
+                                  ? (q.companyInfo.purchaseManagers || [])
+                                      .map((m) => m.name || m.phone)
+                                      .filter(Boolean)
+                                      .join(", ")
+                                  : q.companyInfo?.purchase_manager_name ||
+                                    q.companyInfo?.purchase_manager_phone) && (
                                   <div className="text-muted small">
                                     {q.companyInfo?.purchaseManagers?.length > 0
-                                      ? q.companyInfo.purchaseManagers.map((pm, index) => (
-                                        <div key={index}>
-                                          {pm.name} {pm.phone ? `(${pm.phone})` : ""}
-                                        </div>
-                                      ))
+                                      ? q.companyInfo.purchaseManagers.map(
+                                          (pm, index) => (
+                                            <div key={index}>
+                                              {pm.name}{" "}
+                                              {pm.phone ? `(${pm.phone})` : ""}
+                                            </div>
+                                          ),
+                                        )
                                       : "-"}
                                   </div>
                                 )}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              {q.products?.length
-                                ? `${q.products.length} item(s)`
-                                : '-'}
-                            </CTableDataCell>
-                            <CTableDataCell className="small">
-                              {Array.isArray(q.convertedQuotations) && q.convertedQuotations.length > 0 ? (
-                                q.convertedQuotations.map((ref) => {
-                                  const qid = ref.quotationId?._id ?? ref.quotationId
-                                  const code = ref.quotationCode || qid || '—'
-                                  return (
-                                    <div key={String(qid)}>
-                                      <span
-                                        role="link"
-                                        tabIndex={0}
-                                        className="text-primary text-decoration-underline"
-                                        onClick={(e) => {
-                                          e.stopPropagation()
-                                          if (qid) navigate(`/quotations/${qid}`)
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter' || e.key === ' ') {
-                                            e.preventDefault()
-                                            e.stopPropagation()
-                                            if (qid) navigate(`/quotations/${qid}`)
-                                          }
-                                        }}
-                                      >
-                                        {code}
-                                      </span>
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {q.products?.length
+                                  ? `${q.products.length} item(s)`
+                                  : "-"}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                {Array.isArray(q.convertedQuotations) &&
+                                q.convertedQuotations.length > 0
+                                  ? q.convertedQuotations.map((ref) => {
+                                      const qid =
+                                        ref.quotationId?._id ?? ref.quotationId;
+                                      const code =
+                                        ref.quotationCode || qid || "—";
+                                      return (
+                                        <div key={String(qid)}>
+                                          <span
+                                            role="link"
+                                            tabIndex={0}
+                                            className="text-primary text-decoration-underline"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              if (qid)
+                                                navigate(`/quotations/${qid}`);
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (
+                                                e.key === "Enter" ||
+                                                e.key === " "
+                                              ) {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                if (qid)
+                                                  navigate(
+                                                    `/quotations/${qid}`,
+                                                  );
+                                              }
+                                            }}
+                                          >
+                                            {code}
+                                          </span>
+                                        </div>
+                                      );
+                                    })
+                                  : "—"}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {q.createdAt ? (
+                                  <>
+                                    {formatDateDdMmYyyy(q.createdAt)}
+                                    <div className="text-muted small">
+                                      {new Date(q.createdAt).toLocaleTimeString(
+                                        [],
+                                        {
+                                          hour: "2-digit",
+                                          minute: "2-digit",
+                                          second: "2-digit",
+                                        },
+                                      )}
                                     </div>
-                                  )
-                                })
-                              ) : (
-                                '—'
-                              )}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              {q.createdAt ? (
-                                <>
-                                  {formatDateDdMmYyyy(q.createdAt)}
-                                  <div className="text-muted small">
-                                    {new Date(q.createdAt).toLocaleTimeString([], {
-                                      hour: '2-digit',
-                                      minute: '2-digit',
-                                      second: '2-digit',
-                                    })}
-                                  </div>
-                                </>
-                              ) : (
-                                '-'
-                              )}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <CButton
-                                color="info"
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  navigate(`/queries/${q._id || q.id}`)
-                                }}
-                                title="View"
-                              >
-                                <EyeIcon />
-                              </CButton>
-                              {canUpdate('queries') && q.status !== 'closed' && (
+                                  </>
+                                ) : (
+                                  "-"
+                                )}
+                              </CTableDataCell>
+                              <CTableDataCell>
                                 <CButton
-                                  color="warning"
+                                  color="info"
                                   variant="ghost"
                                   size="sm"
                                   onClick={(e) => {
-                                    e.stopPropagation()
-                                    navigate(`/queries/edit/${q._id || q.id}`)
+                                    e.stopPropagation();
+                                    navigate(`/queries/${q._id || q.id}`);
                                   }}
-                                  title="Edit"
+                                  title="View"
                                 >
-                                  <CIcon icon={cilPencil} />
+                                  <EyeIcon />
                                 </CButton>
-                              )}
-                              {canDelete('queries') && (
-                                <CButton
-                                  color="danger"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDeleteClick(q._id || q.id)
-                                  }}
-                                  title="Delete"
-                                >
-                                  <CIcon icon={cilTrash} />
-                                </CButton>
-                              )}
+                                {canUpdate("queries") &&
+                                  q.status !== "closed" && (
+                                    <CButton
+                                      color="warning"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(
+                                          `/queries/edit/${q._id || q.id}`,
+                                        );
+                                      }}
+                                      title="Edit"
+                                    >
+                                      <CIcon icon={cilPencil} />
+                                    </CButton>
+                                  )}
+                                {canDelete("queries") && (
+                                  <CButton
+                                    color="danger"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteClick(q._id || q.id);
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <CIcon icon={cilTrash} />
+                                  </CButton>
+                                )}
+                              </CTableDataCell>
+                            </CTableRow>
+                          ))
+                        ) : (
+                          <CTableRow>
+                            <CTableDataCell colSpan={8} className="text-center">
+                              No queries found.
                             </CTableDataCell>
                           </CTableRow>
-                        ))
-                      ) : (
-                        <CTableRow>
-                          <CTableDataCell colSpan={8} className="text-center">
-                            No queries found.
-                          </CTableDataCell>
-                        </CTableRow>
-                      )}
-                    </CTableBody>
-                  </CTable>
+                        )}
+                      </CTableBody>
+                    </CTable>
                   )}
 
                   {totalPages > 1 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       <div className="small text-medium-emphasis">
-                        Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
-                        -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                        Showing{" "}
+                        {((pagination?.currentPage ?? 1) - 1) *
+                          (pagination?.itemsPerPage ?? 10) +
+                          1}
+                        -
+                        {Math.min(
+                          (pagination?.currentPage ?? 1) *
+                            (pagination?.itemsPerPage ?? 10),
+                          pagination?.totalItems ?? 0,
+                        )}{" "}
+                        of {pagination?.totalItems ?? 0}
                       </div>
                       <CPagination className="mb-0">
                         <CPaginationItem
                           disabled={currentPage <= 1}
-                          onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+                          onClick={() =>
+                            setPageNumber((p) => Math.max(1, p - 1))
+                          }
                         >
                           Previous
                         </CPaginationItem>
@@ -663,7 +779,9 @@ const QueryList = () => {
                         </CPaginationItem>
                         <CPaginationItem
                           disabled={currentPage >= totalPages}
-                          onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
+                          onClick={() =>
+                            setPageNumber((p) => Math.min(totalPages, p + 1))
+                          }
                         >
                           Next
                         </CPaginationItem>
@@ -687,7 +805,7 @@ const QueryList = () => {
         cancelText="Cancel"
       />
     </>
-  )
-}
+  );
+};
 
-export default QueryList
+export default QueryList;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   CCard,
   CCardBody,
@@ -12,138 +12,140 @@ import {
   CFormSelect,
   CAlert,
   CSpinner,
-} from '@coreui/react'
-import { useNavigate, useParams } from 'react-router-dom'
-import areaService from '../../services/areaService'
-import companyService from '../../services/companyService'
-import branchService from '../../services/branchService'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
+} from "@coreui/react";
+import { useNavigate, useParams } from "react-router-dom";
+import areaService from "../../services/areaService";
+import companyService from "../../services/companyService";
+import branchService from "../../services/branchService";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
 
 const AreaForm = () => {
-  const navigate = useNavigate()
-  const { id } = useParams()
-  const isEdit = Boolean(id)
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({
-    companyId: '',
-    branchId: '',
-    name: '',
-    city: '',
-    areaType: 'market',
-  })
+    companyId: "",
+    branchId: "",
+    name: "",
+    city: "",
+    areaType: "market",
+  });
 
-  const [companies, setCompanies] = useState([])
-  const [branches, setBranches] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [fieldErrors, setFieldErrors] = useState({})
+  const [companies, setCompanies] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
-  const getId = (item) => item?.id || item?._id
+  const getId = (item) => item?.id || item?._id;
 
   const fetchCompanies = async () => {
     try {
-      const res = await companyService.getAll({ pageNumber: 1, pageSize: 100 })
-      const data = res?.data?.data || res?.data || res
-      setCompanies(data?.companies || data || [])
+      const res = await companyService.getAll({ pageNumber: 1, pageSize: 100 });
+      const data = res?.data?.data || res?.data || res;
+      setCompanies(data?.companies || data || []);
     } catch (err) {
-      console.error('Failed to fetch companies', err)
+      console.error("Failed to fetch companies", err);
     }
-  }
+  };
 
   const fetchBranchesByCompany = async (companyId) => {
     if (!companyId) {
-      setBranches([])
-      return
+      setBranches([]);
+      return;
     }
     try {
-      const res = await branchService.getAll({ companyId, pageSize: 100 })
-      const data = res?.data?.data || res?.data || res
-      setBranches(data?.branches || [])
+      const res = await branchService.getAll({ companyId, pageSize: 100 });
+      const data = res?.data?.data || res?.data || res;
+      setBranches(data?.branches || []);
     } catch (err) {
-      setBranches([])
+      setBranches([]);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchCompanies()
-  }, [])
+    fetchCompanies();
+  }, []);
 
   useEffect(() => {
     if (formData.companyId) {
-      fetchBranchesByCompany(formData.companyId)
+      fetchBranchesByCompany(formData.companyId);
     } else {
-      setBranches([])
+      setBranches([]);
     }
-  }, [formData.companyId])
+  }, [formData.companyId]);
 
   useEffect(() => {
-    if (!isEdit) return
+    if (!isEdit) return;
     const loadArea = async () => {
-      setLoading(true)
-      setError('')
+      setLoading(true);
+      setError("");
       try {
-        const res = await withMinimumDelay(() => areaService.getById(id))
-        const area = res?.data?.data || res?.data || res
+        const res = await withMinimumDelay(() => areaService.getById(id));
+        const area = res?.data?.data || res?.data || res;
         if (!area) {
-          setError('Zone not found')
-          return
+          setError("Zone not found");
+          return;
         }
-        const companyId = area.companyId?._id || area.companyId || ''
+        const companyId = area.companyId?._id || area.companyId || "";
         setFormData({
           companyId,
-          branchId: area.branchId?._id || area.branchId || '',
-          name: area.name || '',
-          city: area.city || '',
-          areaType: area.areaType || 'market',
-        })
-        if (companyId) fetchBranchesByCompany(companyId)
+          branchId: area.branchId?._id || area.branchId || "",
+          name: area.name || "",
+          city: area.city || "",
+          areaType: area.areaType || "market",
+        });
+        if (companyId) fetchBranchesByCompany(companyId);
       } catch (err) {
-        setError(err?.message || 'Failed to load zone')
-        toastError(err?.message || 'Failed to load zone')
+        setError(err?.message || "Failed to load zone");
+        toastError(err?.message || "Failed to load zone");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    loadArea()
-  }, [id, isEdit])
+    };
+    loadArea();
+  }, [id, isEdit]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setFormData((prev) => {
-      const next = { ...prev, [name]: value }
-      if (name === 'companyId') next.branchId = ''
-      return next
-    })
-  }
+      const next = { ...prev, [name]: value };
+      if (name === "companyId") next.branchId = "";
+      return next;
+    });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setFieldErrors({})
+    e.preventDefault();
+    setError("");
+    setFieldErrors({});
 
-    const errs = {}
-    if (!formData.companyId?.trim()) errs.companyId = 'Company is required'
-    if (!formData.branchId?.trim()) errs.branchId = 'Branch is required'
-    const name = (formData.name || '').trim()
-    if (!name) errs.name = 'Name is required'
-    else if (name.length < 2) errs.name = 'Name must be at least 2 characters'
-    else if (name.length > 100) errs.name = 'Name must be at most 100 characters'
-    const city = (formData.city || '').trim()
-    if (!city) errs.city = 'City is required'
-    else if (city.length < 2) errs.city = 'City must be at least 2 characters'
-    else if (city.length > 100) errs.city = 'City must be at most 100 characters'
-    if (!['market', 'industry'].includes(formData.areaType)) {
-      errs.areaType = 'Zone type must be Market or Industry'
+    const errs = {};
+    if (!formData.companyId?.trim()) errs.companyId = "Company is required";
+    if (!formData.branchId?.trim()) errs.branchId = "Branch is required";
+    const name = (formData.name || "").trim();
+    if (!name) errs.name = "Name is required";
+    else if (name.length < 2) errs.name = "Name must be at least 2 characters";
+    else if (name.length > 100)
+      errs.name = "Name must be at most 100 characters";
+    const city = (formData.city || "").trim();
+    if (!city) errs.city = "City is required";
+    else if (city.length < 2) errs.city = "City must be at least 2 characters";
+    else if (city.length > 100)
+      errs.city = "City must be at most 100 characters";
+    if (!["market", "industry"].includes(formData.areaType)) {
+      errs.areaType = "Zone type must be Market or Industry";
     }
     if (Object.keys(errs).length > 0) {
-      setFieldErrors(errs)
-      return
+      setFieldErrors(errs);
+      return;
     }
 
-    setSubmitting(true)
+    setSubmitting(true);
     try {
       const payload = {
         companyId: formData.companyId,
@@ -151,29 +153,32 @@ const AreaForm = () => {
         name,
         city,
         areaType: formData.areaType,
-      }
+      };
       if (isEdit) {
-        await areaService.update(id, payload)
-        toastSuccess('Zone updated successfully')
+        await areaService.update(id, payload);
+        toastSuccess("Zone updated successfully");
       } else {
-        await areaService.create(payload)
-        toastSuccess('Zone created successfully')
+        await areaService.create(payload);
+        toastSuccess("Zone created successfully");
       }
-      navigate('/zones')
+      navigate("/zones");
     } catch (err) {
-      const msg = err?.response?.data?.error?.detail || err?.message || 'Failed to save zone'
-      toastError(Array.isArray(msg) ? msg.join(', ') : msg)
+      const msg =
+        err?.response?.data?.error?.detail ||
+        err?.message ||
+        "Failed to save zone";
+      toastError(Array.isArray(msg) ? msg.join(", ") : msg);
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="text-center py-5">
         <Loader message="Loading zone..." />
       </div>
-    )
+    );
   }
 
   return (
@@ -181,11 +186,11 @@ const AreaForm = () => {
       <CCol xs={12}>
         <CCard>
           <CCardHeader>
-            <strong>{isEdit ? 'Edit Zone' : 'Add Zone'}</strong>
+            <strong>{isEdit ? "Edit Zone" : "Add Zone"}</strong>
           </CCardHeader>
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -207,7 +212,11 @@ const AreaForm = () => {
                       </option>
                     ))}
                   </CFormSelect>
-                  {fieldErrors.companyId && <div className="text-danger small mt-1">{fieldErrors.companyId}</div>}
+                  {fieldErrors.companyId && (
+                    <div className="text-danger small mt-1">
+                      {fieldErrors.companyId}
+                    </div>
+                  )}
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>Branch *</CFormLabel>
@@ -222,11 +231,15 @@ const AreaForm = () => {
                     <option value="">Select Branch</option>
                     {branches.map((b) => (
                       <option key={getId(b)} value={getId(b)}>
-                        {b.name} {b.location ? `(${b.location})` : ''}
+                        {b.name} {b.location ? `(${b.location})` : ""}
                       </option>
                     ))}
                   </CFormSelect>
-                  {fieldErrors.branchId && <div className="text-danger small mt-1">{fieldErrors.branchId}</div>}
+                  {fieldErrors.branchId && (
+                    <div className="text-danger small mt-1">
+                      {fieldErrors.branchId}
+                    </div>
+                  )}
                 </CCol>
               </CRow>
               <CRow className="mb-3">
@@ -242,7 +255,11 @@ const AreaForm = () => {
                     maxLength={100}
                     invalid={!!fieldErrors.name}
                   />
-                  {fieldErrors.name && <div className="text-danger small mt-1">{fieldErrors.name}</div>}
+                  {fieldErrors.name && (
+                    <div className="text-danger small mt-1">
+                      {fieldErrors.name}
+                    </div>
+                  )}
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>City *</CFormLabel>
@@ -256,7 +273,11 @@ const AreaForm = () => {
                     maxLength={100}
                     invalid={!!fieldErrors.city}
                   />
-                  {fieldErrors.city && <div className="text-danger small mt-1">{fieldErrors.city}</div>}
+                  {fieldErrors.city && (
+                    <div className="text-danger small mt-1">
+                      {fieldErrors.city}
+                    </div>
+                  )}
                 </CCol>
               </CRow>
               <CRow className="mb-3">
@@ -272,11 +293,19 @@ const AreaForm = () => {
                     <option value="market">Market</option>
                     <option value="industry">Industry</option>
                   </CFormSelect>
-                  {fieldErrors.areaType && <div className="text-danger small mt-1">{fieldErrors.areaType}</div>}
+                  {fieldErrors.areaType && (
+                    <div className="text-danger small mt-1">
+                      {fieldErrors.areaType}
+                    </div>
+                  )}
                 </CCol>
               </CRow>
               <div className="d-flex justify-content-end gap-2 pt-2">
-                <CButton color="secondary" variant="outline" onClick={() => navigate('/zones')}>
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  onClick={() => navigate("/zones")}
+                >
                   Cancel
                 </CButton>
                 <CButton color="primary" type="submit" disabled={submitting}>
@@ -286,9 +315,9 @@ const AreaForm = () => {
                       Saving...
                     </>
                   ) : isEdit ? (
-                    'Update Zone'
+                    "Update Zone"
                   ) : (
-                    'Create Zone'
+                    "Create Zone"
                   )}
                 </CButton>
               </div>
@@ -297,7 +326,7 @@ const AreaForm = () => {
         </CCard>
       </CCol>
     </CRow>
-  )
-}
+  );
+};
 
-export default AreaForm
+export default AreaForm;

@@ -1,5 +1,5 @@
-import React from 'react'
-import { Link } from 'react-router-dom'
+import React from "react";
+import { Link } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -16,8 +16,8 @@ import {
   CBadge,
   CProgress,
   CButton,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
 import {
   cilCart,
   cilFactory,
@@ -26,11 +26,11 @@ import {
   cilBell,
   cilFolder,
   cilArrowRight,
-} from '@coreui/icons'
-import { useAuth } from '../../context/AuthContext'
+} from "@coreui/icons";
+import { useAuth } from "../../context/AuthContext";
 
 const PurchaseDashboard = () => {
-  const { user } = useAuth()
+  const { user } = useAuth();
 
   // Dummy data for demonstration
   const stats = {
@@ -38,40 +38,72 @@ const PurchaseDashboard = () => {
     pendingPOs: 15,
     activeVendors: 32,
     pendingApprovals: 7,
-  }
+  };
 
   const purchaseOrders = [
-    { id: 'PO001', vendor: 'Steel Suppliers Ltd', amount: 125000, status: 'Approved', date: '2024-01-15' },
-    { id: 'PO002', vendor: 'Raw Materials Inc', amount: 78000, status: 'Pending', date: '2024-01-14' },
-    { id: 'PO003', vendor: 'Component World', amount: 45000, status: 'Delivered', date: '2024-01-13' },
-    { id: 'PO004', vendor: 'Industrial Parts Co', amount: 92000, status: 'In Transit', date: '2024-01-12' },
-    { id: 'PO005', vendor: 'Machine Tools Ltd', amount: 156000, status: 'Pending', date: '2024-01-11' },
-  ]
+    {
+      id: "PO001",
+      vendor: "Steel Suppliers Ltd",
+      amount: 125000,
+      status: "Approved",
+      date: "2024-01-15",
+    },
+    {
+      id: "PO002",
+      vendor: "Raw Materials Inc",
+      amount: 78000,
+      status: "Pending",
+      date: "2024-01-14",
+    },
+    {
+      id: "PO003",
+      vendor: "Component World",
+      amount: 45000,
+      status: "Delivered",
+      date: "2024-01-13",
+    },
+    {
+      id: "PO004",
+      vendor: "Industrial Parts Co",
+      amount: 92000,
+      status: "In Transit",
+      date: "2024-01-12",
+    },
+    {
+      id: "PO005",
+      vendor: "Machine Tools Ltd",
+      amount: 156000,
+      status: "Pending",
+      date: "2024-01-11",
+    },
+  ];
 
   const topVendors = [
-    { name: 'Steel Suppliers Ltd', orders: 25, value: 1250000, rating: 4.8 },
-    { name: 'Raw Materials Inc', orders: 18, value: 890000, rating: 4.5 },
-    { name: 'Component World', orders: 15, value: 650000, rating: 4.7 },
-    { name: 'Industrial Parts Co', orders: 12, value: 480000, rating: 4.2 },
-  ]
+    { name: "Steel Suppliers Ltd", orders: 25, value: 1250000, rating: 4.8 },
+    { name: "Raw Materials Inc", orders: 18, value: 890000, rating: 4.5 },
+    { name: "Component World", orders: 15, value: 650000, rating: 4.7 },
+    { name: "Industrial Parts Co", orders: 12, value: 480000, rating: 4.2 },
+  ];
 
   const getStatusColor = (status) => {
     const colors = {
-      Pending: 'warning',
-      Approved: 'info',
-      'In Transit': 'primary',
-      Delivered: 'success',
-      Cancelled: 'danger',
-    }
-    return colors[status] || 'secondary'
-  }
+      Pending: "warning",
+      Approved: "info",
+      "In Transit": "primary",
+      Delivered: "success",
+      Cancelled: "danger",
+    };
+    return colors[status] || "secondary";
+  };
 
   return (
     <>
       <CRow className="mb-4">
         <CCol>
           <h2>Welcome, {user?.name}</h2>
-          <p className="text-body-secondary">Purchase Dashboard - Manage procurement activities</p>
+          <p className="text-body-secondary">
+            Purchase Dashboard - Manage procurement activities
+          </p>
         </CCol>
       </CRow>
 
@@ -85,9 +117,15 @@ const PurchaseDashboard = () => {
             </CCardHeader>
             <CCardBody className="d-flex flex-column">
               <p className="text-body-secondary flex-grow-1 mb-3">
-                View and manage purchase tasks, rates, and procurement activities.
+                View and manage purchase tasks, rates, and procurement
+                activities.
               </p>
-              <CButton color="primary" component={Link} to="/purchase-tasks" className="align-self-start">
+              <CButton
+                color="primary"
+                component={Link}
+                to="/purchase-tasks"
+                className="align-self-start"
+              >
                 Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
               </CButton>
             </CCardBody>
@@ -103,7 +141,12 @@ const PurchaseDashboard = () => {
               <p className="text-body-secondary flex-grow-1 mb-3">
                 Track and manage follow-ups on queries, quotations, and orders.
               </p>
-              <CButton color="info" component={Link} to="/follow-up" className="align-self-start">
+              <CButton
+                color="info"
+                component={Link}
+                to="/follow-up"
+                className="align-self-start"
+              >
                 Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
               </CButton>
             </CCardBody>
@@ -119,7 +162,12 @@ const PurchaseDashboard = () => {
               <p className="text-body-secondary flex-grow-1 mb-3">
                 DMG-related items and direct material group activities.
               </p>
-              <CButton color="success" component={Link} to="/dmg" className="align-self-start">
+              <CButton
+                color="success"
+                component={Link}
+                to="/dmg"
+                className="align-self-start"
+              >
                 Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
               </CButton>
             </CCardBody>
@@ -135,7 +183,11 @@ const PurchaseDashboard = () => {
             value={`₹${(stats.totalPurchases / 100000).toFixed(1)}L`}
             title="Total Purchases"
             chart={
-              <CIcon icon={cilDollar} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilDollar}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -146,7 +198,11 @@ const PurchaseDashboard = () => {
             value={stats.pendingPOs.toString()}
             title="Pending POs"
             chart={
-              <CIcon icon={cilCart} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilCart}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -157,7 +213,11 @@ const PurchaseDashboard = () => {
             value={stats.activeVendors.toString()}
             title="Active Vendors"
             chart={
-              <CIcon icon={cilFactory} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilFactory}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -168,7 +228,11 @@ const PurchaseDashboard = () => {
             value={stats.pendingApprovals.toString()}
             title="Pending Approvals"
             chart={
-              <CIcon icon={cilClipboard} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilClipboard}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -196,9 +260,13 @@ const PurchaseDashboard = () => {
                     <CTableRow key={po.id}>
                       <CTableDataCell>{po.id}</CTableDataCell>
                       <CTableDataCell>{po.vendor}</CTableDataCell>
-                      <CTableDataCell>₹{po.amount.toLocaleString()}</CTableDataCell>
                       <CTableDataCell>
-                        <CBadge color={getStatusColor(po.status)}>{po.status}</CBadge>
+                        ₹{po.amount.toLocaleString()}
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        <CBadge color={getStatusColor(po.status)}>
+                          {po.status}
+                        </CBadge>
                       </CTableDataCell>
                       <CTableDataCell>{po.date}</CTableDataCell>
                     </CTableRow>
@@ -222,7 +290,8 @@ const PurchaseDashboard = () => {
                     <CBadge color="success">{vendor.rating}</CBadge>
                   </div>
                   <div className="small text-body-secondary mb-1">
-                    {vendor.orders} orders • ₹{(vendor.value / 100000).toFixed(1)}L
+                    {vendor.orders} orders • ₹
+                    {(vendor.value / 100000).toFixed(1)}L
                   </div>
                   <CProgress
                     value={(vendor.value / topVendors[0].value) * 100}
@@ -246,25 +315,33 @@ const PurchaseDashboard = () => {
               <CRow>
                 <CCol md={3}>
                   <div className="border-start border-start-4 border-start-primary py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">This Month</div>
+                    <div className="text-body-secondary text-truncate small">
+                      This Month
+                    </div>
                     <div className="fs-5 fw-semibold">₹8.5L</div>
                   </div>
                 </CCol>
                 <CCol md={3}>
                   <div className="border-start border-start-4 border-start-success py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Cost Savings</div>
+                    <div className="text-body-secondary text-truncate small">
+                      Cost Savings
+                    </div>
                     <div className="fs-5 fw-semibold">₹1.2L (12%)</div>
                   </div>
                 </CCol>
                 <CCol md={3}>
                   <div className="border-start border-start-4 border-start-warning py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Pending Deliveries</div>
+                    <div className="text-body-secondary text-truncate small">
+                      Pending Deliveries
+                    </div>
                     <div className="fs-5 fw-semibold">8 Orders</div>
                   </div>
                 </CCol>
                 <CCol md={3}>
                   <div className="border-start border-start-4 border-start-info py-1 px-3 mb-3">
-                    <div className="text-body-secondary text-truncate small">Avg Lead Time</div>
+                    <div className="text-body-secondary text-truncate small">
+                      Avg Lead Time
+                    </div>
                     <div className="fs-5 fw-semibold">5 Days</div>
                   </div>
                 </CCol>
@@ -274,7 +351,7 @@ const PurchaseDashboard = () => {
         </CCol>
       </CRow>
     </>
-  )
-}
+  );
+};
 
-export default PurchaseDashboard
+export default PurchaseDashboard;

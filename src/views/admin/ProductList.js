@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -18,126 +18,134 @@ import {
   CFormSelect,
   CPagination,
   CPaginationItem,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilX } from '@coreui/icons'
-import { EyeIcon } from '../../components'
-import productService from '../../services/productService'
-import categoryService from '../../services/categoryService'
-import brandService from '../../services/brandService'
-import Filtered from '../../filtered/Filtered'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilPencil, cilTrash, cilX } from "@coreui/icons";
+import { EyeIcon } from "../../components";
+import productService from "../../services/productService";
+import categoryService from "../../services/categoryService";
+import brandService from "../../services/brandService";
+import Filtered from "../../filtered/Filtered";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
 
 const ProductList = () => {
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-  const [products, setProducts] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
 
-  const [filterCategory, setFilterCategory] = useState('')
-  const [filterBrand, setFilterBrand] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterBrand, setFilterBrand] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
 
-  const [categories, setCategories] = useState([])
-  const [brands, setBrands] = useState([])
+  const [categories, setCategories] = useState([]);
+  const [brands, setBrands] = useState([]);
 
   const fetchProducts = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
       const params = {
         pageNumber: page,
         pageSize: 10,
         search: searchTerm,
-      }
-      if (filterCategory) params.category = filterCategory
-      if (filterBrand) params.brand = filterBrand
-      if (filterStatus) params.status = filterStatus
+      };
+      if (filterCategory) params.category = filterCategory;
+      if (filterBrand) params.brand = filterBrand;
+      if (filterStatus) params.status = filterStatus;
 
-      const res = await withMinimumDelay(() => productService.getAll(params))
-      const data = res?.data || res
-      setProducts(data?.products || [])
-      setPagination(data?.pagination || {})
+      const res = await withMinimumDelay(() => productService.getAll(params));
+      const data = res?.data || res;
+      setProducts(data?.products || []);
+      setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch products')
+      toastError(err?.message || "Failed to fetch products");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const fetchFilterData = async () => {
     try {
       const [catRes, brandRes] = await Promise.all([
-        categoryService.getAll({ pageNumber: 1, pageSize: 100, parent: 'null' }),
+        categoryService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+          parent: "null",
+        }),
         brandService.getAll({ pageNumber: 1, pageSize: 100 }),
-      ])
-      const catData = catRes?.data || catRes
-      const brandData = brandRes?.data || brandRes
-      setCategories(catData?.categories || [])
-      setBrands(brandData?.brands || [])
+      ]);
+      const catData = catRes?.data || catRes;
+      const brandData = brandRes?.data || brandRes;
+      setCategories(catData?.categories || []);
+      setBrands(brandData?.brands || []);
     } catch (err) {
-      console.error('Failed to fetch filter data', err)
+      console.error("Failed to fetch filter data", err);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchFilterData()
-  }, [])
+    fetchFilterData();
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchProducts()
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm, page, filterCategory, filterBrand, filterStatus])
+      fetchProducts();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, page, filterCategory, filterBrand, filterStatus]);
 
-  const hasActiveFilters = searchTerm || filterCategory || filterBrand || filterStatus
+  const hasActiveFilters =
+    searchTerm || filterCategory || filterBrand || filterStatus;
 
   const handleClearFilters = () => {
-    setSearchTerm('')
-    setFilterCategory('')
-    setFilterBrand('')
-    setFilterStatus('')
-    setPage(1)
-  }
+    setSearchTerm("");
+    setFilterCategory("");
+    setFilterBrand("");
+    setFilterStatus("");
+    setPage(1);
+  };
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
-    if (!id) return
-    setConfirmDelete({ visible: false, id: null })
+    const id = confirmDelete.id;
+    if (!id) return;
+    setConfirmDelete({ visible: false, id: null });
     try {
-      await productService.delete(id)
-      toastSuccess('Product deleted successfully')
-      fetchProducts()
+      await productService.delete(id);
+      toastSuccess("Product deleted successfully");
+      fetchProducts();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete product')
+      toastError(err?.message || "Failed to delete product");
     }
-  }
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'active':
-        return <CBadge color="success">Active</CBadge>
-      case 'inactive':
-        return <CBadge color="secondary">Inactive</CBadge>
-      case 'draft':
-        return <CBadge color="warning">Draft</CBadge>
+      case "active":
+        return <CBadge color="success">Active</CBadge>;
+      case "inactive":
+        return <CBadge color="secondary">Inactive</CBadge>;
+      case "draft":
+        return <CBadge color="warning">Draft</CBadge>;
       default:
-        return <CBadge color="info">{status}</CBadge>
+        return <CBadge color="info">{status}</CBadge>;
     }
-  }
+  };
 
   return (
     <CRow>
@@ -145,8 +153,11 @@ const ProductList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Products</strong>
-            {canCreate('products') && (
-              <CButton color="primary" onClick={() => navigate('/products/new')}>
+            {canCreate("products") && (
+              <CButton
+                color="primary"
+                onClick={() => navigate("/products/new")}
+              >
                 <CIcon icon={cilPlus} className="me-2" />
                 Add Product
               </CButton>
@@ -154,21 +165,24 @@ const ProductList = () => {
           </CCardHeader>
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
 
             <CRow className="mb-3 align-items-end">
               <CCol md={4}>
-                <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+                <Filtered
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                />
               </CCol>
               <CCol md={2}>
                 <CFormSelect
                   value={filterCategory}
                   onChange={(e) => {
-                    setFilterCategory(e.target.value)
-                    setPage(1)
+                    setFilterCategory(e.target.value);
+                    setPage(1);
                   }}
                   size="sm"
                 >
@@ -184,8 +198,8 @@ const ProductList = () => {
                 <CFormSelect
                   value={filterBrand}
                   onChange={(e) => {
-                    setFilterBrand(e.target.value)
-                    setPage(1)
+                    setFilterBrand(e.target.value);
+                    setPage(1);
                   }}
                   size="sm"
                 >
@@ -201,8 +215,8 @@ const ProductList = () => {
                 <CFormSelect
                   value={filterStatus}
                   onChange={(e) => {
-                    setFilterStatus(e.target.value)
-                    setPage(1)
+                    setFilterStatus(e.target.value);
+                    setPage(1);
                   }}
                   size="sm"
                 >
@@ -245,61 +259,75 @@ const ProductList = () => {
                   </CTableHead>
                   <CTableBody>
                     {products.map((product, index) => (
-                      <CTableRow key={product._id}
-                      onClick={()=>navigate(`/products/${product._id}`)}
-                      style={{cursor:'pointer'}}
+                      <CTableRow
+                        key={product._id}
+                        onClick={() => navigate(`/products/${product._id}`)}
+                        style={{ cursor: "pointer" }}
                       >
-                        <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
+                        <CTableDataCell>
+                          {(page - 1) * 10 + index + 1}
+                        </CTableDataCell>
                         <CTableDataCell>
                           <strong>{product.name}</strong>
                           {product.hasVariants && (
                             <div>
                               <small className="text-muted">
-                                {product.variantCombinations?.length || 0} variants
+                                {product.variantCombinations?.length || 0}{" "}
+                                variants
                               </small>
                             </div>
                           )}
                         </CTableDataCell>
                         <CTableDataCell>
-                          <code className="text-primary">{product.productCode || '-'}</code>
+                          <code className="text-primary">
+                            {product.productCode || "-"}
+                          </code>
                         </CTableDataCell>
-                        <CTableDataCell>{product.category?.name || '-'}</CTableDataCell>
-                        <CTableDataCell>{product.brand?.name || '-'}</CTableDataCell>
-                        <CTableDataCell>{getStatusBadge(product.status)}</CTableDataCell>
+                        <CTableDataCell>
+                          {product.category?.name || "-"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {product.brand?.name || "-"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {getStatusBadge(product.status)}
+                        </CTableDataCell>
                         <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              navigate(`/products/${product._id}`)
+                              e.stopPropagation();
+                              navigate(`/products/${product._id}`);
                             }}
                             title="View"
                           >
                             <EyeIcon />
                           </CButton>
-                          {canUpdate('products') && (
+                          {canUpdate("products") && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/products/edit/${product._id}`)}}
+                                e.stopPropagation();
+                                navigate(`/products/edit/${product._id}`);
+                              }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
-                          {canDelete('products') && (
+                          {canDelete("products") && (
                             <CButton
                               color="danger"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(product._id)}}
+                                e.stopPropagation();
+                                handleDeleteClick(product._id);
+                              }}
                               title="Delete"
                             >
                               <CIcon icon={cilTrash} />
@@ -322,8 +350,17 @@ const ProductList = () => {
                 {pagination.totalPages > 1 && (
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     <div className="small text-medium-emphasis">
-                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
-                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                      Showing{" "}
+                      {((pagination?.currentPage ?? 1) - 1) *
+                        (pagination?.itemsPerPage ?? 10) +
+                        1}
+                      -
+                      {Math.min(
+                        (pagination?.currentPage ?? 1) *
+                          (pagination?.itemsPerPage ?? 10),
+                        pagination?.totalItems ?? 0,
+                      )}{" "}
+                      of {pagination?.totalItems ?? 0}
                     </div>
                     <CPagination className="mb-0">
                       <CPaginationItem
@@ -366,7 +403,7 @@ const ProductList = () => {
         cancelText="Cancel"
       />
     </CRow>
-  )
-}
+  );
+};
 
-export default ProductList
+export default ProductList;

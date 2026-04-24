@@ -1,30 +1,25 @@
-import React from 'react'
-import {
-  CButton,
-  CCol,
-  CContainer,
-  CRow,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilReload, cilHome, cilWarning } from '@coreui/icons'
+import React from "react";
+import { CButton, CCol, CContainer, CRow } from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilReload, cilHome, cilWarning } from "@coreui/icons";
 
 const ErrorFallback = ({ error, onRetry, onGoHome }) => {
   const handleRetry = () => {
-    if (typeof onRetry === 'function') {
-      onRetry()
+    if (typeof onRetry === "function") {
+      onRetry();
     } else {
-      window.location.reload()
+      window.location.reload();
     }
-  }
+  };
 
   const handleGoHome = () => {
-    if (typeof onGoHome === 'function') {
-      onGoHome()
+    if (typeof onGoHome === "function") {
+      onGoHome();
     } else {
-      window.location.hash = '#/'
-      window.location.reload()
+      window.location.hash = "#/";
+      window.location.reload();
     }
-  }
+  };
 
   return (
     <div
@@ -41,25 +36,40 @@ const ErrorFallback = ({ error, onRetry, onGoHome }) => {
                   icon={cilWarning}
                   size="3xl"
                   className="text-warning"
-                  style={{ width: '4rem', height: '4rem' }}
+                  style={{ width: "4rem", height: "4rem" }}
                 />
               </div>
-              <h1 className="display-5 fw-semibold mb-2">Something went wrong</h1>
+              <h1 className="display-5 fw-semibold mb-2">
+                Something went wrong
+              </h1>
               <p className="text-body-secondary mb-4">
-                We're sorry, but something unexpected happened. Please try again or go back to the home page.
+                We're sorry, but something unexpected happened. Please try again
+                or go back to the home page.
               </p>
-              {process.env.NODE_ENV === 'development' && error && (
-                <pre className="text-start small bg-light p-3 rounded mb-4" style={{ maxHeight: 200, overflow: 'auto' }}>
+              {process.env.NODE_ENV === "development" && error && (
+                <pre
+                  className="text-start small bg-light p-3 rounded mb-4"
+                  style={{ maxHeight: 200, overflow: "auto" }}
+                >
                   {error?.message || String(error)}
                 </pre>
               )}
             </div>
             <div className="d-flex gap-2 justify-content-center flex-wrap">
-              <CButton color="primary" onClick={handleRetry} className="d-inline-flex align-items-center gap-2">
+              <CButton
+                color="primary"
+                onClick={handleRetry}
+                className="d-inline-flex align-items-center gap-2"
+              >
                 <CIcon icon={cilReload} />
                 Reload page
               </CButton>
-              <CButton color="secondary" variant="outline" onClick={handleGoHome} className="d-inline-flex align-items-center gap-2">
+              <CButton
+                color="secondary"
+                variant="outline"
+                onClick={handleGoHome}
+                className="d-inline-flex align-items-center gap-2"
+              >
                 <CIcon icon={cilHome} />
                 Go to home
               </CButton>
@@ -68,7 +78,7 @@ const ErrorFallback = ({ error, onRetry, onGoHome }) => {
         </CRow>
       </CContainer>
     </div>
-  )
-}
+  );
+};
 
-export default ErrorFallback
+export default ErrorFallback;

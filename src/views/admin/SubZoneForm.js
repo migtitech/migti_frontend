@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CAlert,
   CButton,
@@ -12,78 +12,82 @@ import {
   CFormLabel,
   CFormSelect,
   CRow,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft } from '@coreui/icons'
-import areaService from '../../services/areaService'
-import subZoneService from '../../services/subZoneService'
-import { Loader } from '../../components'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft } from "@coreui/icons";
+import areaService from "../../services/areaService";
+import subZoneService from "../../services/subZoneService";
+import { Loader } from "../../components";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
 
 const SubZoneForm = () => {
-  const navigate = useNavigate()
-  const { canCreate } = usePermissions()
-  const canCreateSubZones = canCreate('sub_zones')
-  const [zones, setZones] = useState([])
-  const [zoneId, setZoneId] = useState('')
-  const [name, setName] = useState('')
-  const [loadingZones, setLoadingZones] = useState(true)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const navigate = useNavigate();
+  const { canCreate } = usePermissions();
+  const canCreateSubZones = canCreate("sub_zones");
+  const [zones, setZones] = useState([]);
+  const [zoneId, setZoneId] = useState("");
+  const [name, setName] = useState("");
+  const [loadingZones, setLoadingZones] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
-      setLoadingZones(true)
+      setLoadingZones(true);
       try {
-        const res = await areaService.getAll({ pageSize: 100 })
-        const data = res?.data?.data || res?.data || res
-        setZones(data?.areas || [])
+        const res = await areaService.getAll({ pageSize: 100 });
+        const data = res?.data?.data || res?.data || res;
+        setZones(data?.areas || []);
       } catch (err) {
-        setZones([])
-        toastError(err?.message || 'Failed to load zones')
+        setZones([]);
+        toastError(err?.message || "Failed to load zones");
       } finally {
-        setLoadingZones(false)
+        setLoadingZones(false);
       }
-    }
-    load()
-  }, [])
+    };
+    load();
+  }, []);
 
   const onSubmit = async (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (!zoneId) {
-      setError('Please select a zone')
-      return
+      setError("Please select a zone");
+      return;
     }
-    const trimmed = (name || '').trim()
+    const trimmed = (name || "").trim();
     if (!trimmed) {
-      setError('Sub-zone name is required')
-      return
+      setError("Sub-zone name is required");
+      return;
     }
-    setError('')
-    setSubmitting(true)
+    setError("");
+    setSubmitting(true);
     try {
-      await subZoneService.create({ zoneId, name: trimmed })
-      toastSuccess('Sub-zone created successfully')
-      navigate('/sub-zones')
+      await subZoneService.create({ zoneId, name: trimmed });
+      toastSuccess("Sub-zone created successfully");
+      navigate("/sub-zones");
     } catch (err) {
-      toastError(err?.message || 'Failed to create sub-zone')
+      toastError(err?.message || "Failed to create sub-zone");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loadingZones) {
     return (
       <div className="text-center p-5">
         <Loader message="Loading zones..." />
       </div>
-    )
+    );
   }
 
   return (
     <>
-      <CButton color="light" className="mb-3" onClick={() => navigate('/sub-zones')}>
+      <CButton
+        color="light"
+        className="mb-3"
+        onClick={() => navigate("/sub-zones")}
+      >
         <CIcon icon={cilArrowLeft} className="me-1" />
         Back to sub-zones
       </CButton>
@@ -94,7 +98,7 @@ const SubZoneForm = () => {
         <CCardBody>
           <CForm onSubmit={onSubmit}>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -111,7 +115,7 @@ const SubZoneForm = () => {
                     {zones.map((z) => (
                       <option key={z._id || z.id} value={z._id || z.id}>
                         {z.name}
-                        {z.city ? ` - ${z.city}` : ''}
+                        {z.city ? ` - ${z.city}` : ""}
                       </option>
                     ))}
                   </CFormSelect>
@@ -119,7 +123,9 @@ const SubZoneForm = () => {
               </CCol>
               <CCol md={6}>
                 <div className="mb-3">
-                  <CFormLabel htmlFor="subzone-name">Sub-zone name *</CFormLabel>
+                  <CFormLabel htmlFor="subzone-name">
+                    Sub-zone name *
+                  </CFormLabel>
                   <CFormInput
                     id="subzone-name"
                     value={name}
@@ -132,14 +138,14 @@ const SubZoneForm = () => {
             </CRow>
             {canCreateSubZones ? (
               <CButton color="primary" type="submit" disabled={submitting}>
-                {submitting ? 'Saving…' : 'Create sub-zone'}
+                {submitting ? "Saving…" : "Create sub-zone"}
               </CButton>
             ) : null}
           </CForm>
         </CCardBody>
       </CCard>
     </>
-  )
-}
+  );
+};
 
-export default SubZoneForm
+export default SubZoneForm;

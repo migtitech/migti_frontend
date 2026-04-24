@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   CRow,
   CCol,
@@ -10,8 +10,8 @@ import {
   CTabList,
   CTabPanel,
   CTabs,
-} from '@coreui/react'
-import { DocsComponents, DocsExample } from 'src/components'
+} from "@coreui/react";
+import { DocsComponents, DocsExample } from "src/components";
 
 const Navs = () => {
   return (
@@ -24,8 +24,9 @@ const Navs = () => {
           </CCardHeader>
           <CCardBody>
             <p className="text-body-secondary small">
-              The basic React tabs example uses the <code>variant=&#34;tabs&#34;</code> props to
-              generate a tabbed interface.
+              The basic React tabs example uses the{" "}
+              <code>variant=&#34;tabs&#34;</code> props to generate a tabbed
+              interface.
             </p>
             <DocsExample href="components/tabs/#example">
               <CTabs activeItemKey="profile">
@@ -63,8 +64,8 @@ const Navs = () => {
           </CCardHeader>
           <CCardBody>
             <p className="text-body-secondary small">
-              If you don’t provide the <code>variant</code> prop, the component will default to a
-              basic style.
+              If you don’t provide the <code>variant</code> prop, the component
+              will default to a basic style.
             </p>
             <DocsExample href="components/tabs/#unstyled">
               <CTabs activeItemKey="profile">
@@ -102,7 +103,8 @@ const Navs = () => {
           </CCardHeader>
           <CCardBody>
             <p className="text-body-secondary small">
-              Take that same code, but use <code>variant=&#34;pills&#34;</code> instead:
+              Take that same code, but use <code>variant=&#34;pills&#34;</code>{" "}
+              instead:
             </p>
             <DocsExample href="components/tabs/#unstyled">
               <CTabs activeItemKey={2}>
@@ -121,16 +123,32 @@ const Navs = () => {
                   </CTab>
                 </CTabList>
                 <CTabContent>
-                  <CTabPanel className="p-3" aria-labelledby="home-tab-pane" itemKey={1}>
+                  <CTabPanel
+                    className="p-3"
+                    aria-labelledby="home-tab-pane"
+                    itemKey={1}
+                  >
                     Home tab content
                   </CTabPanel>
-                  <CTabPanel className="p-3" aria-labelledby="profile-tab-pane" itemKey={2}>
+                  <CTabPanel
+                    className="p-3"
+                    aria-labelledby="profile-tab-pane"
+                    itemKey={2}
+                  >
                     Profile tab content
                   </CTabPanel>
-                  <CTabPanel className="p-3" aria-labelledby="contact-tab-pane" itemKey={3}>
+                  <CTabPanel
+                    className="p-3"
+                    aria-labelledby="contact-tab-pane"
+                    itemKey={3}
+                  >
                     Contact tab content
                   </CTabPanel>
-                  <CTabPanel className="p-3" aria-labelledby="disabled-tab-pane" itemKey={4}>
+                  <CTabPanel
+                    className="p-3"
+                    aria-labelledby="disabled-tab-pane"
+                    itemKey={4}
+                  >
                     Disabled tab content
                   </CTabPanel>
                 </CTabContent>
@@ -146,7 +164,8 @@ const Navs = () => {
           </CCardHeader>
           <CCardBody>
             <p className="text-body-secondary small">
-              Take that same code, but use <code>variant=&#34;underline&#34;</code> instead:
+              Take that same code, but use{" "}
+              <code>variant=&#34;underline&#34;</code> instead:
             </p>
             <DocsExample href="components/tabs/#unstyled">
               <CTabs activeItemKey={2}>
@@ -165,16 +184,32 @@ const Navs = () => {
                   </CTab>
                 </CTabList>
                 <CTabContent>
-                  <CTabPanel className="py-3" aria-labelledby="home-tab-pane" itemKey={1}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="home-tab-pane"
+                    itemKey={1}
+                  >
                     Home tab content
                   </CTabPanel>
-                  <CTabPanel className="py-3" aria-labelledby="profile-tab-pane" itemKey={2}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="profile-tab-pane"
+                    itemKey={2}
+                  >
                     Profile tab content
                   </CTabPanel>
-                  <CTabPanel className="py-3" aria-labelledby="contact-tab-pane" itemKey={3}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="contact-tab-pane"
+                    itemKey={3}
+                  >
                     Contact tab content
                   </CTabPanel>
-                  <CTabPanel className="py-3" aria-labelledby="disabled-tab-pane" itemKey={4}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="disabled-tab-pane"
+                    itemKey={4}
+                  >
                     Disabled tab content
                   </CTabPanel>
                 </CTabContent>
@@ -190,7 +225,8 @@ const Navs = () => {
           </CCardHeader>
           <CCardBody>
             <p className="text-body-secondary small">
-              Take that same code, but use <code>variant=&#34;underline-border&#34;</code> instead:
+              Take that same code, but use{" "}
+              <code>variant=&#34;underline-border&#34;</code> instead:
             </p>
             <DocsExample href="components/tabs/#unstyled">
               <CTabs activeItemKey={2}>
@@ -209,16 +245,32 @@ const Navs = () => {
                   </CTab>
                 </CTabList>
                 <CTabContent>
-                  <CTabPanel className="py-3" aria-labelledby="home-tab-pane" itemKey={1}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="home-tab-pane"
+                    itemKey={1}
+                  >
                     Home tab content
                   </CTabPanel>
-                  <CTabPanel className="py-3" aria-labelledby="profile-tab-pane" itemKey={2}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="profile-tab-pane"
+                    itemKey={2}
+                  >
                     Profile tab content
                   </CTabPanel>
-                  <CTabPanel className="py-3" aria-labelledby="contact-tab-pane" itemKey={3}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="contact-tab-pane"
+                    itemKey={3}
+                  >
                     Contact tab content
                   </CTabPanel>
-                  <CTabPanel className="py-3" aria-labelledby="disabled-tab-pane" itemKey={4}>
+                  <CTabPanel
+                    className="py-3"
+                    aria-labelledby="disabled-tab-pane"
+                    itemKey={4}
+                  >
                     Disabled tab content
                   </CTabPanel>
                 </CTabContent>
@@ -228,7 +280,7 @@ const Navs = () => {
         </CCard>
       </CCol>
     </CRow>
-  )
-}
+  );
+};
 
-export default Navs
+export default Navs;

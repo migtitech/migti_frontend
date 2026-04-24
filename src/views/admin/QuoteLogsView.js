@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState } from "react";
 import {
   CCard,
   CCardBody,
@@ -9,66 +9,71 @@ import {
   CFormSelect,
   CRow,
   CSpinner,
-} from '@coreui/react'
-import rateLogService from '../../services/rateLogService'
+} from "@coreui/react";
+import rateLogService from "../../services/rateLogService";
 
 const formatMoney = (value) => {
-  const amount = Number(value)
-  if (Number.isNaN(amount)) return '0.00'
-  return amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return "0.00";
+  return amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
 
 const formatDate = (value) => {
-  if (!value) return '—'
-  const d = new Date(value)
-  if (Number.isNaN(d.getTime())) return '—'
-  const dd = String(d.getDate()).padStart(2, '0')
-  const mm = String(d.getMonth() + 1).padStart(2, '0')
-  const yy = String(d.getFullYear()).slice(-2)
-  return `${dd}/${mm}/${yy}`
-}
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${dd}/${mm}/${yy}`;
+};
 
 const QuoteLogsView = () => {
-  const [loading, setLoading] = useState(true)
-  const [searchText, setSearchText] = useState('')
-  const [industryName, setIndustryName] = useState('')
-  const [industrySearchText, setIndustrySearchText] = useState('')
-  const [logs, setLogs] = useState([])
-  const [industryOptions, setIndustryOptions] = useState([])
+  const [loading, setLoading] = useState(true);
+  const [searchText, setSearchText] = useState("");
+  const [industryName, setIndustryName] = useState("");
+  const [industrySearchText, setIndustrySearchText] = useState("");
+  const [logs, setLogs] = useState([]);
+  const [industryOptions, setIndustryOptions] = useState([]);
 
   const fetchLogs = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
       const res = await rateLogService.getAll({
         pageNumber: 1,
         pageSize: 100,
         search: searchText,
         industryName,
-      })
-      const data = res?.data ?? res
-      const result = data?.data ?? data
-      setLogs(result?.items || [])
-      setIndustryOptions(result?.filters?.industries || [])
+      });
+      const data = res?.data ?? res;
+      const result = data?.data ?? data;
+      setLogs(result?.items || []);
+      setIndustryOptions(result?.filters?.industries || []);
     } catch (_err) {
-      setLogs([])
-      setIndustryOptions([])
+      setLogs([]);
+      setIndustryOptions([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    fetchLogs()
+    fetchLogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchText, industryName])
+  }, [searchText, industryName]);
 
   const visibleIndustryOptions = (() => {
-    const normalizedSearch = industrySearchText.trim().toLowerCase()
+    const normalizedSearch = industrySearchText.trim().toLowerCase();
     const filtered = !normalizedSearch
       ? industryOptions
-      : industryOptions.filter((name) => name.toLowerCase().includes(normalizedSearch))
-    return filtered.slice(0, 20)
-  })()
+      : industryOptions.filter((name) =>
+          name.toLowerCase().includes(normalizedSearch),
+        );
+    return filtered.slice(0, 20);
+  })();
 
   return (
     <>
@@ -95,14 +100,20 @@ const QuoteLogsView = () => {
                 className="mb-2"
               />
               <CFormLabel>Client</CFormLabel>
-              <CFormSelect value={industryName} onChange={(e) => setIndustryName(e.target.value)}>
+              <CFormSelect
+                value={industryName}
+                onChange={(e) => setIndustryName(e.target.value)}
+              >
                 <option value="">All clients</option>
                 {visibleIndustryOptions.map((name) => (
-                  <option key={name} value={name}>{name}</option>
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
                 ))}
               </CFormSelect>
               <div className="small text-muted mt-1">
-                Showing {visibleIndustryOptions.length} of {industryOptions.length} clients
+                Showing {visibleIndustryOptions.length} of{" "}
+                {industryOptions.length} clients
               </div>
             </CCol>
           </CRow>
@@ -113,7 +124,7 @@ const QuoteLogsView = () => {
         <CCardHeader>
           <strong>Log Entries</strong>
         </CCardHeader>
-        <CCardBody style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+        <CCardBody style={{ maxHeight: "65vh", overflowY: "auto" }}>
           {loading ? (
             <div className="text-center py-4">
               <CSpinner />
@@ -126,19 +137,24 @@ const QuoteLogsView = () => {
                 <div key={log._id} className="border rounded p-3 bg-white">
                   <div className="d-flex justify-content-between align-items-start gap-2">
                     <div>
-                      <div className="fw-semibold">{log.product_title || 'Untitled product'}</div>
-                      <div className="small text-muted">{log.description || 'No description'}</div>
+                      <div className="fw-semibold">
+                        {log.product_title || "Untitled product"}
+                      </div>
+                      <div className="small text-muted">
+                        {log.description || "No description"}
+                      </div>
                     </div>
                     <div className="fw-bold text-primary">
                       Rs {formatMoney(log.amount)}
-                      {log.unit ? ` / ${log.unit}` : ''}
+                      {log.unit ? ` / ${log.unit}` : ""}
                     </div>
                   </div>
                   <div className="small mt-2">
-                    <strong>Variants:</strong> {(log.variants || []).join(', ') || '—'}
+                    <strong>Variants:</strong>{" "}
+                    {(log.variants || []).join(", ") || "—"}
                   </div>
                   <div className="small text-muted mt-1">
-                    <strong>Client:</strong> {log.industry_name || 'Unknown'} |{' '}
+                    <strong>Client:</strong> {log.industry_name || "Unknown"} |{" "}
                     <strong>Created:</strong> {formatDate(log.created_at)}
                   </div>
                 </div>
@@ -148,7 +164,7 @@ const QuoteLogsView = () => {
         </CCardBody>
       </CCard>
     </>
-  )
-}
+  );
+};
 
-export default QuoteLogsView
+export default QuoteLogsView;

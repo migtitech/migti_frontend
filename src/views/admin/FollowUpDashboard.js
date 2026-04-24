@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -30,8 +30,8 @@ import {
   CFormLabel,
   CFormTextarea,
   CFormSelect,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
 import {
   cilBell,
   cilCalendar,
@@ -40,138 +40,167 @@ import {
   cilWarning,
   cilPlus,
   cilPencil,
-} from '@coreui/icons'
-import { useData } from '../../context/DataContext'
+} from "@coreui/icons";
+import { useData } from "../../context/DataContext";
 
 const FollowUpDashboard = () => {
-  const navigate = useNavigate()
-  const { followUps, addFollowUp, updateFollowUp, queries, quotations, purchaseOrders } = useData()
-  const [activeTab, setActiveTab] = useState(1)
-  const [showModal, setShowModal] = useState(false)
-  const [editingFollowUp, setEditingFollowUp] = useState(null)
+  const navigate = useNavigate();
+  const {
+    followUps,
+    addFollowUp,
+    updateFollowUp,
+    queries,
+    quotations,
+    purchaseOrders,
+  } = useData();
+  const [activeTab, setActiveTab] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const [editingFollowUp, setEditingFollowUp] = useState(null);
   const [formData, setFormData] = useState({
-    type: 'query',
-    referenceId: '',
-    title: '',
-    description: '',
-    dueDate: '',
-    priority: 'normal',
-    status: 'pending',
-  })
+    type: "query",
+    referenceId: "",
+    title: "",
+    description: "",
+    dueDate: "",
+    priority: "normal",
+    status: "pending",
+  });
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   // Filter follow-ups
-  const pendingFollowUps = followUps?.filter((f) => f.status === 'pending') || []
-  const overdueFollowUps = followUps?.filter((f) => {
-    const dueDate = new Date(f.dueDate)
-    dueDate.setHours(0, 0, 0, 0)
-    return f.status === 'pending' && dueDate < today
-  }) || []
-  const todayFollowUps = followUps?.filter((f) => {
-    const dueDate = new Date(f.dueDate)
-    dueDate.setHours(0, 0, 0, 0)
-    return f.status === 'pending' && dueDate.getTime() === today.getTime()
-  }) || []
-  const completedFollowUps = followUps?.filter((f) => f.status === 'completed') || []
+  const pendingFollowUps =
+    followUps?.filter((f) => f.status === "pending") || [];
+  const overdueFollowUps =
+    followUps?.filter((f) => {
+      const dueDate = new Date(f.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return f.status === "pending" && dueDate < today;
+    }) || [];
+  const todayFollowUps =
+    followUps?.filter((f) => {
+      const dueDate = new Date(f.dueDate);
+      dueDate.setHours(0, 0, 0, 0);
+      return f.status === "pending" && dueDate.getTime() === today.getTime();
+    }) || [];
+  const completedFollowUps =
+    followUps?.filter((f) => f.status === "completed") || [];
 
   const handleOpenModal = (followUp = null) => {
     if (followUp) {
-      setEditingFollowUp(followUp)
+      setEditingFollowUp(followUp);
       setFormData({
-        type: followUp.type || 'query',
-        referenceId: followUp.referenceId || '',
-        title: followUp.title || '',
-        description: followUp.description || '',
-        dueDate: followUp.dueDate ? followUp.dueDate.split('T')[0] : '',
-        priority: followUp.priority || 'normal',
-        status: followUp.status || 'pending',
-      })
+        type: followUp.type || "query",
+        referenceId: followUp.referenceId || "",
+        title: followUp.title || "",
+        description: followUp.description || "",
+        dueDate: followUp.dueDate ? followUp.dueDate.split("T")[0] : "",
+        priority: followUp.priority || "normal",
+        status: followUp.status || "pending",
+      });
     } else {
-      setEditingFollowUp(null)
+      setEditingFollowUp(null);
       setFormData({
-        type: 'query',
-        referenceId: '',
-        title: '',
-        description: '',
-        dueDate: '',
-        priority: 'normal',
-        status: 'pending',
-      })
+        type: "query",
+        referenceId: "",
+        title: "",
+        description: "",
+        dueDate: "",
+        priority: "normal",
+        status: "pending",
+      });
     }
-    setShowModal(true)
-  }
+    setShowModal(true);
+  };
 
   const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingFollowUp(null)
+    setShowModal(false);
+    setEditingFollowUp(null);
     setFormData({
-      type: 'query',
-      referenceId: '',
-      title: '',
-      description: '',
-      dueDate: '',
-      priority: 'normal',
-      status: 'pending',
-    })
-  }
+      type: "query",
+      referenceId: "",
+      title: "",
+      description: "",
+      dueDate: "",
+      priority: "normal",
+      status: "pending",
+    });
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     const data = {
       ...formData,
       referenceId: formData.referenceId ? parseInt(formData.referenceId) : null,
-      dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : null,
-    }
+      dueDate: formData.dueDate
+        ? new Date(formData.dueDate).toISOString()
+        : null,
+    };
     if (editingFollowUp) {
-      updateFollowUp(editingFollowUp.id, data)
+      updateFollowUp(editingFollowUp.id, data);
     } else {
-      addFollowUp(data)
+      addFollowUp(data);
     }
-    handleCloseModal()
-  }
+    handleCloseModal();
+  };
 
   const markAsComplete = (id) => {
-    updateFollowUp(id, { status: 'completed', completedAt: new Date().toISOString() })
-  }
+    updateFollowUp(id, {
+      status: "completed",
+      completedAt: new Date().toISOString(),
+    });
+  };
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
-      case 'high':
-        return <CBadge color="danger">High</CBadge>
-      case 'normal':
-        return <CBadge color="secondary">Normal</CBadge>
-      case 'low':
-        return <CBadge color="info">Low</CBadge>
+      case "high":
+        return <CBadge color="danger">High</CBadge>;
+      case "normal":
+        return <CBadge color="secondary">Normal</CBadge>;
+      case "low":
+        return <CBadge color="info">Low</CBadge>;
       default:
-        return <CBadge color="secondary">{priority}</CBadge>
+        return <CBadge color="secondary">{priority}</CBadge>;
     }
-  }
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'pending':
-        return <CBadge color="warning">Pending</CBadge>
-      case 'completed':
-        return <CBadge color="success">Completed</CBadge>
+      case "pending":
+        return <CBadge color="warning">Pending</CBadge>;
+      case "completed":
+        return <CBadge color="success">Completed</CBadge>;
       default:
-        return <CBadge color="secondary">{status}</CBadge>
+        return <CBadge color="secondary">{status}</CBadge>;
     }
-  }
+  };
 
   const getReferenceOptions = () => {
     switch (formData.type) {
-      case 'query':
-        return queries?.map((q) => ({ id: q.id, label: `Query: ${q.subject}` })) || []
-      case 'quotation':
-        return quotations?.map((q) => ({ id: q.id, label: `QT-${String(q.id).padStart(4, '0')}: ${q.customerName}` })) || []
-      case 'purchase_order':
-        return purchaseOrders?.map((o) => ({ id: o.id, label: `PO-${String(o.id).padStart(4, '0')}: ${o.supplierName}` })) || []
+      case "query":
+        return (
+          queries?.map((q) => ({ id: q.id, label: `Query: ${q.subject}` })) ||
+          []
+        );
+      case "quotation":
+        return (
+          quotations?.map((q) => ({
+            id: q.id,
+            label: `QT-${String(q.id).padStart(4, "0")}: ${q.customerName}`,
+          })) || []
+        );
+      case "purchase_order":
+        return (
+          purchaseOrders?.map((o) => ({
+            id: o.id,
+            label: `PO-${String(o.id).padStart(4, "0")}: ${o.supplierName}`,
+          })) || []
+        );
       default:
-        return []
+        return [];
     }
-  }
+  };
 
   const renderFollowUpTable = (items) => (
     <CTable hover responsive bordered>
@@ -187,37 +216,48 @@ const FollowUpDashboard = () => {
       </CTableHead>
       <CTableBody>
         {items.map((followUp) => {
-          const dueDate = new Date(followUp.dueDate)
-          dueDate.setHours(0, 0, 0, 0)
-          const isOverdue = followUp.status === 'pending' && dueDate < today
+          const dueDate = new Date(followUp.dueDate);
+          dueDate.setHours(0, 0, 0, 0);
+          const isOverdue = followUp.status === "pending" && dueDate < today;
           return (
-            <CTableRow key={followUp.id} className={isOverdue ? 'table-danger' : ''}>
+            <CTableRow
+              key={followUp.id}
+              className={isOverdue ? "table-danger" : ""}
+            >
               <CTableDataCell>
                 <strong>{followUp.title}</strong>
                 {followUp.description && (
                   <>
                     <br />
-                    <small className="text-muted">{followUp.description.substring(0, 50)}...</small>
+                    <small className="text-muted">
+                      {followUp.description.substring(0, 50)}...
+                    </small>
                   </>
                 )}
               </CTableDataCell>
               <CTableDataCell>
-                <CBadge color="info">{followUp.type?.replace('_', ' ')}</CBadge>
+                <CBadge color="info">{followUp.type?.replace("_", " ")}</CBadge>
               </CTableDataCell>
               <CTableDataCell>
                 {followUp.dueDate ? (
                   <>
                     {new Date(followUp.dueDate).toLocaleDateString()}
-                    {isOverdue && <CBadge color="danger" className="ms-2">Overdue</CBadge>}
+                    {isOverdue && (
+                      <CBadge color="danger" className="ms-2">
+                        Overdue
+                      </CBadge>
+                    )}
                   </>
                 ) : (
-                  '-'
+                  "-"
                 )}
               </CTableDataCell>
-              <CTableDataCell>{getPriorityBadge(followUp.priority)}</CTableDataCell>
+              <CTableDataCell>
+                {getPriorityBadge(followUp.priority)}
+              </CTableDataCell>
               <CTableDataCell>{getStatusBadge(followUp.status)}</CTableDataCell>
               <CTableDataCell>
-                {followUp.status === 'pending' && (
+                {followUp.status === "pending" && (
                   <CButton
                     color="success"
                     variant="ghost"
@@ -239,7 +279,7 @@ const FollowUpDashboard = () => {
                 </CButton>
               </CTableDataCell>
             </CTableRow>
-          )
+          );
         })}
         {items.length === 0 && (
           <CTableRow>
@@ -250,7 +290,7 @@ const FollowUpDashboard = () => {
         )}
       </CTableBody>
     </CTable>
-  )
+  );
 
   return (
     <>
@@ -315,7 +355,7 @@ const FollowUpDashboard = () => {
               <CNavLink
                 active={activeTab === 1}
                 onClick={() => setActiveTab(1)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <CIcon icon={cilWarning} className="me-2" />
                 Overdue ({overdueFollowUps.length})
@@ -325,7 +365,7 @@ const FollowUpDashboard = () => {
               <CNavLink
                 active={activeTab === 2}
                 onClick={() => setActiveTab(2)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <CIcon icon={cilCalendar} className="me-2" />
                 Today ({todayFollowUps.length})
@@ -335,7 +375,7 @@ const FollowUpDashboard = () => {
               <CNavLink
                 active={activeTab === 3}
                 onClick={() => setActiveTab(3)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <CIcon icon={cilClock} className="me-2" />
                 All Pending ({pendingFollowUps.length})
@@ -345,7 +385,7 @@ const FollowUpDashboard = () => {
               <CNavLink
                 active={activeTab === 4}
                 onClick={() => setActiveTab(4)}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: "pointer" }}
               >
                 <CIcon icon={cilCheck} className="me-2" />
                 Completed ({completedFollowUps.length})
@@ -374,7 +414,9 @@ const FollowUpDashboard = () => {
       {/* Add/Edit Modal */}
       <CModal visible={showModal} onClose={handleCloseModal} size="lg">
         <CModalHeader>
-          <CModalTitle>{editingFollowUp ? 'Edit Follow-up' : 'Add New Follow-up'}</CModalTitle>
+          <CModalTitle>
+            {editingFollowUp ? "Edit Follow-up" : "Add New Follow-up"}
+          </CModalTitle>
         </CModalHeader>
         <CForm onSubmit={handleSubmit}>
           <CModalBody>
@@ -385,7 +427,9 @@ const FollowUpDashboard = () => {
                   <CFormInput
                     id="title"
                     value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, title: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -397,7 +441,9 @@ const FollowUpDashboard = () => {
                     type="date"
                     id="dueDate"
                     value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, dueDate: e.target.value })
+                    }
                     required
                   />
                 </div>
@@ -410,7 +456,13 @@ const FollowUpDashboard = () => {
                   <CFormSelect
                     id="type"
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value, referenceId: '' })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        type: e.target.value,
+                        referenceId: "",
+                      })
+                    }
                   >
                     <option value="query">Query</option>
                     <option value="quotation">Quotation</option>
@@ -425,8 +477,10 @@ const FollowUpDashboard = () => {
                   <CFormSelect
                     id="referenceId"
                     value={formData.referenceId}
-                    onChange={(e) => setFormData({ ...formData, referenceId: e.target.value })}
-                    disabled={formData.type === 'general'}
+                    onChange={(e) =>
+                      setFormData({ ...formData, referenceId: e.target.value })
+                    }
+                    disabled={formData.type === "general"}
                   >
                     <option value="">Select Reference (Optional)</option>
                     {getReferenceOptions().map((opt) => (
@@ -443,7 +497,9 @@ const FollowUpDashboard = () => {
                   <CFormSelect
                     id="priority"
                     value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, priority: e.target.value })
+                    }
                   >
                     <option value="low">Low</option>
                     <option value="normal">Normal</option>
@@ -460,7 +516,9 @@ const FollowUpDashboard = () => {
                     <CFormSelect
                       id="status"
                       value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, status: e.target.value })
+                      }
                     >
                       <option value="pending">Pending</option>
                       <option value="completed">Completed</option>
@@ -477,7 +535,9 @@ const FollowUpDashboard = () => {
                     id="description"
                     rows={3}
                     value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, description: e.target.value })
+                    }
                   />
                 </div>
               </CCol>
@@ -488,13 +548,13 @@ const FollowUpDashboard = () => {
               Cancel
             </CButton>
             <CButton color="primary" type="submit">
-              {editingFollowUp ? 'Update' : 'Create'}
+              {editingFollowUp ? "Update" : "Create"}
             </CButton>
           </CModalFooter>
         </CForm>
       </CModal>
     </>
-  )
-}
+  );
+};
 
-export default FollowUpDashboard
+export default FollowUpDashboard;

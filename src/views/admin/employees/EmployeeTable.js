@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo } from "react";
 import {
   CCard,
   CCardBody,
@@ -15,12 +15,12 @@ import {
   CBadge,
   CAlert,
   CAvatar,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash } from '@coreui/icons'
-import { EyeIcon } from '../../../components'
-import { Loader } from '../../../components'
-import { ROLE_LABELS } from '../../../context/AuthContext'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPencil, cilTrash } from "@coreui/icons";
+import { EyeIcon } from "../../../components";
+import { Loader } from "../../../components";
+import { ROLE_LABELS } from "../../../context/AuthContext";
 
 const EmployeeTable = ({
   employees,
@@ -35,25 +35,25 @@ const EmployeeTable = ({
   canDelete,
 }) => {
   const branchById = useMemo(() => {
-    const map = new Map()
+    const map = new Map();
     branches.forEach((branch) => {
-      map.set(String(branch.id), branch)
-    })
-    return map
-  }, [branches])
+      map.set(String(branch.id), branch);
+    });
+    return map;
+  }, [branches]);
 
   const roleBadgeColor = (role) => {
     const colors = {
-      head_of_department: 'primary',
-      sales_manager: 'info',
-      sales_exicutive: 'info',
-      purchase_manager: 'warning',
-      purchase_exicutive: 'warning',
-      back_office_exicutive: 'secondary',
-      administrator: 'dark',
-    }
-    return colors[role] || 'dark'
-  }
+      head_of_department: "primary",
+      sales_manager: "info",
+      sales_exicutive: "info",
+      purchase_manager: "warning",
+      purchase_exicutive: "warning",
+      back_office_exicutive: "secondary",
+      administrator: "dark",
+    };
+    return colors[role] || "dark";
+  };
 
   return (
     <CRow>
@@ -64,7 +64,12 @@ const EmployeeTable = ({
           </CCardHeader>
           <CCardBody>
             {error && (
-              <CAlert color="danger" className="mb-3" dismissible onClose={onClearError}>
+              <CAlert
+                color="danger"
+                className="mb-3"
+                dismissible
+                onClose={onClearError}
+              >
                 {error}
               </CAlert>
             )}
@@ -87,73 +92,86 @@ const EmployeeTable = ({
                 </CTableHead>
                 <CTableBody>
                   {employees.map((employee, index) => {
-                    const branch = branchById.get(String(employee.branchId))
+                    const branch = branchById.get(String(employee.branchId));
                     return (
                       <CTableRow
                         key={employee.id}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: "pointer" }}
                         onClick={() => onView(employee.id)}
                       >
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <div className="d-flex align-items-center">
-                            <CAvatar color="primary" textColor="white" size="sm" className="me-2">
-                              {employee.name?.charAt(0)?.toUpperCase() || 'E'}
+                            <CAvatar
+                              color="primary"
+                              textColor="white"
+                              size="sm"
+                              className="me-2"
+                            >
+                              {employee.name?.charAt(0)?.toUpperCase() || "E"}
                             </CAvatar>
                             <strong>{employee.name}</strong>
                           </div>
                         </CTableDataCell>
                         <CTableDataCell>{employee.email}</CTableDataCell>
-                        <CTableDataCell>{employee.phone || '-'}</CTableDataCell>
+                        <CTableDataCell>{employee.phone || "-"}</CTableDataCell>
                         <CTableDataCell>
                           <CBadge color={roleBadgeColor(employee.role)}>
                             {employee.role
-                              ? (ROLE_LABELS[employee.role] ||
-                                  employee.role
-                                    .split('_')
-                                    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-                                    .join(' '))
-                              : '-'}
+                              ? ROLE_LABELS[employee.role] ||
+                                employee.role
+                                  .split("_")
+                                  .map(
+                                    (w) =>
+                                      w.charAt(0).toUpperCase() +
+                                      w.slice(1).toLowerCase(),
+                                  )
+                                  .join(" ")
+                              : "-"}
                           </CBadge>
                         </CTableDataCell>
-                        <CTableDataCell>{branch?.name || 'N/A'}</CTableDataCell>
-                        <CTableDataCell>{employee.designation || '-'}</CTableDataCell>
-                        <CTableDataCell>{employee.idnumber || '-'}</CTableDataCell>
+                        <CTableDataCell>{branch?.name || "N/A"}</CTableDataCell>
+                        <CTableDataCell>
+                          {employee.designation || "-"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {employee.idnumber || "-"}
+                        </CTableDataCell>
                         <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <CButton
                             color="info"
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              onView(employee.id)
+                              e.stopPropagation();
+                              onView(employee.id);
                             }}
                             title="View"
                           >
                             <EyeIcon />
                           </CButton>
-                          {canUpdate && canUpdate('employees') && (
+                          {canUpdate && canUpdate("employees") && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                onEdit(employee)
+                                e.stopPropagation();
+                                onEdit(employee);
                               }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
-                          {canDelete && canDelete('employees') && (
+                          {canDelete && canDelete("employees") && (
                             <CButton
                               color="danger"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                onDelete(employee.id)
+                                e.stopPropagation();
+                                onDelete(employee.id);
                               }}
                               title="Delete"
                             >
@@ -162,7 +180,7 @@ const EmployeeTable = ({
                           )}
                         </CTableDataCell>
                       </CTableRow>
-                    )
+                    );
                   })}
                   {employees.length === 0 && (
                     <CTableRow>
@@ -178,7 +196,7 @@ const EmployeeTable = ({
         </CCard>
       </CCol>
     </CRow>
-  )
-}
+  );
+};
 
-export default EmployeeTable
+export default EmployeeTable;

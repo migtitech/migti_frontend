@@ -1,48 +1,55 @@
-import React, { useEffect, useState } from 'react'
-import axiosClient from '../../api/axiosClient'
-import { DOCUMENTS } from '../../api/endpoints'
-import { CImage } from '@coreui/react'
+import React, { useEffect, useState } from "react";
+import axiosClient from "../../api/axiosClient";
+import { DOCUMENTS } from "../../api/endpoints";
+import { CImage } from "@coreui/react";
 
 /**
  * Image that loads via authenticated API (GET /documents/serve/:id) so it works
  * when direct URLs require auth or signed URLs have token/expiry issues.
  */
-const AuthImage = ({ documentId, fallbackUrl, alt = '', className, style, ...rest }) => {
-  const [src, setSrc] = useState(fallbackUrl || '')
-  const [error, setError] = useState(false)
+const AuthImage = ({
+  documentId,
+  fallbackUrl,
+  alt = "",
+  className,
+  style,
+  ...rest
+}) => {
+  const [src, setSrc] = useState(fallbackUrl || "");
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!documentId) {
-      setSrc(fallbackUrl || '')
-      setError(false)
-      return
+      setSrc(fallbackUrl || "");
+      setError(false);
+      return;
     }
-    let objectUrl = null
+    let objectUrl = null;
     const load = async () => {
       try {
         const response = await axiosClient.get(DOCUMENTS.SERVE(documentId), {
-          responseType: 'blob',
-        })
+          responseType: "blob",
+        });
         if (response?.data instanceof Blob) {
-          objectUrl = URL.createObjectURL(response.data)
-          setSrc(objectUrl)
-          setError(false)
+          objectUrl = URL.createObjectURL(response.data);
+          setSrc(objectUrl);
+          setError(false);
         } else {
-          setSrc(fallbackUrl || '')
+          setSrc(fallbackUrl || "");
         }
       } catch (err) {
-        setError(true)
-        setSrc(fallbackUrl || '')
+        setError(true);
+        setSrc(fallbackUrl || "");
       }
-    }
-    load()
+    };
+    load();
     return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl)
-    }
-  }, [documentId, fallbackUrl])
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [documentId, fallbackUrl]);
 
-  if (error && !fallbackUrl) return null
-  if (!src) return null
+  if (error && !fallbackUrl) return null;
+  if (!src) return null;
 
   return (
     <CImage
@@ -53,7 +60,7 @@ const AuthImage = ({ documentId, fallbackUrl, alt = '', className, style, ...res
       onError={() => setError(true)}
       {...rest}
     />
-  )
-}
+  );
+};
 
-export default AuthImage
+export default AuthImage;

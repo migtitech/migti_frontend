@@ -1,5 +1,5 @@
-import { api } from '../api/axiosClient'
-import { EMPLOYEES } from '../api/endpoints'
+import { api } from "../api/axiosClient";
+import { EMPLOYEES } from "../api/endpoints";
 
 const employeeService = {
   /**
@@ -8,8 +8,8 @@ const employeeService = {
    * @returns {Promise}
    */
   getAll: async (params = {}) => {
-    const response = await api.get(EMPLOYEES.LIST, { params })
-    return response
+    const response = await api.get(EMPLOYEES.LIST, { params });
+    return response;
   },
 
   /**
@@ -20,8 +20,8 @@ const employeeService = {
   getById: async (id) => {
     const response = await api.get(EMPLOYEES.GET_BY_ID, {
       params: { employeeId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -30,8 +30,8 @@ const employeeService = {
    * @returns {Promise}
    */
   create: async (employeeData) => {
-    const response = await api.post(EMPLOYEES.CREATE, employeeData)
-    return response
+    const response = await api.post(EMPLOYEES.CREATE, employeeData);
+    return response;
   },
 
   /**
@@ -43,8 +43,8 @@ const employeeService = {
   update: async (id, employeeData) => {
     const response = await api.put(EMPLOYEES.UPDATE, employeeData, {
       params: { employeeId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -55,9 +55,9 @@ const employeeService = {
   delete: async (id) => {
     const response = await api.delete(EMPLOYEES.DELETE, {
       params: { employeeId: id },
-    })
-    return response
+    });
+    return response;
   },
-}
+};
 
-export default employeeService
+export default employeeService;

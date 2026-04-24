@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo } from "react";
 import {
   CCard,
   CCardBody,
@@ -9,11 +9,11 @@ import {
   CButton,
   CBadge,
   CAlert,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPencil, cilTrash, cilPeople, cilPlus } from '@coreui/icons'
-import { EyeIcon } from '../../../components'
-import { Loader } from '../../../components'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPencil, cilTrash, cilPeople, cilPlus } from "@coreui/icons";
+import { EyeIcon } from "../../../components";
+import { Loader } from "../../../components";
 
 const BranchCards = ({
   branches,
@@ -30,18 +30,23 @@ const BranchCards = ({
   canDelete,
 }) => {
   const companyById = useMemo(() => {
-    const map = new Map()
+    const map = new Map();
     companies.forEach((company) => {
-      map.set(String(company.id), company)
-    })
-    return map
-  }, [companies])
+      map.set(String(company.id), company);
+    });
+    return map;
+  }, [companies]);
 
   return (
     <CRow>
       {error && (
         <CCol xs={12}>
-          <CAlert color="danger" className="mb-3" dismissible onClose={onClearError}>
+          <CAlert
+            color="danger"
+            className="mb-3"
+            dismissible
+            onClose={onClearError}
+          >
             {error}
           </CAlert>
         </CCol>
@@ -52,7 +57,7 @@ const BranchCards = ({
         </CCol>
       ) : (
         branches.map((branch) => {
-          const company = companyById.get(String(branch.companyId))
+          const company = companyById.get(String(branch.companyId));
           return (
             <CCol key={branch.id} sm={6} lg={4} xl={3} className="mb-4">
               <CCard className="h-100">
@@ -63,7 +68,7 @@ const BranchCards = ({
                 <CCardBody>
                   <div className="mb-2">
                     <small className="text-muted">Company:</small>
-                    <p className="mb-1">{company?.name || 'N/A'}</p>
+                    <p className="mb-1">{company?.name || "N/A"}</p>
                   </div>
                   <div className="mb-2">
                     <small className="text-muted">Email:</small>
@@ -71,11 +76,11 @@ const BranchCards = ({
                   </div>
                   <div className="mb-2">
                     <small className="text-muted">Branch Code:</small>
-                    <p className="mb-1">{branch.branchcode || '-'}</p>
+                    <p className="mb-1">{branch.branchcode || "-"}</p>
                   </div>
                   <div className="mb-0">
                     <small className="text-muted">Phone:</small>
-                    <p className="mb-0">{branch.phone || '-'}</p>
+                    <p className="mb-0">{branch.phone || "-"}</p>
                   </div>
                 </CCardBody>
                 <CCardFooter className="d-flex gap-1 flex-wrap">
@@ -113,7 +118,7 @@ const BranchCards = ({
                 </CCardFooter>
               </CCard>
             </CCol>
-          )
+          );
         })
       )}
       {!loading && branches.length === 0 && (
@@ -132,7 +137,7 @@ const BranchCards = ({
         </CCol>
       )}
     </CRow>
-  )
-}
+  );
+};
 
-export default BranchCards
+export default BranchCards;

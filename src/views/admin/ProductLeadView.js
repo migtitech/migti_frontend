@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -19,46 +19,48 @@ import {
   CModalHeader,
   CModalTitle,
   CBadge,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilX } from '@coreui/icons'
-import queryNewProductService from '../../services/queryNewProductService'
-import { getAssetsUrl } from '../../api/endpoints'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft, cilX } from "@coreui/icons";
+import queryNewProductService from "../../services/queryNewProductService";
+import { getAssetsUrl } from "../../api/endpoints";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastError } from "../../utils/toast";
 
 const getImageUrl = (img) => {
-  if (!img) return ''
-  if (typeof img === 'object' && img?.path) return getAssetsUrl(img.path)
-  return typeof img === 'string' ? img : ''
-}
+  if (!img) return "";
+  if (typeof img === "object" && img?.path) return getAssetsUrl(img.path);
+  return typeof img === "string" ? img : "";
+};
 
 const ProductLeadView = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [product, setProduct] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [expandedImage, setExpandedImage] = useState(null)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [expandedImage, setExpandedImage] = useState(null);
 
   useEffect(() => {
     const fetchProduct = async () => {
-      setLoading(true)
-      setError('')
+      setLoading(true);
+      setError("");
       try {
-        const res = await withMinimumDelay(() => queryNewProductService.getById(id))
-        const data = res?.data?.data ?? res?.data ?? res
-        setProduct(data)
+        const res = await withMinimumDelay(() =>
+          queryNewProductService.getById(id),
+        );
+        const data = res?.data?.data ?? res?.data ?? res;
+        setProduct(data);
       } catch (err) {
-        setError(err?.message || 'Failed to fetch product')
-        toastError(err?.message || 'Failed to fetch product')
+        setError(err?.message || "Failed to fetch product");
+        toastError(err?.message || "Failed to fetch product");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
-    if (id) fetchProduct()
-  }, [id])
+    };
+    if (id) fetchProduct();
+  }, [id]);
 
   if (loading) {
     return (
@@ -67,43 +69,53 @@ const ProductLeadView = () => {
           <Loader message="Loading product..." />
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   if (error || !product) {
     return (
       <>
         <CAlert color="danger" className="mb-3">
-          {error || 'Product not found.'}
+          {error || "Product not found."}
         </CAlert>
-        <CButton color="secondary" variant="outline" onClick={() => navigate('/product-lead')}>
+        <CButton
+          color="secondary"
+          variant="outline"
+          onClick={() => navigate("/product-lead")}
+        >
           <CIcon icon={cilArrowLeft} className="me-1" />
           Back to Product Lead
         </CButton>
       </>
-    )
+    );
   }
 
   const detailRows = [
-    { key: 'Name', value: product.name, highlight: true },
-    { key: 'Unique ID', value: product.uniqueId || '-' },
-    { key: 'Model Number', value: product.modelNumber || '-' },
-    { key: 'HSN Number', value: product.hsnNumber || '-', highlight: true },
-    { key: 'Unit', value: product.unit || '-' },
+    { key: "Name", value: product.name, highlight: true },
+    { key: "Unique ID", value: product.uniqueId || "-" },
+    { key: "Model Number", value: product.modelNumber || "-" },
+    { key: "HSN Number", value: product.hsnNumber || "-", highlight: true },
+    { key: "Unit", value: product.unit || "-" },
     {
-      key: 'Created At',
-      value: product.createdAt ? new Date(product.createdAt).toLocaleString() : '-',
+      key: "Created At",
+      value: product.createdAt
+        ? new Date(product.createdAt).toLocaleString()
+        : "-",
     },
-  ]
+  ];
 
-  const variants = Array.isArray(product.variants) ? product.variants : []
-  const images = product?.images || []
+  const variants = Array.isArray(product.variants) ? product.variants : [];
+  const images = product?.images || [];
 
   return (
     <>
       <CRow className="mb-3">
         <CCol>
-          <CButton color="secondary" variant="outline" onClick={() => navigate('/product-lead')}>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={() => navigate("/product-lead")}
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to Product Lead
           </CButton>
@@ -125,11 +137,16 @@ const ProductLeadView = () => {
               <CTable bordered hover responsive className="mb-0">
                 <CTableBody>
                   {detailRows.map((row, idx) => (
-                    <CTableRow key={idx} className={row.highlight ? 'table-warning' : ''}>
+                    <CTableRow
+                      key={idx}
+                      className={row.highlight ? "table-warning" : ""}
+                    >
                       <CTableHeaderCell
                         style={{
-                          width: '35%',
-                          backgroundColor: row.highlight ? '#fff3cd' : '#f8f9fa',
+                          width: "35%",
+                          backgroundColor: row.highlight
+                            ? "#fff3cd"
+                            : "#f8f9fa",
                           fontWeight: 600,
                         }}
                         className="text-nowrap"
@@ -137,7 +154,11 @@ const ProductLeadView = () => {
                         {row.key}
                       </CTableHeaderCell>
                       <CTableDataCell
-                        style={row.highlight ? { backgroundColor: '#fff3cd', fontWeight: 600 } : {}}
+                        style={
+                          row.highlight
+                            ? { backgroundColor: "#fff3cd", fontWeight: 600 }
+                            : {}
+                        }
                       >
                         {row.value}
                       </CTableDataCell>
@@ -172,7 +193,7 @@ const ProductLeadView = () => {
               <strong>Images</strong>
               {images.length > 0 && (
                 <CBadge color="secondary" className="ms-2">
-                  {images.length} photo{images.length !== 1 ? 's' : ''}
+                  {images.length} photo{images.length !== 1 ? "s" : ""}
                 </CBadge>
               )}
             </CCardHeader>
@@ -180,16 +201,18 @@ const ProductLeadView = () => {
               {images.length > 0 ? (
                 <div className="d-flex flex-wrap gap-2">
                   {images.map((img, index) => {
-                    const src = getImageUrl(img)
+                    const src = getImageUrl(img);
                     return (
                       <div
                         key={img?._id || index}
                         role="button"
                         tabIndex={0}
                         onClick={() => setExpandedImage(src)}
-                        onKeyDown={(e) => e.key === 'Enter' && setExpandedImage(src)}
+                        onKeyDown={(e) =>
+                          e.key === "Enter" && setExpandedImage(src)
+                        }
                         className="rounded border overflow-hidden"
-                        style={{ width: 120, height: 120, cursor: 'pointer' }}
+                        style={{ width: 120, height: 120, cursor: "pointer" }}
                       >
                         <CImage
                           src={src}
@@ -197,11 +220,11 @@ const ProductLeadView = () => {
                           height={120}
                           className="object-fit-cover w-100 h-100"
                           onError={(e) => {
-                            e.target.style.display = 'none'
+                            e.target.style.display = "none";
                           }}
                         />
                       </div>
-                    )
+                    );
                   })}
                 </div>
               ) : (
@@ -237,13 +260,13 @@ const ProductLeadView = () => {
               src={expandedImage}
               alt="Expanded"
               className="img-fluid rounded"
-              style={{ maxHeight: '80vh', objectFit: 'contain' }}
+              style={{ maxHeight: "80vh", objectFit: "contain" }}
             />
           )}
         </CModalBody>
       </CModal>
     </>
-  )
-}
+  );
+};
 
-export default ProductLeadView
+export default ProductLeadView;

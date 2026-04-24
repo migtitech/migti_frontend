@@ -1,16 +1,16 @@
-import React from 'react'
-import { createRoot } from 'react-dom/client'
-import { Provider } from 'react-redux'
-import 'core-js'
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { Provider } from "react-redux";
+import "core-js";
 
-import App from './App'
-import store from './store'
-import ErrorBoundary from './components/ErrorBoundary/ErrorBoundary'
+import App from "./App";
+import store from "./store";
+import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <ErrorBoundary>
     <Provider store={store}>
       <App />
     </Provider>
   </ErrorBoundary>,
-)
+);

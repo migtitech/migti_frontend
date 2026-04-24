@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   CCard,
   CCardBody,
@@ -16,78 +16,81 @@ import {
   CAlert,
   CPagination,
   CPaginationItem,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
-import brandService from '../../services/brandService'
-import Filtered from '../../filtered/Filtered'
-import { useNavigate } from 'react-router-dom'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
+import brandService from "../../services/brandService";
+import Filtered from "../../filtered/Filtered";
+import { useNavigate } from "react-router-dom";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
 
 const BrandList = () => {
-  const [brands, setBrands] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [brands, setBrands] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
 
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
 
   const fetchBrands = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
       const res = await withMinimumDelay(() =>
         brandService.getAll({
           pageNumber: page,
           pageSize: 10,
           search: searchTerm,
-        })
-      )
-      const data = res?.data || res
-      setBrands(data?.brands || [])
-      setPagination(data?.pagination || {})
+        }),
+      );
+      const data = res?.data || res;
+      setBrands(data?.brands || []);
+      setPagination(data?.pagination || {});
     } catch (err) {
-      setError(err?.message || 'Failed to fetch brands')
+      setError(err?.message || "Failed to fetch brands");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    const timer = setTimeout(fetchBrands, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm, page])
+    const timer = setTimeout(fetchBrands, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, page]);
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (!id) return
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (!id) return;
     try {
-      await brandService.delete(id)
-      toastSuccess('Brand deleted successfully')
-      fetchBrands()
+      await brandService.delete(id);
+      toastSuccess("Brand deleted successfully");
+      fetchBrands();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete brand')
+      toastError(err?.message || "Failed to delete brand");
     }
-  }
+  };
 
   const getStatusBadge = (status) =>
-    status === 'active' ? (
+    status === "active" ? (
       <CBadge color="success">Active</CBadge>
     ) : (
       <CBadge color="secondary">Inactive</CBadge>
-    )
+    );
 
   return (
     <CRow>
@@ -95,8 +98,8 @@ const BrandList = () => {
         <CCard>
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Brands</strong>
-            {canCreate('brands') && (
-              <CButton color="primary" onClick={() => navigate('/brands/new')}>
+            {canCreate("brands") && (
+              <CButton color="primary" onClick={() => navigate("/brands/new")}>
                 <CIcon icon={cilPlus} className="me-2" />
                 Add Brand
               </CButton>
@@ -105,7 +108,7 @@ const BrandList = () => {
 
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -130,10 +133,12 @@ const BrandList = () => {
                     {brands.map((brand, index) => (
                       <CTableRow
                         key={brand._id}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: "pointer" }}
                         onClick={() => navigate(`/brands/edit/${brand._id}`)}
                       >
-                        <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
+                        <CTableDataCell>
+                          {(page - 1) * 10 + index + 1}
+                        </CTableDataCell>
                         <CTableDataCell>
                           <strong>{brand.name}</strong>
                         </CTableDataCell>
@@ -142,28 +147,28 @@ const BrandList = () => {
                         </CTableDataCell>
 
                         <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                          {canUpdate('brands') && (
+                          {canUpdate("brands") && (
                             <CButton
                               size="sm"
                               color="warning"
                               variant="ghost"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/brands/edit/${brand._id}`)
+                                e.stopPropagation();
+                                navigate(`/brands/edit/${brand._id}`);
                               }}
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
 
-                          {canDelete('brands') && (
+                          {canDelete("brands") && (
                             <CButton
                               size="sm"
                               color="danger"
                               variant="ghost"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(brand._id)
+                                e.stopPropagation();
+                                handleDeleteClick(brand._id);
                               }}
                             >
                               <CIcon icon={cilTrash} />
@@ -186,8 +191,17 @@ const BrandList = () => {
                 {pagination.totalPages > 1 && (
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     <div className="small text-medium-emphasis">
-                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
-                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                      Showing{" "}
+                      {((pagination?.currentPage ?? 1) - 1) *
+                        (pagination?.itemsPerPage ?? 10) +
+                        1}
+                      -
+                      {Math.min(
+                        (pagination?.currentPage ?? 1) *
+                          (pagination?.itemsPerPage ?? 10),
+                        pagination?.totalItems ?? 0,
+                      )}{" "}
+                      of {pagination?.totalItems ?? 0}
                     </div>
                     <CPagination className="mb-0">
                       <CPaginationItem
@@ -197,15 +211,17 @@ const BrandList = () => {
                         Prev
                       </CPaginationItem>
 
-                      {Array.from({ length: pagination.totalPages }).map((_, i) => (
-                        <CPaginationItem
-                          key={i}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
+                      {Array.from({ length: pagination.totalPages }).map(
+                        (_, i) => (
+                          <CPaginationItem
+                            key={i}
+                            active={page === i + 1}
+                            onClick={() => setPage(i + 1)}
+                          >
+                            {i + 1}
+                          </CPaginationItem>
+                        ),
+                      )}
 
                       <CPaginationItem
                         disabled={!pagination.hasNextPage}
@@ -232,7 +248,7 @@ const BrandList = () => {
         cancelText="Cancel"
       />
     </CRow>
-  )
-}
+  );
+};
 
-export default BrandList
+export default BrandList;

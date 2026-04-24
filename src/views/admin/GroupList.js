@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   CCard,
   CCardBody,
@@ -16,80 +16,83 @@ import {
   CAlert,
   CPagination,
   CPaginationItem,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
-import { useNavigate } from 'react-router-dom'
-import groupService from '../../services/groupService'
-import Filtered from '../../filtered/Filtered'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
+import { useNavigate } from "react-router-dom";
+import groupService from "../../services/groupService";
+import Filtered from "../../filtered/Filtered";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import usePermissions from "../../hooks/usePermissions";
 
 const GroupList = () => {
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-  const [groups, setGroups] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
-  const [pagination, setPagination] = useState({})
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
 
   const fetchGroups = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
       const res = await withMinimumDelay(() =>
         groupService.getAll({
           pageNumber: page,
           pageSize: 10,
           search: searchTerm,
-        })
-      )
-      const data = res?.data || res
-      setGroups(data?.groups || [])
-      setPagination(data?.pagination || {})
+        }),
+      );
+      const data = res?.data || res;
+      setGroups(data?.groups || []);
+      setPagination(data?.pagination || {});
     } catch (err) {
-      setError(err?.message || 'Failed to fetch groups')
+      setError(err?.message || "Failed to fetch groups");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchGroups()
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm, page])
+      fetchGroups();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, page]);
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = async () => {
-    const { id } = confirmDelete
-    setConfirmDelete({ visible: false, id: null })
-    if (!id) return
+    const { id } = confirmDelete;
+    setConfirmDelete({ visible: false, id: null });
+    if (!id) return;
     try {
-      await groupService.delete(id)
-      toastSuccess('Group deleted successfully')
-      fetchGroups()
+      await groupService.delete(id);
+      toastSuccess("Group deleted successfully");
+      fetchGroups();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete group')
+      toastError(err?.message || "Failed to delete group");
     }
-  }
+  };
 
   const getStatusBadge = (status) => {
-    return status === 'active' ? (
+    return status === "active" ? (
       <CBadge color="success">Active</CBadge>
     ) : (
       <CBadge color="secondary">Inactive</CBadge>
-    )
-  }
+    );
+  };
 
   return (
     <CRow>
@@ -97,8 +100,8 @@ const GroupList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Groups</strong>
-            {canCreate('groups') && (
-              <CButton color="primary" onClick={() => navigate('/groups/new')}>
+            {canCreate("groups") && (
+              <CButton color="primary" onClick={() => navigate("/groups/new")}>
                 <CIcon icon={cilPlus} className="me-2" />
                 Add Group
               </CButton>
@@ -106,7 +109,7 @@ const GroupList = () => {
           </CCardHeader>
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -130,43 +133,47 @@ const GroupList = () => {
                     {groups.map((grp, index) => (
                       <CTableRow
                         key={grp._id}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: "pointer" }}
                         onClick={() => navigate(`/groups/edit/${grp._id}`)}
                       >
-                        <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
-                          <code>{grp.code || '—'}</code>
+                          {(page - 1) * 10 + index + 1}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <code>{grp.code || "—"}</code>
                         </CTableDataCell>
                         <CTableDataCell>
                           <strong>{grp.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>
-                          {grp.description?.substring(0, 50) || '—'}
+                          {grp.description?.substring(0, 50) || "—"}
                         </CTableDataCell>
-                        <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
+                        <CTableDataCell>
+                          {getStatusBadge(grp.status)}
+                        </CTableDataCell>
                         <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                          {canUpdate('groups') && (
+                          {canUpdate("groups") && (
                             <CButton
                               color="warning"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                navigate(`/groups/edit/${grp._id}`)
+                                e.stopPropagation();
+                                navigate(`/groups/edit/${grp._id}`);
                               }}
                               title="Edit"
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
-                          {canDelete('groups') && (
+                          {canDelete("groups") && (
                             <CButton
                               color="danger"
                               variant="ghost"
                               size="sm"
                               onClick={(e) => {
-                                e.stopPropagation()
-                                handleDeleteClick(grp._id)
+                                e.stopPropagation();
+                                handleDeleteClick(grp._id);
                               }}
                               title="Delete"
                             >
@@ -190,8 +197,17 @@ const GroupList = () => {
                 {pagination.totalPages > 1 && (
                   <div className="d-flex justify-content-between align-items-center mt-3">
                     <div className="small text-medium-emphasis">
-                      Showing {((pagination?.currentPage ?? 1) - 1) * (pagination?.itemsPerPage ?? 10) + 1}
-                      -{Math.min((pagination?.currentPage ?? 1) * (pagination?.itemsPerPage ?? 10), pagination?.totalItems ?? 0)} of {pagination?.totalItems ?? 0}
+                      Showing{" "}
+                      {((pagination?.currentPage ?? 1) - 1) *
+                        (pagination?.itemsPerPage ?? 10) +
+                        1}
+                      -
+                      {Math.min(
+                        (pagination?.currentPage ?? 1) *
+                          (pagination?.itemsPerPage ?? 10),
+                        pagination?.totalItems ?? 0,
+                      )}{" "}
+                      of {pagination?.totalItems ?? 0}
                     </div>
                     <CPagination className="mb-0">
                       <CPaginationItem
@@ -234,7 +250,7 @@ const GroupList = () => {
         cancelText="Cancel"
       />
     </CRow>
-  )
-}
+  );
+};
 
-export default GroupList
+export default GroupList;

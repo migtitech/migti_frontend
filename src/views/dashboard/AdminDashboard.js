@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState } from "react";
 import {
   CCard,
   CCardBody,
@@ -22,8 +22,8 @@ import {
   CForm,
   CFormInput,
   CFormLabel,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
 import {
   cilBuilding,
   cilBriefcase,
@@ -31,83 +31,95 @@ import {
   cilPlus,
   cilPencil,
   cilTrash,
-} from '@coreui/icons'
-import { useData } from '../../context/DataContext'
-import { useAuth } from '../../context/AuthContext'
-import { useNavigate } from 'react-router-dom'
-import { ConfirmDialog } from '../../components'
+} from "@coreui/icons";
+import { useData } from "../../context/DataContext";
+import { useAuth } from "../../context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { ConfirmDialog } from "../../components";
 
 const AdminDashboard = () => {
-  const navigate = useNavigate()
-  const { companies, branches, branchUsers, addCompany, updateCompany, deleteCompany } = useData()
-  const { user } = useAuth()
+  const navigate = useNavigate();
+  const {
+    companies,
+    branches,
+    branchUsers,
+    addCompany,
+    updateCompany,
+    deleteCompany,
+  } = useData();
+  const { user } = useAuth();
 
-  const [showModal, setShowModal] = useState(false)
-  const [editingCompany, setEditingCompany] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [showModal, setShowModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    location: '',
-  })
+    name: "",
+    email: "",
+    location: "",
+  });
 
   const stats = {
     totalCompanies: companies.length,
     totalBranches: branches.length,
     totalUsers: branchUsers.length,
-  }
+  };
 
   const handleOpenModal = (company = null) => {
     if (company) {
-      setEditingCompany(company)
+      setEditingCompany(company);
       setFormData({
         name: company.name,
         email: company.email,
         location: company.location,
-      })
+      });
     } else {
-      setEditingCompany(null)
-      setFormData({ name: '', email: '', location: '' })
+      setEditingCompany(null);
+      setFormData({ name: "", email: "", location: "" });
     }
-    setShowModal(true)
-  }
+    setShowModal(true);
+  };
 
   const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingCompany(null)
-    setFormData({ name: '', email: '', location: '' })
-  }
+    setShowModal(false);
+    setEditingCompany(null);
+    setFormData({ name: "", email: "", location: "" });
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (editingCompany) {
-      updateCompany(editingCompany.id, formData)
+      updateCompany(editingCompany.id, formData);
     } else {
-      addCompany(formData)
+      addCompany(formData);
     }
-    handleCloseModal()
-  }
+    handleCloseModal();
+  };
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (id != null) deleteCompany(id)
-  }
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (id != null) deleteCompany(id);
+  };
 
   const handleViewBranches = (companyId) => {
-    navigate(`/admin/companies/${companyId}/branches`)
-  }
+    navigate(`/admin/companies/${companyId}/branches`);
+  };
 
   return (
     <>
       <CRow className="mb-4">
         <CCol>
           <h2>Welcome, {user?.name}</h2>
-          <p className="text-body-secondary">Admin Dashboard - Company Management</p>
+          <p className="text-body-secondary">
+            Admin Dashboard - Company Management
+          </p>
         </CCol>
       </CRow>
 
@@ -119,7 +131,11 @@ const AdminDashboard = () => {
             value={stats.totalCompanies.toString()}
             title="Total Companies"
             chart={
-              <CIcon icon={cilBuilding} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilBuilding}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -130,7 +146,11 @@ const AdminDashboard = () => {
             value={stats.totalBranches.toString()}
             title="Total Branches"
             chart={
-              <CIcon icon={cilBriefcase} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilBriefcase}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -141,7 +161,11 @@ const AdminDashboard = () => {
             value={stats.totalUsers.toString()}
             title="Total Users"
             chart={
-              <CIcon icon={cilPeople} height={52} className="my-4 text-white opacity-25" />
+              <CIcon
+                icon={cilPeople}
+                height={52}
+                className="my-4 text-white opacity-25"
+              />
             }
           />
         </CCol>
@@ -152,7 +176,11 @@ const AdminDashboard = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Companies</strong>
-              <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
+              <CButton
+                color="primary"
+                size="sm"
+                onClick={() => handleOpenModal()}
+              >
                 <CIcon icon={cilPlus} className="me-1" />
                 Add Company
               </CButton>
@@ -179,10 +207,14 @@ const AdminDashboard = () => {
                       <CTableDataCell>
                         <CBadge
                           color="info"
-                          style={{ cursor: 'pointer' }}
+                          style={{ cursor: "pointer" }}
                           onClick={() => handleViewBranches(company.id)}
                         >
-                          {branches.filter((b) => b.companyId === company.id).length} Branches
+                          {
+                            branches.filter((b) => b.companyId === company.id)
+                              .length
+                          }{" "}
+                          Branches
                         </CBadge>
                       </CTableDataCell>
                       <CTableDataCell>
@@ -218,8 +250,12 @@ const AdminDashboard = () => {
                   ))}
                   {companies.length === 0 && (
                     <CTableRow>
-                      <CTableDataCell colSpan={6} className="text-center text-body-secondary">
-                        No companies found. Click &quot;Add Company&quot; to create one.
+                      <CTableDataCell
+                        colSpan={6}
+                        className="text-center text-body-secondary"
+                      >
+                        No companies found. Click &quot;Add Company&quot; to
+                        create one.
                       </CTableDataCell>
                     </CTableRow>
                   )}
@@ -234,7 +270,9 @@ const AdminDashboard = () => {
       <CModal visible={showModal} onClose={handleCloseModal}>
         <CForm onSubmit={handleSubmit}>
           <CModalHeader>
-            <CModalTitle>{editingCompany ? 'Edit Company' : 'Add New Company'}</CModalTitle>
+            <CModalTitle>
+              {editingCompany ? "Edit Company" : "Add New Company"}
+            </CModalTitle>
           </CModalHeader>
           <CModalBody>
             <div className="mb-3">
@@ -243,7 +281,9 @@ const AdminDashboard = () => {
                 id="name"
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 placeholder="Enter company name"
                 required
               />
@@ -254,7 +294,9 @@ const AdminDashboard = () => {
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
                 placeholder="Enter company email"
                 required
               />
@@ -265,7 +307,9 @@ const AdminDashboard = () => {
                 id="location"
                 type="text"
                 value={formData.location}
-                onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, location: e.target.value })
+                }
                 placeholder="Enter company location"
                 required
               />
@@ -276,7 +320,7 @@ const AdminDashboard = () => {
               Cancel
             </CButton>
             <CButton color="primary" type="submit">
-              {editingCompany ? 'Update' : 'Create'}
+              {editingCompany ? "Update" : "Create"}
             </CButton>
           </CModalFooter>
         </CForm>
@@ -292,7 +336,7 @@ const AdminDashboard = () => {
         cancelText="Cancel"
       />
     </>
-  )
-}
+  );
+};
 
-export default AdminDashboard
+export default AdminDashboard;

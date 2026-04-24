@@ -1,7 +1,7 @@
-import React from 'react'
-import { CCol, CRow, CButton } from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus } from '@coreui/icons'
+import React from "react";
+import { CCol, CRow, CButton } from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus } from "@coreui/icons";
 
 const BranchHeader = ({ onAdd, canCreate }) => (
   <CRow className="mb-3">
@@ -17,6 +17,6 @@ const BranchHeader = ({ onAdd, canCreate }) => (
       </div>
     </CCol>
   </CRow>
-)
+);
 
-export default BranchHeader
+export default BranchHeader;

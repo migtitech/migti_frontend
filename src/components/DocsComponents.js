@@ -1,7 +1,7 @@
-import PropTypes from 'prop-types'
-import React from 'react'
+import PropTypes from "prop-types";
+import React from "react";
 
-import ComponentsImg from 'src/assets/images/components.webp'
+import ComponentsImg from "src/assets/images/components.webp";
 
 const DocsComponents = (props) => (
   <div className="bg-primary bg-opacity-10 border border-2 border-primary rounded mb-4">
@@ -16,14 +16,14 @@ const DocsComponents = (props) => (
         />
       </div>
       <div className="col-md col-12 px-lg-4">
-        Our Admin Panel isn’t just a mix of third-party components. It’s{' '}
+        Our Admin Panel isn’t just a mix of third-party components. It’s{" "}
         <strong>
-          the only open-source React dashboard built on a professional, enterprise-grade UI
-          Components Library
+          the only open-source React dashboard built on a professional,
+          enterprise-grade UI Components Library
         </strong>
-        . This component is part of this library, and we present only the basic usage of it here. To
-        explore extended examples, detailed API documentation, and customization options, refer to
-        our docs.
+        . This component is part of this library, and we present only the basic
+        usage of it here. To explore extended examples, detailed API
+        documentation, and customization options, refer to our docs.
       </div>
       <div className="col-md-auto col-12 mt-3 mt-lg-0">
         <a
@@ -37,10 +37,10 @@ const DocsComponents = (props) => (
       </div>
     </div>
   </div>
-)
+);
 
 DocsComponents.propTypes = {
   href: PropTypes.string,
-}
+};
 
-export default DocsComponents
+export default DocsComponents;

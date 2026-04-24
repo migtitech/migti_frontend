@@ -1,61 +1,73 @@
-import React, { useState, useRef, useEffect } from 'react'
-import { CFormInput, CDropdown, CDropdownToggle, CDropdownMenu, CDropdownItem } from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilChevronBottom } from '@coreui/icons'
-import './SearchableDropdown.scss'
+import React, { useState, useRef, useEffect } from "react";
+import {
+  CFormInput,
+  CDropdown,
+  CDropdownToggle,
+  CDropdownMenu,
+  CDropdownItem,
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilChevronBottom } from "@coreui/icons";
+import "./SearchableDropdown.scss";
 
-const DEFAULT_MAX_DISPLAY = 5
+const DEFAULT_MAX_DISPLAY = 5;
 
 const SearchableDropdown = ({
   options = [],
   value,
   onChange,
-  placeholder = 'Select...',
+  placeholder = "Select...",
   maxDisplayCount = DEFAULT_MAX_DISPLAY,
-  getOptionLabel = (opt) => (opt?.name != null ? opt.name : opt?.label ?? String(opt?.value ?? '')),
+  getOptionLabel = (opt) =>
+    opt?.name != null ? opt.name : (opt?.label ?? String(opt?.value ?? "")),
   getOptionValue = (opt) => opt?._id ?? opt?.id ?? opt?.value,
   disabled = false,
   label,
 }) => {
-  const [open, setOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const inputRef = useRef(null)
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const inputRef = useRef(null);
 
-  const normalizedOptions = Array.isArray(options) ? options : []
-  const searchLower = (searchQuery || '').trim().toLowerCase()
+  const normalizedOptions = Array.isArray(options) ? options : [];
+  const searchLower = (searchQuery || "").trim().toLowerCase();
   const filtered = searchLower
     ? normalizedOptions.filter((opt) =>
         getOptionLabel(opt).toLowerCase().includes(searchLower),
       )
-    : normalizedOptions
-  const displayOptions = filtered.slice(0, maxDisplayCount)
+    : normalizedOptions;
+  const displayOptions = filtered.slice(0, maxDisplayCount);
 
   const selectedOption = normalizedOptions.find(
-    (opt) => getOptionValue(opt) === value || getOptionValue(opt) === value?._id,
-  )
-  const displayValue = selectedOption ? getOptionLabel(selectedOption) : ''
+    (opt) =>
+      getOptionValue(opt) === value || getOptionValue(opt) === value?._id,
+  );
+  const displayValue = selectedOption ? getOptionLabel(selectedOption) : "";
 
   useEffect(() => {
     if (open) {
-      setSearchQuery('')
-      setTimeout(() => inputRef.current?.focus(), 50)
+      setSearchQuery("");
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
-  }, [open])
+  }, [open]);
 
   const handleSelect = (opt) => {
-    onChange(opt ? getOptionValue(opt) : '')
-    setOpen(false)
-    setSearchQuery('')
-  }
+    onChange(opt ? getOptionValue(opt) : "");
+    setOpen(false);
+    setSearchQuery("");
+  };
 
   const handleClear = (e) => {
-    e?.stopPropagation()
-    handleSelect(null)
-  }
+    e?.stopPropagation();
+    handleSelect(null);
+  };
 
   return (
     <div className="searchable-dropdown position-relative">
-      {label && <label className="form-label small text-body-secondary mb-1">{label}</label>}
+      {label && (
+        <label className="form-label small text-body-secondary mb-1">
+          {label}
+        </label>
+      )}
       <CDropdown
         variant="input-group"
         placement="bottom-end"
@@ -67,18 +79,18 @@ const SearchableDropdown = ({
         <CDropdownToggle
           caret={false}
           className="d-flex align-items-center justify-content-between text-start bg-white border"
-          style={{ minHeight: '38px' }}
+          style={{ minHeight: "38px" }}
           disabled={disabled}
           onClick={() => setOpen(!open)}
         >
-          <span className={displayValue ? 'text-dark' : 'text-muted'}>
+          <span className={displayValue ? "text-dark" : "text-muted"}>
             {displayValue || placeholder}
           </span>
           <CIcon icon={cilChevronBottom} className="ms-2 opacity-75" />
         </CDropdownToggle>
         <CDropdownMenu
           className="p-0 searchable-dropdown-menu"
-          style={{ minWidth: '220px', zIndex: 1060 }}
+          style={{ minWidth: "220px", zIndex: 1060 }}
         >
           <div className="p-2 border-bottom bg-white">
             <CFormInput
@@ -91,14 +103,17 @@ const SearchableDropdown = ({
               onClick={(e) => e.stopPropagation()}
             />
           </div>
-          <div className="searchable-dropdown-options bg-white" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+          <div
+            className="searchable-dropdown-options bg-white"
+            style={{ maxHeight: "200px", overflowY: "auto" }}
+          >
             {displayOptions.length === 0 && (
               <div className="px-3 py-2 text-muted small">No matches</div>
             )}
             {displayOptions.map((opt) => {
-              const optValue = getOptionValue(opt)
-              const optLabel = getOptionLabel(opt)
-              const isSelected = optValue === value || optValue === value?._id
+              const optValue = getOptionValue(opt);
+              const optLabel = getOptionLabel(opt);
+              const isSelected = optValue === value || optValue === value?._id;
               return (
                 <CDropdownItem
                   key={optValue}
@@ -110,7 +125,7 @@ const SearchableDropdown = ({
                 >
                   {optLabel}
                 </CDropdownItem>
-              )
+              );
             })}
           </div>
           {value && (
@@ -127,7 +142,7 @@ const SearchableDropdown = ({
         </CDropdownMenu>
       </CDropdown>
     </div>
-  )
-}
+  );
+};
 
-export default SearchableDropdown
+export default SearchableDropdown;

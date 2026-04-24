@@ -1,4 +1,4 @@
-import React from 'react'
+import React from "react";
 import {
   CModal,
   CModalHeader,
@@ -6,10 +6,10 @@ import {
   CModalBody,
   CModalFooter,
   CButton,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilTrash, cilWarning } from '@coreui/icons'
-import './ConfirmDialog.scss'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilTrash, cilWarning } from "@coreui/icons";
+import "./ConfirmDialog.scss";
 
 /**
  * Reusable confirmation dialog (replaces window.confirm).
@@ -29,17 +29,17 @@ const ConfirmDialog = ({
   onConfirm,
   title,
   message,
-  confirmText = 'Delete',
-  cancelText = 'Cancel',
-  confirmColor = 'danger',
-  icon = 'trash',
+  confirmText = "Delete",
+  cancelText = "Cancel",
+  confirmColor = "danger",
+  icon = "trash",
 }) => {
   const handleConfirm = () => {
-    onConfirm?.()
-    onClose?.()
-  }
+    onConfirm?.();
+    onClose?.();
+  };
 
-  const IconComponent = icon === 'warning' ? cilWarning : cilTrash
+  const IconComponent = icon === "warning" ? cilWarning : cilTrash;
 
   return (
     <CModal
@@ -67,7 +67,7 @@ const ConfirmDialog = ({
         </CButton>
       </CModalFooter>
     </CModal>
-  )
-}
+  );
+};
 
-export default ConfirmDialog
+export default ConfirmDialog;

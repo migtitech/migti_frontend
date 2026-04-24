@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -16,40 +16,40 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil, cilPlus } from '@coreui/icons'
-import categoryService from '../../services/categoryService'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft, cilPencil, cilPlus } from "@coreui/icons";
+import categoryService from "../../services/categoryService";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastError } from "../../utils/toast";
 
 const CategoryView = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
+  const { id } = useParams();
+  const navigate = useNavigate();
 
-  const [category, setCategory] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [category, setCategory] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const load = async () => {
-      setLoading(true)
-      setError('')
+      setLoading(true);
+      setError("");
       try {
-        const res = await withMinimumDelay(() => categoryService.getById(id))
-        const payload = res?.data?.data || res?.data || res
-        setCategory(payload)
+        const res = await withMinimumDelay(() => categoryService.getById(id));
+        const payload = res?.data?.data || res?.data || res;
+        setCategory(payload);
       } catch (err) {
-        setError(err?.message || 'Failed to load category')
-        toastError(err?.message || 'Failed to load category')
+        setError(err?.message || "Failed to load category");
+        toastError(err?.message || "Failed to load category");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    load()
-  }, [id])
+    load();
+  }, [id]);
 
   if (loading) {
     return (
@@ -58,7 +58,7 @@ const CategoryView = () => {
           <Loader message="Loading category..." />
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   if (error) {
@@ -66,12 +66,12 @@ const CategoryView = () => {
       <CCard>
         <CCardBody className="text-center py-5">
           <p className="text-danger mb-3">{error}</p>
-          <CButton color="primary" onClick={() => navigate('/categories')}>
+          <CButton color="primary" onClick={() => navigate("/categories")}>
             Back to Categories
           </CButton>
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   if (!category) {
@@ -79,21 +79,25 @@ const CategoryView = () => {
       <CCard>
         <CCardBody className="text-center py-5">
           <h4>Category not found</h4>
-          <CButton color="primary" onClick={() => navigate('/categories')}>
+          <CButton color="primary" onClick={() => navigate("/categories")}>
             Back to Categories
           </CButton>
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
-  const subcategories = category.subcategories || []
+  const subcategories = category.subcategories || [];
 
   return (
     <>
       <CRow className="mb-3">
         <CCol>
-          <CButton color="secondary" variant="outline" onClick={() => navigate('/categories')}>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={() => navigate("/categories")}
+          >
             <CIcon icon={cilArrowLeft} className="me-2" />
             Back to Categories
           </CButton>
@@ -105,7 +109,11 @@ const CategoryView = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Category Details</strong>
-              <CButton color="warning" size="sm" onClick={() => navigate(`/categories/edit/${id}`)}>
+              <CButton
+                color="warning"
+                size="sm"
+                onClick={() => navigate(`/categories/edit/${id}`)}
+              >
                 <CIcon icon={cilPencil} className="me-2" />
                 Edit
               </CButton>
@@ -115,7 +123,7 @@ const CategoryView = () => {
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Category Code:</strong>
                   <span>
-                    <code>{category.categoryCode || '—'}</code>
+                    <code>{category.categoryCode || "—"}</code>
                   </span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
@@ -124,15 +132,15 @@ const CategoryView = () => {
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Group:</strong>
-                  <span>{category.group?.name || '—'}</span>
+                  <span>{category.group?.name || "—"}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Parent:</strong>
-                  <span>{category.parent?.name || 'None (Root)'}</span>
+                  <span>{category.parent?.name || "None (Root)"}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Description:</strong>
-                  <span>{category.description || '—'}</span>
+                  <span>{category.description || "—"}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Sort Order:</strong>
@@ -140,8 +148,12 @@ const CategoryView = () => {
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Status:</strong>
-                  <CBadge color={category.status === 'active' ? 'success' : 'secondary'}>
-                    {category.status || 'active'}
+                  <CBadge
+                    color={
+                      category.status === "active" ? "success" : "secondary"
+                    }
+                  >
+                    {category.status || "active"}
                   </CBadge>
                 </CListGroupItem>
               </CListGroup>
@@ -175,9 +187,11 @@ const CategoryView = () => {
                       onClick={() => navigate(`/categories/${sub._id}`)}
                     >
                       <div>
-                        <code className="text-primary">{sub.categoryCode || '—'}</code>
+                        <code className="text-primary">
+                          {sub.categoryCode || "—"}
+                        </code>
                         <br />
-                        <strong>{sub.name ?? sub.categoryName ?? '—'}</strong>
+                        <strong>{sub.name ?? sub.categoryName ?? "—"}</strong>
                       </div>
                       <CIcon icon={cilPencil} size="sm" />
                     </CListGroupItem>
@@ -186,8 +200,8 @@ const CategoryView = () => {
               ) : (
                 <p className="text-muted text-center mb-0">
                   {category.parent
-                    ? 'No subcategories'
-                    : 'No subcategories yet. Add one to get codes like MIG01SUB01, MIG01SUB02...'}
+                    ? "No subcategories"
+                    : "No subcategories yet. Add one to get codes like MIG01SUB01, MIG01SUB02..."}
                 </p>
               )}
             </CCardBody>
@@ -214,11 +228,17 @@ const CategoryView = () => {
                 {subcategories.map((sub) => (
                   <CTableRow key={sub._id}>
                     <CTableDataCell>
-                      <code>{sub.categoryCode || '—'}</code>
+                      <code>{sub.categoryCode || "—"}</code>
                     </CTableDataCell>
-                    <CTableDataCell>{sub.name ?? sub.categoryName ?? '—'}</CTableDataCell>
                     <CTableDataCell>
-                      <CBadge color={sub.status === 'active' ? 'success' : 'secondary'}>
+                      {sub.name ?? sub.categoryName ?? "—"}
+                    </CTableDataCell>
+                    <CTableDataCell>
+                      <CBadge
+                        color={
+                          sub.status === "active" ? "success" : "secondary"
+                        }
+                      >
                         {sub.status}
                       </CBadge>
                     </CTableDataCell>
@@ -248,7 +268,7 @@ const CategoryView = () => {
         </CCard>
       )}
     </>
-  )
-}
+  );
+};
 
-export default CategoryView
+export default CategoryView;

@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -25,27 +25,27 @@ import {
   CFormSelect,
   CBreadcrumb,
   CBreadcrumbItem,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilArrowLeft } from '@coreui/icons'
-import { useData } from '../../context/DataContext'
-import { ROLE_LABELS } from '../../context/AuthContext'
-import { ConfirmDialog } from '../../components'
-import usePermissions from '../../hooks/usePermissions'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilPlus, cilPencil, cilTrash, cilArrowLeft } from "@coreui/icons";
+import { useData } from "../../context/DataContext";
+import { ROLE_LABELS } from "../../context/AuthContext";
+import { ConfirmDialog } from "../../components";
+import usePermissions from "../../hooks/usePermissions";
 
 const BRANCH_ROLES = [
-  'head_of_department',
-  'sales_manager',
-  'sales_exicutive',
-  'purchase_manager',
-  'purchase_exicutive',
-  'back_office_exicutive',
-  'administrator',
-]
+  "head_of_department",
+  "sales_manager",
+  "sales_exicutive",
+  "purchase_manager",
+  "purchase_exicutive",
+  "back_office_exicutive",
+  "administrator",
+];
 
 const BranchUserManagement = () => {
-  const { companyId, branchId } = useParams()
-  const navigate = useNavigate()
+  const { companyId, branchId } = useParams();
+  const navigate = useNavigate();
   const {
     getCompanyById,
     getBranchById,
@@ -53,106 +53,109 @@ const BranchUserManagement = () => {
     addBranchUser,
     updateBranchUser,
     deleteBranchUser,
-  } = useData()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-  const canCreateBranches = canCreate('branches')
-  const canUpdateBranches = canUpdate('branches')
-  const canDeleteBranches = canDelete('branches')
+  } = useData();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateBranches = canCreate("branches");
+  const canUpdateBranches = canUpdate("branches");
+  const canDeleteBranches = canDelete("branches");
 
-  const company = getCompanyById(parseInt(companyId))
-  const branch = getBranchById(parseInt(branchId))
-  const users = getUsersByBranch(parseInt(branchId))
+  const company = getCompanyById(parseInt(companyId));
+  const branch = getBranchById(parseInt(branchId));
+  const users = getUsersByBranch(parseInt(branchId));
 
-  const [showModal, setShowModal] = useState(false)
-  const [editingUser, setEditingUser] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const [showModal, setShowModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    role: '',
-  })
+    name: "",
+    email: "",
+    role: "",
+  });
 
   if (!company || !branch) {
     return (
       <CCard>
         <CCardBody className="text-center">
           <h4>Branch not found</h4>
-          <CButton color="primary" onClick={() => navigate('/dashboard')}>
+          <CButton color="primary" onClick={() => navigate("/dashboard")}>
             Back to Dashboard
           </CButton>
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   const handleOpenModal = (user = null) => {
     if (user) {
-      setEditingUser(user)
+      setEditingUser(user);
       setFormData({
         name: user.name,
         email: user.email,
         role: user.role,
-      })
+      });
     } else {
-      setEditingUser(null)
-      setFormData({ name: '', email: '', role: '' })
+      setEditingUser(null);
+      setFormData({ name: "", email: "", role: "" });
     }
-    setShowModal(true)
-  }
+    setShowModal(true);
+  };
 
   const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingUser(null)
-    setFormData({ name: '', email: '', role: '' })
-  }
+    setShowModal(false);
+    setEditingUser(null);
+    setFormData({ name: "", email: "", role: "" });
+  };
 
   const handleSubmit = (e) => {
-    e.preventDefault()
+    e.preventDefault();
     if (editingUser) {
-      updateBranchUser(editingUser.id, formData)
+      updateBranchUser(editingUser.id, formData);
     } else {
-      addBranchUser({ ...formData, branchId: parseInt(branchId) })
+      addBranchUser({ ...formData, branchId: parseInt(branchId) });
     }
-    handleCloseModal()
-  }
+    handleCloseModal();
+  };
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (id != null) deleteBranchUser(id)
-  }
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (id != null) deleteBranchUser(id);
+  };
 
   const getRoleBadgeColor = (role) => {
     const colors = {
-      head_of_department: 'primary',
-      sales_manager: 'success',
-      sales_exicutive: 'info',
-      purchase_manager: 'warning',
-      purchase_exicutive: 'info',
-      back_office_exicutive: 'secondary',
-      administrator: 'dark',
-    }
-    return colors[role] || 'dark'
-  }
+      head_of_department: "primary",
+      sales_manager: "success",
+      sales_exicutive: "info",
+      purchase_manager: "warning",
+      purchase_exicutive: "info",
+      back_office_exicutive: "secondary",
+      administrator: "dark",
+    };
+    return colors[role] || "dark";
+  };
 
   return (
     <>
       <CBreadcrumb className="mb-4">
         <CBreadcrumbItem>
           <span
-            style={{ cursor: 'pointer', color: 'var(--cui-link-color)' }}
-            onClick={() => navigate('/dashboard')}
+            style={{ cursor: "pointer", color: "var(--cui-link-color)" }}
+            onClick={() => navigate("/dashboard")}
           >
             Dashboard
           </span>
         </CBreadcrumbItem>
         <CBreadcrumbItem>
           <span
-            style={{ cursor: 'pointer', color: 'var(--cui-link-color)' }}
+            style={{ cursor: "pointer", color: "var(--cui-link-color)" }}
             onClick={() => navigate(`/admin/companies/${companyId}/branches`)}
           >
             {company.name}
@@ -172,7 +175,9 @@ const BranchUserManagement = () => {
             Back to Branches
           </CButton>
           <h2>{branch.name}</h2>
-          <p className="text-body-secondary">User Management - {company.name}</p>
+          <p className="text-body-secondary">
+            User Management - {company.name}
+          </p>
         </CCol>
       </CRow>
 
@@ -182,7 +187,11 @@ const BranchUserManagement = () => {
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Users</strong>
               {canCreateBranches ? (
-                <CButton color="primary" size="sm" onClick={() => handleOpenModal()}>
+                <CButton
+                  color="primary"
+                  size="sm"
+                  onClick={() => handleOpenModal()}
+                >
                   <CIcon icon={cilPlus} className="me-1" />
                   Add User
                 </CButton>
@@ -203,7 +212,7 @@ const BranchUserManagement = () => {
                   {users.map((user, index) => (
                     <CTableRow
                       key={user.id}
-                      style={{ cursor: 'pointer' }}
+                      style={{ cursor: "pointer" }}
                       onClick={() => handleOpenModal(user)}
                     >
                       <CTableDataCell>{index + 1}</CTableDataCell>
@@ -221,8 +230,8 @@ const BranchUserManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleOpenModal(user)
+                              e.stopPropagation();
+                              handleOpenModal(user);
                             }}
                             title="Edit"
                           >
@@ -235,8 +244,8 @@ const BranchUserManagement = () => {
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
-                              e.stopPropagation()
-                              handleDeleteClick(user.id)
+                              e.stopPropagation();
+                              handleDeleteClick(user.id);
                             }}
                             title="Delete"
                           >
@@ -248,7 +257,10 @@ const BranchUserManagement = () => {
                   ))}
                   {users.length === 0 && (
                     <CTableRow>
-                      <CTableDataCell colSpan={5} className="text-center text-body-secondary">
+                      <CTableDataCell
+                        colSpan={5}
+                        className="text-center text-body-secondary"
+                      >
                         No users found.
                       </CTableDataCell>
                     </CTableRow>
@@ -260,62 +272,70 @@ const BranchUserManagement = () => {
         </CCol>
       </CRow>
 
-      {(canCreateBranches || (canUpdateBranches && editingUser)) ? (
-      <CModal visible={showModal} onClose={handleCloseModal}>
-        <CForm onSubmit={handleSubmit}>
-          <CModalHeader>
-            <CModalTitle>{editingUser ? 'Edit User' : 'Add New User'}</CModalTitle>
-          </CModalHeader>
-          <CModalBody>
-            <div className="mb-3">
-              <CFormLabel htmlFor="name">Full Name</CFormLabel>
-              <CFormInput
-                id="name"
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Enter full name"
-                required
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel htmlFor="email">Email</CFormLabel>
-              <CFormInput
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                placeholder="Enter email"
-                required
-              />
-            </div>
-            <div className="mb-3">
-              <CFormLabel htmlFor="role">Role</CFormLabel>
-              <CFormSelect
-                id="role"
-                value={formData.role}
-                onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                required
-              >
-                <option value="">Select Role</option>
-                {BRANCH_ROLES.map((role) => (
-                  <option key={role} value={role}>
-                    {ROLE_LABELS[role]}
-                  </option>
-                ))}
-              </CFormSelect>
-            </div>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={handleCloseModal}>
-              Cancel
-            </CButton>
-            <CButton color="primary" type="submit">
-              {editingUser ? 'Update' : 'Create'}
-            </CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
+      {canCreateBranches || (canUpdateBranches && editingUser) ? (
+        <CModal visible={showModal} onClose={handleCloseModal}>
+          <CForm onSubmit={handleSubmit}>
+            <CModalHeader>
+              <CModalTitle>
+                {editingUser ? "Edit User" : "Add New User"}
+              </CModalTitle>
+            </CModalHeader>
+            <CModalBody>
+              <div className="mb-3">
+                <CFormLabel htmlFor="name">Full Name</CFormLabel>
+                <CFormInput
+                  id="name"
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="Enter full name"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <CFormLabel htmlFor="email">Email</CFormLabel>
+                <CFormInput
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData({ ...formData, email: e.target.value })
+                  }
+                  placeholder="Enter email"
+                  required
+                />
+              </div>
+              <div className="mb-3">
+                <CFormLabel htmlFor="role">Role</CFormLabel>
+                <CFormSelect
+                  id="role"
+                  value={formData.role}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
+                  required
+                >
+                  <option value="">Select Role</option>
+                  {BRANCH_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {ROLE_LABELS[role]}
+                    </option>
+                  ))}
+                </CFormSelect>
+              </div>
+            </CModalBody>
+            <CModalFooter>
+              <CButton color="secondary" onClick={handleCloseModal}>
+                Cancel
+              </CButton>
+              <CButton color="primary" type="submit">
+                {editingUser ? "Update" : "Create"}
+              </CButton>
+            </CModalFooter>
+          </CForm>
+        </CModal>
       ) : null}
 
       {canDeleteBranches ? (
@@ -330,7 +350,7 @@ const BranchUserManagement = () => {
         />
       ) : null}
     </>
-  )
-}
+  );
+};
 
-export default BranchUserManagement
+export default BranchUserManagement;

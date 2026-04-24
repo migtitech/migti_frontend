@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   CCard,
   CCardBody,
@@ -13,86 +13,86 @@ import {
   CFormSelect,
   CAlert,
   CSpinner,
-} from '@coreui/react'
-import { useNavigate, useParams } from 'react-router-dom'
-import brandService from '../../services/brandService'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
+} from "@coreui/react";
+import { useNavigate, useParams } from "react-router-dom";
+import brandService from "../../services/brandService";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
 
 const BrandForm = () => {
-  const navigate = useNavigate()
-  const { id } = useParams()
-  const isEdit = Boolean(id)
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    status: 'active',
-  })
+    name: "",
+    description: "",
+    status: "active",
+  });
 
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   // 🔹 FETCH BRAND WHEN EDITING (this was missing)
   useEffect(() => {
-    if (!isEdit) return
+    if (!isEdit) return;
 
     const fetchBrand = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
-        const res = await withMinimumDelay(() => brandService.getById(id))
-        const brand = res?.data || res
+        const res = await withMinimumDelay(() => brandService.getById(id));
+        const brand = res?.data || res;
 
         setFormData({
-          name: brand.name || '',
-          description: brand.description || '',
-          status: brand.status || 'active',
-        })
+          name: brand.name || "",
+          description: brand.description || "",
+          status: brand.status || "active",
+        });
       } catch (err) {
-        toastError('Failed to load brand details')
+        toastError("Failed to load brand details");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchBrand()
-  }, [id, isEdit])
+    fetchBrand();
+  }, [id, isEdit]);
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   // 🔹 CREATE vs UPDATE
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setError('')
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
 
     try {
       if (isEdit) {
-        await brandService.update(id, formData)
-        toastSuccess('Brand updated successfully')
+        await brandService.update(id, formData);
+        toastSuccess("Brand updated successfully");
       } else {
-        await brandService.create(formData)
-        toastSuccess('Brand created successfully')
+        await brandService.create(formData);
+        toastSuccess("Brand created successfully");
       }
-      navigate('/brands')
+      navigate("/brands");
     } catch (err) {
-      toastError(err?.message || 'Failed to save brand')
+      toastError(err?.message || "Failed to save brand");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="text-center py-5">
         <Loader message="Loading brand..." />
       </div>
-    )
+    );
   }
 
   return (
@@ -100,12 +100,12 @@ const BrandForm = () => {
       <CCol xs={12}>
         <CCard>
           <CCardHeader>
-            <strong>{isEdit ? 'Edit Brand' : 'Add Brand'}</strong>
+            <strong>{isEdit ? "Edit Brand" : "Add Brand"}</strong>
           </CCardHeader>
 
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -149,7 +149,11 @@ const BrandForm = () => {
 
               {/* Row 4: Actions - button aligned right */}
               <div className="d-flex justify-content-end gap-2 pt-2">
-                <CButton color="secondary" variant="outline" onClick={() => navigate('/brands')}>
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  onClick={() => navigate("/brands")}
+                >
                   Cancel
                 </CButton>
                 <CButton color="primary" type="submit" disabled={submitting}>
@@ -159,9 +163,9 @@ const BrandForm = () => {
                       Saving...
                     </>
                   ) : isEdit ? (
-                    'Update Brand'
+                    "Update Brand"
                   ) : (
-                    'Create Brand'
+                    "Create Brand"
                   )}
                 </CButton>
               </div>
@@ -170,7 +174,7 @@ const BrandForm = () => {
         </CCard>
       </CCol>
     </CRow>
-  )
-}
+  );
+};
 
-export default BrandForm
+export default BrandForm;

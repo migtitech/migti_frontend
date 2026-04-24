@@ -1,59 +1,62 @@
-import { api } from '../api/axiosClient'
-import { QUERIES } from '../api/endpoints'
+import { api } from "../api/axiosClient";
+import { QUERIES } from "../api/endpoints";
 
 const mapToApiPayload = (data) => {
-  const payload = {}
-  if (data.status != null) payload.status = data.status
-  if (data.close_remark !== undefined) payload.close_remark = data.close_remark
+  const payload = {};
+  if (data.status != null) payload.status = data.status;
+  if (data.close_remark !== undefined) payload.close_remark = data.close_remark;
 
   if (data.companyInfo !== undefined) {
     payload.companyInfo = {
       ...(data.companyInfo || {}),
       purchaseManagers: (data.companyInfo?.purchaseManagers || []).map((m) => ({
-        name: m?.name || '',
-        phone: m?.phone || '',
-        email: m?.email || '',
+        name: m?.name || "",
+        phone: m?.phone || "",
+        email: m?.email || "",
       })),
-    }
+    };
   }
 
   if (data.industry_id !== undefined) {
-    payload.industry_id = data.industry_id || null
+    payload.industry_id = data.industry_id || null;
   }
 
   if (data.products !== undefined) {
     payload.products = (data.products || []).map((p) => ({
       productName: p.productName,
       quantity: p.quantity ?? 1,
-      unit: p.unit || '',
-      hsnNumber: p.hsnNumber || '',
-      modelNumber: p.modelNumber || '',
-      gstPercentage: typeof p.gstPercentage === 'number' ? p.gstPercentage : null,
+      unit: p.unit || "",
+      hsnNumber: p.hsnNumber || "",
+      modelNumber: p.modelNumber || "",
+      gstPercentage:
+        typeof p.gstPercentage === "number" ? p.gstPercentage : null,
       variants: (p.variants || []).map((v) => ({
-        variantName: v.variantName || '',
+        variantName: v.variantName || "",
       })),
-      remark: p.remark || '',
+      remark: p.remark || "",
       description:
-        p.description && String(p.description).trim() ? String(p.description).trim() : '',
+        p.description && String(p.description).trim()
+          ? String(p.description).trim()
+          : "",
       product_id: p.product_id || null,
       images: Array.isArray(p.images) ? p.images : [],
-    }))
+    }));
   }
 
-  if (data.created_by != null) payload.created_by = String(data.created_by)
+  if (data.created_by != null) payload.created_by = String(data.created_by);
 
-  return payload
-}
+  return payload;
+};
 
 const queryService = {
   getAll: async (params = {}) => {
-    const response = await api.get(QUERIES.LIST, { params })
-    return response
+    const response = await api.get(QUERIES.LIST, { params });
+    return response;
   },
 
   getByIndustry: async (params = {}) => {
-    const response = await api.get(QUERIES.BY_INDUSTRY, { params })
-    return response
+    const response = await api.get(QUERIES.BY_INDUSTRY, { params });
+    return response;
   },
 
   /** Idempotent: ensures quotation ref + code are stored on the source query after convert. */
@@ -61,58 +64,58 @@ const queryService = {
     const response = await api.post(QUERIES.LINK_CONVERTED_QUOTATION, {
       queryId,
       quotationId,
-      quotationCode: quotationCode ?? '',
-    })
-    return response
+      quotationCode: quotationCode ?? "",
+    });
+    return response;
   },
 
   getById: async (id) => {
     const response = await api.get(QUERIES.GET_BY_ID, {
       params: { queryId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   getTodayStats: async (params = {}) => {
-    const response = await api.get(QUERIES.TODAY_STATS, { params })
-    return response
+    const response = await api.get(QUERIES.TODAY_STATS, { params });
+    return response;
   },
 
   getSalesDashboardCards: async () => {
-    const response = await api.get(QUERIES.SALES_DASHBOARD_CARDS)
-    return response
+    const response = await api.get(QUERIES.SALES_DASHBOARD_CARDS);
+    return response;
   },
 
   getSalesRecentBillings: async (params = {}) => {
-    const response = await api.get(QUERIES.SALES_RECENT_BILLINGS, { params })
-    return response
+    const response = await api.get(QUERIES.SALES_RECENT_BILLINGS, { params });
+    return response;
   },
 
   create: async (data) => {
-    const response = await api.post(QUERIES.CREATE, mapToApiPayload(data))
-    return response
+    const response = await api.post(QUERIES.CREATE, mapToApiPayload(data));
+    return response;
   },
 
   update: async (id, data) => {
-    const payload = mapToApiPayload(data)
+    const payload = mapToApiPayload(data);
     const response = await api.put(QUERIES.UPDATE, payload, {
       params: { queryId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   delete: async (id) => {
     const response = await api.delete(QUERIES.DELETE, {
       params: { queryId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   getActivities: async (queryId, params = {}) => {
     const response = await api.get(QUERIES.ACTIVITIES, {
       params: { queryId, ...params },
-    })
-    return response
+    });
+    return response;
   },
 
   recordActivity: async (queryId, type, performedBy, meta = {}) => {
@@ -121,35 +124,31 @@ const queryService = {
       type,
       performedBy: performedBy != null ? String(performedBy) : undefined,
       meta,
-    })
-    return response
+    });
+    return response;
   },
 
   searchByCode: async (queryCode) => {
     const response = await api.get(QUERIES.LIST, {
       params: { search: queryCode, pageSize: 5 },
-    })
-    return response
+    });
+    return response;
   },
 
   convertToQuotation: async (queryCode, body = {}) => {
-    const response = await api.post(
-      QUERIES.CONVERT_TO_QUOTATION,
-      body,
-      {
-        params: { queryCode },
-      },
-    )
-    return response
+    const response = await api.post(QUERIES.CONVERT_TO_QUOTATION, body, {
+      params: { queryCode },
+    });
+    return response;
   },
 
   exportPdf: async (queryId) => {
     const response = await api.get(QUERIES.EXPORT_PDF, {
       params: { queryId },
-      responseType: 'blob',
-    })
-    return response
+      responseType: "blob",
+    });
+    return response;
   },
-}
+};
 
-export default queryService
+export default queryService;

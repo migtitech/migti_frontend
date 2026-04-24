@@ -1,6 +1,6 @@
-import React, { useEffect, useRef } from 'react'
-import { NavLink } from 'react-router-dom'
-import { useSelector, useDispatch } from 'react-redux'
+import React, { useEffect, useRef } from "react";
+import { NavLink } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
 import {
   CContainer,
   CDropdown,
@@ -13,40 +13,41 @@ import {
   CNavLink,
   CNavItem,
   useColorModes,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import {
-  cilContrast,
-  cilMenu,
-  cilSun,
-} from '@coreui/icons'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilContrast, cilMenu, cilSun } from "@coreui/icons";
 
-import { AppBreadcrumb } from './index'
-import { AppHeaderDropdown } from './header/index'
+import { AppBreadcrumb } from "./index";
+import { AppHeaderDropdown } from "./header/index";
 
 const AppHeader = () => {
-  const headerRef = useRef()
-  const { colorMode, setColorMode } = useColorModes('coreui-free-react-admin-template-theme')
+  const headerRef = useRef();
+  const { colorMode, setColorMode } = useColorModes(
+    "coreui-free-react-admin-template-theme",
+  );
 
-  const dispatch = useDispatch()
-  const sidebarShow = useSelector((state) => state.sidebarShow)
+  const dispatch = useDispatch();
+  const sidebarShow = useSelector((state) => state.sidebarShow);
 
   useEffect(() => {
     const handleScroll = () => {
       headerRef.current &&
-        headerRef.current.classList.toggle('shadow-sm', document.documentElement.scrollTop > 0)
-    }
+        headerRef.current.classList.toggle(
+          "shadow-sm",
+          document.documentElement.scrollTop > 0,
+        );
+    };
 
-    document.addEventListener('scroll', handleScroll)
-    return () => document.removeEventListener('scroll', handleScroll)
-  }, [])
+    document.addEventListener("scroll", handleScroll);
+    return () => document.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <CHeader position="sticky" className="mb-4 p-0" ref={headerRef}>
       <CContainer className="border-bottom px-4" fluid>
         <CHeaderToggler
-          onClick={() => dispatch({ type: 'set', sidebarShow: !sidebarShow })}
-          style={{ marginInlineStart: '-14px' }}
+          onClick={() => dispatch({ type: "set", sidebarShow: !sidebarShow })}
+          style={{ marginInlineStart: "-14px" }}
         >
           <CIcon icon={cilMenu} size="lg" />
         </CHeaderToggler>
@@ -60,7 +61,7 @@ const AppHeader = () => {
         <CHeaderNav className="ms-auto">
           <CDropdown variant="nav-item" placement="bottom-end">
             <CDropdownToggle caret={false}>
-              {colorMode === 'auto' ? (
+              {colorMode === "auto" ? (
                 <CIcon icon={cilContrast} size="lg" />
               ) : (
                 <CIcon icon={cilSun} size="lg" />
@@ -68,20 +69,20 @@ const AppHeader = () => {
             </CDropdownToggle>
             <CDropdownMenu>
               <CDropdownItem
-                active={colorMode === 'light'}
+                active={colorMode === "light"}
                 className="d-flex align-items-center"
                 as="button"
                 type="button"
-                onClick={() => setColorMode('light')}
+                onClick={() => setColorMode("light")}
               >
                 <CIcon className="me-2" icon={cilSun} size="lg" /> Light
               </CDropdownItem>
               <CDropdownItem
-                active={colorMode === 'auto'}
+                active={colorMode === "auto"}
                 className="d-flex align-items-center"
                 as="button"
                 type="button"
-                onClick={() => setColorMode('auto')}
+                onClick={() => setColorMode("auto")}
               >
                 <CIcon className="me-2" icon={cilContrast} size="lg" /> Auto
               </CDropdownItem>
@@ -97,7 +98,7 @@ const AppHeader = () => {
         <AppBreadcrumb />
       </CContainer>
     </CHeader>
-  )
-}
+  );
+};
 
-export default AppHeader
+export default AppHeader;

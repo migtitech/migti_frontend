@@ -1,5 +1,5 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import React from "react";
+import { useNavigate } from "react-router-dom";
 import {
   CAvatar,
   CDropdown,
@@ -8,37 +8,38 @@ import {
   CDropdownItem,
   CDropdownMenu,
   CDropdownToggle,
-} from '@coreui/react'
-import {
-  cilAccountLogout,
-  cilUser,
-} from '@coreui/icons'
-import CIcon from '@coreui/icons-react'
-import { useAuth, ROLE_LABELS } from '../../context/AuthContext'
+} from "@coreui/react";
+import { cilAccountLogout, cilUser } from "@coreui/icons";
+import CIcon from "@coreui/icons-react";
+import { useAuth, ROLE_LABELS } from "../../context/AuthContext";
 
 const AppHeaderDropdown = () => {
-  const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
 
   const handleLogout = () => {
-    logout()
-    navigate('/login')
-  }
+    logout();
+    navigate("/login");
+  };
 
   // Generate initials from user name
   const getInitials = (name) => {
-    if (!name) return 'U'
+    if (!name) return "U";
     return name
-      .split(' ')
+      .split(" ")
       .map((n) => n[0])
-      .join('')
+      .join("")
       .toUpperCase()
-      .slice(0, 2)
-  }
+      .slice(0, 2);
+  };
 
   return (
     <CDropdown variant="nav-item">
-      <CDropdownToggle placement="bottom-end" className="py-0 pe-0" caret={false}>
+      <CDropdownToggle
+        placement="bottom-end"
+        className="py-0 pe-0"
+        caret={false}
+      >
         <CAvatar color="primary" textColor="white" size="md">
           {getInitials(user?.name)}
         </CAvatar>
@@ -55,13 +56,13 @@ const AppHeaderDropdown = () => {
           {user?.email}
         </CDropdownItem>
         <CDropdownDivider />
-        <CDropdownItem onClick={handleLogout} style={{ cursor: 'pointer' }}>
+        <CDropdownItem onClick={handleLogout} style={{ cursor: "pointer" }}>
           <CIcon icon={cilAccountLogout} className="me-2" />
           Logout
         </CDropdownItem>
       </CDropdownMenu>
     </CDropdown>
-  )
-}
+  );
+};
 
-export default AppHeaderDropdown
+export default AppHeaderDropdown;

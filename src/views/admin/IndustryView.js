@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import React, { useEffect, useMemo, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   CCard,
   CCardBody,
@@ -22,279 +22,296 @@ import {
   CTableDataCell,
   CPagination,
   CPaginationItem,
-} from '@coreui/react'
-import { CChartBar } from '@coreui/react-chartjs'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPencil } from '@coreui/icons'
-import industryService from '../../services/industryService'
-import queryService from '../../services/queryService'
-import quotationService from '../../services/quotationService'
-import poBillingService from '../../services/poBillingService'
-import { EyeIcon, Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastError } from '../../utils/toast'
+} from "@coreui/react";
+import { CChartBar } from "@coreui/react-chartjs";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft, cilPencil } from "@coreui/icons";
+import industryService from "../../services/industryService";
+import queryService from "../../services/queryService";
+import quotationService from "../../services/quotationService";
+import poBillingService from "../../services/poBillingService";
+import { EyeIcon, Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastError } from "../../utils/toast";
 
 const formatDate = (date) => {
-  if (!date) return '-'
-  const parsed = new Date(date)
-  return Number.isNaN(parsed.getTime()) ? '-' : parsed.toLocaleString()
-}
+  if (!date) return "-";
+  const parsed = new Date(date);
+  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString();
+};
 
 const getText = (value) => {
-  if (value === null || value === undefined || value === '') return '-'
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
-}
+  if (value === null || value === undefined || value === "") return "-";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
 
 const formatStatus = (value) => {
-  if (!value) return '-'
+  if (!value) return "-";
   const normalized = String(value)
-    .replace(/_/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .trim()
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
   return normalized
     .split(/\s+/)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-    .join(' ')
-}
+    .join(" ");
+};
 
 const formatINRCurrency = (value) => {
-  const amount = Number(value)
-  if (Number.isNaN(amount)) return '-'
-  return `₹${new Intl.NumberFormat('en-IN').format(amount)}`
-}
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return "-";
+  return `₹${new Intl.NumberFormat("en-IN").format(amount)}`;
+};
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 10;
 
 const unwrapPayload = (res) => {
-  const data = res?.data || res || {}
-  return data?.data || data
-}
+  const data = res?.data || res || {};
+  return data?.data || data;
+};
 
 const IndustryView = () => {
-  const { id } = useParams()
-  const navigate = useNavigate()
-  const [industry, setIndustry] = useState(null)
-  const [queries, setQueries] = useState([])
-  const [queryPagination, setQueryPagination] = useState(null)
-  const [queriesLoading, setQueriesLoading] = useState(false)
-  const [quotations, setQuotations] = useState([])
-  const [quotationPagination, setQuotationPagination] = useState(null)
-  const [quotationTotalAmountSum, setQuotationTotalAmountSum] = useState(null)
-  const [quotationsLoading, setQuotationsLoading] = useState(false)
-  const [purchaseOrders, setPurchaseOrders] = useState([])
-  const [poPagination, setPoPagination] = useState(null)
-  const [poAmount, setPoAmount] = useState(null)
-  const [poLoading, setPoLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState('company')
-  const [loadingIndustry, setLoadingIndustry] = useState(true)
-  const [error, setError] = useState('')
-  const [queryPage, setQueryPage] = useState(1)
-  const [quotationPage, setQuotationPage] = useState(1)
-  const [poPage, setPoPage] = useState(1)
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [industry, setIndustry] = useState(null);
+  const [queries, setQueries] = useState([]);
+  const [queryPagination, setQueryPagination] = useState(null);
+  const [queriesLoading, setQueriesLoading] = useState(false);
+  const [quotations, setQuotations] = useState([]);
+  const [quotationPagination, setQuotationPagination] = useState(null);
+  const [quotationTotalAmountSum, setQuotationTotalAmountSum] = useState(null);
+  const [quotationsLoading, setQuotationsLoading] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState([]);
+  const [poPagination, setPoPagination] = useState(null);
+  const [poAmount, setPoAmount] = useState(null);
+  const [poLoading, setPoLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState("company");
+  const [loadingIndustry, setLoadingIndustry] = useState(true);
+  const [error, setError] = useState("");
+  const [queryPage, setQueryPage] = useState(1);
+  const [quotationPage, setQuotationPage] = useState(1);
+  const [poPage, setPoPage] = useState(1);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const loadIndustry = async () => {
-      setLoadingIndustry(true)
-      setError('')
+      setLoadingIndustry(true);
+      setError("");
       try {
-        const industryRes = await withMinimumDelay(() => industryService.getById(id))
-        if (cancelled) return
-        setIndustry(industryRes?.data || industryRes)
+        const industryRes = await withMinimumDelay(() =>
+          industryService.getById(id),
+        );
+        if (cancelled) return;
+        setIndustry(industryRes?.data || industryRes);
       } catch (err) {
         if (!cancelled) {
-          const message = err?.message || 'Failed to fetch client'
-          setError(message)
-          toastError(message)
-          setIndustry(null)
+          const message = err?.message || "Failed to fetch client";
+          setError(message);
+          toastError(message);
+          setIndustry(null);
         }
       } finally {
-        if (!cancelled) setLoadingIndustry(false)
+        if (!cancelled) setLoadingIndustry(false);
       }
-    }
-    loadIndustry()
+    };
+    loadIndustry();
     return () => {
-      cancelled = true
-    }
-  }, [id])
+      cancelled = true;
+    };
+  }, [id]);
 
   useEffect(() => {
-    setQueryPage(1)
-    setQuotationPage(1)
-    setPoPage(1)
-    setQuotationTotalAmountSum(null)
-    setPoAmount(null)
-  }, [id])
+    setQueryPage(1);
+    setQuotationPage(1);
+    setPoPage(1);
+    setQuotationTotalAmountSum(null);
+    setPoAmount(null);
+  }, [id]);
 
   useEffect(() => {
-    if (!id) return
-    let cancelled = false
+    if (!id) return;
+    let cancelled = false;
     const loadQueries = async () => {
-      setQueriesLoading(true)
+      setQueriesLoading(true);
       try {
         const res = await queryService.getByIndustry({
           industryId: id,
           pageNumber: queryPage,
           pageSize: PAGE_SIZE,
-        })
-        if (cancelled) return
-        const result = unwrapPayload(res)
-        setQueries(result?.queries || [])
-        setQueryPagination(result?.pagination || null)
+        });
+        if (cancelled) return;
+        const result = unwrapPayload(res);
+        setQueries(result?.queries || []);
+        setQueryPagination(result?.pagination || null);
       } catch (err) {
         if (!cancelled) {
-          toastError(err?.message || 'Failed to load queries')
-          setQueries([])
-          setQueryPagination(null)
+          toastError(err?.message || "Failed to load queries");
+          setQueries([]);
+          setQueryPagination(null);
         }
       } finally {
-        if (!cancelled) setQueriesLoading(false)
+        if (!cancelled) setQueriesLoading(false);
       }
-    }
-    loadQueries()
+    };
+    loadQueries();
     return () => {
-      cancelled = true
-    }
-  }, [id, queryPage])
+      cancelled = true;
+    };
+  }, [id, queryPage]);
 
   useEffect(() => {
-    if (!id) return
-    let cancelled = false
+    if (!id) return;
+    let cancelled = false;
     const loadQuotations = async () => {
-      setQuotationsLoading(true)
+      setQuotationsLoading(true);
       try {
         const res = await quotationService.getByIndustry({
           industryId: id,
           pageNumber: quotationPage,
           pageSize: PAGE_SIZE,
           includeTotalAmountSum: quotationPage === 1,
-        })
-        if (cancelled) return
-        const result = unwrapPayload(res)
-        setQuotations(result?.quotations || [])
-        setQuotationPagination(result?.pagination || null)
-        if (result?.totalAmountSum !== undefined && result?.totalAmountSum !== null) {
-          setQuotationTotalAmountSum(result.totalAmountSum)
+        });
+        if (cancelled) return;
+        const result = unwrapPayload(res);
+        setQuotations(result?.quotations || []);
+        setQuotationPagination(result?.pagination || null);
+        if (
+          result?.totalAmountSum !== undefined &&
+          result?.totalAmountSum !== null
+        ) {
+          setQuotationTotalAmountSum(result.totalAmountSum);
         }
       } catch (err) {
         if (!cancelled) {
-          toastError(err?.message || 'Failed to load quotations')
-          setQuotations([])
-          setQuotationPagination(null)
+          toastError(err?.message || "Failed to load quotations");
+          setQuotations([]);
+          setQuotationPagination(null);
         }
       } finally {
-        if (!cancelled) setQuotationsLoading(false)
+        if (!cancelled) setQuotationsLoading(false);
       }
-    }
-    loadQuotations()
+    };
+    loadQuotations();
     return () => {
-      cancelled = true
-    }
-  }, [id, quotationPage])
+      cancelled = true;
+    };
+  }, [id, quotationPage]);
 
   useEffect(() => {
-    if (!id) return
-    let cancelled = false
+    if (!id) return;
+    let cancelled = false;
     const loadPo = async () => {
-      setPoLoading(true)
+      setPoLoading(true);
       try {
         const res = await poBillingService.getAnalytics({
-          tab: 'po',
+          tab: "po",
           industryId: id,
           pageNumber: poPage,
           pageSize: PAGE_SIZE,
-        })
-        if (cancelled) return
-        const result = unwrapPayload(res)
-        setPurchaseOrders(result?.table?.rows || [])
-        setPoPagination(result?.table?.pagination || null)
-        if (result?.metrics?.poAmount !== undefined && result?.metrics?.poAmount !== null) {
-          setPoAmount(Number(result.metrics.poAmount) || 0)
+        });
+        if (cancelled) return;
+        const result = unwrapPayload(res);
+        setPurchaseOrders(result?.table?.rows || []);
+        setPoPagination(result?.table?.pagination || null);
+        if (
+          result?.metrics?.poAmount !== undefined &&
+          result?.metrics?.poAmount !== null
+        ) {
+          setPoAmount(Number(result.metrics.poAmount) || 0);
         }
       } catch (err) {
         if (!cancelled) {
-          toastError(err?.message || 'Failed to load PO entries')
-          setPurchaseOrders([])
-          setPoPagination(null)
+          toastError(err?.message || "Failed to load PO entries");
+          setPurchaseOrders([]);
+          setPoPagination(null);
         }
       } finally {
-        if (!cancelled) setPoLoading(false)
+        if (!cancelled) setPoLoading(false);
       }
-    }
-    loadPo()
+    };
+    loadPo();
     return () => {
-      cancelled = true
-    }
-  }, [id, poPage])
+      cancelled = true;
+    };
+  }, [id, poPage]);
 
   const purchaseManagers = useMemo(() => {
-    const list = industry?.purchaseManagers || []
-    if (list.length > 0) return list
-    if (industry?.purchase_manager_name || industry?.purchase_manager_phone || industry?.email) {
+    const list = industry?.purchaseManagers || [];
+    if (list.length > 0) return list;
+    if (
+      industry?.purchase_manager_name ||
+      industry?.purchase_manager_phone ||
+      industry?.email
+    ) {
       return [
         {
-          name: industry?.purchase_manager_name || '',
-          phone: industry?.purchase_manager_phone || '',
-          email: industry?.email || '',
+          name: industry?.purchase_manager_name || "",
+          phone: industry?.purchase_manager_phone || "",
+          email: industry?.email || "",
         },
-      ]
+      ];
     }
-    return []
-  }, [industry])
+    return [];
+  }, [industry]);
 
-  const queryTotalPages = Math.max(1, queryPagination?.totalPages ?? 1)
-  const quotationTotalPages = Math.max(1, quotationPagination?.totalPages ?? 1)
-  const poTotalPages = Math.max(1, poPagination?.totalPages ?? 1)
-  const queryListPage = queryPagination?.currentPage ?? queryPage
-  const quotationListPage = quotationPagination?.currentPage ?? quotationPage
-  const poListPage = poPagination?.currentPage ?? poPage
+  const queryTotalPages = Math.max(1, queryPagination?.totalPages ?? 1);
+  const quotationTotalPages = Math.max(1, quotationPagination?.totalPages ?? 1);
+  const poTotalPages = Math.max(1, poPagination?.totalPages ?? 1);
+  const queryListPage = queryPagination?.currentPage ?? queryPage;
+  const quotationListPage = quotationPagination?.currentPage ?? quotationPage;
+  const poListPage = poPagination?.currentPage ?? poPage;
 
   const totalQuotationValue = useMemo(() => {
-    if (quotationTotalAmountSum != null && !Number.isNaN(Number(quotationTotalAmountSum))) {
-      return Number(quotationTotalAmountSum)
+    if (
+      quotationTotalAmountSum != null &&
+      !Number.isNaN(Number(quotationTotalAmountSum))
+    ) {
+      return Number(quotationTotalAmountSum);
     }
     return quotations.reduce((sum, q) => {
-      const amount = Number(q?.totalAmount)
-      return sum + (Number.isNaN(amount) ? 0 : amount)
-    }, 0)
-  }, [quotationTotalAmountSum, quotations])
+      const amount = Number(q?.totalAmount);
+      return sum + (Number.isNaN(amount) ? 0 : amount);
+    }, 0);
+  }, [quotationTotalAmountSum, quotations]);
 
   const totalPoAmount = useMemo(() => {
     if (poAmount != null && !Number.isNaN(Number(poAmount))) {
-      return Number(poAmount)
+      return Number(poAmount);
     }
     return purchaseOrders.reduce((sum, po) => {
-      const amount = Number(po?.amount)
-      return sum + (Number.isNaN(amount) ? 0 : amount)
-    }, 0)
-  }, [poAmount, purchaseOrders])
+      const amount = Number(po?.amount);
+      return sum + (Number.isNaN(amount) ? 0 : amount);
+    }, 0);
+  }, [poAmount, purchaseOrders]);
 
   const industryEntries = useMemo(() => {
-    if (!industry) return []
+    if (!industry) return [];
     const skipKeys = [
-      'purchaseManagers',
-      'purchase_manager_name',
-      'purchase_manager_phone',
-      'branchId',
-      'isActive',
-      'isDeleted',
-      'uniqueId',
-      'id',
-      '__v',
-    ]
+      "purchaseManagers",
+      "purchase_manager_name",
+      "purchase_manager_phone",
+      "branchId",
+      "isActive",
+      "isDeleted",
+      "uniqueId",
+      "id",
+      "__v",
+    ];
     return Object.entries(industry)
       .filter(([key]) => !skipKeys.includes(key))
       .map(([key, value]) => {
-        if (key === 'area') {
+        if (key === "area") {
           const zoneName =
-            typeof value === 'object' && value !== null ? value?.name || '-' : value || '-'
-          return ['Zone', zoneName]
+            typeof value === "object" && value !== null
+              ? value?.name || "-"
+              : value || "-";
+          return ["Zone", zoneName];
         }
-        return [key, value]
-      })
-  }, [industry])
+        return [key, value];
+      });
+  }, [industry]);
 
   if (loadingIndustry) {
     return (
@@ -303,40 +320,55 @@ const IndustryView = () => {
           <Loader message="Loading client..." />
         </CCardBody>
       </CCard>
-    )
+    );
   }
 
   if (error) {
     return (
       <CAlert color="danger">
         {error}
-        <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
+        <CButton
+          color="secondary"
+          variant="outline"
+          onClick={() => navigate("/industries")}
+        >
           Back to clients
         </CButton>
       </CAlert>
-    )
+    );
   }
 
   if (!industry) {
     return (
       <CAlert color="warning">
         Client not found.
-        <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
+        <CButton
+          color="secondary"
+          variant="outline"
+          onClick={() => navigate("/industries")}
+        >
           Back to clients
         </CButton>
       </CAlert>
-    )
+    );
   }
 
   return (
     <>
       <CRow className="mb-3">
         <CCol className="d-flex gap-2">
-          <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={() => navigate("/industries")}
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to clients
           </CButton>
-          <CButton color="warning" onClick={() => navigate(`/industries/edit/${id}`)}>
+          <CButton
+            color="warning"
+            onClick={() => navigate(`/industries/edit/${id}`)}
+          >
             <CIcon icon={cilPencil} className="me-1" />
             Edit
           </CButton>
@@ -347,56 +379,62 @@ const IndustryView = () => {
         <CCol>
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-              <strong>{industry.name || 'Client details'}</strong>
+              <strong>{industry.name || "Client details"}</strong>
               <div className="d-flex gap-2 flex-wrap">
-                <CBadge color="primary">Queries: {queryPagination?.totalItems ?? 0}</CBadge>
-                <CBadge color="info">Quotations: {quotationPagination?.totalItems ?? 0}</CBadge>
-                <CBadge color="success">PO: {poPagination?.totalItems ?? 0}</CBadge>
+                <CBadge color="primary">
+                  Queries: {queryPagination?.totalItems ?? 0}
+                </CBadge>
+                <CBadge color="info">
+                  Quotations: {quotationPagination?.totalItems ?? 0}
+                </CBadge>
+                <CBadge color="success">
+                  PO: {poPagination?.totalItems ?? 0}
+                </CBadge>
               </div>
             </CCardHeader>
             <CCardBody>
               <CNav variant="tabs" className="mb-3">
                 <CNavItem>
                   <CNavLink
-                    active={activeTab === 'company'}
-                    onClick={() => setActiveTab('company')}
-                    style={{ cursor: 'pointer' }}
+                    active={activeTab === "company"}
+                    onClick={() => setActiveTab("company")}
+                    style={{ cursor: "pointer" }}
                   >
                     Company Information
                   </CNavLink>
                 </CNavItem>
                 <CNavItem>
                   <CNavLink
-                    active={activeTab === 'queries'}
-                    onClick={() => setActiveTab('queries')}
-                    style={{ cursor: 'pointer' }}
+                    active={activeTab === "queries"}
+                    onClick={() => setActiveTab("queries")}
+                    style={{ cursor: "pointer" }}
                   >
                     Queries
                   </CNavLink>
                 </CNavItem>
                 <CNavItem>
                   <CNavLink
-                    active={activeTab === 'quotations'}
-                    onClick={() => setActiveTab('quotations')}
-                    style={{ cursor: 'pointer' }}
+                    active={activeTab === "quotations"}
+                    onClick={() => setActiveTab("quotations")}
+                    style={{ cursor: "pointer" }}
                   >
                     Quotations
                   </CNavLink>
                 </CNavItem>
                 <CNavItem>
                   <CNavLink
-                    active={activeTab === 'po'}
-                    onClick={() => setActiveTab('po')}
-                    style={{ cursor: 'pointer' }}
+                    active={activeTab === "po"}
+                    onClick={() => setActiveTab("po")}
+                    style={{ cursor: "pointer" }}
                   >
                     PO
                   </CNavLink>
                 </CNavItem>
                 <CNavItem>
                   <CNavLink
-                    active={activeTab === 'analytics'}
-                    onClick={() => setActiveTab('analytics')}
-                    style={{ cursor: 'pointer' }}
+                    active={activeTab === "analytics"}
+                    onClick={() => setActiveTab("analytics")}
+                    style={{ cursor: "pointer" }}
                   >
                     Analytics
                   </CNavLink>
@@ -404,11 +442,13 @@ const IndustryView = () => {
               </CNav>
 
               <CTabContent>
-                <CTabPane visible={activeTab === 'company'}>
+                <CTabPane visible={activeTab === "company"}>
                   <CTable bordered responsive hover>
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell style={{ width: '30%' }}>Field</CTableHeaderCell>
+                        <CTableHeaderCell style={{ width: "30%" }}>
+                          Field
+                        </CTableHeaderCell>
                         <CTableHeaderCell>Value</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -436,9 +476,9 @@ const IndustryView = () => {
                       {purchaseManagers.map((pm, idx) => (
                         <CTableRow key={pm._id || idx}>
                           <CTableDataCell>{idx + 1}</CTableDataCell>
-                          <CTableDataCell>{pm.name || '-'}</CTableDataCell>
-                          <CTableDataCell>{pm.phone || '-'}</CTableDataCell>
-                          <CTableDataCell>{pm.email || '-'}</CTableDataCell>
+                          <CTableDataCell>{pm.name || "-"}</CTableDataCell>
+                          <CTableDataCell>{pm.phone || "-"}</CTableDataCell>
+                          <CTableDataCell>{pm.email || "-"}</CTableDataCell>
                         </CTableRow>
                       ))}
                       {purchaseManagers.length === 0 && (
@@ -452,7 +492,7 @@ const IndustryView = () => {
                   </CTable>
                 </CTabPane>
 
-                <CTabPane visible={activeTab === 'queries'}>
+                <CTabPane visible={activeTab === "queries"}>
                   {queriesLoading && (
                     <div className="text-center py-3">
                       <Loader message="Loading queries..." />
@@ -472,11 +512,21 @@ const IndustryView = () => {
                     <CTableBody>
                       {queries.map((query, idx) => (
                         <CTableRow key={query._id || idx}>
-                          <CTableDataCell>{(queryListPage - 1) * PAGE_SIZE + idx + 1}</CTableDataCell>
-                          <CTableDataCell>{query.queryCode || '-'}</CTableDataCell>
-                          <CTableDataCell>{formatStatus(query.status)}</CTableDataCell>
-                          <CTableDataCell>{query.products?.length || 0}</CTableDataCell>
-                          <CTableDataCell>{formatDate(query.createdAt)}</CTableDataCell>
+                          <CTableDataCell>
+                            {(queryListPage - 1) * PAGE_SIZE + idx + 1}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {query.queryCode || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatStatus(query.status)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {query.products?.length || 0}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatDate(query.createdAt)}
+                          </CTableDataCell>
                           <CTableDataCell>
                             <CButton
                               color="info"
@@ -484,7 +534,11 @@ const IndustryView = () => {
                               variant="ghost"
                               title="View Query"
                               onClick={() =>
-                                window.open(`/#/queries/${query._id || query.id}`, '_blank', 'noopener,noreferrer')
+                                window.open(
+                                  `/#/queries/${query._id || query.id}`,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                )
                               }
                             >
                               <EyeIcon />
@@ -504,20 +558,39 @@ const IndustryView = () => {
                   {queryTotalPages > 1 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       <div className="small text-medium-emphasis">
-                        Showing {((queryPagination?.currentPage ?? 1) - 1) * (queryPagination?.itemsPerPage ?? PAGE_SIZE) + 1}
-                        -{Math.min((queryPagination?.currentPage ?? 1) * (queryPagination?.itemsPerPage ?? PAGE_SIZE), queryPagination?.totalItems ?? 0)} of {queryPagination?.totalItems ?? 0}
+                        Showing{" "}
+                        {((queryPagination?.currentPage ?? 1) - 1) *
+                          (queryPagination?.itemsPerPage ?? PAGE_SIZE) +
+                          1}
+                        -
+                        {Math.min(
+                          (queryPagination?.currentPage ?? 1) *
+                            (queryPagination?.itemsPerPage ?? PAGE_SIZE),
+                          queryPagination?.totalItems ?? 0,
+                        )}{" "}
+                        of {queryPagination?.totalItems ?? 0}
                       </div>
                       <CPagination className="mb-0">
                         <CPaginationItem
                           disabled={queriesLoading || queryPage <= 1}
-                          onClick={() => setQueryPage((prev) => Math.max(1, prev - 1))}
+                          onClick={() =>
+                            setQueryPage((prev) => Math.max(1, prev - 1))
+                          }
                         >
                           Previous
                         </CPaginationItem>
-                        <CPaginationItem active>{queryPage} / {queryTotalPages}</CPaginationItem>
+                        <CPaginationItem active>
+                          {queryPage} / {queryTotalPages}
+                        </CPaginationItem>
                         <CPaginationItem
-                          disabled={queriesLoading || queryPage >= queryTotalPages}
-                          onClick={() => setQueryPage((prev) => Math.min(queryTotalPages, prev + 1))}
+                          disabled={
+                            queriesLoading || queryPage >= queryTotalPages
+                          }
+                          onClick={() =>
+                            setQueryPage((prev) =>
+                              Math.min(queryTotalPages, prev + 1),
+                            )
+                          }
                         >
                           Next
                         </CPaginationItem>
@@ -526,7 +599,7 @@ const IndustryView = () => {
                   )}
                 </CTabPane>
 
-                <CTabPane visible={activeTab === 'quotations'}>
+                <CTabPane visible={activeTab === "quotations"}>
                   {quotationsLoading && (
                     <div className="text-center py-3">
                       <Loader message="Loading quotations..." />
@@ -547,12 +620,24 @@ const IndustryView = () => {
                     <CTableBody>
                       {quotations.map((quotation, idx) => (
                         <CTableRow key={quotation._id || idx}>
-                          <CTableDataCell>{(quotationListPage - 1) * PAGE_SIZE + idx + 1}</CTableDataCell>
-                          <CTableDataCell>{quotation.quotationCode || '-'}</CTableDataCell>
-                          <CTableDataCell>{formatStatus(quotation.status)}</CTableDataCell>
-                          <CTableDataCell>{quotation.products?.length || 0}</CTableDataCell>
-                          <CTableDataCell>{formatINRCurrency(quotation.totalAmount)}</CTableDataCell>
-                          <CTableDataCell>{formatDate(quotation.createdAt)}</CTableDataCell>
+                          <CTableDataCell>
+                            {(quotationListPage - 1) * PAGE_SIZE + idx + 1}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {quotation.quotationCode || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatStatus(quotation.status)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {quotation.products?.length || 0}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatINRCurrency(quotation.totalAmount)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatDate(quotation.createdAt)}
+                          </CTableDataCell>
                           <CTableDataCell>
                             <CButton
                               color="info"
@@ -560,7 +645,11 @@ const IndustryView = () => {
                               variant="ghost"
                               title="View Quotation"
                               onClick={() =>
-                                window.open(`/#/quotations/${quotation._id || quotation.id}`, '_blank', 'noopener,noreferrer')
+                                window.open(
+                                  `/#/quotations/${quotation._id || quotation.id}`,
+                                  "_blank",
+                                  "noopener,noreferrer",
+                                )
                               }
                             >
                               <EyeIcon />
@@ -580,20 +669,40 @@ const IndustryView = () => {
                   {quotationTotalPages > 1 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       <div className="small text-medium-emphasis">
-                        Showing {((quotationPagination?.currentPage ?? 1) - 1) * (quotationPagination?.itemsPerPage ?? PAGE_SIZE) + 1}
-                        -{Math.min((quotationPagination?.currentPage ?? 1) * (quotationPagination?.itemsPerPage ?? PAGE_SIZE), quotationPagination?.totalItems ?? 0)} of {quotationPagination?.totalItems ?? 0}
+                        Showing{" "}
+                        {((quotationPagination?.currentPage ?? 1) - 1) *
+                          (quotationPagination?.itemsPerPage ?? PAGE_SIZE) +
+                          1}
+                        -
+                        {Math.min(
+                          (quotationPagination?.currentPage ?? 1) *
+                            (quotationPagination?.itemsPerPage ?? PAGE_SIZE),
+                          quotationPagination?.totalItems ?? 0,
+                        )}{" "}
+                        of {quotationPagination?.totalItems ?? 0}
                       </div>
                       <CPagination className="mb-0">
                         <CPaginationItem
                           disabled={quotationsLoading || quotationPage <= 1}
-                          onClick={() => setQuotationPage((prev) => Math.max(1, prev - 1))}
+                          onClick={() =>
+                            setQuotationPage((prev) => Math.max(1, prev - 1))
+                          }
                         >
                           Previous
                         </CPaginationItem>
-                        <CPaginationItem active>{quotationPage} / {quotationTotalPages}</CPaginationItem>
+                        <CPaginationItem active>
+                          {quotationPage} / {quotationTotalPages}
+                        </CPaginationItem>
                         <CPaginationItem
-                          disabled={quotationsLoading || quotationPage >= quotationTotalPages}
-                          onClick={() => setQuotationPage((prev) => Math.min(quotationTotalPages, prev + 1))}
+                          disabled={
+                            quotationsLoading ||
+                            quotationPage >= quotationTotalPages
+                          }
+                          onClick={() =>
+                            setQuotationPage((prev) =>
+                              Math.min(quotationTotalPages, prev + 1),
+                            )
+                          }
                         >
                           Next
                         </CPaginationItem>
@@ -602,7 +711,7 @@ const IndustryView = () => {
                   )}
                 </CTabPane>
 
-                <CTabPane visible={activeTab === 'po'}>
+                <CTabPane visible={activeTab === "po"}>
                   {poLoading && (
                     <div className="text-center py-3">
                       <Loader message="Loading PO..." />
@@ -623,13 +732,23 @@ const IndustryView = () => {
                     <CTableBody>
                       {purchaseOrders.map((po, idx) => (
                         <CTableRow key={po._id || idx}>
-                          <CTableDataCell>{(poListPage - 1) * PAGE_SIZE + idx + 1}</CTableDataCell>
-                          <CTableDataCell>{po.number || '-'}</CTableDataCell>
-                          <CTableDataCell>{po.salespersonName || '-'}</CTableDataCell>
-                          <CTableDataCell>{formatINRCurrency(po.amount)}</CTableDataCell>
-                          <CTableDataCell>{formatDate(po.entryDate)}</CTableDataCell>
-                          <CTableDataCell>{formatDate(po.dispatchmentDate)}</CTableDataCell>
-                          <CTableDataCell>{po.remark || '-'}</CTableDataCell>
+                          <CTableDataCell>
+                            {(poListPage - 1) * PAGE_SIZE + idx + 1}
+                          </CTableDataCell>
+                          <CTableDataCell>{po.number || "-"}</CTableDataCell>
+                          <CTableDataCell>
+                            {po.salespersonName || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatINRCurrency(po.amount)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatDate(po.entryDate)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatDate(po.dispatchmentDate)}
+                          </CTableDataCell>
+                          <CTableDataCell>{po.remark || "-"}</CTableDataCell>
                         </CTableRow>
                       ))}
                       {!poLoading && purchaseOrders.length === 0 && (
@@ -644,20 +763,37 @@ const IndustryView = () => {
                   {poTotalPages > 1 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       <div className="small text-medium-emphasis">
-                        Showing {((poPagination?.currentPage ?? 1) - 1) * (poPagination?.itemsPerPage ?? PAGE_SIZE) + 1}
-                        -{Math.min((poPagination?.currentPage ?? 1) * (poPagination?.itemsPerPage ?? PAGE_SIZE), poPagination?.totalItems ?? 0)} of {poPagination?.totalItems ?? 0}
+                        Showing{" "}
+                        {((poPagination?.currentPage ?? 1) - 1) *
+                          (poPagination?.itemsPerPage ?? PAGE_SIZE) +
+                          1}
+                        -
+                        {Math.min(
+                          (poPagination?.currentPage ?? 1) *
+                            (poPagination?.itemsPerPage ?? PAGE_SIZE),
+                          poPagination?.totalItems ?? 0,
+                        )}{" "}
+                        of {poPagination?.totalItems ?? 0}
                       </div>
                       <CPagination className="mb-0">
                         <CPaginationItem
                           disabled={poLoading || poPage <= 1}
-                          onClick={() => setPoPage((prev) => Math.max(1, prev - 1))}
+                          onClick={() =>
+                            setPoPage((prev) => Math.max(1, prev - 1))
+                          }
                         >
                           Previous
                         </CPaginationItem>
-                        <CPaginationItem active>{poPage} / {poTotalPages}</CPaginationItem>
+                        <CPaginationItem active>
+                          {poPage} / {poTotalPages}
+                        </CPaginationItem>
                         <CPaginationItem
                           disabled={poPage >= poTotalPages}
-                          onClick={() => setPoPage((prev) => Math.min(poTotalPages, prev + 1))}
+                          onClick={() =>
+                            setPoPage((prev) =>
+                              Math.min(poTotalPages, prev + 1),
+                            )
+                          }
                         >
                           Next
                         </CPaginationItem>
@@ -666,21 +802,27 @@ const IndustryView = () => {
                   )}
                 </CTabPane>
 
-                <CTabPane visible={activeTab === 'analytics'}>
+                <CTabPane visible={activeTab === "analytics"}>
                   <CRow className="g-3">
                     <CCol md={4}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">Total Queries</div>
-                          <h4 className="mb-0">{queryPagination?.totalItems ?? 0}</h4>
+                          <h4 className="mb-0">
+                            {queryPagination?.totalItems ?? 0}
+                          </h4>
                         </CCardBody>
                       </CCard>
                     </CCol>
                     <CCol md={4}>
                       <CCard>
                         <CCardBody>
-                          <div className="text-muted small">Total Quotations</div>
-                          <h4 className="mb-0">{quotationPagination?.totalItems ?? 0}</h4>
+                          <div className="text-muted small">
+                            Total Quotations
+                          </div>
+                          <h4 className="mb-0">
+                            {quotationPagination?.totalItems ?? 0}
+                          </h4>
                         </CCardBody>
                       </CCard>
                     </CCol>
@@ -688,15 +830,21 @@ const IndustryView = () => {
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">PO Received</div>
-                          <h4 className="mb-0">{poPagination?.totalItems ?? 0}</h4>
+                          <h4 className="mb-0">
+                            {poPagination?.totalItems ?? 0}
+                          </h4>
                         </CCardBody>
                       </CCard>
                     </CCol>
                     <CCol md={6}>
                       <CCard>
                         <CCardBody>
-                          <div className="text-muted small">Quotation Value</div>
-                          <h4 className="mb-0">{formatINRCurrency(totalQuotationValue)}</h4>
+                          <div className="text-muted small">
+                            Quotation Value
+                          </div>
+                          <h4 className="mb-0">
+                            {formatINRCurrency(totalQuotationValue)}
+                          </h4>
                         </CCardBody>
                       </CCard>
                     </CCol>
@@ -704,7 +852,9 @@ const IndustryView = () => {
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">PO Amount</div>
-                          <h4 className="mb-0">{formatINRCurrency(totalPoAmount)}</h4>
+                          <h4 className="mb-0">
+                            {formatINRCurrency(totalPoAmount)}
+                          </h4>
                         </CCardBody>
                       </CCard>
                     </CCol>
@@ -717,14 +867,23 @@ const IndustryView = () => {
                           <strong>Value Split</strong>
                         </CCardHeader>
                         <CCardBody>
-                          <div style={{ height: '220px', maxWidth: '360px', margin: '0 auto' }}>
+                          <div
+                            style={{
+                              height: "220px",
+                              maxWidth: "360px",
+                              margin: "0 auto",
+                            }}
+                          >
                             <CChartBar
                               data={{
-                                labels: ['Quotation Value', 'PO Amount'],
+                                labels: ["Quotation Value", "PO Amount"],
                                 datasets: [
                                   {
-                                    data: [Math.max(0, totalQuotationValue), Math.max(0, totalPoAmount)],
-                                    backgroundColor: ['#39f', '#2eb85c'],
+                                    data: [
+                                      Math.max(0, totalQuotationValue),
+                                      Math.max(0, totalPoAmount),
+                                    ],
+                                    backgroundColor: ["#39f", "#2eb85c"],
                                   },
                                 ],
                               }}
@@ -750,14 +909,24 @@ const IndustryView = () => {
                           <strong>Records Overview</strong>
                         </CCardHeader>
                         <CCardBody>
-                          <div style={{ height: '180px', maxWidth: '360px', margin: '0 auto' }}>
+                          <div
+                            style={{
+                              height: "180px",
+                              maxWidth: "360px",
+                              margin: "0 auto",
+                            }}
+                          >
                             <CChartBar
                               data={{
-                                labels: ['Queries', 'Quotations', 'PO'],
+                                labels: ["Queries", "Quotations", "PO"],
                                 datasets: [
                                   {
-                                    label: 'Count',
-                                    backgroundColor: ['#5856d6', '#39f', '#2eb85c'],
+                                    label: "Count",
+                                    backgroundColor: [
+                                      "#5856d6",
+                                      "#39f",
+                                      "#2eb85c",
+                                    ],
                                     data: [
                                       queryPagination?.totalItems ?? 0,
                                       quotationPagination?.totalItems ?? 0,
@@ -791,12 +960,7 @@ const IndustryView = () => {
         </CCol>
       </CRow>
     </>
-  )
-}
+  );
+};
 
-export default IndustryView
-
-
-
-
-
+export default IndustryView;

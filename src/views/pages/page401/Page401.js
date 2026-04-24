@@ -1,14 +1,9 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
-import {
-  CButton,
-  CCol,
-  CContainer,
-  CRow,
-} from '@coreui/react'
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { CButton, CCol, CContainer, CRow } from "@coreui/react";
 
 const Page401 = () => {
-  const navigate = useNavigate()
+  const navigate = useNavigate();
 
   return (
     <div className="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
@@ -19,15 +14,19 @@ const Page401 = () => {
               <h1 className="float-start display-3 me-4">401</h1>
               <h4 className="pt-3">Unauthorized Access</h4>
               <p className="text-body-secondary float-start">
-                You don&apos;t have permission to access this page. Please contact your administrator
-                if you believe this is an error.
+                You don&apos;t have permission to access this page. Please
+                contact your administrator if you believe this is an error.
               </p>
             </div>
             <div className="mt-4">
-              <CButton color="primary" onClick={() => navigate('/dashboard')}>
+              <CButton color="primary" onClick={() => navigate("/dashboard")}>
                 Go to Dashboard
               </CButton>
-              <CButton color="secondary" className="ms-2" onClick={() => navigate('/login')}>
+              <CButton
+                color="secondary"
+                className="ms-2"
+                onClick={() => navigate("/login")}
+              >
                 Login with Different Account
               </CButton>
             </div>
@@ -35,7 +34,7 @@ const Page401 = () => {
         </CRow>
       </CContainer>
     </div>
-  )
-}
+  );
+};
 
-export default Page401
+export default Page401;

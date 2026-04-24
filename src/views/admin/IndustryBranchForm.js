@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useForm } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
+import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import {
   CAlert,
   CButton,
@@ -17,48 +17,53 @@ import {
   CFormTextarea,
   CRow,
   CSpinner,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft } from '@coreui/icons'
-import industryBranchService from '../../services/industryBranchService'
-import industryService from '../../services/industryService'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft } from "@coreui/icons";
+import industryBranchService from "../../services/industryBranchService";
+import industryService from "../../services/industryService";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
 
 const schema = yup.object({
-  industryId: yup.string().required('Please select a client'),
-  name: yup.string().required('Branch name is required').min(1).max(100),
+  industryId: yup.string().required("Please select a client"),
+  name: yup.string().required("Branch name is required").min(1).max(100),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
   gst: yup
     .string()
     .optional()
-    .transform((v) => (typeof v === 'string' ? v.trim().toUpperCase() : v || ''))
+    .transform((v) =>
+      typeof v === "string" ? v.trim().toUpperCase() : v || "",
+    )
     .test(
-      'gst',
-      'Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)',
-      (v) => !v || v === '' || /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v)
+      "gst",
+      "Enter a valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)",
+      (v) =>
+        !v ||
+        v === "" ||
+        /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(v),
     ),
-})
+});
 
 const defaultValues = {
-  industryId: '',
-  name: '',
-  location: '',
-  address: '',
-  gst: '',
-}
+  industryId: "",
+  name: "",
+  location: "",
+  address: "",
+  gst: "",
+};
 
 const IndustryBranchForm = () => {
-  const navigate = useNavigate()
-  const { id } = useParams()
-  const isEdit = Boolean(id)
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
 
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [industries, setIndustries] = useState([])
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [industries, setIndustries] = useState([]);
 
   const {
     register,
@@ -68,100 +73,111 @@ const IndustryBranchForm = () => {
   } = useForm({
     resolver: yupResolver(schema),
     defaultValues,
-    mode: 'onBlur',
-  })
+    mode: "onBlur",
+  });
 
   useEffect(() => {
-    fetchIndustries()
+    fetchIndustries();
     if (isEdit) {
-      fetchBranch()
+      fetchBranch();
     } else {
-      reset(defaultValues)
+      reset(defaultValues);
     }
-  }, [id])
+  }, [id]);
 
   // Refetch industries when form becomes visible (e.g. after adding industry in another tab)
   useEffect(() => {
     const onFocus = () => {
-      if (!isEdit) fetchIndustries()
-    }
-    window.addEventListener('focus', onFocus)
-    return () => window.removeEventListener('focus', onFocus)
-  }, [isEdit])
+      if (!isEdit) fetchIndustries();
+    };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [isEdit]);
 
   const fetchIndustries = async () => {
     try {
-      const res = await industryService.getAll({ pageNumber: 1, pageSize: 500 })
-      const data = res?.data ?? res
-      const list = data?.industries ?? data?.data?.industries ?? []
-      setIndustries(Array.isArray(list) ? list : [])
+      const res = await industryService.getAll({
+        pageNumber: 1,
+        pageSize: 500,
+      });
+      const data = res?.data ?? res;
+      const list = data?.industries ?? data?.data?.industries ?? [];
+      setIndustries(Array.isArray(list) ? list : []);
     } catch (err) {
-      console.error('Failed to fetch industries', err)
-      toastError(err?.message || 'Failed to load industries for dropdown')
+      console.error("Failed to fetch industries", err);
+      toastError(err?.message || "Failed to load industries for dropdown");
     }
-  }
+  };
 
   const fetchBranch = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      const res = await withMinimumDelay(() => industryBranchService.getById(id))
-      const data = res?.data?.data || res?.data || res
+      const res = await withMinimumDelay(() =>
+        industryBranchService.getById(id),
+      );
+      const data = res?.data?.data || res?.data || res;
       const industryId =
-        typeof data?.industryId === 'object' ? data?.industryId?._id : data?.industryId || ''
+        typeof data?.industryId === "object"
+          ? data?.industryId?._id
+          : data?.industryId || "";
       reset({
-        industryId: industryId || '',
-        name: data?.name || '',
-        location: data?.location || '',
-        address: data?.address || '',
-        gst: data?.gst || '',
-      })
+        industryId: industryId || "",
+        name: data?.name || "",
+        location: data?.location || "",
+        address: data?.address || "",
+        gst: data?.gst || "",
+      });
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch client branch')
+      toastError(err?.message || "Failed to fetch client branch");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const onSubmit = async (values) => {
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true);
+    setError("");
     try {
       const payload = {
         industryId: values.industryId || null,
-        name: values.name?.trim() || '',
-        location: values.location?.trim() || '',
-        address: values.address?.trim() || '',
-        gst: values.gst?.trim() || '',
-      }
+        name: values.name?.trim() || "",
+        location: values.location?.trim() || "",
+        address: values.address?.trim() || "",
+        gst: values.gst?.trim() || "",
+      };
       if (isEdit) {
-        await industryBranchService.update(id, payload)
-        toastSuccess('Client branch updated successfully')
+        await industryBranchService.update(id, payload);
+        toastSuccess("Client branch updated successfully");
       } else {
-        await industryBranchService.create(payload)
-        toastSuccess('Client branch created successfully')
+        await industryBranchService.create(payload);
+        toastSuccess("Client branch created successfully");
       }
-      navigate('/industry-branches')
+      navigate("/industry-branches");
     } catch (err) {
-      toastError(err?.message || 'Failed to save client branch')
+      toastError(err?.message || "Failed to save client branch");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="text-center p-5">
         <Loader message="Loading client branch..." />
       </div>
-    )
+    );
   }
 
   return (
     <CForm onSubmit={handleSubmit(onSubmit)}>
       <CRow className="mb-3">
         <CCol>
-          <CButton color="light" onClick={() => navigate('/industry-branches')} className="me-2">
+          <CButton
+            color="light"
+            onClick={() => navigate("/industry-branches")}
+            className="me-2"
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to client branches
           </CButton>
@@ -169,42 +185,46 @@ const IndustryBranchForm = () => {
       </CRow>
 
       {error && (
-        <CAlert color="danger" dismissible onClose={() => setError('')}>
+        <CAlert color="danger" dismissible onClose={() => setError("")}>
           {error}
         </CAlert>
       )}
 
       <CCard className="mb-4">
         <CCardHeader>
-          <strong>{isEdit ? 'Edit client branch' : 'Add client branch'}</strong>
+          <strong>{isEdit ? "Edit client branch" : "Add client branch"}</strong>
         </CCardHeader>
         <CCardBody>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Client *</CFormLabel>
-                <CFormSelect {...register('industryId')} disabled={isEdit}>
+                <CFormSelect {...register("industryId")} disabled={isEdit}>
                   <option value="">Select client</option>
                   {industries.map((ind) => {
-                    const industryId = ind._id ?? ind.id
+                    const industryId = ind._id ?? ind.id;
                     return (
                       <option key={industryId} value={industryId}>
-                        {ind.name ?? '-'}
+                        {ind.name ?? "-"}
                       </option>
-                    )
+                    );
                   })}
                 </CFormSelect>
                 {errors.industryId && (
-                  <div className="text-danger small mt-1">{errors.industryId.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.industryId.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Branch Name *</CFormLabel>
-                <CFormInput {...register('name')} placeholder="Branch name" />
+                <CFormInput {...register("name")} placeholder="Branch name" />
                 {errors.name && (
-                  <div className="text-danger small mt-1">{errors.name.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.name.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -213,18 +233,25 @@ const IndustryBranchForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Location</CFormLabel>
-                <CFormInput {...register('location')} placeholder="Location" />
+                <CFormInput {...register("location")} placeholder="Location" />
                 {errors.location && (
-                  <div className="text-danger small mt-1">{errors.location.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.location.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>GST Number</CFormLabel>
-                <CFormInput {...register('gst')} placeholder="e.g. 22AABCU9603R1ZX" />
+                <CFormInput
+                  {...register("gst")}
+                  placeholder="e.g. 22AABCU9603R1ZX"
+                />
                 {errors.gst && (
-                  <div className="text-danger small mt-1">{errors.gst.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.gst.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -233,9 +260,15 @@ const IndustryBranchForm = () => {
             <CCol md={12}>
               <div className="mb-3">
                 <CFormLabel>Address</CFormLabel>
-                <CFormTextarea rows={3} {...register('address')} placeholder="Address" />
+                <CFormTextarea
+                  rows={3}
+                  {...register("address")}
+                  placeholder="Address"
+                />
                 {errors.address && (
-                  <div className="text-danger small mt-1">{errors.address.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.address.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -245,22 +278,25 @@ const IndustryBranchForm = () => {
 
       <CCard className="mb-4">
         <CCardBody className="d-flex justify-content-end gap-2">
-          <CButton color="secondary" onClick={() => navigate('/industry-branches')}>
+          <CButton
+            color="secondary"
+            onClick={() => navigate("/industry-branches")}
+          >
             Cancel
           </CButton>
           <CButton color="primary" type="submit" disabled={submitting}>
             {submitting ? (
               <CSpinner size="sm" />
             ) : isEdit ? (
-              'Update client branch'
+              "Update client branch"
             ) : (
-              'Create client branch'
+              "Create client branch"
             )}
           </CButton>
         </CCardBody>
       </CCard>
     </CForm>
-  )
-}
+  );
+};
 
-export default IndustryBranchForm
+export default IndustryBranchForm;

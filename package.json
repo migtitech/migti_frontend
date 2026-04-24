@@ -11,9 +11,11 @@
   "author": "Migti Tech Team",
   "scripts": {
     "build": "vite build",
+    "dev": "vite",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint": "eslint",
-    "serve": "vite preview",
-    "dev": "vite"
+    "serve": "vite preview"
   },
   "dependencies": {
     "@coreui/chartjs": "^4.1.0",

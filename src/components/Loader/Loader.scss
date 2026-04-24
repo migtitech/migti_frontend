@@ -45,7 +45,11 @@
   width: 10px;
   height: 10px;
   margin: -5px 0 0 -5px;
-  background: linear-gradient(135deg, var(--cui-primary, #321fdb), var(--cui-info, #39f));
+  background: linear-gradient(
+    135deg,
+    var(--cui-primary, #321fdb),
+    var(--cui-info, #39f)
+  );
   border-radius: 50%;
   animation: loader-pulse 1.4s ease-in-out infinite both;
   box-shadow: 0 0 12px rgba(50, 31, 219, 0.4);

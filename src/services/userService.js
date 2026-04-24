@@ -1,5 +1,5 @@
-import { api } from '../api/axiosClient'
-import { USERS } from '../api/endpoints'
+import { api } from "../api/axiosClient";
+import { USERS } from "../api/endpoints";
 
 const userService = {
   /**
@@ -8,8 +8,8 @@ const userService = {
    * @returns {Promise}
    */
   getAll: async (params = {}) => {
-    const response = await api.get(USERS.BASE, { params })
-    return response
+    const response = await api.get(USERS.BASE, { params });
+    return response;
   },
 
   /**
@@ -18,8 +18,8 @@ const userService = {
    * @returns {Promise}
    */
   getById: async (id) => {
-    const response = await api.get(USERS.BY_ID(id))
-    return response
+    const response = await api.get(USERS.BY_ID(id));
+    return response;
   },
 
   /**
@@ -27,8 +27,8 @@ const userService = {
    * @returns {Promise}
    */
   getProfile: async () => {
-    const response = await api.get(USERS.PROFILE)
-    return response
+    const response = await api.get(USERS.PROFILE);
+    return response;
   },
 
   /**
@@ -37,8 +37,8 @@ const userService = {
    * @returns {Promise}
    */
   create: async (userData) => {
-    const response = await api.post(USERS.BASE, userData)
-    return response
+    const response = await api.post(USERS.BASE, userData);
+    return response;
   },
 
   /**
@@ -48,8 +48,8 @@ const userService = {
    * @returns {Promise}
    */
   update: async (id, userData) => {
-    const response = await api.put(USERS.BY_ID(id), userData)
-    return response
+    const response = await api.put(USERS.BY_ID(id), userData);
+    return response;
   },
 
   /**
@@ -58,8 +58,8 @@ const userService = {
    * @returns {Promise}
    */
   updateProfile: async (profileData) => {
-    const response = await api.put(USERS.PROFILE, profileData)
-    return response
+    const response = await api.put(USERS.PROFILE, profileData);
+    return response;
   },
 
   /**
@@ -72,8 +72,8 @@ const userService = {
     const response = await api.put(USERS.UPDATE_PASSWORD, {
       currentPassword,
       newPassword,
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -82,9 +82,9 @@ const userService = {
    * @returns {Promise}
    */
   delete: async (id) => {
-    const response = await api.delete(USERS.BY_ID(id))
-    return response
+    const response = await api.delete(USERS.BY_ID(id));
+    return response;
   },
-}
+};
 
-export default userService
+export default userService;

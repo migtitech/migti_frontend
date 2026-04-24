@@ -1,8 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { useForm, useFieldArray } from 'react-hook-form'
-import { yupResolver } from '@hookform/resolvers/yup'
-import * as yup from 'yup'
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useForm, useFieldArray } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import {
   CAlert,
   CButton,
@@ -18,81 +18,118 @@ import {
   CRow,
   CSpinner,
   CFormCheck,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilPlus, cilTrash } from '@coreui/icons'
-import { phoneOptional, gstinOptional, gstinRequired, MSG } from '../../utils/validation'
-import industryService from '../../services/industryService'
-import areaService from '../../services/areaService'
-import subZoneService from '../../services/subZoneService'
-import branchService from '../../services/branchService'
-import { Loader } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import useBranchContext from '../../hooks/useBranchContext'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilArrowLeft, cilPlus, cilTrash } from "@coreui/icons";
+import {
+  phoneOptional,
+  gstinOptional,
+  gstinRequired,
+  MSG,
+} from "../../utils/validation";
+import industryService from "../../services/industryService";
+import areaService from "../../services/areaService";
+import subZoneService from "../../services/subZoneService";
+import branchService from "../../services/branchService";
+import { Loader } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import useBranchContext from "../../hooks/useBranchContext";
 
 const purchaseManagerSchema = yup.object({
-  name: yup.string().trim().required('Name is required').min(1, MSG.minLength(1)).max(100, MSG.maxLength(100)),
-  phone: yup.string().trim().optional().max(20).nullable().transform((v, o) => (o === '' ? '' : v)).test('phone', 'Phone must be 5–20 digits', (v) => !v || /^\d{5,20}$/.test(v)),
-  email: yup.string().trim().email('Enter a valid email').optional().nullable().transform((v, o) => (o === '' ? '' : v)),
-})
+  name: yup
+    .string()
+    .trim()
+    .required("Name is required")
+    .min(1, MSG.minLength(1))
+    .max(100, MSG.maxLength(100)),
+  phone: yup
+    .string()
+    .trim()
+    .optional()
+    .max(20)
+    .nullable()
+    .transform((v, o) => (o === "" ? "" : v))
+    .test(
+      "phone",
+      "Phone must be 5–20 digits",
+      (v) => !v || /^\d{5,20}$/.test(v),
+    ),
+  email: yup
+    .string()
+    .trim()
+    .email("Enter a valid email")
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? "" : v)),
+});
 
 const industrySchema = yup.object({
-  name: yup.string().required('Client name is required').min(2).max(100),
+  name: yup.string().required("Client name is required").min(2).max(100),
   category: yup
     .string()
-    .oneOf(['A', 'B', 'C', 'D', ''], 'Invalid category')
+    .oneOf(["A", "B", "C", "D", ""], "Invalid category")
     .optional()
     .nullable(),
   area: yup.string().optional().nullable(),
   subZoneId: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
-  gstNumber: yup.string().when('$isEdit', {
+  gstNumber: yup.string().when("$isEdit", {
     is: true,
     then: () => gstinOptional(),
     otherwise: () => gstinRequired(),
   }),
-  purchase_manager_name: yup.string().trim().optional().max(100).nullable().transform((v, o) => (o === '' ? null : v)),
+  purchase_manager_name: yup
+    .string()
+    .trim()
+    .optional()
+    .max(100)
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v)),
   purchase_manager_phone: phoneOptional(),
   email: yup
     .string()
-    .email('Enter a valid email')
+    .email("Enter a valid email")
     .optional()
     .nullable()
-    .transform((v, o) => (o === '' ? null : v)),
-  purchaseManagers: yup.array().of(purchaseManagerSchema).optional().default([]),
+    .transform((v, o) => (o === "" ? null : v)),
+  purchaseManagers: yup
+    .array()
+    .of(purchaseManagerSchema)
+    .optional()
+    .default([]),
   branchId: yup.string().optional().nullable(),
-})
+});
 
 const defaultValues = {
-  name: '',
-  category: '',
-  area: '',
-  subZoneId: '',
-  location: '',
-  address: '',
-  gstNumber: '',
-  purchase_manager_name: '',
-  purchase_manager_phone: '',
-  email: '',
+  name: "",
+  category: "",
+  area: "",
+  subZoneId: "",
+  location: "",
+  address: "",
+  gstNumber: "",
+  purchase_manager_name: "",
+  purchase_manager_phone: "",
+  email: "",
   purchaseManagers: [],
-  branchId: '',
-}
+  branchId: "",
+};
 
 const IndustryForm = () => {
-  const navigate = useNavigate()
-  const { id } = useParams()
-  const isEdit = Boolean(id)
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext()
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
+  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
 
-  const [loading, setLoading] = useState(false)
-  const [branches, setBranches] = useState([])
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [areas, setAreas] = useState([])
-  const [subZones, setSubZones] = useState([])
-  const prevAreaRef = useRef('')
+  const [loading, setLoading] = useState(false);
+  const [branches, setBranches] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [areas, setAreas] = useState([]);
+  const [subZones, setSubZones] = useState([]);
+  const prevAreaRef = useRef("");
 
   const {
     register,
@@ -106,191 +143,217 @@ const IndustryForm = () => {
     resolver: yupResolver(industrySchema),
     context: { isEdit },
     defaultValues,
-    mode: 'onBlur',
-  })
+    mode: "onBlur",
+  });
 
   const { fields, append, remove } = useFieldArray({
     control,
-    name: 'purchaseManagers',
-  })
+    name: "purchaseManagers",
+  });
 
-  const selectedAreaId = watch('area')
+  const selectedAreaId = watch("area");
 
   useEffect(() => {
-    fetchAreas()
+    fetchAreas();
     if (isEdit) {
-      fetchIndustry()
+      fetchIndustry();
     } else {
-      reset(defaultValues)
+      reset(defaultValues);
     }
-  }, [id])
+  }, [id]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const loadBranches = async () => {
       try {
-        const response = await branchService.getAll({ pageNumber: 1, pageSize: 100 })
-        if (cancelled) return
-        const list = response?.data?.branches ?? response?.data?.data?.branches ?? response?.branches ?? (Array.isArray(response?.data) ? response.data : [])
-        const arr = Array.isArray(list) ? list : []
-        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })))
+        const response = await branchService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        if (cancelled) return;
+        const list =
+          response?.data?.branches ??
+          response?.data?.data?.branches ??
+          response?.branches ??
+          (Array.isArray(response?.data) ? response.data : []);
+        const arr = Array.isArray(list) ? list : [];
+        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })));
       } catch (err) {
         if (!cancelled) {
-          setBranches([])
-          toastError(err?.message || 'Failed to load branches')
+          setBranches([]);
+          toastError(err?.message || "Failed to load branches");
         }
       }
-    }
-    loadBranches()
-    return () => { cancelled = true }
-  }, [isEdit])
+    };
+    loadBranches();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEdit]);
 
-  const currentBranchId = watch('branchId')
+  const currentBranchId = watch("branchId");
   useEffect(() => {
-    if (isEdit || branches.length === 0 || currentBranchId) return
-    const defaultId = userBranchId && branches.some((b) => (b.id || b._id) === userBranchId)
-      ? userBranchId
-      : (branches[0] && (branches[0].id || branches[0]._id)) || ''
-    if (defaultId) setValue('branchId', defaultId)
-  }, [branches, isEdit, userBranchId, setValue, currentBranchId])
+    if (isEdit || branches.length === 0 || currentBranchId) return;
+    const defaultId =
+      userBranchId && branches.some((b) => (b.id || b._id) === userBranchId)
+        ? userBranchId
+        : (branches[0] && (branches[0].id || branches[0]._id)) || "";
+    if (defaultId) setValue("branchId", defaultId);
+  }, [branches, isEdit, userBranchId, setValue, currentBranchId]);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     const run = async () => {
       if (!selectedAreaId) {
-        setSubZones([])
-        setValue('subZoneId', '')
-        prevAreaRef.current = ''
-        return
+        setSubZones([]);
+        setValue("subZoneId", "");
+        prevAreaRef.current = "";
+        return;
       }
       if (prevAreaRef.current && prevAreaRef.current !== selectedAreaId) {
-        setValue('subZoneId', '')
+        setValue("subZoneId", "");
       }
-      prevAreaRef.current = selectedAreaId
+      prevAreaRef.current = selectedAreaId;
       try {
-        const res = await subZoneService.listByZone(selectedAreaId)
-        const data = res?.data?.data || res?.data || res
-        const list = data?.subZones || []
-        if (!cancelled) setSubZones(list || [])
+        const res = await subZoneService.listByZone(selectedAreaId);
+        const data = res?.data?.data || res?.data || res;
+        const list = data?.subZones || [];
+        if (!cancelled) setSubZones(list || []);
       } catch {
         if (!cancelled) {
-          setSubZones([])
-          setValue('subZoneId', '')
+          setSubZones([]);
+          setValue("subZoneId", "");
         }
       }
-    }
-    run()
+    };
+    run();
     return () => {
-      cancelled = true
-    }
-  }, [selectedAreaId, setValue])
+      cancelled = true;
+    };
+  }, [selectedAreaId, setValue]);
 
   const fetchAreas = async () => {
     try {
-      const res = await areaService.getAll({ pageSize: 100 })
-      const data = res?.data || res
-      setAreas(data?.areas || [])
+      const res = await areaService.getAll({ pageSize: 100 });
+      const data = res?.data || res;
+      setAreas(data?.areas || []);
     } catch (err) {
-      console.error('Failed to fetch areas', err)
+      console.error("Failed to fetch areas", err);
     }
-  }
+  };
 
   const fetchIndustry = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      const res = await withMinimumDelay(() => industryService.getById(id))
-      const data = res?.data || res
+      const res = await withMinimumDelay(() => industryService.getById(id));
+      const data = res?.data || res;
       const purchaseManagers = (data?.purchaseManagers || []).map((pm) => ({
-        name: pm.name || '',
-        phone: pm.phone || '',
-        email: pm.email || '',
-      }))
-      const branchId = data?.branchId || (data?.branch && (data.branch._id || data.branch.id)) || ''
+        name: pm.name || "",
+        phone: pm.phone || "",
+        email: pm.email || "",
+      }));
+      const branchId =
+        data?.branchId ||
+        (data?.branch && (data.branch._id || data.branch.id)) ||
+        "";
       reset({
-        name: data?.name || '',
-        category: data?.category || '',
-        area: typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || '',
+        name: data?.name || "",
+        category: data?.category || "",
+        area:
+          typeof data?.area === "object"
+            ? data?.area?._id || ""
+            : data?.area || "",
         subZoneId:
-          typeof data?.subZoneId === 'object' ? data?.subZoneId?._id || '' : data?.subZoneId || '',
-        location: data?.location || '',
-        address: data?.address || '',
-        gstNumber: data?.gstNumber || '',
-        purchase_manager_name: data?.purchase_manager_name || '',
-        purchase_manager_phone: data?.purchase_manager_phone || '',
-        email: data?.email || '',
+          typeof data?.subZoneId === "object"
+            ? data?.subZoneId?._id || ""
+            : data?.subZoneId || "",
+        location: data?.location || "",
+        address: data?.address || "",
+        gstNumber: data?.gstNumber || "",
+        purchase_manager_name: data?.purchase_manager_name || "",
+        purchase_manager_phone: data?.purchase_manager_phone || "",
+        email: data?.email || "",
         purchaseManagers: purchaseManagers.length ? purchaseManagers : [],
-        branchId: branchId || '',
-      })
-      prevAreaRef.current = typeof data?.area === 'object' ? data?.area?._id || '' : data?.area || ''
+        branchId: branchId || "",
+      });
+      prevAreaRef.current =
+        typeof data?.area === "object"
+          ? data?.area?._id || ""
+          : data?.area || "";
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch client')
+      toastError(err?.message || "Failed to fetch client");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const onSubmit = async (values) => {
     if (!isEdit && !values.branchId) {
-      setError('Please select a branch for the client.')
-      return
+      setError("Please select a branch for the client.");
+      return;
     }
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true);
+    setError("");
     try {
       if (isEdit) {
         const payload = {
-          location: values.location || '',
-          address: values.address || '',
-          subZoneId: (values.subZoneId && String(values.subZoneId).trim()) || null,
-          purchaseManagers: (values.purchaseManagers || []).filter(
-            (pm) => (pm.name || '').trim(),
-          ).map((pm) => ({
-            name: (pm.name || '').trim(),
-            phone: (pm.phone || '').trim(),
-            email: (pm.email || '').trim(),
-          })),
-        }
-        await industryService.update(id, payload)
-        toastSuccess('Client updated successfully')
+          location: values.location || "",
+          address: values.address || "",
+          subZoneId:
+            (values.subZoneId && String(values.subZoneId).trim()) || null,
+          purchaseManagers: (values.purchaseManagers || [])
+            .filter((pm) => (pm.name || "").trim())
+            .map((pm) => ({
+              name: (pm.name || "").trim(),
+              phone: (pm.phone || "").trim(),
+              email: (pm.email || "").trim(),
+            })),
+        };
+        await industryService.update(id, payload);
+        toastSuccess("Client updated successfully");
       } else {
         const payload = {
           ...values,
           area: values.area || null,
-          gstNumber: (values.gstNumber || '').trim().toUpperCase(),
+          gstNumber: (values.gstNumber || "").trim().toUpperCase(),
           branchId: values.branchId || undefined,
-          purchaseManagers: (values.purchaseManagers || []).filter(
-            (pm) => (pm.name || '').trim(),
-          ).map((pm) => ({
-            name: (pm.name || '').trim(),
-            phone: (pm.phone || '').trim(),
-            email: (pm.email || '').trim(),
-          })),
-        }
-        await industryService.create(payload)
-        toastSuccess('Client created successfully')
+          purchaseManagers: (values.purchaseManagers || [])
+            .filter((pm) => (pm.name || "").trim())
+            .map((pm) => ({
+              name: (pm.name || "").trim(),
+              phone: (pm.phone || "").trim(),
+              email: (pm.email || "").trim(),
+            })),
+        };
+        await industryService.create(payload);
+        toastSuccess("Client created successfully");
       }
-      navigate('/industries')
+      navigate("/industries");
     } catch (err) {
-      toastError(err?.message || 'Failed to save client')
+      toastError(err?.message || "Failed to save client");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="text-center p-5">
         <Loader message="Loading client..." />
       </div>
-    )
+    );
   }
 
   return (
     <CForm onSubmit={handleSubmit(onSubmit)}>
       <CRow className="mb-3">
         <CCol>
-          <CButton color="light" onClick={() => navigate('/industries')} className="me-2">
+          <CButton
+            color="light"
+            onClick={() => navigate("/industries")}
+            className="me-2"
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to clients
           </CButton>
@@ -298,27 +361,33 @@ const IndustryForm = () => {
       </CRow>
 
       {error && (
-        <CAlert color="danger" dismissible onClose={() => setError('')}>
+        <CAlert color="danger" dismissible onClose={() => setError("")}>
           {error}
         </CAlert>
       )}
 
       <CCard className="mb-4">
         <CCardHeader>
-          <strong>{isEdit ? 'Edit client' : 'Add client'}</strong>
+          <strong>{isEdit ? "Edit client" : "Add client"}</strong>
           <small className="text-muted d-block mt-1">
-            {isEdit ? 'You can update branch, location, purchase managers and address.' : 'Select the branch this client belongs to.'}
+            {isEdit
+              ? "You can update branch, location, purchase managers and address."
+              : "Select the branch this client belongs to."}
           </small>
         </CCardHeader>
         <CCardBody>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Branch {!isEdit ? '*' : ''}</CFormLabel>
+                <CFormLabel>Branch {!isEdit ? "*" : ""}</CFormLabel>
                 <CFormSelect
-                  {...register('branchId')}
+                  {...register("branchId")}
                   disabled={isEdit || (!canSelectBranch && !!userBranchId)}
-                  className={isEdit || (!canSelectBranch && userBranchId) ? 'bg-light' : ''}
+                  className={
+                    isEdit || (!canSelectBranch && userBranchId)
+                      ? "bg-light"
+                      : ""
+                  }
                 >
                   <option value="">Select branch</option>
                   {branches.map((b) => (
@@ -328,7 +397,9 @@ const IndustryForm = () => {
                   ))}
                 </CFormSelect>
                 {!isEdit && !canSelectBranch && userBranchId && (
-                  <small className="text-muted">Your branch is pre-selected.</small>
+                  <small className="text-muted">
+                    Your branch is pre-selected.
+                  </small>
                 )}
               </div>
             </CCol>
@@ -338,28 +409,32 @@ const IndustryForm = () => {
               <div className="mb-3">
                 <CFormLabel>Client name *</CFormLabel>
                 <CFormInput
-                  {...register('name')}
+                  {...register("name")}
                   readOnly={isEdit}
                   disabled={isEdit}
-                  className={isEdit ? 'bg-light' : ''}
+                  className={isEdit ? "bg-light" : ""}
                 />
                 {errors.name && (
-                  <div className="text-danger small mt-1">{errors.name.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.name.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>GST Number {!isEdit ? '*' : ''}</CFormLabel>
+                <CFormLabel>GST Number {!isEdit ? "*" : ""}</CFormLabel>
                 <CFormInput
-                  {...register('gstNumber')}
+                  {...register("gstNumber")}
                   placeholder="e.g. 27AABCU9603R1ZM"
                   readOnly={isEdit}
                   disabled={isEdit}
-                  className={isEdit ? 'bg-light' : ''}
+                  className={isEdit ? "bg-light" : ""}
                 />
                 {errors.gstNumber && (
-                  <div className="text-danger small mt-1">{errors.gstNumber.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.gstNumber.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -370,7 +445,7 @@ const IndustryForm = () => {
               <div className="mb-3">
                 <CFormLabel>Company Category</CFormLabel>
                 <div className="d-flex gap-3">
-                  {['A', 'B', 'C', 'D'].map((cat) => (
+                  {["A", "B", "C", "D"].map((cat) => (
                     <CFormCheck
                       key={cat}
                       type="radio"
@@ -378,14 +453,16 @@ const IndustryForm = () => {
                       label={cat}
                       value={cat}
                       className="cursor-pointer"
-                      style={{ cursor: 'pointer' }}
-                      {...register('category')}
+                      style={{ cursor: "pointer" }}
+                      {...register("category")}
                       disabled={isEdit}
                     />
                   ))}
                 </div>
                 {errors.category && (
-                  <div className="text-danger small mt-1">{errors.category.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.category.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -395,31 +472,45 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Zone</CFormLabel>
-                <CFormSelect {...register('area')} disabled={isEdit} className={isEdit ? 'bg-light' : ''}>
+                <CFormSelect
+                  {...register("area")}
+                  disabled={isEdit}
+                  className={isEdit ? "bg-light" : ""}
+                >
                   <option value="">Select Zone</option>
                   {areas.map((a) => (
                     <option key={a._id} value={a._id}>
-                      {a.name} {a.city ? `- ${a.city}` : ''}
+                      {a.name} {a.city ? `- ${a.city}` : ""}
                     </option>
                   ))}
                 </CFormSelect>
                 {errors.area && (
-                  <div className="text-danger small mt-1">{errors.area.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.area.message}
+                  </div>
                 )}
               </div>
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Sub-zone</CFormLabel>
-                <CFormSelect {...register('subZoneId')} disabled={!subZones.length}>
-                  <option value="">{subZones.length ? 'Optional' : 'No sub-zones for this zone'}</option>
+                <CFormSelect
+                  {...register("subZoneId")}
+                  disabled={!subZones.length}
+                >
+                  <option value="">
+                    {subZones.length
+                      ? "Optional"
+                      : "No sub-zones for this zone"}
+                  </option>
                   {subZones.map((sz) => {
-                    const sid = sz._id || sz.id
+                    const sid = sz._id || sz.id;
                     return (
                       <option key={sid} value={sid}>
-                        {(sz.subZoneCode ? `${sz.subZoneCode} — ` : '') + (sz.name || '')}
+                        {(sz.subZoneCode ? `${sz.subZoneCode} — ` : "") +
+                          (sz.name || "")}
                       </option>
-                    )
+                    );
                   })}
                 </CFormSelect>
               </div>
@@ -429,9 +520,11 @@ const IndustryForm = () => {
             <CCol md={6}>
               <div className="mb-3">
                 <CFormLabel>Location ( Google Map URL )</CFormLabel>
-                <CFormInput {...register('location')} />
+                <CFormInput {...register("location")} />
                 {errors.location && (
-                  <div className="text-danger small mt-1">{errors.location.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.location.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -447,7 +540,7 @@ const IndustryForm = () => {
                     color="primary"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ name: '', phone: '', email: '' })}
+                    onClick={() => append({ name: "", phone: "", email: "" })}
                   >
                     <CIcon icon={cilPlus} className="me-1" />
                     Add Purchase Manager
@@ -455,7 +548,8 @@ const IndustryForm = () => {
                 </div>
                 {fields.length === 0 ? (
                   <p className="text-muted small mb-0">
-                    No purchase managers added. Click &quot;Add Purchase Manager&quot; to add.
+                    No purchase managers added. Click &quot;Add Purchase
+                    Manager&quot; to add.
                   </p>
                 ) : (
                   fields.map((field, index) => (
@@ -524,9 +618,11 @@ const IndustryForm = () => {
             <CCol md={12}>
               <div className="mb-3">
                 <CFormLabel>Address</CFormLabel>
-                <CFormTextarea rows={3} {...register('address')} />
+                <CFormTextarea rows={3} {...register("address")} />
                 {errors.address && (
-                  <div className="text-danger small mt-1">{errors.address.message}</div>
+                  <div className="text-danger small mt-1">
+                    {errors.address.message}
+                  </div>
                 )}
               </div>
             </CCol>
@@ -536,22 +632,22 @@ const IndustryForm = () => {
 
       <CCard className="mb-4">
         <CCardBody className="d-flex justify-content-end gap-2">
-          <CButton color="secondary" onClick={() => navigate('/industries')}>
+          <CButton color="secondary" onClick={() => navigate("/industries")}>
             Cancel
           </CButton>
           <CButton color="primary" type="submit" disabled={submitting}>
             {submitting ? (
               <CSpinner size="sm" />
             ) : isEdit ? (
-              'Update client'
+              "Update client"
             ) : (
-              'Create client'
+              "Create client"
             )}
           </CButton>
         </CCardBody>
       </CCard>
     </CForm>
-  )
-}
+  );
+};
 
-export default IndustryForm
+export default IndustryForm;

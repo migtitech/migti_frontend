@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from "react";
 import {
   CCard,
   CCardBody,
@@ -26,145 +26,154 @@ import {
   CSpinner,
   CInputGroup,
   CInputGroupText,
-} from '@coreui/react'
-import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilSearch, cilArrowLeft } from '@coreui/icons'
-import { useNavigate, useParams } from 'react-router-dom'
-import rateCardService from '../../services/rateCardService'
-import { Loader, ConfirmDialog } from '../../components'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import {
+  cilPlus,
+  cilPencil,
+  cilTrash,
+  cilSearch,
+  cilArrowLeft,
+} from "@coreui/icons";
+import { useNavigate, useParams } from "react-router-dom";
+import rateCardService from "../../services/rateCardService";
+import { Loader, ConfirmDialog } from "../../components";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
 
 const RateCardView = () => {
-  const navigate = useNavigate()
-  const { id } = useParams()
+  const navigate = useNavigate();
+  const { id } = useParams();
 
-  const [rateCard, setRateCard] = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, supplierId: null })
+  const [rateCard, setRateCard] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    supplierId: null,
+  });
 
   // Supplier modal state
-  const [modalVisible, setModalVisible] = useState(false)
-  const [modalSubmitting, setModalSubmitting] = useState(false)
-  const [editingSupplier, setEditingSupplier] = useState(null)
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalSubmitting, setModalSubmitting] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState(null);
   const [supplierForm, setSupplierForm] = useState({
-    supplierName: '',
-    rate: '',
-    contact: '',
-    notes: '',
-  })
+    supplierName: "",
+    rate: "",
+    contact: "",
+    notes: "",
+  });
 
   const fetchRateCard = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      const res = await withMinimumDelay(() => rateCardService.getById(id))
-      const data = res?.data || res
-      setRateCard(data)
+      const res = await withMinimumDelay(() => rateCardService.getById(id));
+      const data = res?.data || res;
+      setRateCard(data);
     } catch (err) {
-      toastError(err?.message || 'Failed to fetch rate card details')
+      toastError(err?.message || "Failed to fetch rate card details");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    if (id) fetchRateCard()
-  }, [id])
+    if (id) fetchRateCard();
+  }, [id]);
 
   // Filter suppliers by search term
   const filteredSuppliers = useMemo(() => {
-    if (!rateCard?.suppliers) return []
-    if (!searchTerm) return rateCard.suppliers
-    const term = searchTerm.toLowerCase()
+    if (!rateCard?.suppliers) return [];
+    if (!searchTerm) return rateCard.suppliers;
+    const term = searchTerm.toLowerCase();
     return rateCard.suppliers.filter(
       (s) =>
         s.supplierName?.toLowerCase().includes(term) ||
         s.contact?.includes(term) ||
         String(s.rate).includes(term),
-    )
-  }, [rateCard?.suppliers, searchTerm])
+    );
+  }, [rateCard?.suppliers, searchTerm]);
 
   // Sort suppliers by rate ascending for comparison
   const sortedSuppliers = useMemo(() => {
-    return [...filteredSuppliers].sort((a, b) => a.rate - b.rate)
-  }, [filteredSuppliers])
+    return [...filteredSuppliers].sort((a, b) => a.rate - b.rate);
+  }, [filteredSuppliers]);
 
   const openAddSupplierModal = () => {
-    setEditingSupplier(null)
-    setSupplierForm({ supplierName: '', rate: '', contact: '', notes: '' })
-    setModalVisible(true)
-  }
+    setEditingSupplier(null);
+    setSupplierForm({ supplierName: "", rate: "", contact: "", notes: "" });
+    setModalVisible(true);
+  };
 
   const openEditSupplierModal = (supplier) => {
-    setEditingSupplier(supplier)
+    setEditingSupplier(supplier);
     setSupplierForm({
-      supplierName: supplier.supplierName || '',
-      rate: supplier.rate ?? '',
-      contact: supplier.contact || '',
-      notes: supplier.notes || '',
-    })
-    setModalVisible(true)
-  }
+      supplierName: supplier.supplierName || "",
+      rate: supplier.rate ?? "",
+      contact: supplier.contact || "",
+      notes: supplier.notes || "",
+    });
+    setModalVisible(true);
+  };
 
   const handleSupplierFormChange = (e) => {
-    const { name, value } = e.target
+    const { name, value } = e.target;
     setSupplierForm((prev) => ({
       ...prev,
-      [name]: name === 'rate' ? (value === '' ? '' : value) : value,
-    }))
-  }
+      [name]: name === "rate" ? (value === "" ? "" : value) : value,
+    }));
+  };
 
   const handleSupplierSubmit = async (e) => {
-    e.preventDefault()
-    setModalSubmitting(true)
-    setError('')
+    e.preventDefault();
+    setModalSubmitting(true);
+    setError("");
     try {
       const payload = {
         ...supplierForm,
         rate: parseFloat(supplierForm.rate) || 0,
-      }
+      };
       if (editingSupplier) {
-        await rateCardService.updateSupplier(id, editingSupplier._id, payload)
-        toastSuccess('Supplier updated successfully')
+        await rateCardService.updateSupplier(id, editingSupplier._id, payload);
+        toastSuccess("Supplier updated successfully");
       } else {
-        await rateCardService.addSupplier(id, payload)
-        toastSuccess('Supplier added successfully')
+        await rateCardService.addSupplier(id, payload);
+        toastSuccess("Supplier added successfully");
       }
-      setModalVisible(false)
-      fetchRateCard()
+      setModalVisible(false);
+      fetchRateCard();
     } catch (err) {
-      toastError(err?.message || 'Failed to save supplier')
+      toastError(err?.message || "Failed to save supplier");
     } finally {
-      setModalSubmitting(false)
+      setModalSubmitting(false);
     }
-  }
+  };
 
   const handleDeleteSupplierClick = (supplierId) => {
-    setConfirmDelete({ visible: true, supplierId })
-  }
+    setConfirmDelete({ visible: true, supplierId });
+  };
 
   const handleDeleteSupplierConfirm = async () => {
-    const { supplierId } = confirmDelete
-    setConfirmDelete({ visible: false, supplierId: null })
-    if (!supplierId) return
+    const { supplierId } = confirmDelete;
+    setConfirmDelete({ visible: false, supplierId: null });
+    if (!supplierId) return;
     try {
-      await rateCardService.deleteSupplier(id, supplierId)
-      toastSuccess('Supplier removed successfully')
-      fetchRateCard()
+      await rateCardService.deleteSupplier(id, supplierId);
+      toastSuccess("Supplier removed successfully");
+      fetchRateCard();
     } catch (err) {
-      toastError(err?.message || 'Failed to delete supplier')
+      toastError(err?.message || "Failed to delete supplier");
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="text-center py-5">
         <Loader message="Loading rate card details..." />
       </div>
-    )
+    );
   }
 
   if (!rateCard && !loading) {
@@ -172,12 +181,12 @@ const RateCardView = () => {
       <CRow>
         <CCol xs={12}>
           <CAlert color="warning">Rate card not found.</CAlert>
-          <CButton color="primary" onClick={() => navigate('/rate-cards')}>
+          <CButton color="primary" onClick={() => navigate("/rate-cards")}>
             Back to Rate Cards
           </CButton>
         </CCol>
       </CRow>
-    )
+    );
   }
 
   return (
@@ -190,14 +199,16 @@ const RateCardView = () => {
               <CButton
                 color="light"
                 size="sm"
-                onClick={() => navigate('/rate-cards')}
+                onClick={() => navigate("/rate-cards")}
                 title="Back"
               >
                 <CIcon icon={cilArrowLeft} />
               </CButton>
               <strong>{rateCard?.name || rateCard?.productName}</strong>
               {rateCard?.status && (
-                <CBadge color={rateCard.status === 'active' ? 'success' : 'secondary'}>
+                <CBadge
+                  color={rateCard.status === "active" ? "success" : "secondary"}
+                >
                   {rateCard.status}
                 </CBadge>
               )}
@@ -209,7 +220,7 @@ const RateCardView = () => {
           </CCardHeader>
           <CCardBody>
             {error && (
-              <CAlert color="danger" dismissible onClose={() => setError('')}>
+              <CAlert color="danger" dismissible onClose={() => setError("")}>
                 {error}
               </CAlert>
             )}
@@ -246,7 +257,11 @@ const RateCardView = () => {
                 {sortedSuppliers.map((supplier, index) => (
                   <CTableRow
                     key={supplier._id}
-                    color={index === 0 && sortedSuppliers.length > 1 ? 'success' : undefined}
+                    color={
+                      index === 0 && sortedSuppliers.length > 1
+                        ? "success"
+                        : undefined
+                    }
                   >
                     <CTableDataCell>{index + 1}</CTableDataCell>
                     <CTableDataCell>
@@ -259,15 +274,15 @@ const RateCardView = () => {
                     </CTableDataCell>
                     <CTableDataCell>
                       <strong>
-                        {new Intl.NumberFormat('en-IN', {
-                          style: 'currency',
-                          currency: 'INR',
+                        {new Intl.NumberFormat("en-IN", {
+                          style: "currency",
+                          currency: "INR",
                           maximumFractionDigits: 0,
                         }).format(supplier.rate)}
                       </strong>
                     </CTableDataCell>
                     <CTableDataCell>{supplier.contact}</CTableDataCell>
-                    <CTableDataCell>{supplier.notes || '-'}</CTableDataCell>
+                    <CTableDataCell>{supplier.notes || "-"}</CTableDataCell>
                     <CTableDataCell>
                       <CButton
                         color="warning"
@@ -304,9 +319,11 @@ const RateCardView = () => {
 
             {sortedSuppliers.length > 1 && (
               <div className="text-muted small">
-                Showing {sortedSuppliers.length} supplier{sortedSuppliers.length !== 1 ? 's' : ''}{' '}
-                sorted by rate (lowest first).{' '}
-                {searchTerm && `Filtered from ${rateCard?.suppliers?.length || 0} total.`}
+                Showing {sortedSuppliers.length} supplier
+                {sortedSuppliers.length !== 1 ? "s" : ""} sorted by rate (lowest
+                first).{" "}
+                {searchTerm &&
+                  `Filtered from ${rateCard?.suppliers?.length || 0} total.`}
               </div>
             )}
           </CCardBody>
@@ -317,7 +334,7 @@ const RateCardView = () => {
       <CModal visible={modalVisible} onClose={() => setModalVisible(false)}>
         <CModalHeader>
           <CModalTitle>
-            {editingSupplier ? 'Edit Supplier' : 'Add Supplier'}
+            {editingSupplier ? "Edit Supplier" : "Add Supplier"}
           </CModalTitle>
         </CModalHeader>
         <CForm onSubmit={handleSupplierSubmit}>
@@ -382,9 +399,9 @@ const RateCardView = () => {
                   Saving...
                 </>
               ) : editingSupplier ? (
-                'Update Supplier'
+                "Update Supplier"
               ) : (
-                'Add Supplier'
+                "Add Supplier"
               )}
             </CButton>
           </CModalFooter>
@@ -401,7 +418,7 @@ const RateCardView = () => {
         cancelText="Cancel"
       />
     </CRow>
-  )
-}
+  );
+};
 
-export default RateCardView
+export default RateCardView;

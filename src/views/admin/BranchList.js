@@ -1,205 +1,215 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import branchService from '../../services/branchService'
-import companyService from '../../services/companyService'
-import documentService from '../../services/documentService'
-import { getAccessToken } from '../../api/axiosClient'
-import { withMinimumDelay } from '../../utils/withMinimumDelay'
-import { toastSuccess, toastError } from '../../utils/toast'
-import { ConfirmDialog } from '../../components'
-import BranchHeader from './branches/BranchHeader'
-import BranchCards from './branches/BranchCards'
-import BranchFormModal from './branches/BranchFormModal'
-import usePermissions from '../../hooks/usePermissions'
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import branchService from "../../services/branchService";
+import companyService from "../../services/companyService";
+import documentService from "../../services/documentService";
+import { getAccessToken } from "../../api/axiosClient";
+import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { toastSuccess, toastError } from "../../utils/toast";
+import { ConfirmDialog } from "../../components";
+import BranchHeader from "./branches/BranchHeader";
+import BranchCards from "./branches/BranchCards";
+import BranchFormModal from "./branches/BranchFormModal";
+import usePermissions from "../../hooks/usePermissions";
 
 const BranchList = () => {
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-  const canCreateBranches = canCreate('branches')
-  const canUpdateBranches = canUpdate('branches')
-  const canDeleteBranches = canDelete('branches')
-  const [companies, setCompanies] = useState([])
-  const [branches, setBranches] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [showModal, setShowModal] = useState(false)
-  const [editingBranch, setEditingBranch] = useState(null)
-  const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
+  const navigate = useNavigate();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateBranches = canCreate("branches");
+  const canUpdateBranches = canUpdate("branches");
+  const canDeleteBranches = canDelete("branches");
+  const [companies, setCompanies] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [showModal, setShowModal] = useState(false);
+  const [editingBranch, setEditingBranch] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
 
   const decodeTokenPayload = (token) => {
-    if (!token) return null
+    if (!token) return null;
     try {
-      const payload = token.split('.')[1]
-      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+      const payload = token.split(".")[1];
+      const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
       const decoded = decodeURIComponent(
         atob(normalized)
-          .split('')
+          .split("")
           .map((char) => `%${`00${char.charCodeAt(0).toString(16)}`.slice(-2)}`)
-          .join('')
-      )
-      return JSON.parse(decoded)
+          .join(""),
+      );
+      return JSON.parse(decoded);
     } catch (err) {
-      return null
+      return null;
     }
-  }
+  };
 
   const getAdminIdFromToken = () => {
-    const token = getAccessToken()
-    const payload = decodeTokenPayload(token)
-    return payload?.id || ''
-  }
+    const token = getAccessToken();
+    const payload = decodeTokenPayload(token);
+    return payload?.id || "";
+  };
 
   const normalizeId = (item) => ({
     ...item,
     id: item?.id || item?._id,
-  })
+  });
 
   const loadCompanies = async () => {
     try {
-      const response = await companyService.getAll()
-      const list = response?.data?.companies || response?.data || []
-      setCompanies(list.map(normalizeId))
+      const response = await companyService.getAll();
+      const list = response?.data?.companies || response?.data || [];
+      setCompanies(list.map(normalizeId));
     } catch (err) {
-      setError(err?.message || 'Failed to load companies')
+      setError(err?.message || "Failed to load companies");
     }
-  }
+  };
 
   const loadBranches = async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      const response = await withMinimumDelay(() => branchService.getAll())
-      const list = response?.data?.branches || response?.data || []
-      setBranches(list.map(normalizeId))
+      const response = await withMinimumDelay(() => branchService.getAll());
+      const list = response?.data?.branches || response?.data || [];
+      setBranches(list.map(normalizeId));
     } catch (err) {
-      toastError(err?.message || 'Failed to load branches')
+      toastError(err?.message || "Failed to load branches");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadCompanies()
-    loadBranches()
-  }, [])
+    loadCompanies();
+    loadBranches();
+  }, []);
 
   const handleOpenModal = (branch = null) => {
-    setEditingBranch(branch)
-    setShowModal(true)
-  }
+    setEditingBranch(branch);
+    setShowModal(true);
+  };
 
   const handleCloseModal = () => {
-    setShowModal(false)
-    setEditingBranch(null)
-  }
+    setShowModal(false);
+    setEditingBranch(null);
+  };
 
   const onSubmit = async (data) => {
-    setSubmitting(true)
-    setError('')
+    setSubmitting(true);
+    setError("");
     try {
-      const adminId = getAdminIdFromToken()
-      const { branchId: _b, billingAddress: _a, signatureFile, ...rest } = data
+      const adminId = getAdminIdFromToken();
+      const { branchId: _b, billingAddress: _a, signatureFile, ...rest } = data;
       const payload = {
         ...rest,
         ...(adminId ? { adminId } : {}),
-      }
+      };
       const signatureFileToUpload =
-        signatureFile && signatureFile.length > 0 ? signatureFile[0] : null
+        signatureFile && signatureFile.length > 0 ? signatureFile[0] : null;
       if (signatureFileToUpload) {
-        const uploadRes = await documentService.uploadImages([signatureFileToUpload])
-        const uploadedDocs = uploadRes?.data?.documents || []
-        const uploadedId = uploadedDocs[0]?._id
+        const uploadRes = await documentService.uploadImages([
+          signatureFileToUpload,
+        ]);
+        const uploadedDocs = uploadRes?.data?.documents || [];
+        const uploadedId = uploadedDocs[0]?._id;
         if (!uploadedId) {
-          throw new Error('Signature upload failed, please try again.')
+          throw new Error("Signature upload failed, please try again.");
         }
-        payload.signature = uploadedId
+        payload.signature = uploadedId;
       }
 
       if (editingBranch) {
-        const response = await branchService.update(editingBranch.id, payload)
-        const updated = normalizeId(response?.data || response)
-        setBranches((prev) => prev.map((item) => (item.id === editingBranch.id ? updated : item)))
+        const response = await branchService.update(editingBranch.id, payload);
+        const updated = normalizeId(response?.data || response);
+        setBranches((prev) =>
+          prev.map((item) => (item.id === editingBranch.id ? updated : item)),
+        );
       } else {
-        const response = await branchService.create(payload)
-        const created = normalizeId(response?.data || response)
-        setBranches((prev) => [created, ...prev])
+        const response = await branchService.create(payload);
+        const created = normalizeId(response?.data || response);
+        setBranches((prev) => [created, ...prev]);
       }
-      handleCloseModal()
+      handleCloseModal();
     } catch (err) {
-      setError(err?.message || 'Failed to save branch')
+      setError(err?.message || "Failed to save branch");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleDeleteClick = (id) => {
-    setConfirmDelete({ visible: true, id })
-  }
+    setConfirmDelete({ visible: true, id });
+  };
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
-    setConfirmDelete({ visible: false, id: null })
-    if (!id) return
-    setSubmitting(true)
-    setError('')
+    const id = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (!id) return;
+    setSubmitting(true);
+    setError("");
     try {
-      await branchService.delete(id)
-      setBranches((prev) => prev.filter((branch) => branch.id !== id))
-      toastSuccess('Branch deleted successfully')
+      await branchService.delete(id);
+      setBranches((prev) => prev.filter((branch) => branch.id !== id));
+      toastSuccess("Branch deleted successfully");
     } catch (err) {
-      toastError(err?.message || 'Failed to delete branch')
+      toastError(err?.message || "Failed to delete branch");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
-  }
+  };
 
   const handleViewUsers = (companyId, branchId) => {
-    navigate(`/admin/companies/${companyId}/branches/${branchId}/users`)
-  }
+    navigate(`/admin/companies/${companyId}/branches/${branchId}/users`);
+  };
 
   const defaultValues = useMemo(() => {
     if (editingBranch) {
       return {
-        name: editingBranch.name || '',
-        email: editingBranch.email || '',
-        phone: editingBranch.phone || '',
-        companyId: editingBranch.companyId || '',
-        address: editingBranch.address || '',
-        branchcode: editingBranch.branchcode || '',
-        gstNumber: editingBranch.gstNumber || '',
-        fullAddress: editingBranch.fullAddress || '',
-        mapLocationUrl: editingBranch.mapLocationUrl || '',
+        name: editingBranch.name || "",
+        email: editingBranch.email || "",
+        phone: editingBranch.phone || "",
+        companyId: editingBranch.companyId || "",
+        address: editingBranch.address || "",
+        branchcode: editingBranch.branchcode || "",
+        gstNumber: editingBranch.gstNumber || "",
+        fullAddress: editingBranch.fullAddress || "",
+        mapLocationUrl: editingBranch.mapLocationUrl || "",
         signature:
-          (typeof editingBranch.signature === 'object'
+          (typeof editingBranch.signature === "object"
             ? editingBranch.signature?._id || editingBranch.signature?.id
-            : editingBranch.signature) || '',
-      }
+            : editingBranch.signature) || "",
+      };
     }
 
     return {
-      name: '',
-      email: '',
-      phone: '',
-      companyId: companies.length > 0 ? companies[0].id : '',
-      address: '',
-      branchcode: '',
-      gstNumber: '',
-      fullAddress: '',
-      mapLocationUrl: '',
-      signature: '',
-    }
-  }, [companies, editingBranch])
+      name: "",
+      email: "",
+      phone: "",
+      companyId: companies.length > 0 ? companies[0].id : "",
+      address: "",
+      branchcode: "",
+      gstNumber: "",
+      fullAddress: "",
+      mapLocationUrl: "",
+      signature: "",
+    };
+  }, [companies, editingBranch]);
 
   return (
     <>
-      <BranchHeader onAdd={() => handleOpenModal()} canCreate={canCreateBranches} />
+      <BranchHeader
+        onAdd={() => handleOpenModal()}
+        canCreate={canCreateBranches}
+      />
       <BranchCards
         branches={branches}
         companies={companies}
         loading={loading}
         error={error}
-        onClearError={() => setError('')}
+        onClearError={() => setError("")}
         onAdd={() => handleOpenModal()}
         onView={(branchId) => navigate(`/branches/${branchId}`)}
         onEdit={handleOpenModal}
@@ -209,7 +219,7 @@ const BranchList = () => {
         canDelete={canDeleteBranches}
         onViewUsers={handleViewUsers}
       />
-      {(canCreateBranches || (canUpdateBranches && editingBranch)) ? (
+      {canCreateBranches || (canUpdateBranches && editingBranch) ? (
         <BranchFormModal
           visible={showModal}
           onClose={handleCloseModal}
@@ -230,7 +240,7 @@ const BranchList = () => {
         cancelText="Cancel"
       />
     </>
-  )
-}
+  );
+};
 
-export default BranchList
+export default BranchList;

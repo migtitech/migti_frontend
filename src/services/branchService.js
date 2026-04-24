@@ -1,11 +1,10 @@
-import { api } from '../api/axiosClient'
-import { BRANCHES } from '../api/endpoints'
+import { api } from "../api/axiosClient";
+import { BRANCHES } from "../api/endpoints";
 
 const branchService = {
-
   getAll: async (params = {}) => {
-    const response = await api.get(BRANCHES.LIST, { params })
-    return response
+    const response = await api.get(BRANCHES.LIST, { params });
+    return response;
   },
 
   /**
@@ -16,8 +15,8 @@ const branchService = {
   getById: async (id) => {
     const response = await api.get(BRANCHES.GET_BY_ID, {
       params: { companyBranchId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -26,8 +25,8 @@ const branchService = {
    * @returns {Promise}
    */
   create: async (branchData) => {
-    const response = await api.post(BRANCHES.CREATE, branchData)
-    return response
+    const response = await api.post(BRANCHES.CREATE, branchData);
+    return response;
   },
 
   /**
@@ -39,8 +38,8 @@ const branchService = {
   update: async (id, branchData) => {
     const response = await api.put(BRANCHES.UPDATE, branchData, {
       params: { companyBranchId: id },
-    })
-    return response
+    });
+    return response;
   },
 
   /**
@@ -51,9 +50,9 @@ const branchService = {
   delete: async (id) => {
     const response = await api.delete(BRANCHES.DELETE, {
       params: { companyBranchId: id },
-    })
-    return response
+    });
+    return response;
   },
-}
+};
 
-export default branchService
+export default branchService;
