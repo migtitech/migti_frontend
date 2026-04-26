@@ -40,6 +40,9 @@ const AppSidebar = () => {
         "/branch-analytics",
         "/target-analytics",
         "/visit-management-sidebar",
+        "/inventory-bucket",
+        "/dispatchment",
+        "/billing-requests",
       ]);
       return navigation.filter((item) => item?.to && allowedPaths.has(item.to));
     }

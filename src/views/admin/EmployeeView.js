@@ -29,6 +29,7 @@ import {
   cilDevices,
 } from "@coreui/icons";
 import employeeService from "../../services/employeeService";
+import groupService from "../../services/groupService";
 import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import { Loader } from "../../components";
@@ -44,6 +45,7 @@ const EmployeeView = () => {
   const [employee, setEmployee] = useState(null);
   const [branch, setBranch] = useState(null);
   const [zones, setZones] = useState([]);
+  const [assignedGroups, setAssignedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -69,8 +71,12 @@ const EmployeeView = () => {
       sales_exicutive: "info",
       purchase_manager: "warning",
       purchase_exicutive: "warning",
+      procurement: "warning",
       back_office_exicutive: "secondary",
       administrator: "dark",
+      finance: "success",
+      inventry_manager: "warning",
+      dispatch_manager: "info",
     };
     return (
       <CBadge color={colors[role] || "secondary"}>{ROLES[role] || role}</CBadge>
@@ -186,6 +192,38 @@ const EmployeeView = () => {
           }
         } else {
           setZones([]);
+        }
+
+        const agRaw = normalizedEmployee?.assigned_groups;
+        const agIds = Array.isArray(agRaw)
+          ? agRaw
+              .map((x) => (x && typeof x === "object" && x._id ? x._id : x))
+              .map((x) => String(x).trim())
+              .filter((id) => /^[a-fA-F0-9]{24}$/i.test(id))
+          : [];
+        if (agIds.length) {
+          try {
+            const gr = await Promise.all(
+              agIds.map((gid) => groupService.getById(gid).catch(() => null)),
+            );
+            const list = gr
+              .map((r) => {
+                const d = r?.data?.data || r?.data?.group || r?.data;
+                if (!d) {
+                  return null;
+                }
+                return {
+                  id: d._id || d.id,
+                  name: d.name || String(d._id || d.id),
+                };
+              })
+              .filter(Boolean);
+            setAssignedGroups(list);
+          } catch {
+            setAssignedGroups(agIds.map((id) => ({ id, name: id })));
+          }
+        } else {
+          setAssignedGroups([]);
         }
       } catch (err) {
         toastError(err?.message || "Failed to load employee");
@@ -376,6 +414,20 @@ const EmployeeView = () => {
                       : "-"
                   }
                 />
+                <CListGroupItem className="d-flex justify-content-between align-items-start">
+                  <strong className="me-2">Product groups</strong>
+                  <div className="text-end d-flex flex-wrap gap-1 justify-content-end">
+                    {assignedGroups.length ? (
+                      assignedGroups.map((g) => (
+                        <CBadge key={String(g.id)} color="info">
+                          {g.name}
+                        </CBadge>
+                      ))
+                    ) : (
+                      <span className="text-muted">-</span>
+                    )}
+                  </div>
+                </CListGroupItem>
                 <InfoRow label="Salary Type" value={e.salaryType} />
                 <CListGroupItem className="d-flex justify-content-between align-items-center">
                   <strong>Salary</strong>

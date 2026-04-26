@@ -22,25 +22,38 @@ const mapToApiPayload = (data) => {
   }
 
   if (data.products !== undefined) {
-    payload.products = (data.products || []).map((p) => ({
-      productName: p.productName,
-      quantity: p.quantity ?? 1,
-      unit: p.unit || "",
-      hsnNumber: p.hsnNumber || "",
-      modelNumber: p.modelNumber || "",
-      gstPercentage:
-        typeof p.gstPercentage === "number" ? p.gstPercentage : null,
-      variants: (p.variants || []).map((v) => ({
-        variantName: v.variantName || "",
-      })),
-      remark: p.remark || "",
-      description:
-        p.description && String(p.description).trim()
-          ? String(p.description).trim()
-          : "",
-      product_id: p.product_id || null,
-      images: Array.isArray(p.images) ? p.images : [],
-    }));
+    payload.products = (data.products || []).map((p) => {
+      const img = Array.isArray(p.images) ? p.images : [];
+      const idFromImg = (i) => {
+        if (typeof i === "string" && /^[a-fA-F0-9]{24}$/.test(i)) return i;
+        if (i && typeof i === "object" && i._id) return i._id;
+        return null;
+      };
+      return {
+        productName: p.productName,
+        quantity: p.quantity ?? 1,
+        unit: p.unit || "",
+        hsnNumber: p.hsnNumber || "",
+        modelNumber: p.modelNumber || "",
+        gstPercentage:
+          typeof p.gstPercentage === "number" ? p.gstPercentage : null,
+        variants: (p.variants || []).map((v) => ({
+          variantName: v.variantName || "",
+        })),
+        remark: p.remark || "",
+        description:
+          p.description && String(p.description).trim()
+            ? String(p.description).trim()
+            : "",
+        product_id: p.product_id || null,
+        groupId: p.groupId || null,
+        categoryId: p.categoryId || null,
+        rawProductCode: (p.rawProductCode && String(p.rawProductCode).trim()) || "",
+        query_tracking_code:
+          (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
+        images: img.map(idFromImg).filter(Boolean),
+      };
+    });
   }
 
   if (data.created_by != null) payload.created_by = String(data.created_by);

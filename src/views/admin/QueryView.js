@@ -318,6 +318,13 @@ const QueryView = () => {
     );
   };
 
+  /** Populated group/category on query line items from get-by-id, or unpopulated id */
+  const refDisplayName = (ref) => {
+    if (ref == null) return "—";
+    if (typeof ref === "object" && ref != null) return ref.name || "—";
+    return "—";
+  };
+
   const handleExportPDF = async () => {
     if (!id) return;
     setExportingPdf(true);
@@ -717,6 +724,8 @@ const QueryView = () => {
                         #
                       </CTableHeaderCell>
                       <CTableHeaderCell>Product name</CTableHeaderCell>
+                      <CTableHeaderCell>Group</CTableHeaderCell>
+                      <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 100 }}>
                         Quantity
@@ -756,6 +765,12 @@ const QueryView = () => {
                           <CTableDataCell>{index + 1}</CTableDataCell>
                           <CTableDataCell>
                             {p.productName || "—"}
+                          </CTableDataCell>
+                          <CTableDataCell className="small text-break">
+                            {refDisplayName(p.groupId)}
+                          </CTableDataCell>
+                          <CTableDataCell className="small text-break">
+                            {refDisplayName(p.categoryId)}
                           </CTableDataCell>
                           <CTableDataCell className="small">
                             {productRef?.shortDescription ||

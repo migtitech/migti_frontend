@@ -220,6 +220,7 @@ export const QUOTATIONS = {
   LIST: "/quotations/list",
   BY_INDUSTRY: "/quotations/by-industry",
   GET_BY_ID: "/quotations/get-by-id",
+  PRO_BUCKET_LINES: "/quotations/pro-bucket-lines",
   SNAPSHOTS_LIST: "/quotations/snapshots/list",
   UPDATE: "/quotations/update",
   UPDATE_STATUS: "/quotations/update-status",
@@ -231,11 +232,25 @@ export const QUOTATIONS = {
 export const PURCHASE_ORDERS = {
   LIST: "/purchase-orders/list",
   GET_BY_ID: "/purchase-orders/get-by-id",
+  /** `po_products` lines + line `status` (by `purchaseOrderId` and/or `poCode`) */
+  PO_PRODUCT_LINES: "/purchase-orders/po-product-lines",
   BY_QUOTATION: "/purchase-orders/by-quotation",
   CREATE_FROM_QUOTATION: "/purchase-orders/create-from-quotation",
   UPDATE: "/purchase-orders/update",
   UPDATE_STATUS: "/purchase-orders/update-status",
   APPEND_PAYMENT: "/purchase-orders/append-payment",
+};
+
+export const PO_PAYMENTS = {
+  APPEND_LEDGER: "/po-payments/append-ledger",
+};
+
+/** Admin list & actions for `purchase_billing_requests` (Mongo collection) */
+export const PURCHASE_BILLING_REQUESTS = {
+  LIST: "/purchase-billing-requests/list",
+  BY_ID: (id) => `/purchase-billing-requests/${id}`,
+  REMARK: (id) => `/purchase-billing-requests/${id}/remark`,
+  APPROVE: (id) => `/purchase-billing-requests/${id}/approve`,
 };
 
 export const PURCHASE_TASKS = {
@@ -280,6 +295,36 @@ export const TASK_MANAGEMENT = {
   DELETE: "/task-management/delete",
 };
 
+export const PRO_BUCKET = {
+  QUERY_PRODUCTS: "/pro-bucket/query-products",
+  QUERY_PRODUCT_BY_ID: (id) => `/pro-bucket/query-products/${id}`,
+  APPEND_RATES: (id) => `/pro-bucket/query-products/${id}/rates`,
+};
+
+export const PURCHASE_BUCKET = {
+  PO_PRODUCTS: "/purchase-bucket/po-products",
+  PO_PRODUCT_BY_ID: (id) => `/purchase-bucket/po-products/${id}`,
+  PAYMENT_REQUEST: (id) => `/purchase-bucket/po-products/${id}/payment-request`,
+  MARK_PURCHASED: (id) => `/purchase-bucket/po-products/${id}/mark-purchased`,
+};
+
+export const INVENTORY_BUCKET = {
+  PO_PRODUCTS: "/inventory-bucket/po-products",
+  PO_PRODUCT_BY_ID: (id) => `/inventory-bucket/po-products/${id}`,
+  INVENTORY_RECEIVED: (id) => `/inventory-bucket/po-products/${id}/inventory-received`,
+  READY_FOR_DISPATCHMENT: (id) =>
+    `/inventory-bucket/po-products/${id}/ready-for-dispatchment`,
+};
+
+/** PO lines in dispatch queue + mark delivered (see `po_products.status`) */
+export const DISPATCHMENT_BUCKET = {
+  PO_PRODUCTS: "/dispatchment-bucket/po-products",
+  PO_PRODUCT_BY_ID: (id) => `/dispatchment-bucket/po-products/${id}`,
+  READY_FOR_DISPATCHMENT: (id) =>
+    `/dispatchment-bucket/po-products/${id}/ready-for-dispatchment`,
+  MARK_DELIVERED: (id) => `/dispatchment-bucket/po-products/${id}/mark-delivered`,
+};
+
 export const ADMIN = {
   PERMISSIONS_MODULES: "/admin/permissions/modules",
 };
@@ -308,9 +353,14 @@ export default {
   QUERIES,
   QUOTATIONS,
   PURCHASE_ORDERS,
+  PO_PAYMENTS,
   PURCHASE_TASKS,
   PO_BILLING,
   VISITS,
   EMPLOYEE_LOCATIONS,
   TASK_MANAGEMENT,
+  PRO_BUCKET,
+  PURCHASE_BUCKET,
+  INVENTORY_BUCKET,
+  DISPATCHMENT_BUCKET,
 };

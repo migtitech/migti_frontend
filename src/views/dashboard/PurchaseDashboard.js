@@ -26,6 +26,7 @@ import {
   cilBell,
   cilFolder,
   cilArrowRight,
+  cilBasket,
 } from "@coreui/icons";
 import { useAuth } from "../../context/AuthContext";
 
@@ -166,6 +167,31 @@ const PurchaseDashboard = () => {
                 color="success"
                 component={Link}
                 to="/dmg"
+                className="align-self-start"
+              >
+                Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
+              </CButton>
+            </CCardBody>
+          </CCard>
+        </CCol>
+      </CRow>
+
+      <CRow className="mb-4">
+        <CCol md={4}>
+          <CCard className="h-100 border-primary border-2">
+            <CCardHeader className="bg-primary text-white d-flex align-items-center">
+              <CIcon icon={cilBasket} className="me-2" />
+              <strong>Pro Bucket</strong>
+            </CCardHeader>
+            <CCardBody className="d-flex flex-column">
+              <p className="text-body-secondary flex-grow-1 mb-3">
+                Query line items for your product groups: rates, status, and
+                fulfillment.
+              </p>
+              <CButton
+                color="primary"
+                component={Link}
+                to="/pro-bucket"
                 className="align-self-start"
               >
                 Open <CIcon icon={cilArrowRight} className="ms-1" size="sm" />

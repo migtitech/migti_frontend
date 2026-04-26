@@ -21,6 +21,14 @@ const quotationService = {
     return response;
   },
 
+  /** Pro Bucket (query_products) status and supplier rates per line (by rawProductCode + query) */
+  getProBucketLines: async (quotationId) => {
+    const response = await api.get(QUOTATIONS.PRO_BUCKET_LINES, {
+      params: { quotationId },
+    });
+    return response;
+  },
+
   listSnapshots: async (quotationId) => {
     const response = await api.get(QUOTATIONS.SNAPSHOTS_LIST, {
       params: { quotationId },

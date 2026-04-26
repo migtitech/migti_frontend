@@ -399,7 +399,8 @@ const PurchaseTasks = () => {
               {formatCurrency(task.targetRate)}
             </div>
             {(user?.role === ROLES.PURCHASE_MANAGER ||
-              user?.role === ROLES.PURCHASE_EXICUTIVE) && (
+              user?.role === ROLES.PURCHASE_EXICUTIVE ||
+              user?.role === ROLES.PROCUREMENT) && (
               <CButton
                 color="secondary"
                 variant="ghost"
@@ -559,7 +560,8 @@ const PurchaseTasks = () => {
                 </CNavItem>
                 {/* Rate Bucket visible only to purchase roles */}
                 {(user?.role === ROLES.PURCHASE_MANAGER ||
-                  user?.role === ROLES.PURCHASE_EXICUTIVE) && (
+                  user?.role === ROLES.PURCHASE_EXICUTIVE ||
+                  user?.role === ROLES.PROCUREMENT) && (
                   <CNavItem>
                     <CNavLink
                       active={activeTab === "rate"}

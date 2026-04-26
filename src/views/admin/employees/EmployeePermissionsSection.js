@@ -59,6 +59,12 @@ const ALLOWED_MODULE_LABELS = new Set([
   "Branch Analytics",
   "Target Analytics",
   "Purchase Orders",
+  "Po Bucket",
+  "Purchase Bucket",
+  "Inventory Bucket",
+  "Billing",
+  "Request",
+  "Dispatchment",
   "Employees",
   "Visit Management",
   "My Visits",
@@ -96,7 +102,8 @@ const EmployeePermissionsSection = ({
   if (!selectedRole) {
     return (
       <CAlert color="info" className="mb-0">
-        Select an employee role above (HOD, SM, SE, PM, PE, BOE, ADMIN) to
+        Select an employee role above (HOD, SM, SE, PM, PE, Procurement, BOE,
+        ADMIN) to
         configure granular access permissions.
       </CAlert>
     );

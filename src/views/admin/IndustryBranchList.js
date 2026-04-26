@@ -52,7 +52,7 @@ const IndustryBranchList = () => {
     try {
       const res = await industryService.getAll({
         pageNumber: 1,
-        pageSize: 500,
+        pageSize: 100,
       });
       const data = res?.data ?? res;
       const list = data?.industries ?? data?.data?.industries ?? [];

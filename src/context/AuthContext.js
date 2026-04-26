@@ -19,8 +19,12 @@ export const ROLES = {
   SALES_EXICUTIVE: "sales_exicutive",
   PURCHASE_MANAGER: "purchase_manager",
   PURCHASE_EXICUTIVE: "purchase_exicutive",
+  PROCUREMENT: "procurement",
   BACK_OFFICE_EXICUTIVE: "back_office_exicutive",
   ADMINISTRATOR: "administrator",
+  FINANCE: "finance",
+  INVENTRY_MANAGER: "inventry_manager",
+  DISPATCH_MANAGER: "dispatch_manager",
 };
 
 export const ROLE_LABELS = {
@@ -31,8 +35,12 @@ export const ROLE_LABELS = {
   [ROLES.SALES_EXICUTIVE]: "Sales Exicutive",
   [ROLES.PURCHASE_MANAGER]: "Purchase Manager",
   [ROLES.PURCHASE_EXICUTIVE]: "Purchase Exicutive",
+  [ROLES.PROCUREMENT]: "Procurement",
   [ROLES.BACK_OFFICE_EXICUTIVE]: "Back Office Exicutive",
   [ROLES.ADMINISTRATOR]: "Administrator",
+  [ROLES.FINANCE]: "Finance",
+  [ROLES.INVENTRY_MANAGER]: "Inventry Manager",
+  [ROLES.DISPATCH_MANAGER]: "Dispatch Manager",
 };
 
 // Roles that get full access to everything (no permission checks needed)
@@ -117,8 +125,12 @@ export const AuthProvider = ({ children }) => {
         ROLES.SALES_EXICUTIVE,
         ROLES.PURCHASE_MANAGER,
         ROLES.PURCHASE_EXICUTIVE,
+        ROLES.PROCUREMENT,
         ROLES.BACK_OFFICE_EXICUTIVE,
         ROLES.ADMINISTRATOR,
+        ROLES.FINANCE,
+        ROLES.INVENTRY_MANAGER,
+        ROLES.DISPATCH_MANAGER,
       ].includes(role)
     ) {
       try {

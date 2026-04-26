@@ -45,17 +45,18 @@ import {
 } from "@coreui/icons";
 import queryService from "../../services/queryService";
 import industryService from "../../services/industryService";
-import productService from "../../services/productService";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
 import queryNewProductService from "../../services/queryNewProductService";
+import groupService from "../../services/groupService";
+import categoryService from "../../services/categoryService";
 import documentService from "../../services/documentService";
 import { useAuth } from "../../context/AuthContext";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
-import FindProductModal from "./FindProductModal";
+import QueryNewProductFindSidebar from "./QueryNewProductFindSidebar";
 
 const INITIAL_COMPANY = {
   name: "",
@@ -87,26 +88,16 @@ const INITIAL_PRODUCT = {
   description: "",
   product_id: null,
   productCode: "",
+  /** From shared product sequence (e.g. mig1000); set when new product is saved to `query_new_product` or from server. */
+  rawProductCode: "",
+  /** Ritems sequence (QTRK1000) from `query_new_product` on mark-as-new; shown on the line. */
+  query_tracking_code: "",
+  groupId: "",
+  categoryId: "",
   isNewProduct: true,
   images: [],
-};
-
-const getVariantComboDisplay = (combo) => {
-  const parts = (combo?.optionValues || [])
-    .map((o) => o?.variantValue || "")
-    .filter(Boolean);
-  return parts.join(", ");
-};
-
-const getVariantOptions = (product) => {
-  const list = [];
-  (product?.variants || []).forEach((v) => {
-    const name = v?.name || "";
-    (v?.options || []).forEach((opt) => {
-      if (opt) list.push({ key: `${name}::${opt}`, label: `${name}: ${opt}` });
-    });
-  });
-  return list;
+  /** Set when the row was prefilled from an existing `query_new_product` (skip re-create on save). */
+  sourceQueryNewProductId: null,
 };
 
 const STEPS = [
@@ -144,22 +135,7 @@ const QueryForm = () => {
   const [products, setProducts] = useState([]);
   const [formProduct, setFormProduct] = useState({ ...INITIAL_PRODUCT });
   const [editingProductIndex, setEditingProductIndex] = useState(null);
-  const [productSearch, setProductSearch] = useState("");
-  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
-  const [productSearchResults, setProductSearchResults] = useState([]);
-  const [productSearchLoading, setProductSearchLoading] = useState(false);
-  const [showFindProductModal, setShowFindProductModal] = useState(false);
-
-  // Selected product for variant import (from inline search)
-  const [selectedProductForImport, setSelectedProductForImport] =
-    useState(null);
-  const [selectedVariantComboIds, setSelectedVariantComboIds] = useState(
-    new Set(),
-  );
-  const [selectedVariantOptionKeys, setSelectedVariantOptionKeys] = useState(
-    new Set(),
-  );
-  const [variantSearch, setVariantSearch] = useState("");
+  const [findProductSidebarOpen, setFindProductSidebarOpen] = useState(false);
 
   const quantityInputRef = useRef(null);
   const [imagesModal, setImagesModal] = useState({
@@ -169,6 +145,12 @@ const QueryForm = () => {
   const [productImageFiles, setProductImageFiles] = useState([]);
   const [productImagePreviews, setProductImagePreviews] = useState([]);
   const [addingProductToQuery, setAddingProductToQuery] = useState(false);
+  const [productGroups, setProductGroups] = useState([]);
+  const [productCategories, setProductCategories] = useState([]);
+  /** For table labels: top-level (parent null) categories; loaded with pagination (API caps 100 per page) */
+  const [allTableCategories, setAllTableCategories] = useState([]);
+  /** categoryId (string) -> name for rows not in allTableCategories / productCategories (e.g. subcategories) */
+  const [categoryNameById, setCategoryNameById] = useState({});
 
   const getAreaId = (area) =>
     (typeof area === "object" ? area?._id : area) || "";
@@ -234,6 +216,121 @@ const QueryForm = () => {
     };
     fetchAreas();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await groupService.getAll({ pageNumber: 1, pageSize: 100 });
+        const data = res?.data || res;
+        if (!cancelled) setProductGroups(data?.groups || []);
+      } catch {
+        if (!cancelled) setProductGroups([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const merged = [];
+      const pageSize = 100;
+      try {
+        let page = 1;
+        let hasMore = true;
+        while (hasMore && !cancelled) {
+          const res = await categoryService.getAll({
+            pageNumber: page,
+            pageSize,
+            parent: "null",
+          });
+          const data = res?.data || res;
+          const list = data?.categories || [];
+          merged.push(...list);
+          if (list.length < pageSize) hasMore = false;
+          else page += 1;
+        }
+        if (!cancelled) setAllTableCategories(merged);
+      } catch {
+        if (!cancelled) setAllTableCategories([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Resolve category labels for added products when id is not in the paginated list (e.g. subcategory or new root past old cache). */
+  useEffect(() => {
+    const inLists = (sid) =>
+      allTableCategories.some(
+        (x) => String(x._id || x.id) === sid,
+      ) ||
+      productCategories.some(
+        (x) => String(x._id || x.id) === sid,
+      ) ||
+      Boolean(categoryNameById[sid]);
+
+    const ids = new Set();
+    for (const p of products) {
+      const c = p?.categoryId;
+      if (c == null || c === "") continue;
+      if (typeof c === "object" && c?.name) continue;
+      const sid = String(
+        typeof c === "object" && c?._id ? c._id : c,
+      ).trim();
+      if (!/^[a-f0-9]{24}$/i.test(sid)) continue;
+      if (inLists(sid)) continue;
+      ids.add(sid);
+    }
+    if (ids.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const updates = {};
+      await Promise.all(
+        [...ids].map(async (sid) => {
+          try {
+            const res = await categoryService.getById(sid);
+            const data = res?.data || res;
+            const cat = data?.data ?? data;
+            if (cat?.name) updates[sid] = cat.name;
+          } catch {
+            // ignore
+          }
+        }),
+      );
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setCategoryNameById((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [products, allTableCategories, productCategories, categoryNameById]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const gid = formProduct.groupId;
+      const params = { pageNumber: 1, pageSize: 100, parent: "null" };
+      if (gid) params.group = gid;
+      try {
+        const res = await categoryService.getAll(params);
+        const data = res?.data || res;
+        if (!cancelled) setProductCategories(data?.categories || []);
+      } catch {
+        if (!cancelled) setProductCategories([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [formProduct.groupId]);
 
   // Auto-save draft to localStorage whenever relevant state changes (for new query only)
   useEffect(() => {
@@ -319,228 +416,58 @@ const QueryForm = () => {
     setCompanyInfo(INITIAL_COMPANY);
   };
 
-  // Product search – single form
-  const fetchProductSearch = useCallback(async (term) => {
-    if (!term?.trim()) {
-      setProductSearchResults([]);
-      return;
-    }
-    setProductSearchLoading(true);
-    try {
-      const res = await productService.getAll({
-        search: term.trim(),
-        pageSize: 5,
-      });
-      const data = res?.data || res;
-      setProductSearchResults(data?.products || []);
-    } catch {
-      setProductSearchResults([]);
-    } finally {
-      setProductSearchLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => fetchProductSearch(productSearch), 300);
-    return () => clearTimeout(t);
-  }, [productSearch, fetchProductSearch]);
-
-  const handleSelectProduct = async (product) => {
-    const id = product?._id || product?.id;
-    let fullProduct = product;
-    if (id) {
-      try {
-        const res = await productService.getById(id);
-        const data = res?.data || res;
-        fullProduct = data?.data || data?.product || data || product;
-      } catch {
-        fullProduct = product;
-      }
-    }
-    setSelectedProductForImport(fullProduct);
-    setSelectedVariantComboIds(new Set());
-    setSelectedVariantOptionKeys(new Set());
-    setVariantSearch("");
-    setProductSearch("");
-    setProductDropdownOpen(false);
-    setProductSearchResults([]);
-  };
-
-  const toggleVariantCombo = (comboUniqueId) => {
-    setSelectedVariantComboIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(comboUniqueId)) next.delete(comboUniqueId);
-      else next.add(comboUniqueId);
-      return next;
-    });
-  };
-
-  const toggleVariantOption = (optionKey) => {
-    setSelectedVariantOptionKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(optionKey)) next.delete(optionKey);
-      else next.add(optionKey);
-      return next;
-    });
-  };
-
-  const toggleAllVariantCombos = (combos) => {
-    const uids = (combos || []).map((c) => c.uniqueId || c._id).filter(Boolean);
-    if (!uids.length) return;
-    setSelectedVariantComboIds((prev) => {
-      const allSelected = uids.every((uid) => prev.has(uid));
-      if (allSelected) return new Set();
-      return new Set(uids);
-    });
-  };
-
-  const toggleAllVariantOptions = (options) => {
-    const keys = (options || []).map((o) => o.key).filter(Boolean);
-    if (!keys.length) return;
-    setSelectedVariantOptionKeys((prev) => {
-      const allSelected = keys.every((k) => prev.has(k));
-      if (allSelected) return new Set();
-      return new Set(keys);
-    });
-  };
-
-  const clearSelectedProductForImport = () => {
-    setSelectedProductForImport(null);
-    setSelectedVariantComboIds(new Set());
-    setSelectedVariantOptionKeys(new Set());
-    setVariantSearch("");
-  };
-
-  const handleImportSelectedVariants = () => {
-    const p = selectedProductForImport;
-    if (!p) return;
-    const pid = p._id || p.id;
-    const baseProductCode = p.productCode || "";
-    const productName = p?.name || "";
-    const unit = (p?.unit && String(p.unit).trim()) || "pcs";
-    const baseImages = (p.images || [])
+  const applyQueryNewProductFromLibrary = (q) => {
+    if (!q) return;
+    const imageDocs = (q.images || [])
       .map((img) => {
-        if (typeof img === "object" && img?._id) return img._id;
-        if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img))
-          return img;
+        if (typeof img === "object" && img?._id) {
+          return { _id: img._id, path: img.path || "" };
+        }
+        if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img)) {
+          return { _id: img, path: "" };
+        }
         return null;
       })
       .filter(Boolean);
-
-    const newProducts = [];
-
-    const hasCombos = p?.hasVariants && p?.variantCombinations?.length > 0;
-    const variantOpts = getVariantOptions(p);
-    const hasVariantOpts = variantOpts.length > 0;
-
-    if (hasCombos) {
-      const combos = p.variantCombinations || [];
-      const comboIds = selectedVariantComboIds;
-      const selectedCombos = combos.filter((c) =>
-        comboIds.has(c.uniqueId || c._id),
-      );
-
-      if (selectedCombos.length > 0) {
-        selectedCombos.forEach((c) => {
-          newProducts.push({
-            productName,
-            quantity: Number(c?.quantity) ?? 1,
-            unit,
-            hsnNumber: c?.hsnNumber || p?.hsnNumber || "",
-            modelNumber: c?.modelNumber || p?.defaultModelNumber || "",
-            variants: [{ variantName: getVariantComboDisplay(c) }],
-            remark: "",
-            description: p?.shortDescription || "",
-            product_id: pid,
-            productCode: baseProductCode,
-            isNewProduct: false,
-            images: baseImages,
-          });
-        });
-      } else {
-        // No combo selected – import base product without variants
-        newProducts.push({
-          productName,
-          quantity: 1,
-          unit,
-          hsnNumber: p?.hsnNumber || "",
-          modelNumber: p?.defaultModelNumber || "",
-          variants: [],
-          remark: "",
-          description: p?.shortDescription || "",
-          product_id: pid,
-          productCode: baseProductCode,
-          isNewProduct: false,
-          images: baseImages,
-        });
+    setFormProduct({
+      productName: q.name || "",
+      quantity: 1,
+      unit: (q.unit && String(q.unit).trim()) || "pcs",
+      hsnNumber: q.hsnNumber || "",
+      modelNumber: q.modelNumber || "",
+      gstPercentage: null,
+      variants: (q.variants || []).map((v) => ({
+        variantName: String(v),
+      })),
+      remark: "",
+      description: q.description || "",
+      product_id: null,
+      productCode: "",
+      isNewProduct: true,
+      images: imageDocs,
+      sourceQueryNewProductId: q._id || null,
+    });
+    setEditingProductIndex(null);
+    productImagePreviews.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
       }
-    } else if (hasVariantOpts) {
-      const optionKeys = selectedVariantOptionKeys;
-      const selectedOptions = variantOpts.filter((o) => optionKeys.has(o.key));
-
-      if (selectedOptions.length > 0) {
-        selectedOptions.forEach((o) => {
-          newProducts.push({
-            productName,
-            quantity: 1,
-            unit,
-            hsnNumber: p?.hsnNumber || "",
-            modelNumber: p?.defaultModelNumber || "",
-            variants: [{ variantName: o.label }],
-            remark: "",
-            description: p?.shortDescription || "",
-            product_id: pid,
-            productCode: baseProductCode,
-            isNewProduct: false,
-            images: baseImages,
-          });
-        });
-      } else {
-        // No option selected – import base product without variants
-        newProducts.push({
-          productName,
-          quantity: 1,
-          unit,
-          hsnNumber: p?.hsnNumber || "",
-          modelNumber: p?.defaultModelNumber || "",
-          variants: [],
-          remark: "",
-          description: p?.shortDescription || "",
-          product_id: pid,
-          productCode: baseProductCode,
-          isNewProduct: false,
-          images: baseImages,
-        });
+    });
+    setProductImagePreviews([]);
+    setProductImageFiles([]);
+    setTimeout(() => {
+      if (quantityInputRef.current) {
+        quantityInputRef.current.focus();
       }
-    } else {
-      // Product has no variants – import base product
-      newProducts.push({
-        productName,
-        quantity: 1,
-        unit,
-        hsnNumber: p?.hsnNumber || "",
-        modelNumber: p?.defaultModelNumber || "",
-        variants: [],
-        remark: "",
-        description: p?.shortDescription || "",
-        product_id: pid,
-        productCode: baseProductCode,
-        isNewProduct: false,
-        images: baseImages,
-      });
-    }
-
-    handleImportProducts(newProducts);
-    toastSuccess("Product section filled. Review and click Save to add.");
-    clearSelectedProductForImport();
+    }, 0);
+    toastSuccess("Product details loaded. Review and save to add to the list.");
   };
 
   const clearProductForm = () => {
     setFormProduct({ ...INITIAL_PRODUCT });
     setEditingProductIndex(null);
-    setProductSearch("");
-    setProductDropdownOpen(false);
-    setProductSearchResults([]);
     productImagePreviews.forEach((url) => {
       try {
         URL.revokeObjectURL(url);
@@ -548,37 +475,6 @@ const QueryForm = () => {
     });
     setProductImagePreviews([]);
     setProductImageFiles([]);
-  };
-
-  const handleImportProducts = (importedProducts) => {
-    if (!importedProducts?.length) return;
-    const first = importedProducts[0];
-    setFormProduct({
-      productName: first.productName || "",
-      quantity: first.quantity ?? 1,
-      unit: (first.unit && String(first.unit).trim()) || "",
-      hsnNumber: first.hsnNumber || "",
-      modelNumber: first.modelNumber || "",
-      gstPercentage: first.gstPercentage ?? null,
-      variants: (first.variants || []).map((v) => ({
-        variantName: v.variantName || "",
-      })),
-      remark: first.remark || "",
-      description: first.description || "",
-      product_id: first.product_id || null,
-      productCode: first.productCode || "",
-      isNewProduct: false,
-      images: first.images || [],
-    });
-    setEditingProductIndex(null);
-    setProductSearch("");
-    setProductDropdownOpen(false);
-    setProductSearchResults([]);
-    setTimeout(() => {
-      if (quantityInputRef.current) {
-        quantityInputRef.current.focus();
-      }
-    }, 0);
   };
 
   const saveProduct = async () => {
@@ -613,26 +509,53 @@ const QueryForm = () => {
         }
       }
 
-      if (formProduct.isNewProduct && !formProduct.productCode) {
+      let createdQueryNewProduct = null;
+      if (
+        formProduct.isNewProduct &&
+        !formProduct.productCode &&
+        !formProduct.sourceQueryNewProductId
+      ) {
         try {
           const newPayload = {
             name: (formProduct.productName || "").trim(),
+            description: (formProduct.description || "").trim(),
             unit: (formProduct.unit || "").trim(),
             hsnNumber: (formProduct.hsnNumber || "").trim(),
             modelNumber: (formProduct.modelNumber || "").trim(),
+            groupId: formProduct.groupId || null,
+            categoryId: formProduct.categoryId || null,
+            qty: (() => {
+              const n = Number(formProduct.quantity);
+              if (Number.isFinite(n) && n >= 0)
+                return Number.isInteger(n) ? n : Math.max(0, Math.floor(n));
+              return 1;
+            })(),
             variants: (formProduct.variants || [])
               .map((v) => (v.variantName || "").trim())
               .filter(Boolean),
             images: uploadedDocs.map((d) => d._id),
           };
           if (newPayload.name) {
-            await queryNewProductService.create(newPayload);
+            const res = await queryNewProductService.create(newPayload);
+            createdQueryNewProduct = res?.data;
           }
         } catch (err) {
           toastError(err?.message || "Failed to save new product");
           return;
         }
       }
+
+      const codeAndRefFromNew =
+        createdQueryNewProduct && createdQueryNewProduct._id
+          ? {
+              rawProductCode: createdQueryNewProduct.rawProductCode || "",
+              query_tracking_code:
+                createdQueryNewProduct.query_tracking_code || "",
+              sourceQueryNewProductId: createdQueryNewProduct._id,
+              groupId: formProduct.groupId || "",
+              categoryId: formProduct.categoryId || "",
+            }
+          : {};
 
       const mergedImages = (formProduct.images || [])
         .concat(uploadedDocs)
@@ -645,12 +568,14 @@ const QueryForm = () => {
         cleanedVariants.length > 0
           ? cleanedVariants.map((variant) => ({
               ...formProduct,
+              ...codeAndRefFromNew,
               variants: [{ ...variant }],
               images: mergedImages,
             }))
           : [
               {
                 ...formProduct,
+                ...codeAndRefFromNew,
                 images: mergedImages,
               },
             ];
@@ -735,12 +660,15 @@ const QueryForm = () => {
       description: p.description || "",
       product_id: p.product_id || null,
       productCode: p.productCode || "",
+      rawProductCode: p.rawProductCode || "",
+      query_tracking_code: p.query_tracking_code || "",
+      groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
+      categoryId: (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
       isNewProduct: p.isNewProduct ?? !p.productCode,
       images: p.images || [],
+      sourceQueryNewProductId: p.sourceQueryNewProductId || null,
     });
     setEditingProductIndex(index);
-    setProductSearch("");
-    setProductDropdownOpen(false);
   };
 
   const deleteProductFromTable = (index) => {
@@ -875,9 +803,19 @@ const QueryForm = () => {
               remark: p.remark || "",
               description: p.description || "",
               product_id: p.product_id?._id || p.product_id || null,
-              productCode: p.productCode || "",
+              productCode:
+                (p.product_id &&
+                  typeof p.product_id === "object" &&
+                  p.product_id.productCode) ||
+                p.productCode ||
+                "",
+              rawProductCode: p.rawProductCode || "",
+              query_tracking_code: p.query_tracking_code || "",
+              groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
+              categoryId: (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
               isNewProduct: p.isNewProduct ?? !p.productCode,
               images: Array.isArray(p.images) ? p.images : [],
+              sourceQueryNewProductId: p.sourceQueryNewProductId || null,
             }))
           : [];
         setProducts(prods);
@@ -1012,6 +950,36 @@ const QueryForm = () => {
     return `${match.subZoneCode ? `${match.subZoneCode} — ` : ""}${match.name || ""}`;
   };
 
+  const resolveGroupName = (id) => {
+    if (id != null && typeof id === "object" && id?.name) return id.name;
+    if (id == null || id === "") return "–";
+    const sid = String(
+      typeof id === "object" && id?._id ? id._id : id,
+    );
+    const g = productGroups.find(
+      (x) => String(x._id || x.id) === sid,
+    );
+    return g?.name || "–";
+  };
+  const resolveCategoryName = (id) => {
+    if (id != null && typeof id === "object" && id?.name) return id.name;
+    if (id == null || id === "") return "–";
+    const sid = String(
+      typeof id === "object" && id?._id ? id._id : id,
+    );
+    if (!sid) return "–";
+    const c =
+      allTableCategories.find(
+        (x) => String(x._id || x.id) === sid,
+      ) ||
+      productCategories.find(
+        (x) => String(x._id || x.id) === sid,
+      );
+    if (c?.name) return c.name;
+    if (categoryNameById[sid]) return categoryNameById[sid];
+    return "–";
+  };
+
   const getStepStatus = (stepId) => {
     if (stepId < currentStep) return "completed";
     if (stepId === currentStep) return "active";
@@ -1105,6 +1073,11 @@ const QueryForm = () => {
             remark: p.remark?.trim() || "",
             description: p.description?.trim() || "",
             product_id: p.product_id || null,
+            groupId: p.groupId || null,
+            categoryId: p.categoryId || null,
+            rawProductCode: (p.rawProductCode && String(p.rawProductCode).trim()) || "",
+            query_tracking_code:
+              (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
             images: (p.images || [])
               .map((img) => {
                 if (typeof img === "object" && img?._id) return img._id;
@@ -1567,12 +1540,19 @@ const QueryForm = () => {
           <>
             {/* 2. Products – add/edit form + table */}
             <CCard className="mb-4">
-              <CCardHeader className="d-flex justify-content-between align-items-center">
-                <strong>2. Products</strong>
+              <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div>
+                  <strong>2. Products</strong>
+                  <div className="text-muted small fw-normal mt-1">
+                    Open the library to search by name, description, or HSN and
+                    import a product into the form.
+                  </div>
+                </div>
                 <CButton
                   color="primary"
                   size="sm"
-                  onClick={() => setShowFindProductModal(true)}
+                  className="align-self-start"
+                  onClick={() => setFindProductSidebarOpen((v) => !v)}
                 >
                   <CIcon icon={cilSearch} className="me-1" />
                   Find Product
@@ -1595,268 +1575,6 @@ const QueryForm = () => {
                     </strong>
                   </CCardHeader>
                   <CCardBody>
-                    <div className="mb-4 p-3 bg-light rounded border">
-                      <CFormLabel className="fw-semibold d-block mb-2">
-                        Search & import from products
-                      </CFormLabel>
-                      <div className="mb-3 position-relative">
-                        <CFormInput
-                          type="text"
-                          value={productSearch}
-                          onChange={(e) => setProductSearch(e.target.value)}
-                          onFocus={() => setProductDropdownOpen(true)}
-                          onBlur={() =>
-                            setTimeout(() => setProductDropdownOpen(false), 200)
-                          }
-                          placeholder="Type / name (best 5 matches)"
-                          autoComplete="off"
-                        />
-                        {productDropdownOpen &&
-                          (productSearchResults?.length > 0 ||
-                            productSearchLoading) && (
-                            <div
-                              className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
-                              style={{
-                                zIndex: 10,
-                                maxHeight: 220,
-                                overflowY: "auto",
-                              }}
-                            >
-                              <CListGroup flush>
-                                {productSearchLoading && (
-                                  <CListGroupItem className="text-muted">
-                                    Searching...
-                                  </CListGroupItem>
-                                )}
-                                {!productSearchLoading &&
-                                  productSearchResults.map((pr) => (
-                                    <CListGroupItem
-                                      key={pr._id || pr.id}
-                                      component="button"
-                                      type="button"
-                                      className="text-start"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        handleSelectProduct(pr);
-                                      }}
-                                    >
-                                      <div className="fw-semibold">
-                                        {pr.name}
-                                      </div>
-                                      {pr.sku && (
-                                        <div className="text-muted small">
-                                          SKU: {pr.sku}
-                                        </div>
-                                      )}
-                                      {pr.shortDescription && (
-                                        <div className="text-muted small mt-1">
-                                          {pr.shortDescription}
-                                        </div>
-                                      )}
-                                    </CListGroupItem>
-                                  ))}
-                              </CListGroup>
-                            </div>
-                          )}
-                      </div>
-
-                      {selectedProductForImport && (
-                        <div className="mt-2 p-3 bg-white rounded border">
-                          <div className="d-flex justify-content-between align-items-center mb-2">
-                            <strong>
-                              Selected: {selectedProductForImport?.name || "–"}
-                            </strong>
-                            <div className="d-flex gap-2 align-items-center">
-                              <CButton
-                                color="secondary"
-                                size="sm"
-                                variant="ghost"
-                                onClick={clearSelectedProductForImport}
-                              >
-                                Clear
-                              </CButton>
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                onClick={handleImportSelectedVariants}
-                              >
-                                Import
-                              </CButton>
-                            </div>
-                          </div>
-                          <div className="mb-2">
-                            <CFormLabel className="mb-1 small">
-                              Search variants (local filter)
-                            </CFormLabel>
-                            <CFormInput
-                              size="sm"
-                              type="text"
-                              value={variantSearch}
-                              onChange={(e) => setVariantSearch(e.target.value)}
-                              placeholder="Type to filter variant combinations..."
-                            />
-                          </div>
-                          {(() => {
-                            const p = selectedProductForImport;
-                            const hasCombos =
-                              p?.hasVariants &&
-                              p?.variantCombinations?.length > 0;
-                            const combos = p?.variantCombinations || [];
-                            const variantOpts = getVariantOptions(p);
-                            const hasVariantOpts = variantOpts.length > 0;
-
-                            const search = (variantSearch || "")
-                              .trim()
-                              .toLowerCase();
-                            const filteredCombos = hasCombos
-                              ? combos.filter(
-                                  (c) =>
-                                    !search ||
-                                    getVariantComboDisplay(c)
-                                      .toLowerCase()
-                                      .includes(search),
-                                )
-                              : [];
-                            const filteredVariantOpts = hasVariantOpts
-                              ? variantOpts.filter(
-                                  (o) =>
-                                    !search ||
-                                    (o.label || "")
-                                      .toLowerCase()
-                                      .includes(search),
-                                )
-                              : [];
-
-                            if (hasCombos) {
-                              const comboSet = selectedVariantComboIds;
-                              const allComboIds = filteredCombos
-                                .map((c) => c.uniqueId || c._id)
-                                .filter(Boolean);
-                              const allSelected =
-                                allComboIds.length > 0 &&
-                                allComboIds.every((uid) => comboSet.has(uid));
-                              return (
-                                <>
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <CFormLabel className="mb-0">
-                                      Select variant combination(s) to import
-                                    </CFormLabel>
-                                    <CFormCheck
-                                      type="checkbox"
-                                      label="Select all"
-                                      checked={allSelected}
-                                      onChange={() =>
-                                        toggleAllVariantCombos(combos)
-                                      }
-                                    />
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "grid",
-                                      gridTemplateColumns: "repeat(3, 1fr)",
-                                      gap: "0.35rem 1rem",
-                                    }}
-                                  >
-                                    {filteredCombos.map((c) => {
-                                      const uid = c.uniqueId || c._id;
-                                      const checked = comboSet.has(uid);
-                                      const inputId = `combo-${uid}`;
-                                      return (
-                                        <label
-                                          key={uid}
-                                          htmlFor={inputId}
-                                          className="form-check d-flex align-items-center gap-2 mb-0"
-                                          style={{ cursor: "pointer" }}
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            id={inputId}
-                                            className="form-check-input"
-                                            checked={checked}
-                                            onChange={() =>
-                                              toggleVariantCombo(uid)
-                                            }
-                                          />
-                                          <span className="form-check-label">
-                                            {getVariantComboDisplay(c)}
-                                          </span>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
-                                </>
-                              );
-                            }
-                            if (hasVariantOpts) {
-                              const optionSet = selectedVariantOptionKeys;
-                              const allKeys = filteredVariantOpts.map(
-                                (o) => o.key,
-                              );
-                              const allSelected =
-                                allKeys.length > 0 &&
-                                allKeys.every((k) => optionSet.has(k));
-                              return (
-                                <>
-                                  <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <CFormLabel className="mb-0">
-                                      Select variant(s) to import
-                                    </CFormLabel>
-                                    <CFormCheck
-                                      type="checkbox"
-                                      label="Select all"
-                                      checked={allSelected}
-                                      onChange={() =>
-                                        toggleAllVariantOptions(variantOpts)
-                                      }
-                                    />
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "grid",
-                                      gridTemplateColumns: "repeat(3, 1fr)",
-                                      gap: "0.35rem 1rem",
-                                    }}
-                                  >
-                                    {filteredVariantOpts.map((o) => {
-                                      const checked = optionSet.has(o.key);
-                                      const inputId = `opt-${o.key}`;
-                                      return (
-                                        <label
-                                          key={o.key}
-                                          htmlFor={inputId}
-                                          className="form-check d-flex align-items-center gap-2 mb-0"
-                                          style={{ cursor: "pointer" }}
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            id={inputId}
-                                            className="form-check-input"
-                                            checked={checked}
-                                            onChange={() =>
-                                              toggleVariantOption(o.key)
-                                            }
-                                          />
-                                          <span className="form-check-label">
-                                            {o.label}
-                                          </span>
-                                        </label>
-                                      );
-                                    })}
-                                  </div>
-                                </>
-                              );
-                            }
-                            return (
-                              <p className="mb-0 text-muted small">
-                                This product has no variants. Click Import to
-                                add it as one product.
-                              </p>
-                            );
-                          })()}
-                        </div>
-                      )}
-                    </div>
-
                     <CRow>
                       <CCol md={4}>
                         <div className="mb-3">
@@ -1927,11 +1645,60 @@ const QueryForm = () => {
                         </div>
                       </CCol>
                     </CRow>
+                    <CRow>
+                      <CCol md={6}>
+                        <div className="mb-3">
+                          <CFormLabel>Group (optional)</CFormLabel>
+                          <CFormSelect
+                            value={formProduct.groupId || ""}
+                            onChange={(e) =>
+                              setFormProduct((prev) => ({
+                                ...prev,
+                                groupId: e.target.value,
+                                categoryId: "",
+                              }))
+                            }
+                            aria-label="Group"
+                          >
+                            <option value="">Select group</option>
+                            {productGroups.map((g) => (
+                              <option key={g._id} value={g._id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </CFormSelect>
+                        </div>
+                      </CCol>
+                      <CCol md={6}>
+                        <div className="mb-3">
+                          <CFormLabel>Category (optional)</CFormLabel>
+                          <CFormSelect
+                            value={formProduct.categoryId || ""}
+                            onChange={(e) =>
+                              updateFormProduct("categoryId", e.target.value)
+                            }
+                            disabled={!formProduct.groupId}
+                            aria-label="Category"
+                          >
+                            <option value="">
+                              {formProduct.groupId
+                                ? "Select category"
+                                : "Select a group first"}
+                            </option>
+                            {productCategories.map((c) => (
+                              <option key={c._id} value={c._id}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </CFormSelect>
+                        </div>
+                      </CCol>
+                    </CRow>
                     {formProduct.productCode && (
                       <CRow className="mb-2">
                         <CCol md={4}>
                           <div className="mb-3">
-                            <CFormLabel>Product code</CFormLabel>
+                            <CFormLabel>Product code (catalog)</CFormLabel>
                             <CFormInput
                               value={formProduct.productCode}
                               disabled
@@ -2240,6 +2007,8 @@ const QueryForm = () => {
                         <CTableRow>
                           <CTableHeaderCell>S.No.</CTableHeaderCell>
                           <CTableHeaderCell>Product name</CTableHeaderCell>
+                          <CTableHeaderCell>Group</CTableHeaderCell>
+                          <CTableHeaderCell>Category</CTableHeaderCell>
                           <CTableHeaderCell>Quantity</CTableHeaderCell>
                           <CTableHeaderCell>Unit</CTableHeaderCell>
                           <CTableHeaderCell>Variants</CTableHeaderCell>
@@ -2259,6 +2028,12 @@ const QueryForm = () => {
                             <CTableDataCell>{index + 1}</CTableDataCell>
                             <CTableDataCell>
                               {p.productName || "–"}
+                            </CTableDataCell>
+                            <CTableDataCell className="small text-break">
+                              {resolveGroupName(p.groupId)}
+                            </CTableDataCell>
+                            <CTableDataCell className="small text-break">
+                              {resolveCategoryName(p.categoryId)}
                             </CTableDataCell>
                             <CTableDataCell>{p.quantity ?? "–"}</CTableDataCell>
                             <CTableDataCell>{p.unit || "–"}</CTableDataCell>
@@ -2430,6 +2205,8 @@ const QueryForm = () => {
                       <CTableRow>
                         <CTableHeaderCell>S.No.</CTableHeaderCell>
                         <CTableHeaderCell>Product name</CTableHeaderCell>
+                        <CTableHeaderCell>Group</CTableHeaderCell>
+                        <CTableHeaderCell>Category</CTableHeaderCell>
                         <CTableHeaderCell>Quantity</CTableHeaderCell>
                         <CTableHeaderCell>Unit</CTableHeaderCell>
                         <CTableHeaderCell>Variants</CTableHeaderCell>
@@ -2446,6 +2223,12 @@ const QueryForm = () => {
                           <CTableDataCell>{index + 1}</CTableDataCell>
                           <CTableDataCell>
                             {p.productName || "–"}
+                          </CTableDataCell>
+                          <CTableDataCell className="small text-break">
+                            {resolveGroupName(p.groupId)}
+                          </CTableDataCell>
+                          <CTableDataCell className="small text-break">
+                            {resolveCategoryName(p.categoryId)}
                           </CTableDataCell>
                           <CTableDataCell>{p.quantity ?? "–"}</CTableDataCell>
                           <CTableDataCell>{p.unit || "–"}</CTableDataCell>
@@ -2510,10 +2293,14 @@ const QueryForm = () => {
         </CCard>
       </CForm>
 
-      <FindProductModal
-        visible={showFindProductModal}
-        onClose={() => setShowFindProductModal(false)}
-        onImport={handleImportProducts}
+      <QueryNewProductFindSidebar
+        isOpen={findProductSidebarOpen}
+        onToggle={() => setFindProductSidebarOpen((v) => !v)}
+        showFloatingToggle={false}
+        onSelectProduct={(p) => {
+          applyQueryNewProductFromLibrary(p);
+          setFindProductSidebarOpen(false);
+        }}
       />
 
       <CModal
