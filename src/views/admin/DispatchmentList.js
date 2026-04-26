@@ -55,10 +55,18 @@ const STATUS_COLORS = {
 
 const statusBadge = (s) => {
   if (s === undefined || s === null || s === "")
-    return <CBadge color="light" className="text-dark">—</CBadge>;
+    return (
+      <CBadge color="light" className="text-dark">
+        —
+      </CBadge>
+    );
   const v = String(s).trim();
   if (STATUS_LABELS[v]) {
-    return <CBadge color={STATUS_COLORS[v] || "secondary"}>{STATUS_LABELS[v]}</CBadge>;
+    return (
+      <CBadge color={STATUS_COLORS[v] || "secondary"}>
+        {STATUS_LABELS[v]}
+      </CBadge>
+    );
   }
   const readable = v
     .replace(/_/g, " ")
@@ -91,7 +99,9 @@ const formatPm = (c) => {
   if (!Array.isArray(pms) || !pms.length) return "—";
   return pms
     .map((pm) => {
-      const bits = [pm?.name, pm?.phone, pm?.email].filter((x) => x && String(x).trim());
+      const bits = [pm?.name, pm?.phone, pm?.email].filter(
+        (x) => x && String(x).trim(),
+      );
       return bits.join(" · ");
     })
     .filter(Boolean)
@@ -188,7 +198,9 @@ const DispatchmentList = () => {
     try {
       const res = await dispatchmentBucketService.getById(id);
       const doc = res?.data;
-      setDetail(doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null);
+      setDetail(
+        doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null,
+      );
     } catch (e) {
       toastError(e?.message || "Failed to load line");
       setDetail(null);
@@ -241,7 +253,8 @@ const DispatchmentList = () => {
             <CIcon icon={cilTruck} className="text-primary" />
             <strong>Dispatchment</strong>
             <span className="text-body-secondary small">
-              PO lines with status <em>Inventory received</em> or <em>Ready for dispatchment</em>
+              PO lines with status <em>Inventory received</em> or{" "}
+              <em>Ready for dispatchment</em>
             </span>
           </CCardHeader>
           <CCardBody>
@@ -264,7 +277,11 @@ const DispatchmentList = () => {
               </CCol>
               <CCol xs={6} md={2}>
                 <CFormLabel>To</CFormLabel>
-                <CFormInput type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                <CFormInput
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
               </CCol>
             </CRow>
 
@@ -282,15 +299,20 @@ const DispatchmentList = () => {
                       <CTableHeaderCell>Purchase manager</CTableHeaderCell>
                       <CTableHeaderCell>Dispatch</CTableHeaderCell>
                       <CTableHeaderCell>Status (po_product)</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                      <CTableHeaderCell className="text-end">
+                        Actions
+                      </CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {rows.length === 0 ? (
                       <CTableRow>
-                        <CTableDataCell colSpan={8} className="text-body-secondary">
-                          No lines in this queue. Lines appear here when inventory is received or ready
-                          for dispatch.
+                        <CTableDataCell
+                          colSpan={8}
+                          className="text-body-secondary"
+                        >
+                          No lines in this queue. Lines appear here when
+                          inventory is received or ready for dispatch.
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
@@ -300,26 +322,40 @@ const DispatchmentList = () => {
                         return (
                           <CTableRow key={row._id}>
                             <CTableDataCell>
-                              <span className="text-break">{row.productName || "—"}</span>
+                              <span className="text-break">
+                                {row.productName || "—"}
+                              </span>
                             </CTableDataCell>
                             <CTableDataCell>{row.poCode || "—"}</CTableDataCell>
                             <CTableDataCell>
-                              {row.rawProductCode ? <code>{row.rawProductCode}</code> : "—"}
+                              {row.rawProductCode ? (
+                                <code>{row.rawProductCode}</code>
+                              ) : (
+                                "—"
+                              )}
                             </CTableDataCell>
                             <CTableDataCell>
-                              <small className="text-break d-block" style={{ maxWidth: 280 }}>
+                              <small
+                                className="text-break d-block"
+                                style={{ maxWidth: 280 }}
+                              >
                                 {formatAddress(row.companyInfo)}
                               </small>
                             </CTableDataCell>
                             <CTableDataCell>
-                              <small className="text-break d-block" style={{ maxWidth: 220 }}>
+                              <small
+                                className="text-break d-block"
+                                style={{ maxWidth: 220 }}
+                              >
                                 {formatPm(row.companyInfo)}
                               </small>
                             </CTableDataCell>
                             <CTableDataCell>
                               {formatDateDdMmYyyy(row.dispatchmentDate)}
                             </CTableDataCell>
-                            <CTableDataCell>{statusBadge(serverStatus(row))}</CTableDataCell>
+                            <CTableDataCell>
+                              {statusBadge(serverStatus(row))}
+                            </CTableDataCell>
                             <CTableDataCell className="text-end text-nowrap d-flex flex-wrap align-items-center justify-content-end gap-1">
                               {canAct && st === "inventory_received" && (
                                 <CButton
@@ -328,7 +364,11 @@ const DispatchmentList = () => {
                                   disabled={!!busy}
                                   onClick={() => runAction(row._id, "ready")}
                                 >
-                                  {busy ? <CSpinner size="sm" /> : "Dispatchment received"}
+                                  {busy ? (
+                                    <CSpinner size="sm" />
+                                  ) : (
+                                    "Dispatchment received"
+                                  )}
                                 </CButton>
                               )}
                               {canAct && st === "ready_for_dispatchment" && (
@@ -336,9 +376,15 @@ const DispatchmentList = () => {
                                   size="sm"
                                   color="success"
                                   disabled={!!busy}
-                                  onClick={() => runAction(row._id, "delivered")}
+                                  onClick={() =>
+                                    runAction(row._id, "delivered")
+                                  }
                                 >
-                                  {busy ? <CSpinner size="sm" /> : "Mark delivered"}
+                                  {busy ? (
+                                    <CSpinner size="sm" />
+                                  ) : (
+                                    "Mark delivered"
+                                  )}
                                 </CButton>
                               )}
                               <CButton
@@ -371,7 +417,9 @@ const DispatchmentList = () => {
                       <CPaginationItem
                         disabled={page >= totalPages}
                         onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{ cursor: page >= totalPages ? "default" : "pointer" }}
+                        style={{
+                          cursor: page >= totalPages ? "default" : "pointer",
+                        }}
                       >
                         Next
                       </CPaginationItem>
@@ -384,7 +432,12 @@ const DispatchmentList = () => {
         </CCard>
       </CCol>
 
-      <COffcanvas placement="end" visible={detailOpen} onHide={closeDetail} scroll>
+      <COffcanvas
+        placement="end"
+        visible={detailOpen}
+        onHide={closeDetail}
+        scroll
+      >
         <COffcanvasHeader className="d-flex align-items-center justify-content-between">
           <COffcanvasTitle>PO line (po_product)</COffcanvasTitle>
           <CCloseButton className="ms-2" onClick={closeDetail} />
@@ -407,7 +460,11 @@ const DispatchmentList = () => {
               </p>
               <p className="mb-1">
                 <strong>Raw product code:</strong>{" "}
-                {detail.rawProductCode ? <code>{detail.rawProductCode}</code> : "—"}
+                {detail.rawProductCode ? (
+                  <code>{detail.rawProductCode}</code>
+                ) : (
+                  "—"
+                )}
               </p>
               <p className="mb-1">
                 <strong>Status:</strong> {statusBadge(serverStatus(detail))}
@@ -425,7 +482,9 @@ const DispatchmentList = () => {
                   </p>
                   <p className="mb-1">
                     <strong>Area / location:</strong>{" "}
-                    {[itemCompany.area, itemCompany.location].filter(Boolean).join(", ") || "—"}
+                    {[itemCompany.area, itemCompany.location]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
                   </p>
                   <p className="mb-1">
                     <strong>Address:</strong> {itemCompany.address || "—"}
@@ -436,11 +495,15 @@ const DispatchmentList = () => {
               )}
 
               <h6 className="mb-2 mt-3">Purchase manager contacts</h6>
-              {itemCompany && Array.isArray(itemCompany.purchaseManagers) && itemCompany.purchaseManagers.length ? (
+              {itemCompany &&
+              Array.isArray(itemCompany.purchaseManagers) &&
+              itemCompany.purchaseManagers.length ? (
                 <ul className="ps-3">
                   {itemCompany.purchaseManagers.map((pm, i) => (
                     <li key={i} className="mb-1">
-                      {[pm.name, pm.phone, pm.email].filter(Boolean).join(" · ") || "—"}
+                      {[pm.name, pm.phone, pm.email]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
                     </li>
                   ))}
                 </ul>

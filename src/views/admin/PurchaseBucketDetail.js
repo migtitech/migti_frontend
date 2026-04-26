@@ -44,7 +44,10 @@ const formatVal = (v) => {
   if (v == null || v === "") return "—";
   if (typeof v === "boolean") return v ? "Yes" : "No";
   if (typeof v === "object") {
-    if (v instanceof Date || (typeof v === "string" && !Number.isNaN(Date.parse(v))))
+    if (
+      v instanceof Date ||
+      (typeof v === "string" && !Number.isNaN(Date.parse(v)))
+    )
       return formatDateTime(v);
     return JSON.stringify(v);
   }
@@ -149,9 +152,13 @@ const PurchaseBucketDetail = () => {
     if (!id) return;
     setLoading(true);
     try {
-      const res = await withMinimumDelay(() => purchaseBucketService.getById(id));
+      const res = await withMinimumDelay(() =>
+        purchaseBucketService.getById(id),
+      );
       const doc = res?.data;
-      setItem(doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null);
+      setItem(
+        doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null,
+      );
     } catch (e) {
       toastError(e?.message || "Failed to load item");
       setItem(null);
@@ -237,9 +244,15 @@ const PurchaseBucketDetail = () => {
         ["Product", item.productName],
         ["PO code", item.poCode],
         ["Line #", item.lineIndex],
-        ["Purchase order", item.purchaseOrderId?.poCode || formatVal(item.purchaseOrderId)],
+        [
+          "Purchase order",
+          item.purchaseOrderId?.poCode || formatVal(item.purchaseOrderId),
+        ],
         ["PO status", item.purchaseOrderId?.status],
-        ["Group (effective)", item.effectiveGroupName || formatVal(item.effectiveGroupId)],
+        [
+          "Group (effective)",
+          item.effectiveGroupName || formatVal(item.effectiveGroupId),
+        ],
         ["Description", item.description],
         ["Quantity", item.quantity],
         ["Unit", item.unit],
@@ -268,7 +281,10 @@ const PurchaseBucketDetail = () => {
         ["SKU", item.product_id?.sku],
         ["Procurement status (legacy)", item.procurementStatus],
         ["Payment request amount", item.paymentRequestAmount],
-        ["Payment request raised at", formatDateTime(item.paymentRequestRaisedAt)],
+        [
+          "Payment request raised at",
+          formatDateTime(item.paymentRequestRaisedAt),
+        ],
         ["Raised by", item.paymentRequestRaisedBy?.name],
         ["Created", formatDateTime(item.createdAt)],
         ["Updated", formatDateTime(item.updatedAt)],
@@ -290,10 +306,16 @@ const PurchaseBucketDetail = () => {
           <CCardBody className="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2">
             <CBreadcrumb className="mb-0">
               <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
-              <CBreadcrumbItem href="#/purchase-bucket">Purchase Bucket</CBreadcrumbItem>
+              <CBreadcrumbItem href="#/purchase-bucket">
+                Purchase Bucket
+              </CBreadcrumbItem>
               <CBreadcrumbItem active>Line item</CBreadcrumbItem>
             </CBreadcrumb>
-            <CButton color="secondary" variant="ghost" onClick={() => navigate("/purchase-bucket")}>
+            <CButton
+              color="secondary"
+              variant="ghost"
+              onClick={() => navigate("/purchase-bucket")}
+            >
               <CIcon icon={cilArrowLeft} className="me-1" size="sm" />
               Back
             </CButton>
@@ -305,7 +327,9 @@ const PurchaseBucketDetail = () => {
             {loading && <span className="text-body-secondary">Loading…</span>}
             {!loading && item && (
               <>
-                <strong className="me-1">{item.productName || "Line item"}</strong>
+                <strong className="me-1">
+                  {item.productName || "Line item"}
+                </strong>
                 {lineStatusBadge(lineStatusFromItem(item))}
                 {canRaise &&
                   lineStatusFromItem(item) === "finance_approved" && (
@@ -325,7 +349,9 @@ const PurchaseBucketDetail = () => {
           <CCardBody>
             {loading && <Loader />}
             {!loading && !item && (
-              <div className="text-body-secondary">Item not found or you do not have access.</div>
+              <div className="text-body-secondary">
+                Item not found or you do not have access.
+              </div>
             )}
             {!loading && item && (
               <>
@@ -363,17 +389,26 @@ const PurchaseBucketDetail = () => {
                   <CTabPane visible={activeTab === "details"}>
                     <CRow className="g-3 mb-4">
                       <CCol xs={12}>
-                        <CTable responsive bordered align="middle" className="mb-0">
+                        <CTable
+                          responsive
+                          bordered
+                          align="middle"
+                          className="mb-0"
+                        >
                           <CTableHead>
                             <CTableRow>
-                              <CTableHeaderCell style={{ width: "28%" }}>Field</CTableHeaderCell>
+                              <CTableHeaderCell style={{ width: "28%" }}>
+                                Field
+                              </CTableHeaderCell>
                               <CTableHeaderCell>Value</CTableHeaderCell>
                             </CTableRow>
                           </CTableHead>
                           <CTableBody>
                             {detailRows.map(([k, v]) => (
                               <CTableRow key={k}>
-                                <CTableDataCell className="text-body-secondary">{k}</CTableDataCell>
+                                <CTableDataCell className="text-body-secondary">
+                                  {k}
+                                </CTableDataCell>
                                 <CTableDataCell>{formatVal(v)}</CTableDataCell>
                               </CTableRow>
                             ))}
@@ -384,26 +419,34 @@ const PurchaseBucketDetail = () => {
 
                     {item.attachmentDocumentId?.path && (
                       <div className="mb-3">
-                        <div className="small text-body-secondary mb-1">Line attachment</div>
+                        <div className="small text-body-secondary mb-1">
+                          Line attachment
+                        </div>
                         <a
                           href={getAssetsUrl(item.attachmentDocumentId.path)}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {item.attachmentDocumentId.originalName || "Open attachment"}
+                          {item.attachmentDocumentId.originalName ||
+                            "Open attachment"}
                         </a>
                       </div>
                     )}
 
                     {item.paymentRequestBillDocumentId?.path && (
                       <div className="mt-3">
-                        <div className="small text-body-secondary mb-1">Payment request bill</div>
+                        <div className="small text-body-secondary mb-1">
+                          Payment request bill
+                        </div>
                         <a
-                          href={getAssetsUrl(item.paymentRequestBillDocumentId.path)}
+                          href={getAssetsUrl(
+                            item.paymentRequestBillDocumentId.path,
+                          )}
                           target="_blank"
                           rel="noreferrer"
                         >
-                          {item.paymentRequestBillDocumentId.originalName || "Open bill"}
+                          {item.paymentRequestBillDocumentId.originalName ||
+                            "Open bill"}
                         </a>
                       </div>
                     )}
@@ -411,10 +454,13 @@ const PurchaseBucketDetail = () => {
                     {item.purchaseBillingRequestId &&
                       typeof item.purchaseBillingRequestId === "object" && (
                         <div className="mt-4">
-                          <h6 className="mb-2">Purchase billing request (record)</h6>
+                          <h6 className="mb-2">
+                            Purchase billing request (record)
+                          </h6>
                           <p className="text-body-secondary small">
-                            Stored in <code>purchase_billing_requests</code> with submitter snapshot,
-                            product context, and approval fields.
+                            Stored in <code>purchase_billing_requests</code>{" "}
+                            with submitter snapshot, product context, and
+                            approval fields.
                           </p>
                           {(() => {
                             const br = item.purchaseBillingRequestId;
@@ -423,10 +469,18 @@ const PurchaseBucketDetail = () => {
                             const appr = br.approvedBySnapshot || {};
                             const sub = br.createdBy || {};
                             return (
-                              <CTable responsive bordered size="sm" className="mb-0">
+                              <CTable
+                                responsive
+                                bordered
+                                size="sm"
+                                className="mb-0"
+                              >
                                 <CTableBody>
                                   <CTableRow>
-                                    <CTableDataCell className="text-body-secondary" style={{ width: "32%" }}>
+                                    <CTableDataCell
+                                      className="text-body-secondary"
+                                      style={{ width: "32%" }}
+                                    >
                                       Request ID
                                     </CTableDataCell>
                                     <CTableDataCell>
@@ -434,14 +488,22 @@ const PurchaseBucketDetail = () => {
                                     </CTableDataCell>
                                   </CTableRow>
                                   <CTableRow>
-                                    <CTableDataCell className="text-body-secondary">Status</CTableDataCell>
+                                    <CTableDataCell className="text-body-secondary">
+                                      Status
+                                    </CTableDataCell>
                                     <CTableDataCell>
-                                      <strong>{String(br.status || "pending")}</strong>
+                                      <strong>
+                                        {String(br.status || "pending")}
+                                      </strong>
                                     </CTableDataCell>
                                   </CTableRow>
                                   <CTableRow>
-                                    <CTableDataCell className="text-body-secondary">Amount</CTableDataCell>
-                                    <CTableDataCell>{formatVal(br.amount)}</CTableDataCell>
+                                    <CTableDataCell className="text-body-secondary">
+                                      Amount
+                                    </CTableDataCell>
+                                    <CTableDataCell>
+                                      {formatVal(br.amount)}
+                                    </CTableDataCell>
                                   </CTableRow>
                                   <CTableRow>
                                     <CTableDataCell className="text-body-secondary">
@@ -463,33 +525,45 @@ const PurchaseBucketDetail = () => {
                                         {(snap.role || sub.role) && (
                                           <div className="small text-body-secondary">
                                             Role: {snap.role || sub.role} ·{" "}
-                                            {snap.designation || sub.designation || ""}
+                                            {snap.designation ||
+                                              sub.designation ||
+                                              ""}
                                           </div>
                                         )}
                                       </div>
                                     </CTableDataCell>
                                   </CTableRow>
                                   <CTableRow>
-                                    <CTableDataCell className="text-body-secondary">Product (snapshot)</CTableDataCell>
+                                    <CTableDataCell className="text-body-secondary">
+                                      Product (snapshot)
+                                    </CTableDataCell>
                                     <CTableDataCell>
                                       {ps.productName || "—"}
-                                      {ps.rawProductCode != null && ps.rawProductCode !== "" && (
-                                        <div className="small text-body-secondary">
-                                          Code: {ps.rawProductCode} · Qty: {formatVal(ps.quantity)} {ps.unit || ""}
-                                        </div>
-                                      )}
+                                      {ps.rawProductCode != null &&
+                                        ps.rawProductCode !== "" && (
+                                          <div className="small text-body-secondary">
+                                            Code: {ps.rawProductCode} · Qty:{" "}
+                                            {formatVal(ps.quantity)}{" "}
+                                            {ps.unit || ""}
+                                          </div>
+                                        )}
                                     </CTableDataCell>
                                   </CTableRow>
                                   <CTableRow>
-                                    <CTableDataCell className="text-body-secondary">Bill (attachment)</CTableDataCell>
+                                    <CTableDataCell className="text-body-secondary">
+                                      Bill (attachment)
+                                    </CTableDataCell>
                                     <CTableDataCell>
                                       {br.billDocumentId?.path ? (
                                         <a
-                                          href={getAssetsUrl(br.billDocumentId.path)}
+                                          href={getAssetsUrl(
+                                            br.billDocumentId.path,
+                                          )}
                                           target="_blank"
                                           rel="noreferrer"
                                         >
-                                          {br.billDocumentId.originalName || "Open bill"}
+                                          {br.billDocumentId.originalName ||
+                                            "Open bill"}
                                         </a>
                                       ) : (
                                         "—"
@@ -497,14 +571,23 @@ const PurchaseBucketDetail = () => {
                                     </CTableDataCell>
                                   </CTableRow>
                                   <CTableRow>
-                                    <CTableDataCell className="text-body-secondary">Approved by</CTableDataCell>
+                                    <CTableDataCell className="text-body-secondary">
+                                      Approved by
+                                    </CTableDataCell>
                                     <CTableDataCell>
-                                      {br.approvedBy || appr._id || br.approvedAt ? (
+                                      {br.approvedBy ||
+                                      appr._id ||
+                                      br.approvedAt ? (
                                         <>
-                                          {appr.name || (br.approvedBy && br.approvedBy.name) || "—"}
-                                          {(appr.email || br.approvedBy?.email) && (
+                                          {appr.name ||
+                                            (br.approvedBy &&
+                                              br.approvedBy.name) ||
+                                            "—"}
+                                          {(appr.email ||
+                                            br.approvedBy?.email) && (
                                             <div className="small text-body-secondary">
-                                              {appr.email || br.approvedBy?.email}
+                                              {appr.email ||
+                                                br.approvedBy?.email}
                                             </div>
                                           )}
                                           {br.approvedAt && (
@@ -528,27 +611,33 @@ const PurchaseBucketDetail = () => {
 
                   <CTabPane visible={activeTab === "rates"}>
                     <p className="text-body-secondary small mb-3">
-                      Rates are loaded from <strong>query_products</strong> by matching{" "}
-                      <code>rawProductCode</code>
-                      {item.rawProductCode ? ` (${item.rawProductCode})` : ""} to the PO line. When the
-                      line has a query, the same query is used first; otherwise the first matching code
-                      is used.
+                      Rates are loaded from <strong>query_products</strong> by
+                      matching <code>rawProductCode</code>
+                      {item.rawProductCode
+                        ? ` (${item.rawProductCode})`
+                        : ""}{" "}
+                      to the PO line. When the line has a query, the same query
+                      is used first; otherwise the first matching code is used.
                     </p>
 
                     {item.queryRatesMatchNote === "missing_rawProductCode" && (
-                      <p className="text-body-secondary">This PO line has no raw product code set.</p>
-                    )}
-
-                    {item.queryRatesMatchNote === "no_query_product" && item.rawProductCode && (
                       <p className="text-body-secondary">
-                        No row in <code>query_products</code> with{" "}
-                        <code>rawProductCode = {item.rawProductCode}</code>.
+                        This PO line has no raw product code set.
                       </p>
                     )}
 
+                    {item.queryRatesMatchNote === "no_query_product" &&
+                      item.rawProductCode && (
+                        <p className="text-body-secondary">
+                          No row in <code>query_products</code> with{" "}
+                          <code>rawProductCode = {item.rawProductCode}</code>.
+                        </p>
+                      )}
+
                     {item.queryProductMatch && (
                       <p className="text-body-secondary small mb-3">
-                        Matched query line: <strong>#{item.queryProductMatch.lineIndex}</strong>
+                        Matched query line:{" "}
+                        <strong>#{item.queryProductMatch.lineIndex}</strong>
                         {item.queryProductMatch.queryCode
                           ? ` · ${item.queryProductMatch.queryCode}`
                           : ""}
@@ -558,19 +647,31 @@ const PurchaseBucketDetail = () => {
                             {" "}
                             · Pro Bucket:{" "}
                             <strong>
-                              {proBucketStatusLabel(item.queryProductMatch.proBucketStatus)}
+                              {proBucketStatusLabel(
+                                item.queryProductMatch.proBucketStatus,
+                              )}
                             </strong>
                           </>
                         ) : null}
                       </p>
                     )}
 
-                    {item.queryProductMatch && ratesToShow.length === 0 && item.queryRatesMatchNote === "ok" && (
-                      <p className="text-body-secondary">No supplier rates on this query line yet.</p>
-                    )}
+                    {item.queryProductMatch &&
+                      ratesToShow.length === 0 &&
+                      item.queryRatesMatchNote === "ok" && (
+                        <p className="text-body-secondary">
+                          No supplier rates on this query line yet.
+                        </p>
+                      )}
 
                     {ratesToShow.length > 0 && (
-                      <CTable responsive bordered size="sm" align="top" className="mb-0">
+                      <CTable
+                        responsive
+                        bordered
+                        size="sm"
+                        align="top"
+                        className="mb-0"
+                      >
                         <CTableHead>
                           <CTableRow>
                             <CTableHeaderCell>Supplier</CTableHeaderCell>
@@ -583,25 +684,39 @@ const PurchaseBucketDetail = () => {
                         </CTableHead>
                         <CTableBody>
                           {ratesToShow.map((r, idx) => (
-                            <CTableRow key={r._id != null ? String(r._id) : idx}>
+                            <CTableRow
+                              key={r._id != null ? String(r._id) : idx}
+                            >
                               <CTableDataCell>
-                                <div className="fw-semibold">{formatSupplierLabel(r.supplier)}</div>
+                                <div className="fw-semibold">
+                                  {formatSupplierLabel(r.supplier)}
+                                </div>
                                 {formatSupplierExtra(r.supplier) && (
                                   <div className="small text-body-secondary mt-1">
                                     {formatSupplierExtra(r.supplier)}
                                   </div>
                                 )}
                               </CTableDataCell>
-                              <CTableDataCell>{formatVal(r.rate)}</CTableDataCell>
-                              <CTableDataCell>{formatVal(r.unit)}</CTableDataCell>
-                              <CTableDataCell className="text-break">{formatVal(r.remark)}</CTableDataCell>
-                              <CTableDataCell>{formatDateTime(r.submittedAt)}</CTableDataCell>
+                              <CTableDataCell>
+                                {formatVal(r.rate)}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {formatVal(r.unit)}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-break">
+                                {formatVal(r.remark)}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {formatDateTime(r.submittedAt)}
+                              </CTableDataCell>
                               <CTableDataCell>
                                 {r.submittedBy?.name ? (
                                   <>
                                     {r.submittedBy.name}
                                     {r.submittedBy.email ? (
-                                      <div className="small text-body-secondary">{r.submittedBy.email}</div>
+                                      <div className="small text-body-secondary">
+                                        {r.submittedBy.email}
+                                      </div>
                                     ) : null}
                                   </>
                                 ) : (
@@ -618,10 +733,11 @@ const PurchaseBucketDetail = () => {
                   <CTabPane visible={activeTab === "billing"}>
                     {lineStatusFromItem(item) === "finance_approved" ? (
                       <p className="text-body-secondary mb-0">
-                        This line has been <strong>approved by finance</strong>. The linked billing
-                        request is approved.
+                        This line has been <strong>approved by finance</strong>.
+                        The linked billing request is approved.
                       </p>
-                    ) : lineStatusFromItem(item) === "payment_request_raised" ? (
+                    ) : lineStatusFromItem(item) ===
+                      "payment_request_raised" ? (
                       <p className="text-body-secondary mb-0">
                         Payment request is already raised for this line. Amount:{" "}
                         <strong>{item.paymentRequestAmount}</strong>
@@ -652,7 +768,9 @@ const PurchaseBucketDetail = () => {
                             onChange={onUploadBill}
                           />
                           {billDocId && (
-                            <div className="small text-success mt-1">Document ready ({billDocId})</div>
+                            <div className="small text-success mt-1">
+                              Document ready ({billDocId})
+                            </div>
                           )}
                         </CCol>
                         <CCol xs={12}>

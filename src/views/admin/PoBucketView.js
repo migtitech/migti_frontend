@@ -57,7 +57,9 @@ const PRODUCT_PRIORITY_OPTIONS = [
 
 const normalizeProductPriority = (value) => {
   const allowed = PRODUCT_PRIORITY_OPTIONS.map((o) => o.value);
-  const s = String(value || "").toLowerCase().trim();
+  const s = String(value || "")
+    .toLowerCase()
+    .trim();
   return allowed.includes(s) ? s : "medium";
 };
 
@@ -126,7 +128,9 @@ const toProductPayload = (p) => {
   const quantity = Number(p.quantity);
   const rate = toNumberOrNull(p.rate);
   const gst = toNumberOrNull(p.gstPercentage);
-  const discountPct = p.applyDiscount ? toNumberOrNull(p.discountPercentage) : null;
+  const discountPct = p.applyDiscount
+    ? toNumberOrNull(p.discountPercentage)
+    : null;
   const beforeDiscount =
     (Number.isNaN(quantity) ? 0 : Math.max(0, quantity)) * (rate || 0);
   const discountAmount =
@@ -215,7 +219,10 @@ const PoBucketView = () => {
   const [newProductForm, setNewProductForm] = useState(emptyProduct);
   const [addProductSidebarOpen, setAddProductSidebarOpen] = useState(false);
   const [dispatchmentDateForAll, setDispatchmentDateForAll] = useState("");
-  const [poAttachment, setPoAttachment] = useState({ documentId: "", meta: null });
+  const [poAttachment, setPoAttachment] = useState({
+    documentId: "",
+    meta: null,
+  });
   const [savingPoAttachment, setSavingPoAttachment] = useState(false);
   const [poAttachmentUploading, setPoAttachmentUploading] = useState(false);
   /** `po_products` lines from API (read-only) */
@@ -234,7 +241,8 @@ const PoBucketView = () => {
   const poAttachmentIsDirty = localAttachmentId !== serverAttachmentId;
   const poAttachmentActionsLocked = savingPoAttachment || poAttachmentUploading;
   const canSavePoAttachment = poAttachmentIsDirty && !poAttachmentActionsLocked;
-  const canUploadPoAttachment = !localAttachmentId && !poAttachmentActionsLocked;
+  const canUploadPoAttachment =
+    !localAttachmentId && !poAttachmentActionsLocked;
 
   useEffect(() => {
     let cancelled = false;
@@ -248,7 +256,9 @@ const PoBucketView = () => {
         setPurchaseOrder(data || null);
         setPoAttachment(poAttachmentStateFromPo(data));
         const ci = data?.companyInfo || {};
-        const pm = Array.isArray(ci.purchaseManagers) ? ci.purchaseManagers[0] || {} : {};
+        const pm = Array.isArray(ci.purchaseManagers)
+          ? ci.purchaseManagers[0] || {}
+          : {};
         setCompanyForm({
           name: ci.name || "",
           area: ci.area || "",
@@ -259,7 +269,9 @@ const PoBucketView = () => {
           purchaseManagerEmail: pm.email || "",
         });
         setProductsForm(
-          Array.isArray(data?.products) ? data.products.map(toEditableProduct) : [],
+          Array.isArray(data?.products)
+            ? data.products.map(toEditableProduct)
+            : [],
         );
       } catch (err) {
         if (!cancelled) {
@@ -301,7 +313,9 @@ const PoBucketView = () => {
       });
       const bundle = res?.data?.data ?? res?.data ?? res;
       setPoProductStatusBundle(
-        bundle && typeof bundle === "object" && Array.isArray(bundle.lines) ? bundle : null,
+        bundle && typeof bundle === "object" && Array.isArray(bundle.lines)
+          ? bundle
+          : null,
       );
     } catch (err) {
       toastError(err?.message || "Failed to load product status from server");
@@ -316,10 +330,14 @@ const PoBucketView = () => {
     const data = res?.data?.data ?? res?.data ?? res;
     setPurchaseOrder(data || null);
     setPoProductLineStatuses(
-      Array.isArray(data?.poProductLineStatuses) ? data.poProductLineStatuses : [],
+      Array.isArray(data?.poProductLineStatuses)
+        ? data.poProductLineStatuses
+        : [],
     );
     setPoAttachment(poAttachmentStateFromPo(data));
-    setProductsForm(Array.isArray(data?.products) ? data.products.map(toEditableProduct) : []);
+    setProductsForm(
+      Array.isArray(data?.products) ? data.products.map(toEditableProduct) : [],
+    );
     if (activeTab === "productStatus") {
       await loadPoProductStatusLines();
     }
@@ -490,10 +508,10 @@ const PoBucketView = () => {
     }
     setSavingPoAttachment(true);
     try {
-      const attachmentDocumentId = poAttachment.documentId
-        && OBJECT_ID_RE.test(poAttachment.documentId)
-        ? poAttachment.documentId
-        : null;
+      const attachmentDocumentId =
+        poAttachment.documentId && OBJECT_ID_RE.test(poAttachment.documentId)
+          ? poAttachment.documentId
+          : null;
       await purchaseOrderService.update(poId, { attachmentDocumentId });
       toastSuccess("Attachment saved");
       await refreshAfterUpdate();
@@ -549,7 +567,11 @@ const PoBucketView = () => {
             <div>
               <strong>{purchaseOrder.poCode || "Purchase Order"}</strong>
             </div>
-            <CButton color="secondary" variant="ghost" onClick={() => navigate("/po-bucket")}>
+            <CButton
+              color="secondary"
+              variant="ghost"
+              onClick={() => navigate("/po-bucket")}
+            >
               <CIcon icon={cilArrowLeft} className="me-1" />
               Back
             </CButton>
@@ -617,7 +639,10 @@ const PoBucketView = () => {
                     <CFormInput
                       value={companyForm.name}
                       onChange={(e) =>
-                        setCompanyForm((prev) => ({ ...prev, name: e.target.value }))
+                        setCompanyForm((prev) => ({
+                          ...prev,
+                          name: e.target.value,
+                        }))
                       }
                     />
                   </CCol>
@@ -626,7 +651,10 @@ const PoBucketView = () => {
                     <CFormInput
                       value={companyForm.area}
                       onChange={(e) =>
-                        setCompanyForm((prev) => ({ ...prev, area: e.target.value }))
+                        setCompanyForm((prev) => ({
+                          ...prev,
+                          area: e.target.value,
+                        }))
                       }
                     />
                   </CCol>
@@ -635,7 +663,10 @@ const PoBucketView = () => {
                     <CFormInput
                       value={companyForm.location}
                       onChange={(e) =>
-                        setCompanyForm((prev) => ({ ...prev, location: e.target.value }))
+                        setCompanyForm((prev) => ({
+                          ...prev,
+                          location: e.target.value,
+                        }))
                       }
                     />
                   </CCol>
@@ -644,7 +675,10 @@ const PoBucketView = () => {
                     <CFormInput
                       value={companyForm.address}
                       onChange={(e) =>
-                        setCompanyForm((prev) => ({ ...prev, address: e.target.value }))
+                        setCompanyForm((prev) => ({
+                          ...prev,
+                          address: e.target.value,
+                        }))
                       }
                     />
                   </CCol>
@@ -706,7 +740,8 @@ const PoBucketView = () => {
                         Total: {productsForm.length}
                       </span>
                       <CBadge color="primary" className="px-2 py-1">
-                        Total Amount: ₹{Number(totalAmount || 0).toLocaleString("en-IN")}
+                        Total Amount: ₹
+                        {Number(totalAmount || 0).toLocaleString("en-IN")}
                       </CBadge>
                       <div className="d-flex align-items-center gap-2">
                         <CFormInput
@@ -745,7 +780,9 @@ const PoBucketView = () => {
                         <CTableRow>
                           <CTableHeaderCell>S No</CTableHeaderCell>
                           <CTableHeaderCell>Product</CTableHeaderCell>
-                          <CTableHeaderCell>Line status (PO product)</CTableHeaderCell>
+                          <CTableHeaderCell>
+                            Line status (PO product)
+                          </CTableHeaderCell>
                           <CTableHeaderCell>Qty</CTableHeaderCell>
                           <CTableHeaderCell>GST %</CTableHeaderCell>
                           <CTableHeaderCell>Rate</CTableHeaderCell>
@@ -766,7 +803,11 @@ const PoBucketView = () => {
                                 size="sm"
                                 value={p.productName || ""}
                                 onChange={(e) =>
-                                  updateProductField(index, "productName", e.target.value)
+                                  updateProductField(
+                                    index,
+                                    "productName",
+                                    e.target.value,
+                                  )
                                 }
                               />
                             </CTableDataCell>
@@ -776,7 +817,9 @@ const PoBucketView = () => {
                                   lineInventoryByIndex.get(index),
                                 )
                               ) : (
-                                <span className="text-body-secondary small">—</span>
+                                <span className="text-body-secondary small">
+                                  —
+                                </span>
                               )}
                             </CTableDataCell>
                             <CTableDataCell>
@@ -786,7 +829,11 @@ const PoBucketView = () => {
                                 min={0}
                                 value={p.quantity}
                                 onChange={(e) =>
-                                  updateProductField(index, "quantity", e.target.value)
+                                  updateProductField(
+                                    index,
+                                    "quantity",
+                                    e.target.value,
+                                  )
                                 }
                               />
                             </CTableDataCell>
@@ -798,7 +845,11 @@ const PoBucketView = () => {
                                 max={100}
                                 value={p.gstPercentage}
                                 onChange={(e) =>
-                                  updateProductField(index, "gstPercentage", e.target.value)
+                                  updateProductField(
+                                    index,
+                                    "gstPercentage",
+                                    e.target.value,
+                                  )
                                 }
                               />
                             </CTableDataCell>
@@ -808,7 +859,13 @@ const PoBucketView = () => {
                                 type="number"
                                 min={0}
                                 value={p.rate}
-                                onChange={(e) => updateProductField(index, "rate", e.target.value)}
+                                onChange={(e) =>
+                                  updateProductField(
+                                    index,
+                                    "rate",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </CTableDataCell>
                             <CTableDataCell>
@@ -833,7 +890,13 @@ const PoBucketView = () => {
                               <CFormTextarea
                                 rows={1}
                                 value={p.remark || ""}
-                                onChange={(e) => updateProductField(index, "remark", e.target.value)}
+                                onChange={(e) =>
+                                  updateProductField(
+                                    index,
+                                    "remark",
+                                    e.target.value,
+                                  )
+                                }
                               />
                             </CTableDataCell>
                             <CTableDataCell className="text-nowrap">
@@ -862,7 +925,6 @@ const PoBucketView = () => {
                     </CTable>
                   </CCardBody>
                 </CCard>
-
               </CTabPane>
 
               <CTabPane visible={activeTab === "priority"}>
@@ -880,7 +942,9 @@ const PoBucketView = () => {
                   </CCardHeader>
                   <CCardBody className="pt-3">
                     {productsForm.length === 0 ? (
-                      <p className="text-body-secondary mb-0">No products on this purchase order.</p>
+                      <p className="text-body-secondary mb-0">
+                        No products on this purchase order.
+                      </p>
                     ) : (
                       <CTable hover responsive bordered align="middle">
                         <CTableHead>
@@ -894,15 +958,25 @@ const PoBucketView = () => {
                         <CTableBody>
                           {productsForm.map((p, index) => (
                             <CTableRow key={p._id || index}>
-                              <CTableDataCell className="fw-semibold">{index + 1}</CTableDataCell>
-                              <CTableDataCell>{p.productName || "—"}</CTableDataCell>
-                              <CTableDataCell>{p.quantity ?? "—"}</CTableDataCell>
+                              <CTableDataCell className="fw-semibold">
+                                {index + 1}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {p.productName || "—"}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {p.quantity ?? "—"}
+                              </CTableDataCell>
                               <CTableDataCell style={{ maxWidth: 220 }}>
                                 <CFormSelect
                                   size="sm"
                                   value={normalizeProductPriority(p.priority)}
                                   onChange={(e) =>
-                                    updateProductField(index, "priority", e.target.value)
+                                    updateProductField(
+                                      index,
+                                      "priority",
+                                      e.target.value,
+                                    )
                                   }
                                 >
                                   {PRODUCT_PRIORITY_OPTIONS.map((opt) => (
@@ -948,10 +1022,11 @@ const PoBucketView = () => {
                         <CSpinner size="sm" />
                         <span>Loading from po_products…</span>
                       </div>
-                    ) : !poProductStatusBundle || poProductStatusBundle.lines.length === 0 ? (
+                    ) : !poProductStatusBundle ||
+                      poProductStatusBundle.lines.length === 0 ? (
                       <p className="text-body-secondary mb-0">
-                        No po_products rows for this purchase order. Save the product list or sync
-                        the PO to generate lines.
+                        No po_products rows for this purchase order. Save the
+                        product list or sync the PO to generate lines.
                       </p>
                     ) : (
                       <CTable hover responsive bordered align="middle">
@@ -962,20 +1037,32 @@ const PoBucketView = () => {
                             <CTableHeaderCell>Raw code</CTableHeaderCell>
                             <CTableHeaderCell>Qty</CTableHeaderCell>
                             <CTableHeaderCell>Unit</CTableHeaderCell>
-                            <CTableHeaderCell>Status (po_product)</CTableHeaderCell>
+                            <CTableHeaderCell>
+                              Status (po_product)
+                            </CTableHeaderCell>
                           </CTableRow>
                         </CTableHead>
                         <CTableBody>
                           {poProductStatusBundle.lines.map((row, i) => (
-                            <CTableRow key={row._id != null ? String(row._id) : `line-${i}`}>
+                            <CTableRow
+                              key={
+                                row._id != null ? String(row._id) : `line-${i}`
+                              }
+                            >
                               <CTableDataCell className="fw-semibold">
-                                {row.lineIndex != null ? Number(row.lineIndex) + 1 : i + 1}
+                                {row.lineIndex != null
+                                  ? Number(row.lineIndex) + 1
+                                  : i + 1}
                               </CTableDataCell>
-                              <CTableDataCell>{row.productName || "—"}</CTableDataCell>
+                              <CTableDataCell>
+                                {row.productName || "—"}
+                              </CTableDataCell>
                               <CTableDataCell className="text-nowrap text-body-secondary small">
                                 {row.rawProductCode || "—"}
                               </CTableDataCell>
-                              <CTableDataCell>{row.quantity ?? "—"}</CTableDataCell>
+                              <CTableDataCell>
+                                {row.quantity ?? "—"}
+                              </CTableDataCell>
                               <CTableDataCell>{row.unit || "—"}</CTableDataCell>
                               <CTableDataCell className="text-nowrap">
                                 {lineInventoryStatusBadge(row.status)}
@@ -1003,15 +1090,21 @@ const PoBucketView = () => {
                     </CButton>
                   </CCardHeader>
                   <CCardBody className="pt-3">
-                    <div className="d-flex flex-column gap-3" style={{ maxWidth: 480 }}>
+                    <div
+                      className="d-flex flex-column gap-3"
+                      style={{ maxWidth: 480 }}
+                    >
                       {poAttachment.meta?.path || poAttachment.documentId ? (
                         <div className="d-flex flex-wrap align-items-center gap-2">
-                          {isImageMime(poAttachment.meta?.mimeType) && poAttachment.meta?.path ? (
+                          {isImageMime(poAttachment.meta?.mimeType) &&
+                          poAttachment.meta?.path ? (
                             <button
                               type="button"
                               className="p-0 border-0 bg-transparent"
                               title="Open"
-                              onClick={() => openPoAttachment(poAttachment.meta)}
+                              onClick={() =>
+                                openPoAttachment(poAttachment.meta)
+                              }
                               style={{ cursor: "pointer" }}
                             >
                               <img
@@ -1036,13 +1129,16 @@ const PoBucketView = () => {
                             style={{ maxWidth: 220 }}
                             title={poAttachment.meta?.originalName || ""}
                           >
-                            {poAttachment.meta?.originalName || (poAttachment.documentId ? "File" : "")}
+                            {poAttachment.meta?.originalName ||
+                              (poAttachment.documentId ? "File" : "")}
                           </span>
                           {poAttachment.meta?.path ? (
                             <CButton
                               color="link"
                               className="p-0 small"
-                              onClick={() => openPoAttachment(poAttachment.meta)}
+                              onClick={() =>
+                                openPoAttachment(poAttachment.meta)
+                              }
                             >
                               Open
                             </CButton>
@@ -1059,7 +1155,9 @@ const PoBucketView = () => {
                           </CButton>
                         </div>
                       ) : (
-                        <span className="text-body-secondary small">No file attached to this purchase order yet.</span>
+                        <span className="text-body-secondary small">
+                          No file attached to this purchase order yet.
+                        </span>
                       )}
                       <div className="d-flex align-items-center gap-2">
                         <CFormInput
@@ -1078,7 +1176,9 @@ const PoBucketView = () => {
                           type="button"
                           disabled={!canUploadPoAttachment}
                           onClick={() =>
-                            document.getElementById("po-level-attachment-input")?.click()
+                            document
+                              .getElementById("po-level-attachment-input")
+                              ?.click()
                           }
                         >
                           {poAttachmentUploading ? (
@@ -1177,7 +1277,10 @@ const PoBucketView = () => {
               <CFormInput
                 value={newProductForm.unit}
                 onChange={(e) =>
-                  setNewProductForm((prev) => ({ ...prev, unit: e.target.value }))
+                  setNewProductForm((prev) => ({
+                    ...prev,
+                    unit: e.target.value,
+                  }))
                 }
               />
             </CCol>
@@ -1188,7 +1291,10 @@ const PoBucketView = () => {
                 min={0}
                 value={newProductForm.rate}
                 onChange={(e) =>
-                  setNewProductForm((prev) => ({ ...prev, rate: e.target.value }))
+                  setNewProductForm((prev) => ({
+                    ...prev,
+                    rate: e.target.value,
+                  }))
                 }
               />
             </CCol>
@@ -1250,7 +1356,10 @@ const PoBucketView = () => {
               <CFormInput
                 value={newProductForm.remark}
                 onChange={(e) =>
-                  setNewProductForm((prev) => ({ ...prev, remark: e.target.value }))
+                  setNewProductForm((prev) => ({
+                    ...prev,
+                    remark: e.target.value,
+                  }))
                 }
               />
             </CCol>

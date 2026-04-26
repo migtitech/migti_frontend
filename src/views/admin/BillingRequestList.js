@@ -253,7 +253,9 @@ const BillingRequestList = () => {
                     <CTableRow>
                       <CTableHeaderCell scope="col">PO</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Company</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Product / line</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">
+                        Product / line
+                      </CTableHeaderCell>
                       <CTableHeaderCell scope="col">Amount</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Status</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Raised</CTableHeaderCell>
@@ -265,7 +267,10 @@ const BillingRequestList = () => {
                   <CTableBody>
                     {rows.length === 0 ? (
                       <CTableRow>
-                        <CTableDataCell colSpan={7} className="text-center text-body-secondary">
+                        <CTableDataCell
+                          colSpan={7}
+                          className="text-center text-body-secondary"
+                        >
                           No billing requests found.
                         </CTableDataCell>
                       </CTableRow>
@@ -275,16 +280,26 @@ const BillingRequestList = () => {
                           <CTableDataCell>
                             <code>{r.poCode || "—"}</code>
                           </CTableDataCell>
-                          <CTableDataCell>{r.companyName || "—"}</CTableDataCell>
+                          <CTableDataCell>
+                            {r.companyName || "—"}
+                          </CTableDataCell>
                           <CTableDataCell>
                             <div>{r.productName || "—"}</div>
-                            <small className="text-body-secondary">Line {r.lineIndex}</small>
+                            <small className="text-body-secondary">
+                              Line {r.lineIndex}
+                            </small>
                           </CTableDataCell>
                           <CTableDataCell>
-                            {typeof r.amount === "number" ? r.amount.toLocaleString() : "—"}
+                            {typeof r.amount === "number"
+                              ? r.amount.toLocaleString()
+                              : "—"}
                           </CTableDataCell>
-                          <CTableDataCell>{statusBadge(r.status)}</CTableDataCell>
-                          <CTableDataCell>{formatDateDdMmYyyy(r.createdAt)}</CTableDataCell>
+                          <CTableDataCell>
+                            {statusBadge(r.status)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatDateDdMmYyyy(r.createdAt)}
+                          </CTableDataCell>
                           <CTableDataCell className="text-end">
                             <CButton
                               size="sm"
@@ -317,7 +332,9 @@ const BillingRequestList = () => {
                       <CPaginationItem
                         disabled={page >= totalPages}
                         onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{ cursor: page >= totalPages ? "default" : "pointer" }}
+                        style={{
+                          cursor: page >= totalPages ? "default" : "pointer",
+                        }}
                       >
                         Next
                       </CPaginationItem>
@@ -330,7 +347,12 @@ const BillingRequestList = () => {
         </CCard>
       </CCol>
 
-      <COffcanvas placement="end" visible={detailOpen} onHide={closeDetail} scroll>
+      <COffcanvas
+        placement="end"
+        visible={detailOpen}
+        onHide={closeDetail}
+        scroll
+      >
         <COffcanvasHeader className="d-flex align-items-center justify-content-between">
           <COffcanvasTitle>Billing request</COffcanvasTitle>
           <CCloseButton className="ms-2" onClick={closeDetail} />
@@ -352,15 +374,22 @@ const BillingRequestList = () => {
               </p>
               <p className="mb-1">
                 <strong>Amount:</strong>{" "}
-                {typeof detail.amount === "number" ? detail.amount.toLocaleString() : "—"}
+                {typeof detail.amount === "number"
+                  ? detail.amount.toLocaleString()
+                  : "—"}
               </p>
               <p className="mb-1">
-                <strong>Raised:</strong> {formatDateDdMmYyyy(detail.createdAt)} ·{" "}
-                <span className="text-body-secondary">{detail.createdByName || "—"}</span>
+                <strong>Raised:</strong> {formatDateDdMmYyyy(detail.createdAt)}{" "}
+                ·{" "}
+                <span className="text-body-secondary">
+                  {detail.createdByName || "—"}
+                </span>
               </p>
               <p className="mb-3">
                 <strong>Product:</strong> {detail.productName || "—"}{" "}
-                <span className="text-body-secondary">(line {detail.lineIndex})</span>
+                <span className="text-body-secondary">
+                  (line {detail.lineIndex})
+                </span>
               </p>
 
               {detail.billDocument?.url ? (
@@ -379,7 +408,9 @@ const BillingRequestList = () => {
               {detail.approvedAt ? (
                 <p className="mb-2 small text-body-secondary">
                   Approved {formatDateDdMmYyyy(detail.approvedAt)}
-                  {detail.approvedBy?.name ? ` · ${detail.approvedBy.name}` : ""}
+                  {detail.approvedBy?.name
+                    ? ` · ${detail.approvedBy.name}`
+                    : ""}
                 </p>
               ) : null}
 
@@ -389,7 +420,9 @@ const BillingRequestList = () => {
                 value={remarkDraft}
                 onChange={(e) => setRemarkDraft(e.target.value)}
                 disabled={!canAct || !isPending}
-                placeholder={isPending ? "Add a remark" : "Not editable (not pending)"}
+                placeholder={
+                  isPending ? "Add a remark" : "Not editable (not pending)"
+                }
                 className="mb-2"
               />
               {canAct && isPending && (

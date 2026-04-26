@@ -15,7 +15,9 @@ const inventoryBucketService = {
     return response;
   },
   markReadyForDispatchment: async (id) => {
-    const response = await api.post(INVENTORY_BUCKET.READY_FOR_DISPATCHMENT(id));
+    const response = await api.post(
+      INVENTORY_BUCKET.READY_FOR_DISPATCHMENT(id),
+    );
     return response;
   },
 };

@@ -51,9 +51,7 @@ const lineStatusBadge = (s) => {
     case "pending":
     default:
       return (
-        <CBadge color="warning">
-          {s && s !== "pending" ? s : "Pending"}
-        </CBadge>
+        <CBadge color="warning">{s && s !== "pending" ? s : "Pending"}</CBadge>
       );
   }
 };
@@ -187,7 +185,10 @@ const PurchaseBucketList = () => {
               </CCol>
               <CCol xs={6} md={2}>
                 <CFormLabel>Status</CFormLabel>
-                <CFormSelect value={status} onChange={(e) => setStatus(e.target.value)}>
+                <CFormSelect
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
                   {STATUS_OPTIONS.map((o) => (
                     <option key={o.value || "all"} value={o.value}>
                       {o.label}
@@ -205,7 +206,11 @@ const PurchaseBucketList = () => {
               </CCol>
               <CCol xs={6} md={2}>
                 <CFormLabel>To</CFormLabel>
-                <CFormInput type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+                <CFormInput
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
               </CCol>
             </CRow>
 
@@ -225,7 +230,9 @@ const PurchaseBucketList = () => {
                           className="h-100 shadow-sm cursor-pointer border"
                           role="button"
                           tabIndex={0}
-                          onClick={() => navigate(`/purchase-bucket/${row._id}`)}
+                          onClick={() =>
+                            navigate(`/purchase-bucket/${row._id}`)
+                          }
                           onKeyDown={(e) => {
                             if (e.key === "Enter" || e.key === " ") {
                               e.preventDefault();
@@ -235,11 +242,16 @@ const PurchaseBucketList = () => {
                         >
                           <CCardBody className="d-flex flex-column">
                             <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                              <strong className="text-break">{row.productName || "—"}</strong>
+                              <strong className="text-break">
+                                {row.productName || "—"}
+                              </strong>
                               {lineStatusBadge(statusFromRow(row))}
                             </div>
                             <div className="text-body-secondary small mb-1">
-                              PO: <span className="text-dark">{row.poCode || "—"}</span>
+                              PO:{" "}
+                              <span className="text-dark">
+                                {row.poCode || "—"}
+                              </span>
                             </div>
                             <div className="text-body-secondary small mb-1">
                               Company:{" "}
@@ -248,8 +260,12 @@ const PurchaseBucketList = () => {
                               </span>
                             </div>
                             <div className="mt-auto pt-2 small">
-                              <span className="text-body-secondary">Dispatch: </span>
-                              <strong>{formatDateDdMmYyyy(row.dispatchmentDate)}</strong>
+                              <span className="text-body-secondary">
+                                Dispatch:{" "}
+                              </span>
+                              <strong>
+                                {formatDateDdMmYyyy(row.dispatchmentDate)}
+                              </strong>
                             </div>
                             <div className="small text-body-secondary mt-1">
                               Qty: {row.quantity ?? "—"} {row.unit || ""}
@@ -263,7 +279,10 @@ const PurchaseBucketList = () => {
 
                 {totalPages > 1 && (
                   <div className="d-flex justify-content-center mt-4">
-                    <CPagination align="center" aria-label="Purchase bucket pages">
+                    <CPagination
+                      align="center"
+                      aria-label="Purchase bucket pages"
+                    >
                       <CPaginationItem
                         disabled={page <= 1}
                         onClick={() => page > 1 && setPage(page - 1)}
@@ -275,7 +294,9 @@ const PurchaseBucketList = () => {
                       <CPaginationItem
                         disabled={page >= totalPages}
                         onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{ cursor: page >= totalPages ? "default" : "pointer" }}
+                        style={{
+                          cursor: page >= totalPages ? "default" : "pointer",
+                        }}
                       >
                         Next
                       </CPaginationItem>

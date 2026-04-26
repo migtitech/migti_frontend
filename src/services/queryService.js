@@ -48,7 +48,8 @@ const mapToApiPayload = (data) => {
         product_id: p.product_id || null,
         groupId: p.groupId || null,
         categoryId: p.categoryId || null,
-        rawProductCode: (p.rawProductCode && String(p.rawProductCode).trim()) || "",
+        rawProductCode:
+          (p.rawProductCode && String(p.rawProductCode).trim()) || "",
         query_tracking_code:
           (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
         images: img.map(idFromImg).filter(Boolean),

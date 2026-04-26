@@ -200,14 +200,19 @@ const PoBucketDashboard = () => {
                       <CTableDataCell>
                         <strong>{po.poCode || "-"}</strong>
                       </CTableDataCell>
-                      <CTableDataCell>{po.companyInfo?.name || "-"}</CTableDataCell>
                       <CTableDataCell>
-                        {Array.isArray(po.products) ? po.products.length : 0} item(s)
+                        {po.companyInfo?.name || "-"}
+                      </CTableDataCell>
+                      <CTableDataCell>
+                        {Array.isArray(po.products) ? po.products.length : 0}{" "}
+                        item(s)
                       </CTableDataCell>
                       <CTableDataCell>
                         ₹{formatInrAmount(po.totalAmount)}
                       </CTableDataCell>
-                      <CTableDataCell>{getStatusBadge(po.status)}</CTableDataCell>
+                      <CTableDataCell>
+                        {getStatusBadge(po.status)}
+                      </CTableDataCell>
                       <CTableDataCell>
                         {po.createdAt ? formatDateDdMmYyyy(po.createdAt) : "-"}
                       </CTableDataCell>
@@ -217,7 +222,9 @@ const PoBucketDashboard = () => {
                           variant="ghost"
                           size="sm"
                           title="View"
-                          onClick={() => navigate(`/po-bucket/${po._id || po.id}`)}
+                          onClick={() =>
+                            navigate(`/po-bucket/${po._id || po.id}`)
+                          }
                         >
                           <EyeIcon />
                         </CButton>

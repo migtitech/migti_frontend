@@ -267,12 +267,8 @@ const QueryForm = () => {
   /** Resolve category labels for added products when id is not in the paginated list (e.g. subcategory or new root past old cache). */
   useEffect(() => {
     const inLists = (sid) =>
-      allTableCategories.some(
-        (x) => String(x._id || x.id) === sid,
-      ) ||
-      productCategories.some(
-        (x) => String(x._id || x.id) === sid,
-      ) ||
+      allTableCategories.some((x) => String(x._id || x.id) === sid) ||
+      productCategories.some((x) => String(x._id || x.id) === sid) ||
       Boolean(categoryNameById[sid]);
 
     const ids = new Set();
@@ -280,9 +276,7 @@ const QueryForm = () => {
       const c = p?.categoryId;
       if (c == null || c === "") continue;
       if (typeof c === "object" && c?.name) continue;
-      const sid = String(
-        typeof c === "object" && c?._id ? c._id : c,
-      ).trim();
+      const sid = String(typeof c === "object" && c?._id ? c._id : c).trim();
       if (!/^[a-f0-9]{24}$/i.test(sid)) continue;
       if (inLists(sid)) continue;
       ids.add(sid);
@@ -812,7 +806,8 @@ const QueryForm = () => {
               rawProductCode: p.rawProductCode || "",
               query_tracking_code: p.query_tracking_code || "",
               groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
-              categoryId: (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
+              categoryId:
+                (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
               isNewProduct: p.isNewProduct ?? !p.productCode,
               images: Array.isArray(p.images) ? p.images : [],
               sourceQueryNewProductId: p.sourceQueryNewProductId || null,
@@ -953,28 +948,18 @@ const QueryForm = () => {
   const resolveGroupName = (id) => {
     if (id != null && typeof id === "object" && id?.name) return id.name;
     if (id == null || id === "") return "–";
-    const sid = String(
-      typeof id === "object" && id?._id ? id._id : id,
-    );
-    const g = productGroups.find(
-      (x) => String(x._id || x.id) === sid,
-    );
+    const sid = String(typeof id === "object" && id?._id ? id._id : id);
+    const g = productGroups.find((x) => String(x._id || x.id) === sid);
     return g?.name || "–";
   };
   const resolveCategoryName = (id) => {
     if (id != null && typeof id === "object" && id?.name) return id.name;
     if (id == null || id === "") return "–";
-    const sid = String(
-      typeof id === "object" && id?._id ? id._id : id,
-    );
+    const sid = String(typeof id === "object" && id?._id ? id._id : id);
     if (!sid) return "–";
     const c =
-      allTableCategories.find(
-        (x) => String(x._id || x.id) === sid,
-      ) ||
-      productCategories.find(
-        (x) => String(x._id || x.id) === sid,
-      );
+      allTableCategories.find((x) => String(x._id || x.id) === sid) ||
+      productCategories.find((x) => String(x._id || x.id) === sid);
     if (c?.name) return c.name;
     if (categoryNameById[sid]) return categoryNameById[sid];
     return "–";
@@ -1075,9 +1060,11 @@ const QueryForm = () => {
             product_id: p.product_id || null,
             groupId: p.groupId || null,
             categoryId: p.categoryId || null,
-            rawProductCode: (p.rawProductCode && String(p.rawProductCode).trim()) || "",
+            rawProductCode:
+              (p.rawProductCode && String(p.rawProductCode).trim()) || "",
             query_tracking_code:
-              (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
+              (p.query_tracking_code && String(p.query_tracking_code).trim()) ||
+              "",
             images: (p.images || [])
               .map((img) => {
                 if (typeof img === "object" && img?._id) return img._id;

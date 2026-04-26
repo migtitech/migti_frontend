@@ -3816,7 +3816,8 @@ const QuotationView = () => {
                                         onClick={() =>
                                           setProBucketModal({
                                             visible: true,
-                                            productName: p.productName || "Product",
+                                            productName:
+                                              p.productName || "Product",
                                             rates: pb.rates,
                                             status: pb.status,
                                           })

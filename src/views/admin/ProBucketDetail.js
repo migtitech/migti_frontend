@@ -32,8 +32,8 @@ import { getAssetsUrl } from "../../api/endpoints";
 /** Below Bootstrap `md` (768px) — treat as phone for add-rate panel layout */
 const useIsPhoneView = () => {
   const query = "(max-width: 767.98px)";
-  const [isPhone, setIsPhone] = useState(
-    () => (typeof window !== "undefined" ? window.matchMedia(query).matches : false),
+  const [isPhone, setIsPhone] = useState(() =>
+    typeof window !== "undefined" ? window.matchMedia(query).matches : false,
   );
   useEffect(() => {
     const mq = window.matchMedia(query);
@@ -67,7 +67,10 @@ const dash = (v) => {
 
 const imgSrc = (path) => {
   if (!path) return "";
-  if (typeof path === "string" && (path.startsWith("http://") || path.startsWith("https://")))
+  if (
+    typeof path === "string" &&
+    (path.startsWith("http://") || path.startsWith("https://"))
+  )
     return path;
   return getAssetsUrl(path);
 };
@@ -75,7 +78,8 @@ const imgSrc = (path) => {
 const RefName = ({ refVal }) => {
   if (refVal == null || refVal === "") return "—";
   if (typeof refVal === "object") {
-    if (refVal.name != null && String(refVal.name).trim() !== "") return String(refVal.name);
+    if (refVal.name != null && String(refVal.name).trim() !== "")
+      return String(refVal.name);
     if (refVal.productName != null && String(refVal.productName).trim() !== "")
       return String(refVal.productName);
     return "—";
@@ -85,10 +89,15 @@ const RefName = ({ refVal }) => {
 
 const Field = ({ label, children, className = "" }) => (
   <div className={className}>
-    <div className="text-body-secondary small text-uppercase" style={{ fontSize: "0.7rem" }}>
+    <div
+      className="text-body-secondary small text-uppercase"
+      style={{ fontSize: "0.7rem" }}
+    >
       {label}
     </div>
-    <div className="text-break">{children != null && children !== "" ? children : "—"}</div>
+    <div className="text-break">
+      {children != null && children !== "" ? children : "—"}
+    </div>
   </div>
 );
 
@@ -100,7 +109,9 @@ const ItemInfoSections = ({ item }) => {
     <div className="pro-bucket-item-info">
       <CCard className="mb-3 border-0 bg-light">
         <CCardBody>
-          <h4 className="h5 mb-1">{dash(item.productName) || "Product line"}</h4>
+          <h4 className="h5 mb-1">
+            {dash(item.productName) || "Product line"}
+          </h4>
           <p className="text-body-secondary small mb-0">
             Line {item.lineIndex != null ? item.lineIndex + 1 : "—"}
           </p>
@@ -138,7 +149,10 @@ const ItemInfoSections = ({ item }) => {
             </CCol>
             {variants.length > 0 && (
               <CCol xs={12}>
-                <div className="text-body-secondary small text-uppercase mb-1" style={{ fontSize: "0.7rem" }}>
+                <div
+                  className="text-body-secondary small text-uppercase mb-1"
+                  style={{ fontSize: "0.7rem" }}
+                >
                   Variants
                 </div>
                 <ul className="mb-0 small">
@@ -189,7 +203,12 @@ const ItemInfoSections = ({ item }) => {
                 if (!src) return null;
                 return (
                   <CCol key={img._id || src} xs={6} sm={4} md={3}>
-                    <a href={src} target="_blank" rel="noreferrer" className="d-block">
+                    <a
+                      href={src}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="d-block"
+                    >
                       <img
                         src={src}
                         alt={img.name || "Product"}
@@ -198,7 +217,10 @@ const ItemInfoSections = ({ item }) => {
                       />
                     </a>
                     {img.name && (
-                      <div className="small text-body-secondary text-truncate mt-1" title={img.name}>
+                      <div
+                        className="small text-body-secondary text-truncate mt-1"
+                        title={img.name}
+                      >
                         {img.name}
                       </div>
                     )}
@@ -253,7 +275,9 @@ const ProBucketDetail = () => {
     try {
       const res = await withMinimumDelay(() => proBucketService.getById(id));
       const doc = res?.data;
-      setItem(doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null);
+      setItem(
+        doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null,
+      );
     } catch (e) {
       toastError(e?.message || "Failed to load item");
       setItem(null);
@@ -268,7 +292,8 @@ const ProBucketDetail = () => {
 
   const loadSuppliers = useCallback(async (search, saveAsCache) => {
     try {
-      const q = search && String(search).trim() ? String(search).trim() : undefined;
+      const q =
+        search && String(search).trim() ? String(search).trim() : undefined;
       const res = await supplierService.getAll({
         pageNumber: 1,
         pageSize: 100,
@@ -469,11 +494,17 @@ const ProBucketDetail = () => {
                     <CRow>
                       {(!item.rates || !item.rates.length) && (
                         <CCol xs={12}>
-                          <p className="text-body-secondary">No rates submitted yet.</p>
+                          <p className="text-body-secondary">
+                            No rates submitted yet.
+                          </p>
                         </CCol>
                       )}
                       {(item.rates || []).map((r) => (
-                        <CCol key={r._id || `${r.submittedAt}-${r.rate}`} md={6} className="mb-3">
+                        <CCol
+                          key={r._id || `${r.submittedAt}-${r.rate}`}
+                          md={6}
+                          className="mb-3"
+                        >
                           <CCard>
                             <CCardHeader className="py-2 d-flex justify-content-between">
                               <span className="text-truncate">
@@ -487,7 +518,9 @@ const ProBucketDetail = () => {
                               <div>Unit: {r.unit || "—"}</div>
                               {r.remark && <div>Remark: {r.remark}</div>}
                               {r.supplier?.phone_1 && (
-                                <div className="text-body-secondary">Phone: {r.supplier.phone_1}</div>
+                                <div className="text-body-secondary">
+                                  Phone: {r.supplier.phone_1}
+                                </div>
                               )}
                               {r.submittedAt && (
                                 <div className="text-body-secondary mt-1">
@@ -571,8 +604,9 @@ const ProBucketDetail = () => {
             />
             {supplierSearch.trim() && (
               <p className="text-body-secondary small mt-1 mb-0">
-                {suppliers.length} supplier{suppliers.length !== 1 ? "s" : ""} match this search (up to
-                100). Clear the field to load the full list.
+                {suppliers.length} supplier{suppliers.length !== 1 ? "s" : ""}{" "}
+                match this search (up to 100). Clear the field to load the full
+                list.
               </p>
             )}
           </div>
@@ -587,12 +621,20 @@ const ProBucketDetail = () => {
               return (
                 <CRow className="g-2 align-items-end mb-3" key={idx}>
                   <CCol {...(isPhoneView ? { md: 4, sm: 6 } : { xs: 12 })}>
-                    <CFormLabel className="mb-0">Supplier (optional)</CFormLabel>
+                    <CFormLabel className="mb-0">
+                      Supplier (optional)
+                    </CFormLabel>
                     <CFormSelect
                       value={row.supplierId}
-                      onChange={(e) => updateRateRow(idx, "supplierId", e.target.value)}
+                      onChange={(e) =>
+                        updateRateRow(idx, "supplierId", e.target.value)
+                      }
                     >
-                      <option value="">{options.length ? "No supplier" : "No matches — change search"}</option>
+                      <option value="">
+                        {options.length
+                          ? "No supplier"
+                          : "No matches — change search"}
+                      </option>
                       {options.map((s) => (
                         <option key={s._id} value={s._id}>
                           {s.name}
@@ -611,7 +653,11 @@ const ProBucketDetail = () => {
                       placeholder="0.00"
                       value={row.rate}
                       onChange={(e) =>
-                        updateRateRow(idx, "rate", sanitizeRateInput(e.target.value))
+                        updateRateRow(
+                          idx,
+                          "rate",
+                          sanitizeRateInput(e.target.value),
+                        )
                       }
                     />
                   </CCol>
@@ -619,14 +665,18 @@ const ProBucketDetail = () => {
                     <CFormLabel className="mb-0">Unit</CFormLabel>
                     <CFormInput
                       value={row.unit}
-                      onChange={(e) => updateRateRow(idx, "unit", e.target.value)}
+                      onChange={(e) =>
+                        updateRateRow(idx, "unit", e.target.value)
+                      }
                     />
                   </CCol>
                   <CCol {...(isPhoneView ? { md: 3, sm: 6 } : { xs: 12 })}>
                     <CFormLabel className="mb-0">Remark</CFormLabel>
                     <CFormInput
                       value={row.remark}
-                      onChange={(e) => updateRateRow(idx, "remark", e.target.value)}
+                      onChange={(e) =>
+                        updateRateRow(idx, "remark", e.target.value)
+                      }
                     />
                   </CCol>
                   <CCol
@@ -666,10 +716,21 @@ const ProBucketDetail = () => {
             onClick={(e) => e.stopPropagation()}
             role="presentation"
           >
-            <CButton type="button" color="secondary" variant="ghost" onClick={closeRateBar} disabled={saving}>
+            <CButton
+              type="button"
+              color="secondary"
+              variant="ghost"
+              onClick={closeRateBar}
+              disabled={saving}
+            >
               Cancel
             </CButton>
-            <CButton type="button" color="primary" onClick={submitRates} disabled={saving}>
+            <CButton
+              type="button"
+              color="primary"
+              onClick={submitRates}
+              disabled={saving}
+            >
               {saving ? "Saving…" : "Save rates"}
             </CButton>
           </div>

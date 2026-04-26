@@ -103,8 +103,7 @@ const EmployeePermissionsSection = ({
     return (
       <CAlert color="info" className="mb-0">
         Select an employee role above (HOD, SM, SE, PM, PE, Procurement, BOE,
-        ADMIN) to
-        configure granular access permissions.
+        ADMIN) to configure granular access permissions.
       </CAlert>
     );
   }

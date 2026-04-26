@@ -54,9 +54,7 @@ const formatDurationSinceCreated = (d) => {
   sec %= 3600;
   const m = Math.floor(sec / 60);
   const s = sec % 60;
-  return [days, h, m, s]
-    .map((n) => String(n).padStart(2, "0"))
-    .join(":");
+  return [days, h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 };
 
 /** API: { success, data: { data, total, pendingCount, page, pageSize } } (axios body = response) */
@@ -247,7 +245,9 @@ const ProBucketList = () => {
                 <CRow>
                   {rows.length === 0 && (
                     <CCol xs={12}>
-                      <p className="text-body-secondary mb-0">No items found.</p>
+                      <p className="text-body-secondary mb-0">
+                        No items found.
+                      </p>
                     </CCol>
                   )}
                   {rows.map((row) => (
@@ -266,7 +266,10 @@ const ProBucketList = () => {
                         tabIndex={0}
                       >
                         <CCardHeader className="d-flex justify-content-between align-items-center py-2">
-                          <span className="text-truncate fw-semibold" title={row.productName}>
+                          <span
+                            className="text-truncate fw-semibold"
+                            title={row.productName}
+                          >
                             {row.productName}
                           </span>
                           {statusBadge(row.status)}
@@ -283,13 +286,20 @@ const ProBucketList = () => {
                             </span>
                           </div>
                           <div className="d-flex justify-content-between mt-1">
-                            <span className="text-body-secondary">Model number</span>
-                            <span className="text-truncate ps-2" title={row.modelNumber || ""}>
+                            <span className="text-body-secondary">
+                              Model number
+                            </span>
+                            <span
+                              className="text-truncate ps-2"
+                              title={row.modelNumber || ""}
+                            >
                               {row.modelNumber?.toString().trim() || "—"}
                             </span>
                           </div>
                           <div className="d-flex justify-content-between mt-1">
-                            <span className="text-body-secondary">Time since created</span>
+                            <span className="text-body-secondary">
+                              Time since created
+                            </span>
                             <span className="text-nowrap ps-1 font-monospace small">
                               {formatDurationSinceCreated(row.createdAt)}
                             </span>
@@ -301,7 +311,11 @@ const ProBucketList = () => {
                 </CRow>
 
                 {total > pageSize && (
-                  <CPagination align="center" className="mt-3" aria-label="Pro Bucket pages">
+                  <CPagination
+                    align="center"
+                    className="mt-3"
+                    aria-label="Pro Bucket pages"
+                  >
                     <CPaginationItem
                       disabled={page <= 1}
                       onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -311,7 +325,9 @@ const ProBucketList = () => {
                     <CPaginationItem active>{page}</CPaginationItem>
                     <CPaginationItem
                       disabled={page >= totalPages}
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
                     >
                       Next
                     </CPaginationItem>

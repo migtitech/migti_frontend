@@ -109,7 +109,9 @@ const TaskBucketRateForm = React.lazy(
 // DMG Bucket (Purchase role)
 const DmgBucket = React.lazy(() => import("./views/admin/DmgBucket"));
 const ProBucketList = React.lazy(() => import("./views/admin/ProBucketList"));
-const ProBucketDetail = React.lazy(() => import("./views/admin/ProBucketDetail"));
+const ProBucketDetail = React.lazy(
+  () => import("./views/admin/ProBucketDetail"),
+);
 const PurchaseBucketList = React.lazy(
   () => import("./views/admin/PurchaseBucketList"),
 );
@@ -123,7 +125,9 @@ const PoBucketView = React.lazy(() => import("./views/admin/PoBucketView"));
 const InventoryBucketList = React.lazy(
   () => import("./views/admin/InventoryBucketList"),
 );
-const DispatchmentList = React.lazy(() => import("./views/admin/DispatchmentList"));
+const DispatchmentList = React.lazy(
+  () => import("./views/admin/DispatchmentList"),
+);
 
 // Employees
 const EmployeeList = React.lazy(() => import("./views/admin/EmployeeList"));

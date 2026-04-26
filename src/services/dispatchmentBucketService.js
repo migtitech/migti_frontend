@@ -11,7 +11,9 @@ const dispatchmentBucketService = {
     return response;
   },
   markReadyForDispatchment: async (id) => {
-    const response = await api.post(DISPATCHMENT_BUCKET.READY_FOR_DISPATCHMENT(id));
+    const response = await api.post(
+      DISPATCHMENT_BUCKET.READY_FOR_DISPATCHMENT(id),
+    );
     return response;
   },
   markDelivered: async (id) => {

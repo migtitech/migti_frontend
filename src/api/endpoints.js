@@ -311,7 +311,8 @@ export const PURCHASE_BUCKET = {
 export const INVENTORY_BUCKET = {
   PO_PRODUCTS: "/inventory-bucket/po-products",
   PO_PRODUCT_BY_ID: (id) => `/inventory-bucket/po-products/${id}`,
-  INVENTORY_RECEIVED: (id) => `/inventory-bucket/po-products/${id}/inventory-received`,
+  INVENTORY_RECEIVED: (id) =>
+    `/inventory-bucket/po-products/${id}/inventory-received`,
   READY_FOR_DISPATCHMENT: (id) =>
     `/inventory-bucket/po-products/${id}/ready-for-dispatchment`,
 };
@@ -322,7 +323,8 @@ export const DISPATCHMENT_BUCKET = {
   PO_PRODUCT_BY_ID: (id) => `/dispatchment-bucket/po-products/${id}`,
   READY_FOR_DISPATCHMENT: (id) =>
     `/dispatchment-bucket/po-products/${id}/ready-for-dispatchment`,
-  MARK_DELIVERED: (id) => `/dispatchment-bucket/po-products/${id}/mark-delivered`,
+  MARK_DELIVERED: (id) =>
+    `/dispatchment-bucket/po-products/${id}/mark-delivered`,
 };
 
 export const ADMIN = {

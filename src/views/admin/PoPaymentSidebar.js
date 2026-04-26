@@ -106,32 +106,35 @@ const PoPaymentSidebar = () => {
     setPage(1);
   }, [searchDebounced]);
 
-  const loadList = useCallback(async (pageNumber = 1) => {
-    setLoadingList(true);
-    try {
-      const res = await purchaseOrderService.getAll({
-        pageNumber,
-        pageSize: 10,
-        search: searchDebounced || undefined,
-      });
-      const payload = unwrapResponse(res);
-      const data = payload?.data || payload;
-      setRows(data?.purchaseOrders || []);
-      setPagination(
-        data?.pagination || {
-          currentPage: 1,
-          totalPages: 1,
-          totalItems: 0,
-          itemsPerPage: 10,
-        },
-      );
-    } catch (err) {
-      toastError(err?.message || "Failed to load purchase orders");
-      setRows([]);
-    } finally {
-      setLoadingList(false);
-    }
-  }, [searchDebounced]);
+  const loadList = useCallback(
+    async (pageNumber = 1) => {
+      setLoadingList(true);
+      try {
+        const res = await purchaseOrderService.getAll({
+          pageNumber,
+          pageSize: 10,
+          search: searchDebounced || undefined,
+        });
+        const payload = unwrapResponse(res);
+        const data = payload?.data || payload;
+        setRows(data?.purchaseOrders || []);
+        setPagination(
+          data?.pagination || {
+            currentPage: 1,
+            totalPages: 1,
+            totalItems: 0,
+            itemsPerPage: 10,
+          },
+        );
+      } catch (err) {
+        toastError(err?.message || "Failed to load purchase orders");
+        setRows([]);
+      } finally {
+        setLoadingList(false);
+      }
+    },
+    [searchDebounced],
+  );
 
   useEffect(() => {
     loadList(page);
@@ -259,34 +262,55 @@ const PoPaymentSidebar = () => {
                       <CTableRow>
                         <CTableHeaderCell>PO</CTableHeaderCell>
                         <CTableHeaderCell>Company</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Total (incl. GST)</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Received</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end">Pending</CTableHeaderCell>
+                        <CTableHeaderCell className="text-end">
+                          Total (incl. GST)
+                        </CTableHeaderCell>
+                        <CTableHeaderCell className="text-end">
+                          Received
+                        </CTableHeaderCell>
+                        <CTableHeaderCell className="text-end">
+                          Pending
+                        </CTableHeaderCell>
                         <CTableHeaderCell>Payment</CTableHeaderCell>
-                        <CTableHeaderCell className="text-end"> </CTableHeaderCell>
+                        <CTableHeaderCell className="text-end">
+                          {" "}
+                        </CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
                     <CTableBody>
                       {rows.length === 0 && !loadingList && (
                         <CTableRow>
-                          <CTableDataCell colSpan={7} className="text-center text-body-secondary">
+                          <CTableDataCell
+                            colSpan={7}
+                            className="text-center text-body-secondary"
+                          >
                             No purchase orders
                           </CTableDataCell>
                         </CTableRow>
                       )}
                       {rows.map((row) => {
                         const fin = row?.financials || {};
-                        const pst = String(row?.paymentReceivedStatus || "none");
-                        const b = PAYMENT_STATUS_BADGE[pst] || PAYMENT_STATUS_BADGE.none;
+                        const pst = String(
+                          row?.paymentReceivedStatus || "none",
+                        );
+                        const b =
+                          PAYMENT_STATUS_BADGE[pst] ||
+                          PAYMENT_STATUS_BADGE.none;
                         return (
                           <CTableRow
                             key={row._id || row.id}
                             className="cursor-pointer"
                             style={{ cursor: "pointer" }}
-                            onClick={() => setSelectedId(String(row._id || row.id))}
+                            onClick={() =>
+                              setSelectedId(String(row._id || row.id))
+                            }
                           >
-                            <CTableDataCell className="fw-medium">{row.poCode || "—"}</CTableDataCell>
-                            <CTableDataCell>{row.companyInfo?.name || "—"}</CTableDataCell>
+                            <CTableDataCell className="fw-medium">
+                              {row.poCode || "—"}
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              {row.companyInfo?.name || "—"}
+                            </CTableDataCell>
                             <CTableDataCell className="text-end">
                               {formatAmount(fin.grandTotal)}
                             </CTableDataCell>
@@ -299,7 +323,9 @@ const PoPaymentSidebar = () => {
                             <CTableDataCell>
                               <CBadge color={b.color}>{b.label}</CBadge>
                             </CTableDataCell>
-                            <CTableDataCell className="text-end text-primary">View</CTableDataCell>
+                            <CTableDataCell className="text-end text-primary">
+                              View
+                            </CTableDataCell>
                           </CTableRow>
                         );
                       })}
@@ -307,7 +333,11 @@ const PoPaymentSidebar = () => {
                   </CTable>
                   {totalPages > 1 && (
                     <div className="d-flex justify-content-end mt-3">
-                      <CPagination align="end" className="mb-0" aria-label="PO pages">
+                      <CPagination
+                        align="end"
+                        className="mb-0"
+                        aria-label="PO pages"
+                      >
                         <CPaginationItem
                           disabled={page <= 1}
                           onClick={() => page > 1 && setPage((p) => p - 1)}
@@ -319,7 +349,9 @@ const PoPaymentSidebar = () => {
                         </CPaginationItem>
                         <CPaginationItem
                           disabled={page >= totalPages}
-                          onClick={() => page < totalPages && setPage((p) => p + 1)}
+                          onClick={() =>
+                            page < totalPages && setPage((p) => p + 1)
+                          }
                         >
                           Next
                         </CPaginationItem>
@@ -380,15 +412,21 @@ const PoPaymentSidebar = () => {
                         <div>
                           <CRow className="g-3 mb-3">
                             <CCol md={6}>
-                              <div className="text-body-secondary small">Company</div>
+                              <div className="text-body-secondary small">
+                                Company
+                              </div>
                               <div>{detail.companyInfo?.name || "—"}</div>
                             </CCol>
                             <CCol md={6}>
-                              <div className="text-body-secondary small">Status</div>
+                              <div className="text-body-secondary small">
+                                Status
+                              </div>
                               <div>{String(detail.status || "—")}</div>
                             </CCol>
                             <CCol md={6}>
-                              <div className="text-body-secondary small">Location / area</div>
+                              <div className="text-body-secondary small">
+                                Location / area
+                              </div>
                               <div>
                                 {detail.companyInfo?.location || "—"}{" "}
                                 {detail.companyInfo?.area
@@ -397,7 +435,9 @@ const PoPaymentSidebar = () => {
                               </div>
                             </CCol>
                             <CCol md={6}>
-                              <div className="text-body-secondary small">Expected delivery</div>
+                              <div className="text-body-secondary small">
+                                Expected delivery
+                              </div>
                               <div>
                                 {detail.expectedDeliveryDate
                                   ? formatDateTime(detail.expectedDeliveryDate)
@@ -405,7 +445,9 @@ const PoPaymentSidebar = () => {
                               </div>
                             </CCol>
                             <CCol md={12}>
-                              <div className="text-body-secondary small">Remark</div>
+                              <div className="text-body-secondary small">
+                                Remark
+                              </div>
                               <div>{detail.remark || "—"}</div>
                             </CCol>
                           </CRow>
@@ -414,40 +456,54 @@ const PoPaymentSidebar = () => {
                             <CTableHead>
                               <CTableRow>
                                 <CTableHeaderCell>Product</CTableHeaderCell>
-                                <CTableHeaderCell className="text-end">Qty</CTableHeaderCell>
-                                <CTableHeaderCell className="text-end">Rate</CTableHeaderCell>
+                                <CTableHeaderCell className="text-end">
+                                  Qty
+                                </CTableHeaderCell>
+                                <CTableHeaderCell className="text-end">
+                                  Rate
+                                </CTableHeaderCell>
                                 <CTableHeaderCell>Unit</CTableHeaderCell>
                               </CTableRow>
                             </CTableHead>
                             <CTableBody>
                               {(detail.products || []).map((p) => (
                                 <CTableRow key={p._id || p.rawProductCode}>
-                                  <CTableDataCell>{p.productName || "—"}</CTableDataCell>
+                                  <CTableDataCell>
+                                    {p.productName || "—"}
+                                  </CTableDataCell>
                                   <CTableDataCell className="text-end">
                                     {p.quantity ?? "—"}
                                   </CTableDataCell>
                                   <CTableDataCell className="text-end">
-                                    {p.rate != null ? formatAmount(p.rate) : "—"}
+                                    {p.rate != null
+                                      ? formatAmount(p.rate)
+                                      : "—"}
                                   </CTableDataCell>
-                                  <CTableDataCell>{p.unit || "—"}</CTableDataCell>
+                                  <CTableDataCell>
+                                    {p.unit || "—"}
+                                  </CTableDataCell>
                                 </CTableRow>
                               ))}
                             </CTableBody>
                           </CTable>
                           <h6 className="mt-4">Attachment (PO)</h6>
-                          {detail.attachmentDocumentId && detail.attachmentDocumentId.path ? (
+                          {detail.attachmentDocumentId &&
+                          detail.attachmentDocumentId.path ? (
                             <CButton
                               color="link"
                               className="p-0"
                               onClick={() =>
                                 window.open(
-                                  getAssetsUrl(detail.attachmentDocumentId.path),
+                                  getAssetsUrl(
+                                    detail.attachmentDocumentId.path,
+                                  ),
                                   "_blank",
                                   "noopener",
                                 )
                               }
                             >
-                              {detail.attachmentDocumentId.originalName || "View attachment"}
+                              {detail.attachmentDocumentId.originalName ||
+                                "View attachment"}
                             </CButton>
                           ) : (
                             <span className="text-body-secondary">—</span>
@@ -460,15 +516,21 @@ const PoPaymentSidebar = () => {
                             <CCol sm={4}>
                               <CCard className="h-100">
                                 <CCardBody>
-                                  <div className="text-body-secondary small">Total amount</div>
-                                  <div className="fs-5 fw-semibold">{formatAmount(f?.grandTotal)}</div>
+                                  <div className="text-body-secondary small">
+                                    Total amount
+                                  </div>
+                                  <div className="fs-5 fw-semibold">
+                                    {formatAmount(f?.grandTotal)}
+                                  </div>
                                 </CCardBody>
                               </CCard>
                             </CCol>
                             <CCol sm={4}>
                               <CCard className="h-100">
                                 <CCardBody>
-                                  <div className="text-body-secondary small">Amount received</div>
+                                  <div className="text-body-secondary small">
+                                    Amount received
+                                  </div>
                                   <div className="fs-5 fw-semibold text-success">
                                     {formatAmount(f?.totalPaid)}
                                   </div>
@@ -478,7 +540,9 @@ const PoPaymentSidebar = () => {
                             <CCol sm={4}>
                               <CCard className="h-100">
                                 <CCardBody>
-                                  <div className="text-body-secondary small">Pending</div>
+                                  <div className="text-body-secondary small">
+                                    Pending
+                                  </div>
                                   <div className="fs-5 fw-semibold text-warning">
                                     {formatAmount(f?.remainingAmount)}
                                   </div>
@@ -489,7 +553,11 @@ const PoPaymentSidebar = () => {
                           <div className="d-flex justify-content-between align-items-center mb-2">
                             <h6 className="mb-0">Payment ledger (company)</h6>
                             {canAddPayment && (
-                              <CButton color="primary" size="sm" onClick={onOpenAdd}>
+                              <CButton
+                                color="primary"
+                                size="sm"
+                                onClick={onOpenAdd}
+                              >
                                 Add payment
                               </CButton>
                             )}
@@ -498,7 +566,9 @@ const PoPaymentSidebar = () => {
                             <CTableHead>
                               <CTableRow>
                                 <CTableHeaderCell>Date</CTableHeaderCell>
-                                <CTableHeaderCell className="text-end">Amount</CTableHeaderCell>
+                                <CTableHeaderCell className="text-end">
+                                  Amount
+                                </CTableHeaderCell>
                                 <CTableHeaderCell>Remark</CTableHeaderCell>
                                 <CTableHeaderCell>Proof</CTableHeaderCell>
                                 <CTableHeaderCell>Recorded by</CTableHeaderCell>
@@ -511,18 +581,24 @@ const PoPaymentSidebar = () => {
                                     colSpan={5}
                                     className="text-center text-body-secondary"
                                   >
-                                    No payments recorded yet. Use &quot;Add payment&quot; to record
-                                    the first entry.
+                                    No payments recorded yet. Use &quot;Add
+                                    payment&quot; to record the first entry.
                                   </CTableDataCell>
                                 </CTableRow>
                               )}
                               {ledgers.map((L) => (
-                                <CTableRow key={L._id || `${L.paidAt}-${L.amount}`}>
-                                  <CTableDataCell>{formatDateTime(L.paidAt)}</CTableDataCell>
+                                <CTableRow
+                                  key={L._id || `${L.paidAt}-${L.amount}`}
+                                >
+                                  <CTableDataCell>
+                                    {formatDateTime(L.paidAt)}
+                                  </CTableDataCell>
                                   <CTableDataCell className="text-end text-success fw-medium">
                                     {formatAmount(L.amount)}
                                   </CTableDataCell>
-                                  <CTableDataCell>{L.remark || "—"}</CTableDataCell>
+                                  <CTableDataCell>
+                                    {L.remark || "—"}
+                                  </CTableDataCell>
                                   <CTableDataCell>
                                     {L.paymentProofDocumentId?.path ? (
                                       <CButton
@@ -531,7 +607,9 @@ const PoPaymentSidebar = () => {
                                         className="p-0"
                                         onClick={() =>
                                           window.open(
-                                            getAssetsUrl(L.paymentProofDocumentId.path),
+                                            getAssetsUrl(
+                                              L.paymentProofDocumentId.path,
+                                            ),
                                             "_blank",
                                             "noopener",
                                           )
@@ -544,7 +622,9 @@ const PoPaymentSidebar = () => {
                                     )}
                                   </CTableDataCell>
                                   <CTableDataCell>
-                                    {L.recordedBy?.name || (L.recordedBy && String(L.recordedBy)) || "—"}
+                                    {L.recordedBy?.name ||
+                                      (L.recordedBy && String(L.recordedBy)) ||
+                                      "—"}
                                   </CTableDataCell>
                                 </CTableRow>
                               ))}
@@ -600,20 +680,26 @@ const PoPaymentSidebar = () => {
                 min="0"
                 step="0.01"
                 value={form.amount}
-                onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, amount: e.target.value }))
+                }
                 className="mb-3"
               />
               <CFormLabel>Payment date</CFormLabel>
               <CFormInput
                 type="date"
                 value={form.paidAt}
-                onChange={(e) => setForm((f) => ({ ...f, paidAt: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, paidAt: e.target.value }))
+                }
                 className="mb-3"
               />
               <CFormLabel>Remark</CFormLabel>
               <CFormTextarea
                 value={form.remark}
-                onChange={(e) => setForm((f) => ({ ...f, remark: e.target.value }))}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, remark: e.target.value }))
+                }
                 className="mb-3"
                 rows={2}
               />
@@ -627,7 +713,11 @@ const PoPaymentSidebar = () => {
                 className="mb-3"
               />
               {uploading && <div className="mb-2 small">Uploading…</div>}
-              <CButton color="primary" disabled={saving} onClick={onSubmitPayment}>
+              <CButton
+                color="primary"
+                disabled={saving}
+                onClick={onSubmitPayment}
+              >
                 {saving ? "Saving…" : "Save payment"}
               </CButton>
             </div>
