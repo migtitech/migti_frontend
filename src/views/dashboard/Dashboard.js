@@ -23,6 +23,7 @@ const Dashboard = () => {
         return <SalesDashboard />;
       case ROLES.PURCHASE_MANAGER:
       case ROLES.PURCHASE_EXICUTIVE:
+      case ROLES.PROCUREMENT:
         return <PurchaseDashboard />;
       default:
         return <AdminDashboard />;

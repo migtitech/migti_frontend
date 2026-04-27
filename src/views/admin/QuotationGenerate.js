@@ -274,6 +274,8 @@ const QuotationGenerate = () => {
           unit: p.unit || "",
           hsnNumber: p.hsnNumber || "",
           modelNumber: p.modelNumber || "",
+          rawProductCode:
+            (p.rawProductCode && String(p.rawProductCode).trim()) || "",
           gstPercentage:
             typeof p.gstPercentage === "number" ? p.gstPercentage : null,
           variants: (p.variants || []).map((v) => ({

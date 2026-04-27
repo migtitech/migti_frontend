@@ -19,8 +19,10 @@ import {
   stringRequired,
   stringOptional,
   MSG,
+  OBJECT_ID_PATTERN,
 } from "../../utils/validation";
 import employeeService from "../../services/employeeService";
+import groupService from "../../services/groupService";
 import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
@@ -29,6 +31,7 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import EmployeePersonalInfoSection from "./employees/EmployeePersonalInfoSection";
 import EmployeeCompanyInfoSection from "./employees/EmployeeCompanyInfoSection";
+import EmployeeGroupMappingSection from "./employees/EmployeeGroupMappingSection";
 import EmployeeAssetsSection from "./employees/EmployeeAssetsSection";
 import EmployeeFormActions from "./employees/EmployeeFormActions";
 import EmployeeAccountDetailsSection from "./employees/EmployeeAccountDetailsSection";
@@ -49,7 +52,17 @@ const EmployeeForm = () => {
   const [permissions, setPermissions] = useState([]);
   const [zones, setZones] = useState([]);
   const [subZones, setSubZones] = useState([]);
+  const [productGroups, setProductGroups] = useState([]);
+  const [mapProductGroups, setMapProductGroups] = useState(false);
+  const [groupMappingSectionKey, setGroupMappingSectionKey] = useState(0);
   const prevZoneIdRef = useRef("");
+
+  useEffect(() => {
+    if (!isEdit) {
+      setGroupMappingSectionKey(0);
+      setMapProductGroups(false);
+    }
+  }, [isEdit, id]);
 
   const roleOptions = useMemo(
     () => [
@@ -58,8 +71,12 @@ const EmployeeForm = () => {
       "sales_exicutive",
       "purchase_manager",
       "purchase_exicutive",
+      "procurement",
       "back_office_exicutive",
       "administrator",
+      "finance",
+      "inventry_manager",
+      "dispatch_manager",
     ],
     [],
   );
@@ -71,8 +88,12 @@ const EmployeeForm = () => {
       "Sales Exicutive ( SE )",
       "Purchase Manager  ( PM )",
       "Purchase Exicutive  ( PE )",
+      "Procurement Exicutive  ( PRC )",
       "Back Office Exicutive ( BOE )",
       "Administrator ( ADMIN )",
+      "Finance",
+      "Inventry Manager",
+      "Dispatch Manager",
     ],
     [],
   );
@@ -168,6 +189,11 @@ const EmployeeForm = () => {
           .optional()
           .nullable()
           .transform((v, o) => (o === "" ? null : v)),
+        assigned_groups: yup
+          .array()
+          .of(yup.string().matches(OBJECT_ID_PATTERN, "Invalid group id"))
+          .optional()
+          .default([]),
         assets: yup.object({
           bike: yup.object({
             enabled: yup.boolean().default(false),
@@ -231,6 +257,7 @@ const EmployeeForm = () => {
       zoneIds: [],
       subZoneId: "",
       categories: "",
+      assigned_groups: [],
       designation: "",
       address: "",
       idnumber: "",
@@ -291,6 +318,36 @@ const EmployeeForm = () => {
     ...item,
     id: item?.id || item?._id,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadGroups = async () => {
+      try {
+        const response = await groupService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        const data = response?.data?.data || response?.data || response;
+        const list = data?.groups || [];
+        if (!cancelled) {
+          setProductGroups(
+            (list || []).map((g) => ({
+              ...g,
+              id: g?.id || g?._id,
+            })),
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setProductGroups([]);
+        }
+      }
+    };
+    loadGroups();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const loadBranches = async () => {
@@ -395,6 +452,14 @@ const EmployeeForm = () => {
           return;
         }
         setPermissions(employee.permissions || []);
+        const rawAssigned = employee.assigned_groups;
+        const normAssigned = Array.isArray(rawAssigned)
+          ? rawAssigned
+              .map((x) => (x && typeof x === "object" && x._id ? x._id : x))
+              .map((id) => String(id).trim())
+              .filter((id) => /^[a-fA-F0-9]{24}$/i.test(id))
+          : [];
+        setMapProductGroups(normAssigned.length > 0);
         reset({
           name: employee.name || "",
           email: employee.email || "",
@@ -415,6 +480,7 @@ const EmployeeForm = () => {
               : [],
           subZoneId: employee.subZoneId || "",
           categories: employee.categories || "",
+          assigned_groups: normAssigned,
           designation: employee.designation || "",
           address: employee.address || "",
           idnumber: employee.idnumber || "",
@@ -486,6 +552,16 @@ const EmployeeForm = () => {
       }
       if (isEdit) {
         delete payload.password;
+      }
+      if (mapProductGroups) {
+        const ids = Array.isArray(payload.assigned_groups)
+          ? payload.assigned_groups
+              .map((x) => String(x || "").trim())
+              .filter((id) => OBJECT_ID_PATTERN.test(id))
+          : [];
+        payload.assigned_groups = [...new Set(ids)];
+      } else {
+        payload.assigned_groups = [];
       }
       // Include permissions for non-full-access roles
       if (!FULL_ACCESS_ROLES.includes(payload.role)) {
@@ -566,6 +642,30 @@ const EmployeeForm = () => {
             subZones={subZones}
             designationOptions={designationOptions}
             lockBranch={!canSelectBranch && !!userBranchId}
+          />
+        </CCardBody>
+      </CCard>
+
+      <CCard className="mb-4">
+        <CCardHeader>
+          <strong>Group mapping</strong>
+          <small className="text-muted ms-2">
+            Optional: assign this employee to one or more product groups
+          </small>
+        </CCardHeader>
+        <CCardBody>
+          <EmployeeGroupMappingSection
+            key={groupMappingSectionKey}
+            groups={productGroups}
+            value={watch("assigned_groups") || []}
+            onChange={(ids) =>
+              setValue("assigned_groups", ids, {
+                shouldValidate: true,
+                shouldDirty: true,
+              })
+            }
+            mapEnabled={mapProductGroups}
+            onMapEnabledChange={setMapProductGroups}
           />
         </CCardBody>
       </CCard>

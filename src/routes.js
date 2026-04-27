@@ -70,6 +70,12 @@ const TargetAnalytics = React.lazy(
 const PurchaseOrderSidebar = React.lazy(
   () => import("./views/admin/PurchaseOrderSidebar"),
 );
+const PoPaymentSidebar = React.lazy(
+  () => import("./views/admin/PoPaymentSidebar"),
+);
+const BillingRequestList = React.lazy(
+  () => import("./views/admin/BillingRequestList"),
+);
 const VisitManagementSidebar = React.lazy(
   () => import("./views/admin/VisitManagementSidebar"),
 );
@@ -102,6 +108,26 @@ const TaskBucketRateForm = React.lazy(
 
 // DMG Bucket (Purchase role)
 const DmgBucket = React.lazy(() => import("./views/admin/DmgBucket"));
+const ProBucketList = React.lazy(() => import("./views/admin/ProBucketList"));
+const ProBucketDetail = React.lazy(
+  () => import("./views/admin/ProBucketDetail"),
+);
+const PurchaseBucketList = React.lazy(
+  () => import("./views/admin/PurchaseBucketList"),
+);
+const PurchaseBucketDetail = React.lazy(
+  () => import("./views/admin/PurchaseBucketDetail"),
+);
+const PoBucketDashboard = React.lazy(
+  () => import("./views/admin/PoBucketDashboard"),
+);
+const PoBucketView = React.lazy(() => import("./views/admin/PoBucketView"));
+const InventoryBucketList = React.lazy(
+  () => import("./views/admin/InventoryBucketList"),
+);
+const DispatchmentList = React.lazy(
+  () => import("./views/admin/DispatchmentList"),
+);
 
 // Employees
 const EmployeeList = React.lazy(() => import("./views/admin/EmployeeList"));
@@ -445,7 +471,21 @@ const routes = [
     path: "/purchase-order-sidebar",
     name: "Purchase Order",
     element: PurchaseOrderSidebar,
-    module: "purchase_orders",
+    module: "billing",
+    action: "read",
+  },
+  {
+    path: "/po-payment",
+    name: "PO payment",
+    element: PoPaymentSidebar,
+    module: "billing",
+    action: "read",
+  },
+  {
+    path: "/billing-requests",
+    name: "Billing request",
+    element: BillingRequestList,
+    module: "request",
     action: "read",
   },
   {
@@ -572,6 +612,63 @@ const routes = [
     name: "DMG Bucket",
     element: DmgBucket,
     module: "dmg",
+    action: "read",
+  },
+
+  {
+    path: "/pro-bucket",
+    name: "Pro Bucket",
+    element: ProBucketList,
+    module: "pro_bucket",
+    action: "read",
+  },
+  {
+    path: "/po-bucket",
+    name: "PO Bucket",
+    element: PoBucketDashboard,
+    module: "po_bucket",
+    action: "read",
+  },
+  {
+    path: "/po-bucket/:id",
+    name: "PO Bucket item",
+    element: PoBucketView,
+    module: "po_bucket",
+    action: "read",
+  },
+  {
+    path: "/inventory-bucket",
+    name: "Inventory bucket",
+    element: InventoryBucketList,
+    module: "inventory_bucket",
+    action: "read",
+  },
+  {
+    path: "/dispatchment",
+    name: "Dispatchment",
+    element: DispatchmentList,
+    module: "dispatchment",
+    action: "read",
+  },
+  {
+    path: "/pro-bucket/:id",
+    name: "Pro Bucket item",
+    element: ProBucketDetail,
+    module: "pro_bucket",
+    action: "read",
+  },
+  {
+    path: "/purchase-bucket",
+    name: "Purchase Bucket",
+    element: PurchaseBucketList,
+    module: "purchase_bucket",
+    action: "read",
+  },
+  {
+    path: "/purchase-bucket/:id",
+    name: "Purchase Bucket item",
+    element: PurchaseBucketDetail,
+    module: "purchase_bucket",
     action: "read",
   },
 

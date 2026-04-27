@@ -44,8 +44,10 @@ import {
   cilEnvelopeClosed,
   cilHistory,
   cilX,
+  cilList,
 } from "@coreui/icons";
 import quotationService from "../../services/quotationService";
+import purchaseOrderService from "../../services/purchaseOrderService";
 import usePermissions from "../../hooks/usePermissions";
 import employeeService from "../../services/employeeService";
 import purchaseTaskService from "../../services/purchaseTaskService";
@@ -63,6 +65,7 @@ import QuoteLogsSidebar from "./QuoteLogsSidebar";
 const PURCHASE_ROLES = [
   ROLES.PURCHASE_MANAGER,
   ROLES.PURCHASE_EXICUTIVE,
+  ROLES.PROCUREMENT,
   "purchase_executive",
 ];
 
@@ -105,6 +108,19 @@ const formatVariants = (variants) => {
     .map((v) => v.variantName || v || "–")
     .filter(Boolean)
     .join(", ");
+};
+
+const proBucketStatusBadge = (status) => {
+  switch (status) {
+    case "pending":
+      return <CBadge color="warning">Pending</CBadge>;
+    case "rate_submitted":
+      return <CBadge color="info">Rate submitted</CBadge>;
+    case "fulfilled":
+      return <CBadge color="success">Fulfilled</CBadge>;
+    default:
+      return <span className="text-muted small">—</span>;
+  }
 };
 
 const parseQuotationFreightNumeric = (v) => {
@@ -217,6 +233,7 @@ const QuotationView = () => {
   const [error, setError] = useState(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [approvingHod, setApprovingHod] = useState(false);
+  const [convertingPo, setConvertingPo] = useState(false);
   const [activeTab, setActiveTab] = useState("preview");
   const [productIndex, setProductIndex] = useState(0);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -288,6 +305,15 @@ const QuotationView = () => {
   const [quotationSnapshots, setQuotationSnapshots] = useState([]);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
   const [snapshotsError, setSnapshotsError] = useState(null);
+  /** Pro Bucket (query_products) per line: status + supplier rates */
+  const [proBucketLines, setProBucketLines] = useState([]);
+  const [proBucketLoading, setProBucketLoading] = useState(false);
+  const [proBucketModal, setProBucketModal] = useState({
+    visible: false,
+    productName: "",
+    rates: [],
+    status: "",
+  });
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 
   const displayQuotation = useMemo(() => {
@@ -362,6 +388,39 @@ const QuotationView = () => {
     Number(p.rate) >= 0;
   const productsWithRate = products.filter(hasRate);
   const productsWithoutRate = products.filter((p) => !hasRate(p));
+
+  const liveProductCount = Array.isArray(quotation?.products)
+    ? quotation.products.length
+    : 0;
+
+  useEffect(() => {
+    if (!quotation?.id) {
+      setProBucketLines([]);
+      return;
+    }
+    if (activeTab !== "productList") {
+      return;
+    }
+    let cancelled = false;
+    setProBucketLoading(true);
+    quotationService
+      .getProBucketLines(quotation.id)
+      .then((res) => {
+        if (cancelled) return;
+        const data = res?.data?.data ?? res?.data ?? res;
+        setProBucketLines(Array.isArray(data?.lines) ? data.lines : []);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setProBucketLines([]);
+      })
+      .finally(() => {
+        if (!cancelled) setProBucketLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [quotation?.id, liveProductCount, activeTab, quoteLogsRefreshKey]);
 
   useEffect(() => {
     const ci = displayQuotation?.companyInfo;
@@ -816,6 +875,8 @@ const QuotationView = () => {
       unit: p.unit || "",
       hsnNumber: p.hsnNumber || "",
       modelNumber: p.modelNumber || "",
+      rawProductCode:
+        (p.rawProductCode && String(p.rawProductCode).trim()) || "",
       gstPercentage: p.gstPercentage ?? null,
       remark: p.remark || "",
       product_id:
@@ -1030,6 +1091,8 @@ const QuotationView = () => {
       unit: prod.unit || "",
       hsnNumber: prod.hsnNumber || "",
       modelNumber: prod.modelNumber || "",
+      rawProductCode:
+        (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
       gstPercentage: prod.gstPercentage ?? null,
       remark: prod.remark || "",
       product_id:
@@ -1128,6 +1191,8 @@ const QuotationView = () => {
       unit: prod.unit || "",
       hsnNumber: prod.hsnNumber || "",
       modelNumber: prod.modelNumber || "",
+      rawProductCode:
+        (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
       gstPercentage: prod.gstPercentage ?? null,
       remark: prod.remark || "",
       product_id:
@@ -1188,6 +1253,8 @@ const QuotationView = () => {
       unit: p.unit || "",
       hsnNumber: p.hsnNumber || "",
       modelNumber: p.modelNumber || "",
+      rawProductCode:
+        (p.rawProductCode && String(p.rawProductCode).trim()) || "",
       gstPercentage: p.gstPercentage ?? null,
       remark: p.remark || "",
       product_id:
@@ -1262,6 +1329,8 @@ const QuotationView = () => {
       unit: prod.unit || "",
       hsnNumber: prod.hsnNumber || "",
       modelNumber: prod.modelNumber || "",
+      rawProductCode:
+        (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
       gstPercentage: prod.gstPercentage ?? null,
       remark: prod.remark || "",
       product_id:
@@ -1493,6 +1562,8 @@ const QuotationView = () => {
         unit: p.unit || "",
         hsnNumber: p.hsnNumber || "",
         modelNumber: p.modelNumber || "",
+        rawProductCode:
+          (p.rawProductCode && String(p.rawProductCode).trim()) || "",
         gstPercentage: p.gstPercentage ?? null,
         remark: p.remark || "",
         product_id:
@@ -1608,6 +1679,7 @@ const QuotationView = () => {
   const canCreateQuotation = hasPermission("quotations", "create");
   const canUpdateQuotation = hasPermission("quotations", "update");
   const canDeleteQuotation = hasPermission("quotations", "delete");
+  const canCreatePurchaseOrder = hasPermission("purchase_orders", "create");
   const currentUserRole = normalizeRole(getCurrentUserRole());
   const isHodUser =
     currentUserRole === normalizeRole(ROLES.HEAD_OF_DEPARTMENT) ||
@@ -1641,6 +1713,31 @@ const QuotationView = () => {
       );
     } finally {
       setApprovingHod(false);
+    }
+  };
+
+  const handleConvertToPo = async () => {
+    if (!quotation?.id || !canCreatePurchaseOrder || isSnapshotPreview) return;
+    setConvertingPo(true);
+    try {
+      const res = await purchaseOrderService.createFromQuotation(quotation.id, {
+        reuseExisting: true,
+      });
+      const data = res?.data?.data ?? res?.data ?? res;
+      const poId = data?._id || data?.id;
+      if (!poId) {
+        throw new Error("Purchase order id not found in response");
+      }
+      toastSuccess("Purchase order ready");
+      navigate(`/po-bucket/${poId}`);
+    } catch (err) {
+      toastError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to convert quotation to purchase order",
+      );
+    } finally {
+      setConvertingPo(false);
     }
   };
 
@@ -1890,6 +1987,19 @@ const QuotationView = () => {
                 )}
                 {exportingPdf ? "Generating PDF..." : "Download PDF"}
               </CButton>
+              {canCreatePurchaseOrder ? (
+                <CButton
+                  color="success"
+                  variant="outline"
+                  disabled={convertingPo || isSnapshotPreview}
+                  onClick={handleConvertToPo}
+                  className="d-inline-flex align-items-center px-3"
+                  style={{ height: 40 }}
+                  title="Convert quotation to purchase order"
+                >
+                  {convertingPo ? "Converting..." : "Convert to PO"}
+                </CButton>
+              ) : null}
               {canApproveAsHod ? (
                 <CButton
                   color={isHodApprovedStatus ? "success" : "warning"}
@@ -3541,6 +3651,12 @@ const QuotationView = () => {
                           </CTableHeaderCell>
                           <CTableHeaderCell
                             className="text-center"
+                            style={{ width: 120 }}
+                          >
+                            Rate status
+                          </CTableHeaderCell>
+                          <CTableHeaderCell
+                            className="text-center"
                             style={{ width: 82 }}
                           >
                             GST %
@@ -3583,6 +3699,7 @@ const QuotationView = () => {
                             typeof p.product_id === "object"
                               ? p.product_id
                               : null;
+                          const pb = proBucketLines[idx] ?? null;
                           const allImages = Array.isArray(p.images)
                             ? p.images
                             : productRef?.images || [];
@@ -3682,6 +3799,46 @@ const QuotationView = () => {
                                   productRef?.defaultModelNumber ||
                                   p.modelNumber ||
                                   "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-center py-1 align-middle">
+                                {proBucketLoading ? (
+                                  <CSpinner size="sm" />
+                                ) : pb?.status ? (
+                                  <div className="d-flex flex-column align-items-center gap-1">
+                                    {proBucketStatusBadge(pb.status)}
+                                    {(pb.status === "rate_submitted" ||
+                                      pb.status === "fulfilled") &&
+                                    Array.isArray(pb.rates) &&
+                                    pb.rates.length > 0 ? (
+                                      <CButton
+                                        color="link"
+                                        className="p-0 d-inline-flex align-items-center"
+                                        onClick={() =>
+                                          setProBucketModal({
+                                            visible: true,
+                                            productName:
+                                              p.productName || "Product",
+                                            rates: pb.rates,
+                                            status: pb.status,
+                                          })
+                                        }
+                                        title="View supplier rates"
+                                      >
+                                        <CIcon
+                                          icon={cilList}
+                                          size="lg"
+                                          className={
+                                            pb.status === "fulfilled"
+                                              ? "text-success"
+                                              : "text-info"
+                                          }
+                                        />
+                                      </CButton>
+                                    ) : null}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted small">—</span>
+                                )}
                               </CTableDataCell>
                               <CTableDataCell className="text-center py-1">
                                 <CFormInput
@@ -4352,6 +4509,65 @@ const QuotationView = () => {
             )}
           </CButton>
         </CModalFooter>
+      </CModal>
+
+      <CModal
+        visible={proBucketModal.visible}
+        onClose={() =>
+          setProBucketModal({
+            visible: false,
+            productName: "",
+            rates: [],
+            status: "",
+          })
+        }
+        size="lg"
+        alignment="center"
+        scrollable
+      >
+        <CModalHeader closeButton>
+          <CModalTitle>
+            Supplier rates (Pro Bucket) — {proBucketModal.productName}
+          </CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          {proBucketModal.rates?.length ? (
+            <CTable responsive bordered size="sm" className="mb-0">
+              <CTableHead>
+                <CTableRow>
+                  <CTableHeaderCell>Supplier</CTableHeaderCell>
+                  <CTableHeaderCell className="text-end">Rate</CTableHeaderCell>
+                  <CTableHeaderCell>Unit</CTableHeaderCell>
+                  <CTableHeaderCell>Remark</CTableHeaderCell>
+                  <CTableHeaderCell>Submitted</CTableHeaderCell>
+                </CTableRow>
+              </CTableHead>
+              <CTableBody>
+                {proBucketModal.rates.map((r, i) => (
+                  <CTableRow key={i}>
+                    <CTableDataCell>{r.supplierName || "—"}</CTableDataCell>
+                    <CTableDataCell className="text-end">
+                      {r.rate != null && !Number.isNaN(Number(r.rate))
+                        ? Number(r.rate).toLocaleString()
+                        : "—"}
+                    </CTableDataCell>
+                    <CTableDataCell>{r.unit || "—"}</CTableDataCell>
+                    <CTableDataCell className="small text-break">
+                      {r.remark || "—"}
+                    </CTableDataCell>
+                    <CTableDataCell className="small text-nowrap">
+                      {r.submittedAt
+                        ? formatIstDisplayDate(r.submittedAt)
+                        : "—"}
+                    </CTableDataCell>
+                  </CTableRow>
+                ))}
+              </CTableBody>
+            </CTable>
+          ) : (
+            <p className="text-muted mb-0">No rates recorded.</p>
+          )}
+        </CModalBody>
       </CModal>
 
       <CModal

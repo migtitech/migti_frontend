@@ -49,8 +49,12 @@ const EmployeeTable = ({
       sales_exicutive: "info",
       purchase_manager: "warning",
       purchase_exicutive: "warning",
+      procurement: "warning",
       back_office_exicutive: "secondary",
       administrator: "dark",
+      finance: "success",
+      inventry_manager: "warning",
+      dispatch_manager: "info",
     };
     return colors[role] || "dark";
   };

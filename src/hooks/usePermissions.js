@@ -1,6 +1,20 @@
 import { useMemo, useCallback } from "react";
 import { useAuth, FULL_ACCESS_ROLES } from "../context/AuthContext";
 
+/**
+ * New granular module keys; employees who only have these legacy perms
+ * (from before the split) keep the same access.
+ * Key = new module; value = older module keys that imply access.
+ */
+const MODULE_INHERITANCE = {
+  po_bucket: ["purchase_orders"],
+  purchase_bucket: ["pro_bucket"],
+  inventory_bucket: ["purchase_orders"],
+  dispatchment: ["purchase_orders"],
+  request: ["purchase_orders"],
+  billing: ["purchase_orders"],
+};
+
 const normalizeRole = (role) =>
   String(role || "")
     .trim()
@@ -34,7 +48,15 @@ const usePermissions = () => {
       if (isFullAccess) return true;
       if (module === "purchase_orders" && hasPurchaseOrderBypass(user.role))
         return true;
-      return permissions.includes(`${module}:${action}`);
+      const p = `${module}:${action}`;
+      if (permissions.includes(p)) return true;
+      for (const legacy of MODULE_INHERITANCE[module] || []) {
+        if (legacy === "purchase_orders" && hasPurchaseOrderBypass(user.role)) {
+          return true;
+        }
+        if (permissions.includes(`${legacy}:${action}`)) return true;
+      }
+      return false;
     },
     [user, isFullAccess, permissions],
   );
@@ -63,7 +85,16 @@ const usePermissions = () => {
       if (isFullAccess) return true;
       if (module === "purchase_orders" && hasPurchaseOrderBypass(user.role))
         return true;
-      return permissions.some((p) => p.startsWith(`${module}:`));
+      const anyFor = (m) => {
+        if (m === "purchase_orders" && hasPurchaseOrderBypass(user.role))
+          return true;
+        return permissions.some((p) => p.startsWith(`${m}:`));
+      };
+      if (anyFor(module)) return true;
+      for (const legacy of MODULE_INHERITANCE[module] || []) {
+        if (anyFor(legacy)) return true;
+      }
+      return false;
     },
     [user, isFullAccess, permissions],
   );

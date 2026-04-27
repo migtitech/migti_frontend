@@ -16,6 +16,14 @@ const purchaseOrderService = {
     return response;
   },
 
+  /** Lists `po_products` for a PO (by Mongo id and/or `poCode`). */
+  listPoProductLines: async (params = {}) => {
+    const response = await api.get(PURCHASE_ORDERS.PO_PRODUCT_LINES, {
+      params,
+    });
+    return response;
+  },
+
   getByQuotationId: async (quotationId) => {
     const response = await api.get(PURCHASE_ORDERS.BY_QUOTATION, {
       params: { quotationId },

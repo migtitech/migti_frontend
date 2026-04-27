@@ -39,6 +39,7 @@ const BRANCH_ROLES = [
   "sales_exicutive",
   "purchase_manager",
   "purchase_exicutive",
+  "procurement",
   "back_office_exicutive",
   "administrator",
 ];
@@ -136,6 +137,7 @@ const BranchUserManagement = () => {
       sales_exicutive: "info",
       purchase_manager: "warning",
       purchase_exicutive: "info",
+      procurement: "warning",
       back_office_exicutive: "secondary",
       administrator: "dark",
     };
