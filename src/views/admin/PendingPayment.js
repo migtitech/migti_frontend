@@ -73,7 +73,7 @@ const PAYMENT_STATUS_BADGE = {
   full_payment_received: { label: "Full", color: "success" },
 };
 
-const PoPaymentSidebar = () => {
+const PendingPayment = () => {
   const { canUpdate } = usePermissions();
   const canAddPayment = canUpdate("po_payment");
 
@@ -117,7 +117,7 @@ const PoPaymentSidebar = () => {
     async (pageNumber = 1) => {
       setLoadingList(true);
       try {
-        const res = await purchaseOrderService.getAll({
+        const res = await purchaseOrderService.listMyAssigned({
           pageNumber,
           pageSize: 10,
           search: searchDebounced || undefined,
@@ -134,7 +134,7 @@ const PoPaymentSidebar = () => {
           },
         );
       } catch (err) {
-        toastError(err?.message || "Failed to load purchase orders");
+        toastError(err?.message || "Failed to load assigned purchase orders");
         setRows([]);
       } finally {
         setLoadingList(false);
@@ -249,9 +249,10 @@ const PoPaymentSidebar = () => {
             <CCardBody>
               <div className="d-flex justify-content-between flex-wrap align-items-center mb-3">
                 <div>
-                  <h4 className="mb-1">PO payment</h4>
+                  <h4 className="mb-1">Pending payment</h4>
                   <p className="text-body-secondary small mb-0">
-                    Track and record company payments against purchase orders.
+                    Purchase orders assigned to you, with received and pending
+                    amounts from the PO payment ledger.
                   </p>
                 </div>
               </div>
@@ -291,7 +292,7 @@ const PoPaymentSidebar = () => {
                             colSpan={7}
                             className="text-center text-body-secondary"
                           >
-                            No purchase orders
+                            No purchase orders assigned to you
                           </CTableDataCell>
                         </CTableRow>
                       )}
@@ -856,4 +857,4 @@ const PoPaymentSidebar = () => {
   );
 };
 
-export default PoPaymentSidebar;
+export default PendingPayment;

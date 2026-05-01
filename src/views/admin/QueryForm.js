@@ -1664,14 +1664,9 @@ const QueryForm = () => {
                             onChange={(e) =>
                               updateFormProduct("categoryId", e.target.value)
                             }
-                            disabled={!formProduct.groupId}
                             aria-label="Category"
                           >
-                            <option value="">
-                              {formProduct.groupId
-                                ? "Select category"
-                                : "Select a group first"}
-                            </option>
+                            <option value="">Select category</option>
                             {productCategories.map((c) => (
                               <option key={c._id} value={c._id}>
                                 {c.name}

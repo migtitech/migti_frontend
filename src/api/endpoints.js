@@ -231,6 +231,7 @@ export const QUOTATIONS = {
 
 export const PURCHASE_ORDERS = {
   LIST: "/purchase-orders/list",
+  MY_ASSIGNED: "/purchase-orders/my-assigned",
   GET_BY_ID: "/purchase-orders/get-by-id",
   /** `po_products` lines + line `status` (by `purchaseOrderId` and/or `poCode`) */
   PO_PRODUCT_LINES: "/purchase-orders/po-product-lines",
@@ -305,6 +306,8 @@ export const PURCHASE_BUCKET = {
   PO_PRODUCTS: "/purchase-bucket/po-products",
   PO_PRODUCT_BY_ID: (id) => `/purchase-bucket/po-products/${id}`,
   PAYMENT_REQUEST: (id) => `/purchase-bucket/po-products/${id}/payment-request`,
+  /** `po_products.attachmentDocumentId` — product image on the PO line */
+  LINE_ATTACHMENT: (id) => `/purchase-bucket/po-products/${id}/attachment`,
   MARK_PURCHASED: (id) => `/purchase-bucket/po-products/${id}/mark-purchased`,
 };
 

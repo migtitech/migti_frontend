@@ -16,18 +16,30 @@ import {
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilBasket, cilSearch } from "@coreui/icons";
-import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import proBucketService from "../../services/proBucketService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
 import { Loader } from "../../components";
 
+/** Pending listed first; default filter is All (`""`). */
 const STATUS_OPTIONS = [
-  { value: "", label: "All" },
   { value: "pending", label: "Pending" },
+  { value: "", label: "All" },
   { value: "rate_submitted", label: "Rate submitted" },
   { value: "fulfilled", label: "Fulfilled" },
 ];
+
+const sortPendingFirstThenNewest = (list) => {
+  if (!Array.isArray(list) || list.length === 0) return list || [];
+  return [...list].sort((a, b) => {
+    const ap = a.status === "pending" ? 0 : 1;
+    const bp = b.status === "pending" ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    const ta = new Date(a.createdAt || 0).getTime();
+    const tb = new Date(b.createdAt || 0).getTime();
+    return tb - ta;
+  });
+};
 
 const statusBadge = (s) => {
   switch (s) {
@@ -96,7 +108,7 @@ const ProBucketList = () => {
   const [pageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [status, setStatus] = useState("pending");
+  const [status, setStatus] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(false);
@@ -124,7 +136,7 @@ const ProBucketList = () => {
         }),
       );
       const p = parseListResponse(res);
-      setRows(p.list);
+      setRows(sortPendingFirstThenNewest(p.list));
       setTotal(p.total);
       setPendingCount(p.pendingCount);
     } catch (e) {
@@ -146,15 +158,6 @@ const ProBucketList = () => {
   return (
     <CRow>
       <CCol xs={12}>
-        <CCard className="mb-3">
-          <CCardBody>
-            <CBreadcrumb className="mb-0">
-              <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
-              <CBreadcrumbItem active>Pro Bucket</CBreadcrumbItem>
-            </CBreadcrumb>
-          </CCardBody>
-        </CCard>
-
         <CCard className="mb-4">
           <CCardHeader className="d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div className="d-flex align-items-center gap-2">
@@ -227,7 +230,7 @@ const ProBucketList = () => {
                   variant="outline"
                   onClick={() => {
                     setSearch("");
-                    setStatus("pending");
+                    setStatus("");
                     setFrom("");
                     setTo("");
                     setPage(1);

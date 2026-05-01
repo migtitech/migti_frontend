@@ -29,6 +29,7 @@ import CIcon from "@coreui/icons-react";
 import { cilMoney } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBillingRequestService from "../../services/purchaseBillingRequestService";
+import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
@@ -57,9 +58,27 @@ const unwrapPayload = (res) => {
   return inner?.data ?? inner;
 };
 
+const isImageMime = (mime) => !!mime && /^image\//i.test(String(mime));
+
+/** Preview URL for PO line `attachmentDocumentId` when it is an image. */
+const lineProductImageUrl = (att) => {
+  if (!att || typeof att !== "object") return null;
+  const path = att.path;
+  if (!path) return null;
+  if (
+    isImageMime(att.mimeType) ||
+    /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(path))
+  ) {
+    return path.startsWith("http://") || path.startsWith("https://")
+      ? path
+      : getAssetsUrl(path);
+  }
+  return null;
+};
+
 const BillingRequestList = () => {
   const { canUpdate } = usePermissions();
-  const canAct = canUpdate("request");
+  const canAct = canUpdate("billing_request");
 
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState({
@@ -391,6 +410,46 @@ const BillingRequestList = () => {
                   (line {detail.lineIndex})
                 </span>
               </p>
+
+              {(() => {
+                const att = detail.poProductId?.attachmentDocumentId;
+                const imgSrc = lineProductImageUrl(att);
+                if (imgSrc) {
+                  return (
+                    <div className="mb-3">
+                      <div className="small text-body-secondary mb-1">
+                        Product image (PO line)
+                      </div>
+                      <img
+                        src={imgSrc}
+                        alt="Product"
+                        className="rounded border"
+                        style={{ maxHeight: 200, maxWidth: "100%" }}
+                      />
+                    </div>
+                  );
+                }
+                if (att?.path) {
+                  const href =
+                    typeof att.path === "string" &&
+                    att.path.startsWith("http")
+                      ? att.path
+                      : getAssetsUrl(att.path);
+                  return (
+                    <p className="mb-3 small">
+                      <strong>Product attachment:</strong>{" "}
+                      <a
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {att.originalName || "Open file"}
+                      </a>
+                    </p>
+                  );
+                }
+                return null;
+              })()}
 
               {detail.billDocument?.url ? (
                 <p className="mb-3">

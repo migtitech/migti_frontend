@@ -86,6 +86,19 @@ const normalizeRole = (role) =>
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
 
+/** Pro-bucket rate status (Product List tab): only HOD and back-office executive */
+const canViewQuotationProductListRateStatus = (roleRaw) => {
+  const n = normalizeRole(roleRaw);
+  if (n === "head_of_department" || n === "hod") return true;
+  if (
+    n === "back_office_exicutive" ||
+    n === "back_office_executive" ||
+    n === "boe"
+  )
+    return true;
+  return n.replace(/_/g, "").includes("backoffice");
+};
+
 const getImageUrl = (img) => {
   if (!img) return "";
   if (typeof img === "string")
@@ -393,9 +406,17 @@ const QuotationView = () => {
     ? quotation.products.length
     : 0;
 
+  const showProductListRateStatus =
+    canViewQuotationProductListRateStatus(getCurrentUserRole());
+
   useEffect(() => {
     if (!quotation?.id) {
       setProBucketLines([]);
+      return;
+    }
+    if (!showProductListRateStatus) {
+      setProBucketLines([]);
+      setProBucketLoading(false);
       return;
     }
     if (activeTab !== "productList") {
@@ -420,7 +441,13 @@ const QuotationView = () => {
     return () => {
       cancelled = true;
     };
-  }, [quotation?.id, liveProductCount, activeTab, quoteLogsRefreshKey]);
+  }, [
+    quotation?.id,
+    liveProductCount,
+    activeTab,
+    quoteLogsRefreshKey,
+    showProductListRateStatus,
+  ]);
 
   useEffect(() => {
     const ci = displayQuotation?.companyInfo;
@@ -3649,12 +3676,14 @@ const QuotationView = () => {
                           >
                             Model
                           </CTableHeaderCell>
-                          <CTableHeaderCell
-                            className="text-center"
-                            style={{ width: 120 }}
-                          >
-                            Rate status
-                          </CTableHeaderCell>
+                          {showProductListRateStatus ? (
+                            <CTableHeaderCell
+                              className="text-center"
+                              style={{ width: 120 }}
+                            >
+                              Rate status
+                            </CTableHeaderCell>
+                          ) : null}
                           <CTableHeaderCell
                             className="text-center"
                             style={{ width: 82 }}
@@ -3800,46 +3829,48 @@ const QuotationView = () => {
                                   p.modelNumber ||
                                   "–"}
                               </CTableDataCell>
-                              <CTableDataCell className="text-center py-1 align-middle">
-                                {proBucketLoading ? (
-                                  <CSpinner size="sm" />
-                                ) : pb?.status ? (
-                                  <div className="d-flex flex-column align-items-center gap-1">
-                                    {proBucketStatusBadge(pb.status)}
-                                    {(pb.status === "rate_submitted" ||
-                                      pb.status === "fulfilled") &&
-                                    Array.isArray(pb.rates) &&
-                                    pb.rates.length > 0 ? (
-                                      <CButton
-                                        color="link"
-                                        className="p-0 d-inline-flex align-items-center"
-                                        onClick={() =>
-                                          setProBucketModal({
-                                            visible: true,
-                                            productName:
-                                              p.productName || "Product",
-                                            rates: pb.rates,
-                                            status: pb.status,
-                                          })
-                                        }
-                                        title="View supplier rates"
-                                      >
-                                        <CIcon
-                                          icon={cilList}
-                                          size="lg"
-                                          className={
-                                            pb.status === "fulfilled"
-                                              ? "text-success"
-                                              : "text-info"
+                              {showProductListRateStatus ? (
+                                <CTableDataCell className="text-center py-1 align-middle">
+                                  {proBucketLoading ? (
+                                    <CSpinner size="sm" />
+                                  ) : pb?.status ? (
+                                    <div className="d-flex flex-column align-items-center gap-1">
+                                      {proBucketStatusBadge(pb.status)}
+                                      {(pb.status === "rate_submitted" ||
+                                        pb.status === "fulfilled") &&
+                                      Array.isArray(pb.rates) &&
+                                      pb.rates.length > 0 ? (
+                                        <CButton
+                                          color="link"
+                                          className="p-0 d-inline-flex align-items-center"
+                                          onClick={() =>
+                                            setProBucketModal({
+                                              visible: true,
+                                              productName:
+                                                p.productName || "Product",
+                                              rates: pb.rates,
+                                              status: pb.status,
+                                            })
                                           }
-                                        />
-                                      </CButton>
-                                    ) : null}
-                                  </div>
-                                ) : (
-                                  <span className="text-muted small">—</span>
-                                )}
-                              </CTableDataCell>
+                                          title="View supplier rates"
+                                        >
+                                          <CIcon
+                                            icon={cilList}
+                                            size="lg"
+                                            className={
+                                              pb.status === "fulfilled"
+                                                ? "text-success"
+                                                : "text-info"
+                                            }
+                                          />
+                                        </CButton>
+                                      ) : null}
+                                    </div>
+                                  ) : (
+                                    <span className="text-muted small">—</span>
+                                  )}
+                                </CTableDataCell>
+                              ) : null}
                               <CTableDataCell className="text-center py-1">
                                 <CFormInput
                                   type="number"
@@ -4512,7 +4543,9 @@ const QuotationView = () => {
       </CModal>
 
       <CModal
-        visible={proBucketModal.visible}
+        visible={
+          showProductListRateStatus && Boolean(proBucketModal.visible)
+        }
         onClose={() =>
           setProBucketModal({
             visible: false,

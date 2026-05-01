@@ -8,6 +8,7 @@ import {
   CCol,
   CFormInput,
   CFormLabel,
+  CFormTextarea,
   COffcanvas,
   COffcanvasBody,
   COffcanvasHeader,
@@ -28,6 +29,8 @@ import CIcon from "@coreui/icons-react";
 import { cilTruck } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import dispatchmentBucketService from "../../services/dispatchmentBucketService";
+import documentService from "../../services/documentService";
+import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
@@ -152,6 +155,16 @@ const DispatchmentList = () => {
   const [detailId, setDetailId] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [delivering, setDelivering] = useState(false);
+  const [receivingRemark, setReceivingRemark] = useState("");
+  const [receivingFile, setReceivingFile] = useState(null);
+
+  useEffect(() => {
+    if (detailOpen && detailId) {
+      setReceivingRemark("");
+      setReceivingFile(null);
+    }
+  }, [detailOpen, detailId]);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 400);
@@ -213,6 +226,44 @@ const DispatchmentList = () => {
     setDetailOpen(false);
     setDetailId(null);
     setDetail(null);
+    setReceivingRemark("");
+    setReceivingFile(null);
+  };
+
+  const markDeliveredFromDetail = async () => {
+    if (!detailId || !canAct) return;
+    setDelivering(true);
+    try {
+      let receivingDocumentId = null;
+      if (receivingFile) {
+        const ures = await documentService.uploadAttachments([receivingFile]);
+        const pld = ures?.data || ures;
+        const docs = pld?.data?.documents || pld?.documents || [];
+        const first = docs[0];
+        const docId = first?._id || first?.id;
+        if (!docId) {
+          toastError("Could not upload receiving file");
+          return;
+        }
+        receivingDocumentId = String(docId);
+      }
+      const res = await dispatchmentBucketService.markDelivered(detailId, {
+        receivingDocumentId,
+        receivingRemark: (receivingRemark || "").trim(),
+      });
+      const payload = res?.data;
+      if (payload && payload.success === false) {
+        toastError(payload?.message || "Update failed");
+        return;
+      }
+      toastSuccess("Marked as delivered");
+      closeDetail();
+      await load();
+    } catch (e) {
+      toastError(e?.message || "Update failed");
+    } finally {
+      setDelivering(false);
+    }
   };
 
   const runAction = async (id, type) => {
@@ -222,7 +273,7 @@ const DispatchmentList = () => {
         await dispatchmentBucketService.markReadyForDispatchment(id);
         toastSuccess("Dispatchment received");
       } else {
-        await dispatchmentBucketService.markDelivered(id);
+        await dispatchmentBucketService.markDelivered(id, {});
         toastSuccess("Marked as delivered");
       }
       await load();
@@ -520,6 +571,79 @@ const DispatchmentList = () => {
                   <strong>Description:</strong> {detail.description}
                 </p>
               ) : null}
+
+              {(detail.receivingRemark ||
+                (detail.receivingDocumentId &&
+                  typeof detail.receivingDocumentId === "object" &&
+                  detail.receivingDocumentId.path)) && (
+                <div className="mt-4 pt-3 border-top">
+                  <h6 className="mb-2">Receiving (stored)</h6>
+                  {detail.receivingRemark ? (
+                    <p className="mb-2 small">
+                      <strong>Remark:</strong> {detail.receivingRemark}
+                    </p>
+                  ) : null}
+                  {detail.receivingDocumentId &&
+                  typeof detail.receivingDocumentId === "object" &&
+                  detail.receivingDocumentId.path ? (
+                    <CButton
+                      color="link"
+                      className="p-0 align-baseline"
+                      onClick={() =>
+                        window.open(
+                          getAssetsUrl(detail.receivingDocumentId.path),
+                          "_blank",
+                          "noopener",
+                        )
+                      }
+                    >
+                      Open receiving proof
+                    </CButton>
+                  ) : null}
+                </div>
+              )}
+
+              {canAct &&
+                invStatus(detail) === "ready_for_dispatchment" && (
+                  <div className="mt-4 pt-3 border-top">
+                    <h6 className="mb-3">Mark delivered</h6>
+                    <p className="small text-body-secondary mb-3">
+                      Optionally attach a receiving proof, add a remark, then
+                      confirm. This is saved on the PO line (
+                      <code>po_products</code>).
+                    </p>
+                    <CFormLabel>Receiving proof (optional)</CFormLabel>
+                    <CFormInput
+                      type="file"
+                      accept="image/*,.pdf,.doc,.docx"
+                      className="mb-3"
+                      onChange={(e) =>
+                        setReceivingFile(e?.target?.files?.[0] || null)
+                      }
+                    />
+                    <CFormLabel>Remark</CFormLabel>
+                    <CFormTextarea
+                      value={receivingRemark}
+                      onChange={(e) => setReceivingRemark(e.target.value)}
+                      rows={3}
+                      className="mb-3"
+                      placeholder="Delivery / receiving notes…"
+                    />
+                    <CButton
+                      color="success"
+                      disabled={delivering}
+                      onClick={markDeliveredFromDetail}
+                    >
+                      {delivering ? (
+                        <>
+                          <CSpinner size="sm" className="me-2" /> Saving…
+                        </>
+                      ) : (
+                        "Mark delivered"
+                      )}
+                    </CButton>
+                  </div>
+                )}
             </>
           )}
         </COffcanvasBody>
