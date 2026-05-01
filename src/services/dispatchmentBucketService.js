@@ -16,8 +16,11 @@ const dispatchmentBucketService = {
     );
     return response;
   },
-  markDelivered: async (id) => {
-    const response = await api.post(DISPATCHMENT_BUCKET.MARK_DELIVERED(id));
+  markDelivered: async (id, body = {}) => {
+    const response = await api.post(
+      DISPATCHMENT_BUCKET.MARK_DELIVERED(id),
+      body,
+    );
     return response;
   },
 };

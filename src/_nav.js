@@ -25,17 +25,19 @@ import {
   cilBasket,
   cilMoney,
   cilTruck,
+  cilClock,
 } from "@coreui/icons";
 import { CNavItem, CNavGroup } from "@coreui/react";
 
-// Purchase Manager / Purchase Executive – show only these bucket items (used in AppSidebar)
+// Purchase Manager / Purchase Executive – reference nav (permission-filter if wired to sidebar)
 export const PURCHASE_ROLE_NAV = [
   {
     component: CNavItem,
-    name: "Dashboard",
-    to: "/dashboard",
+    name: "Pro Dashboard",
+    to: "/pro-dashboard",
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
-    module: null,
+    module: "pro_bucket",
+    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -71,14 +73,6 @@ export const PURCHASE_ROLE_NAV = [
   },
   {
     component: CNavItem,
-    name: "Purchase Bucket",
-    to: "/purchase-bucket",
-    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
-    module: "purchase_bucket",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
-  },
-  {
-    component: CNavItem,
     name: "PO Bucket",
     to: "/po-bucket",
     icon: <CIcon icon={cilBasket} customClassName="nav-icon" />,
@@ -90,7 +84,7 @@ export const PURCHASE_ROLE_NAV = [
     name: "PO payment",
     to: "/po-payment",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
-    module: "billing",
+    module: "po_payment",
     roles: ["purchase_manager", "purchase_exicutive", "procurement"],
   },
   {
@@ -120,7 +114,14 @@ const _nav = [
     name: "Dashboard",
     to: "/dashboard",
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
-    module: null, // All roles can access dashboard
+    module: null, // Shown unless employee has granular permissions (see AppSidebar)
+  },
+  {
+    component: CNavItem,
+    name: "Pro Dashboard",
+    to: "/pro-dashboard",
+    icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
+    module: "pro_bucket",
   },
   {
     component: CNavItem,
@@ -305,21 +306,30 @@ const _nav = [
     name: "Purchase Order",
     to: "/purchase-order-sidebar",
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
-    module: "billing",
+    module: "po_payment",
   },
   {
     component: CNavItem,
     name: "PO payment",
     to: "/po-payment",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
-    module: "billing",
+    module: "po_payment",
+  },
+  {
+    component: CNavItem,
+    name: "Pending payment",
+    to: "/pending-payment",
+    icon: <CIcon icon={cilClock} customClassName="nav-icon" />,
+    module: "po_payment",
+    /** Only roles whose normalized name starts with `sales` (e.g. sales_manager). */
+    rolePrefix: "sales",
   },
   {
     component: CNavItem,
     name: "Billing request",
     to: "/billing-requests",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
-    module: "request",
+    module: "billing_request",
   },
   {
     component: CNavItem,

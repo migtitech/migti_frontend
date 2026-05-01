@@ -19,8 +19,12 @@ import { cilContrast, cilMenu, cilSun } from "@coreui/icons";
 
 import { AppBreadcrumb } from "./index";
 import { AppHeaderDropdown } from "./header/index";
+import { useAuth } from "../context/AuthContext";
 
 const AppHeader = () => {
+  const { user } = useAuth();
+  const isPurchaseManager =
+    String(user?.role || "").toLowerCase() === "purchase_manager";
   const headerRef = useRef();
   const { colorMode, setColorMode } = useColorModes(
     "coreui-free-react-admin-template-theme",
@@ -44,20 +48,25 @@ const AppHeader = () => {
 
   return (
     <CHeader position="sticky" className="mb-4 p-0" ref={headerRef}>
-      <CContainer className="border-bottom px-4" fluid>
+      <CContainer
+        className={`border-bottom px-4${isPurchaseManager ? " py-2" : ""}`}
+        fluid
+      >
         <CHeaderToggler
           onClick={() => dispatch({ type: "set", sidebarShow: !sidebarShow })}
           style={{ marginInlineStart: "-14px" }}
         >
           <CIcon icon={cilMenu} size="lg" />
         </CHeaderToggler>
-        <CHeaderNav className="d-none d-md-flex">
-          <CNavItem>
-            <CNavLink to="/dashboard" as={NavLink}>
-              Dashboard
-            </CNavLink>
-          </CNavItem>
-        </CHeaderNav>
+        {!isPurchaseManager && (
+          <CHeaderNav className="d-none d-md-flex">
+            <CNavItem>
+              <CNavLink to="/dashboard" as={NavLink}>
+                Dashboard
+              </CNavLink>
+            </CNavItem>
+          </CHeaderNav>
+        )}
         <CHeaderNav className="ms-auto">
           <CDropdown variant="nav-item" placement="bottom-end">
             <CDropdownToggle caret={false}>

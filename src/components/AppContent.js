@@ -24,6 +24,7 @@ const AppContent = () => {
                       module={route.module}
                       action={route.action}
                       allowedRoles={route.allowedRoles}
+                      allowedRolePrefix={route.allowedRolePrefix}
                     >
                       <route.element />
                     </ProtectedRoute>

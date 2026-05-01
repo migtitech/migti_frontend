@@ -9,6 +9,12 @@ const purchaseOrderService = {
     return response;
   },
 
+  /** POs where `salesEmployeeId` is the logged-in user (see backend `/my-assigned`). */
+  listMyAssigned: async (params = {}) => {
+    const response = await api.get(PURCHASE_ORDERS.MY_ASSIGNED, { params });
+    return response;
+  },
+
   getById: async (id) => {
     const response = await api.get(PURCHASE_ORDERS.GET_BY_ID, {
       params: { purchaseOrderId: id },

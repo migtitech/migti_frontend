@@ -111,7 +111,7 @@ const PurchaseOrderSidebar = () => {
   const drawerWidth = 420;
   const { branchId } = useBranchContext();
   const { canCreate } = usePermissions();
-  const canCreatePurchaseOrders = canCreate("billing");
+  const canCreatePurchaseOrders = canCreate("po_payment");
   const [loadingInit, setLoadingInit] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState(TAB_KEYS.po);

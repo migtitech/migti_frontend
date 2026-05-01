@@ -8,14 +8,15 @@ import { useAuth, FULL_ACCESS_ROLES } from "../context/AuthContext";
  */
 const MODULE_INHERITANCE = {
   po_bucket: ["purchase_orders"],
-  purchase_bucket: ["pro_bucket"],
   inventory_bucket: ["purchase_orders"],
   dispatchment: ["purchase_orders"],
-  request: ["purchase_orders"],
-  billing: ["purchase_orders"],
+  /** Legacy `request` + list API previously allowed `purchase_orders:read`. */
+  billing_request: ["request", "purchase_orders"],
+  /** Legacy PO–billing module was `billing`. */
+  po_payment: ["billing"],
 };
 
-const normalizeRole = (role) =>
+export const normalizeRole = (role) =>
   String(role || "")
     .trim()
     .toLowerCase()
@@ -99,6 +100,29 @@ const usePermissions = () => {
     [user, isFullAccess, permissions],
   );
 
+  /**
+   * Finance role sidebar: show a nav item only when `user.permissions` grants that
+   * nav `module` (any action). Uses MODULE_INHERITANCE for legacy keys (`billing` →
+   * po_payment, `request` / `purchase_orders` → billing_request and PO flows, etc.).
+   * Does not use full-access or role bypasses — the menu mirrors the permission list.
+   */
+  const financeNavShowsModule = useCallback(
+    (module) => {
+      if (!module) return false;
+      if (!Array.isArray(permissions) || permissions.length === 0) return false;
+      const keyMatch = (key) =>
+        permissions.some(
+          (p) => typeof p === "string" && p.startsWith(`${key}:`),
+        );
+      if (keyMatch(module)) return true;
+      for (const legacy of MODULE_INHERITANCE[module] || []) {
+        if (keyMatch(legacy)) return true;
+      }
+      return false;
+    },
+    [permissions],
+  );
+
   return {
     hasPermission,
     canRead,
@@ -106,6 +130,7 @@ const usePermissions = () => {
     canUpdate,
     canDelete,
     hasAnyPermission,
+    financeNavShowsModule,
     isFullAccess,
     permissions,
   };

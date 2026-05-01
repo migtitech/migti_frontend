@@ -18,6 +18,11 @@ const purchaseBucketService = {
     const response = await api.post(PURCHASE_BUCKET.MARK_PURCHASED(id), {});
     return response;
   },
+  /** Set or clear `attachmentDocumentId` on the po_product line (product image). */
+  setLineAttachment: async (id, body) => {
+    const response = await api.patch(PURCHASE_BUCKET.LINE_ATTACHMENT(id), body);
+    return response;
+  },
 };
 
 export default purchaseBucketService;

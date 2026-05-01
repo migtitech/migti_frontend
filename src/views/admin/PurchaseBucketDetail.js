@@ -21,6 +21,7 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CSpinner,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilArrowLeft } from "@coreui/icons";
@@ -115,6 +116,24 @@ const lineStatusBadge = (s) => {
   }
 };
 
+const isImageMime = (mime) => !!mime && /^image\//i.test(String(mime));
+
+/** Preview URL for line `attachmentDocumentId` when it is an image. */
+const lineProductImageUrl = (att) => {
+  if (!att || typeof att !== "object") return null;
+  const path = att.path;
+  if (!path) return null;
+  if (
+    isImageMime(att.mimeType) ||
+    /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(path))
+  ) {
+    return path.startsWith("http://") || path.startsWith("https://")
+      ? path
+      : getAssetsUrl(path);
+  }
+  return null;
+};
+
 const lineStatusText = (s) => {
   switch (s) {
     case "purchased":
@@ -145,8 +164,11 @@ const PurchaseBucketDetail = () => {
   const [amount, setAmount] = useState("");
   const [billDocId, setBillDocId] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadingLineImage, setUploadingLineImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [markingPurchased, setMarkingPurchased] = useState(false);
+
+  const unwrapPayload = (res) => res?.data?.data ?? res?.data;
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -155,7 +177,7 @@ const PurchaseBucketDetail = () => {
       const res = await withMinimumDelay(() =>
         purchaseBucketService.getById(id),
       );
-      const doc = res?.data;
+      const doc = unwrapPayload(res);
       setItem(
         doc && typeof doc === "object" && !Array.isArray(doc) ? doc : null,
       );
@@ -170,6 +192,52 @@ const PurchaseBucketDetail = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  const onLineProductImage = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!id) return;
+    setUploadingLineImage(true);
+    try {
+      const up = await documentService.uploadAttachments([file]);
+      const docs = up?.data?.documents || up?.documents || [];
+      const first = docs[0];
+      if (!first?._id) {
+        toastError("Upload did not return a document id");
+        return;
+      }
+      const res = await purchaseBucketService.setLineAttachment(id, {
+        attachmentDocumentId: String(first._id),
+      });
+      const doc = unwrapPayload(res);
+      if (doc && typeof doc === "object") setItem(doc);
+      else await load();
+      toastSuccess("Product image saved on this line");
+    } catch (err) {
+      toastError(err?.message || "Failed to save product image");
+    } finally {
+      setUploadingLineImage(false);
+    }
+  };
+
+  const clearLineProductImage = async () => {
+    if (!id) return;
+    setUploadingLineImage(true);
+    try {
+      const res = await purchaseBucketService.setLineAttachment(id, {
+        attachmentDocumentId: null,
+      });
+      const doc = unwrapPayload(res);
+      if (doc && typeof doc === "object") setItem(doc);
+      else await load();
+      toastSuccess("Product image removed");
+    } catch (err) {
+      toastError(err?.message || "Failed to remove image");
+    } finally {
+      setUploadingLineImage(false);
+    }
+  };
 
   const onUploadBill = async (e) => {
     const file = e.target.files?.[0];
@@ -209,7 +277,7 @@ const PurchaseBucketDetail = () => {
         amount: amt,
         attachmentDocumentId: billDocId,
       });
-      const doc = res?.data;
+      const doc = unwrapPayload(res);
       if (doc) setItem(doc);
       toastSuccess("Payment request raised");
       setAmount("");
@@ -731,6 +799,115 @@ const PurchaseBucketDetail = () => {
                   </CTabPane>
 
                   <CTabPane visible={activeTab === "billing"}>
+                    <CCard className="mb-4 border-0 shadow-sm">
+                      <CCardHeader className="bg-light">
+                        <strong>Product image</strong>
+                        <span className="text-body-secondary fw-normal small ms-2">
+                          Stored on this PO line (
+                          <code>po_products.attachmentDocumentId</code>)
+                        </span>
+                      </CCardHeader>
+                      <CCardBody>
+                        {lineProductImageUrl(item?.attachmentDocumentId) ? (
+                          <div className="mb-3">
+                            <img
+                              src={lineProductImageUrl(
+                                item.attachmentDocumentId,
+                              )}
+                              alt="Product"
+                              className="rounded border"
+                              style={{ maxHeight: 200, maxWidth: "100%" }}
+                            />
+                          </div>
+                        ) : item?.attachmentDocumentId?.path ? (
+                          <p className="small text-body-secondary mb-3">
+                            <a
+                              href={getAssetsUrl(
+                                item.attachmentDocumentId.path,
+                              )}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              Open attached file (
+                              {item.attachmentDocumentId.originalName ||
+                                "document"}
+                              )
+                            </a>
+                          </p>
+                        ) : (
+                          <p className="small text-body-secondary mb-3">
+                            No product image yet.
+                          </p>
+                        )}
+                        {canRaise ? (
+                          <div className="d-flex flex-wrap align-items-center gap-2">
+                            <CFormInput
+                              type="file"
+                              id="pb-line-img-gallery"
+                              className="d-none"
+                              accept="image/*"
+                              disabled={uploadingLineImage}
+                              onChange={onLineProductImage}
+                            />
+                            <CFormInput
+                              type="file"
+                              id="pb-line-img-camera"
+                              className="d-none"
+                              accept="image/*"
+                              capture="environment"
+                              disabled={uploadingLineImage}
+                              onChange={onLineProductImage}
+                            />
+                            <CButton
+                              color="primary"
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              disabled={uploadingLineImage}
+                              onClick={() =>
+                                document
+                                  .getElementById("pb-line-img-gallery")
+                                  ?.click()
+                              }
+                            >
+                              Upload image
+                            </CButton>
+                            <CButton
+                              color="info"
+                              variant="outline"
+                              size="sm"
+                              type="button"
+                              disabled={uploadingLineImage}
+                              onClick={() =>
+                                document
+                                  .getElementById("pb-line-img-camera")
+                                  ?.click()
+                              }
+                            >
+                              Take photo
+                            </CButton>
+                            {uploadingLineImage ? (
+                              <span className="small text-body-secondary d-inline-flex align-items-center gap-1">
+                                <CSpinner size="sm" /> Saving…
+                              </span>
+                            ) : null}
+                            {item?.attachmentDocumentId && (
+                              <CButton
+                                color="danger"
+                                variant="ghost"
+                                size="sm"
+                                type="button"
+                                disabled={uploadingLineImage}
+                                onClick={clearLineProductImage}
+                              >
+                                Remove image
+                              </CButton>
+                            )}
+                          </div>
+                        ) : null}
+                      </CCardBody>
+                    </CCard>
+
                     {lineStatusFromItem(item) === "finance_approved" ? (
                       <p className="text-body-secondary mb-0">
                         This line has been <strong>approved by finance</strong>.

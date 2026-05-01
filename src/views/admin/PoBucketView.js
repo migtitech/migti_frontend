@@ -31,6 +31,7 @@ import { cilArrowLeft, cilPlus, cilTrash, cilX } from "@coreui/icons";
 import { getAssetsUrl } from "../../api/endpoints";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import documentService from "../../services/documentService";
+import employeeService from "../../services/employeeService";
 import { Loader } from "../../components";
 import { toastError, toastSuccess } from "../../utils/toast";
 
@@ -228,6 +229,10 @@ const PoBucketView = () => {
   /** `po_products` lines from API (read-only) */
   const [poProductStatusBundle, setPoProductStatusBundle] = useState(null);
   const [poProductStatusLoading, setPoProductStatusLoading] = useState(false);
+  const [assignEmployeeOptions, setAssignEmployeeOptions] = useState([]);
+  const [assignEmployeesLoading, setAssignEmployeesLoading] = useState(false);
+  const [assignSelectValue, setAssignSelectValue] = useState("");
+  const [savingAssignedEmployee, setSavingAssignedEmployee] = useState(false);
   const poId = purchaseOrder?._id || purchaseOrder?.id;
 
   const serverAttachmentId = useMemo(
@@ -273,6 +278,9 @@ const PoBucketView = () => {
             ? data.products.map(toEditableProduct)
             : [],
         );
+        const ae = data?.assigned_employee;
+        const aid = ae?._id != null ? String(ae._id) : "";
+        setAssignSelectValue(aid);
       } catch (err) {
         if (!cancelled) {
           toastError(err?.message || "Failed to load purchase order");
@@ -338,8 +346,102 @@ const PoBucketView = () => {
     setProductsForm(
       Array.isArray(data?.products) ? data.products.map(toEditableProduct) : [],
     );
+    const ae = data?.assigned_employee;
+    setAssignSelectValue(
+      ae?._id != null ? String(ae._id) : "",
+    );
     if (activeTab === "productStatus") {
       await loadPoProductStatusLines();
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadEmployees = async () => {
+      setAssignEmployeesLoading(true);
+      try {
+        const merged = [];
+        let page = 1;
+        let hasNext = true;
+        while (hasNext && page <= 40) {
+          const res = await employeeService.getAll({
+            pageNumber: page,
+            pageSize: 100,
+            roleKeywords: "sales,hod",
+          });
+          const payload = res?.data?.data ?? res?.data ?? res;
+          const batch = payload?.employees ?? [];
+          merged.push(...batch);
+          hasNext = !!payload?.pagination?.hasNextPage;
+          page += 1;
+        }
+        if (!cancelled) setAssignEmployeeOptions(merged);
+      } catch (err) {
+        if (!cancelled) {
+          toastError(err?.message || "Failed to load employees");
+          setAssignEmployeeOptions([]);
+        }
+      } finally {
+        if (!cancelled) setAssignEmployeesLoading(false);
+      }
+    };
+    loadEmployees();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const selectedAssignEmployeePayload = useMemo(() => {
+    if (!assignSelectValue) return null;
+    const found = assignEmployeeOptions.find(
+      (e) => String(e?._id || e?.id) === assignSelectValue,
+    );
+    if (found) {
+      const { password: _p, ...rest } = found;
+      return rest;
+    }
+    const snap = purchaseOrder?.assigned_employee;
+    if (snap && String(snap._id || "") === assignSelectValue) {
+      const { password: _p, ...rest } = snap;
+      return rest;
+    }
+    return null;
+  }, [
+    assignSelectValue,
+    assignEmployeeOptions,
+    purchaseOrder?.assigned_employee,
+  ]);
+
+  const assignEmployeeDirty = useMemo(() => {
+    const cur = purchaseOrder?.assigned_employee;
+    const curId = cur?._id != null ? String(cur._id) : "";
+    return String(assignSelectValue || "") !== curId;
+  }, [assignSelectValue, purchaseOrder?.assigned_employee]);
+
+  const saveAssignedEmployee = async () => {
+    if (!poId) {
+      toastError("Purchase order id not found");
+      return;
+    }
+    if (assignSelectValue && !selectedAssignEmployeePayload) {
+      toastError("Could not resolve employee details. Reload the page and try again.");
+      return;
+    }
+    setSavingAssignedEmployee(true);
+    try {
+      await purchaseOrderService.update(poId, {
+        assigned_employee: assignSelectValue
+          ? selectedAssignEmployeePayload
+          : null,
+      });
+      toastSuccess(
+        assignSelectValue ? "Assigned employee saved" : "Assignment cleared",
+      );
+      await refreshAfterUpdate();
+    } catch (err) {
+      toastError(err?.message || "Failed to save assignment");
+    } finally {
+      setSavingAssignedEmployee(false);
     }
   };
 
@@ -618,6 +720,15 @@ const PoBucketView = () => {
                   style={{ cursor: "pointer" }}
                 >
                   Product status
+                </CNavLink>
+              </CNavItem>
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === "assignEmployee"}
+                  onClick={() => setActiveTab("assignEmployee")}
+                  style={{ cursor: "pointer" }}
+                >
+                  Assign employee
                 </CNavLink>
               </CNavItem>
               <CNavItem>
@@ -1072,6 +1183,84 @@ const PoBucketView = () => {
                         </CTableBody>
                       </CTable>
                     )}
+                  </CCardBody>
+                </CCard>
+              </CTabPane>
+
+              <CTabPane visible={activeTab === "assignEmployee"}>
+                <CCard className="mb-4 border-0 shadow-sm">
+                  <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
+                    <strong>Assign employee</strong>
+                    <CButton
+                      color="primary"
+                      size="sm"
+                      disabled={
+                        savingAssignedEmployee ||
+                        !assignEmployeeDirty ||
+                        (assignSelectValue && !selectedAssignEmployeePayload)
+                      }
+                      onClick={saveAssignedEmployee}
+                    >
+                      {savingAssignedEmployee ? "Saving..." : "Save assignment"}
+                    </CButton>
+                  </CCardHeader>
+                  <CCardBody className="pt-3">
+                    <CRow className="g-3">
+                      <CCol md={8} lg={6}>
+                        <CFormLabel>Employee (sales / HOD roles)</CFormLabel>
+                        <CFormSelect
+                          value={assignSelectValue}
+                          disabled={assignEmployeesLoading}
+                          onChange={(e) => setAssignSelectValue(e.target.value)}
+                        >
+                          <option value="">
+                            {assignEmployeesLoading
+                              ? "Loading employees…"
+                              : "— None —"}
+                          </option>
+                          {assignEmployeeOptions.map((emp) => {
+                            const eid = String(emp?._id || emp?.id || "");
+                            const label = `${emp?.name || "Employee"} (${emp?.role || "role"})`;
+                            return (
+                              <option key={eid || label} value={eid}>
+                                {label}
+                              </option>
+                            );
+                          })}
+                        </CFormSelect>
+                        <div className="small text-body-secondary mt-2">
+                          Stores a full snapshot of the selected employee on this
+                          purchase order.
+                        </div>
+                      </CCol>
+                      {purchaseOrder?.assigned_employee &&
+                      typeof purchaseOrder.assigned_employee === "object" ? (
+                        <CCol xs={12}>
+                          <div className="border rounded p-3 bg-light small">
+                            <div className="fw-semibold mb-2">
+                              Current snapshot (saved)
+                            </div>
+                            <div className="row g-2">
+                              {[
+                                ["Name", purchaseOrder.assigned_employee.name],
+                                ["Email", purchaseOrder.assigned_employee.email],
+                                ["Phone", purchaseOrder.assigned_employee.phone],
+                                ["Role", purchaseOrder.assigned_employee.role],
+                                [
+                                  "Designation",
+                                  purchaseOrder.assigned_employee.designation,
+                                ],
+                              ].map(([k, v]) => (
+                                <div className="col-md-4" key={k}>
+                                  <span className="text-body-secondary">{k}: </span>
+                                  {v != null && v !== "" ? String(v) : "—"}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </CCol>
+                      ) : null}
+                    </CRow>
                   </CCardBody>
                 </CCard>
               </CTabPane>

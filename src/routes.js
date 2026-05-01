@@ -73,6 +73,9 @@ const PurchaseOrderSidebar = React.lazy(
 const PoPaymentSidebar = React.lazy(
   () => import("./views/admin/PoPaymentSidebar"),
 );
+const PendingPayment = React.lazy(
+  () => import("./views/admin/PendingPayment"),
+);
 const BillingRequestList = React.lazy(
   () => import("./views/admin/BillingRequestList"),
 );
@@ -112,6 +115,7 @@ const ProBucketList = React.lazy(() => import("./views/admin/ProBucketList"));
 const ProBucketDetail = React.lazy(
   () => import("./views/admin/ProBucketDetail"),
 );
+const ProDashboard = React.lazy(() => import("./views/dashboard/ProDashboard"));
 const PurchaseBucketList = React.lazy(
   () => import("./views/admin/PurchaseBucketList"),
 );
@@ -471,21 +475,29 @@ const routes = [
     path: "/purchase-order-sidebar",
     name: "Purchase Order",
     element: PurchaseOrderSidebar,
-    module: "billing",
+    module: "po_payment",
     action: "read",
   },
   {
     path: "/po-payment",
     name: "PO payment",
     element: PoPaymentSidebar,
-    module: "billing",
+    module: "po_payment",
     action: "read",
+  },
+  {
+    path: "/pending-payment",
+    name: "Pending payment",
+    element: PendingPayment,
+    module: "po_payment",
+    action: "read",
+    allowedRolePrefix: "sales",
   },
   {
     path: "/billing-requests",
     name: "Billing request",
     element: BillingRequestList,
-    module: "request",
+    module: "billing_request",
     action: "read",
   },
   {
@@ -615,6 +627,13 @@ const routes = [
     action: "read",
   },
 
+  {
+    path: "/pro-dashboard",
+    name: "Pro Dashboard",
+    element: ProDashboard,
+    module: "pro_bucket",
+    action: "read",
+  },
   {
     path: "/pro-bucket",
     name: "Pro Bucket",

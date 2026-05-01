@@ -33,6 +33,7 @@ const MODULE_LABEL_DISPLAY = {
   "Purchase Orders": "Purchase Order",
   "Visit Management": "Visit Management",
   "My Visits": "My Visits",
+  "Po Payment": "PO payment",
 };
 
 const ALLOWED_MODULE_LABELS = new Set([
@@ -59,11 +60,12 @@ const ALLOWED_MODULE_LABELS = new Set([
   "Branch Analytics",
   "Target Analytics",
   "Purchase Orders",
+  "Pro Bucket",
   "Po Bucket",
   "Purchase Bucket",
   "Inventory Bucket",
-  "Billing",
-  "Request",
+  "Po Payment",
+  "Billing Request",
   "Dispatchment",
   "Employees",
   "Visit Management",

@@ -118,6 +118,52 @@ const formatInrAmount = (value) =>
   Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 const isHodApproved = (quotation) => quotation?.status === "hod_approved";
 
+/** Quotation row is tied to a query when `queryId` is populated or is an ObjectId string */
+const quotationHasQueryId = (quotation) => {
+  const raw = quotation?.queryId;
+  if (raw == null) return false;
+  if (typeof raw === "object") {
+    return Boolean(raw._id ?? raw.id);
+  }
+  return String(raw).trim().length > 0;
+};
+
+/** Items line count from `query_products` when a query exists; otherwise legacy products / items text */
+const formatQuotationItemsLabel = (quotation) => {
+  if (quotationHasQueryId(quotation)) {
+    const n = Number(quotation.queryProductItemCount) || 0;
+    return `${n} item(s)`;
+  }
+  if (Array.isArray(quotation.products) && quotation.products.length > 0) {
+    return `${quotation.products.length} product(s)`;
+  }
+  const items = quotation.items?.substring(0, 50) || "";
+  const suffix =
+    quotation.items &&
+    quotation.items.length > 50 &&
+    !quotation.products?.length
+      ? "..."
+      : "";
+  return `${items}${suffix}` || "—";
+};
+
+const formatRateSubmittedFulfilledCount = (quotation) => {
+  if (!quotationHasQueryId(quotation)) return "—";
+  return String(
+    Number(quotation.queryProductRateSubmittedOrFulfilledCount) || 0,
+  );
+};
+
+/** All query lines have rate_submitted or fulfilled when counts match (and there is at least one line) */
+const isQueryProductLineCountsEqual = (quotation) => {
+  if (!quotationHasQueryId(quotation)) return false;
+  const items = Number(quotation.queryProductItemCount) || 0;
+  const rated = Number(quotation.queryProductRateSubmittedOrFulfilledCount) || 0;
+  return items > 0 && items === rated;
+};
+
+const QUOTATION_ROW_RATED_COMPLETE_BG = "#e9ecef";
+
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "draft", label: "Drafted" },
@@ -529,11 +575,18 @@ const QuotationList = () => {
               <div>
                 {filteredQuotations && filteredQuotations.length > 0 ? (
                   filteredQuotations.map((quotation, index) => {
+                    const rowRatedComplete =
+                      isQueryProductLineCountsEqual(quotation);
                     return (
                       <CCard
                         key={quotation.id}
                         className="mb-3 border"
-                        style={{ cursor: "pointer" }}
+                        style={{
+                          cursor: "pointer",
+                          ...(rowRatedComplete && {
+                            backgroundColor: QUOTATION_ROW_RATED_COMPLETE_BG,
+                          }),
+                        }}
                         onClick={() => navigate(`/quotations/${quotation.id}`)}
                       >
                         <CCardBody>
@@ -557,15 +610,11 @@ const QuotationList = () => {
                           </div>
                           <div className="small mb-1">
                             <strong>Products / Items:</strong>{" "}
-                            {Array.isArray(quotation.products) &&
-                            quotation.products.length > 0
-                              ? `${quotation.products.length} product(s)`
-                              : quotation.items?.substring(0, 50) || ""}
-                            {quotation.items &&
-                            quotation.items.length > 50 &&
-                            !quotation.products?.length
-                              ? "..."
-                              : ""}
+                            {formatQuotationItemsLabel(quotation)}
+                          </div>
+                          <div className="small mb-1">
+                            <strong>Rate submitted / fulfilled:</strong>{" "}
+                            {formatRateSubmittedFulfilledCount(quotation)}
                           </div>
                           <div className="small mb-1">
                             <strong>Total Amount:</strong> ₹
@@ -648,6 +697,9 @@ const QuotationList = () => {
                     <CTableHeaderCell>Quotation No.</CTableHeaderCell>
                     <CTableHeaderCell>Company</CTableHeaderCell>
                     <CTableHeaderCell>Products / Items</CTableHeaderCell>
+                    <CTableHeaderCell>
+                      Rate submitted / fulfilled
+                    </CTableHeaderCell>
                     <CTableHeaderCell>Total Amount</CTableHeaderCell>
                     <CTableHeaderCell>Status</CTableHeaderCell>
                     <CTableHeaderCell>Date</CTableHeaderCell>
@@ -658,13 +710,20 @@ const QuotationList = () => {
                 <CTableBody>
                   {filteredQuotations && filteredQuotations.length > 0 ? (
                     filteredQuotations.map((quotation, index) => {
+                      const rowRatedComplete =
+                        isQueryProductLineCountsEqual(quotation);
                       return (
                         <CTableRow
                           key={quotation.id}
                           onClick={() =>
                             navigate(`/quotations/${quotation.id}`)
                           }
-                          style={{ cursor: "pointer" }}
+                          style={{
+                            cursor: "pointer",
+                            ...(rowRatedComplete && {
+                              backgroundColor: QUOTATION_ROW_RATED_COMPLETE_BG,
+                            }),
+                          }}
                         >
                           <CTableDataCell>
                             {(currentPage - 1) * pageSize + index + 1}
@@ -693,16 +752,11 @@ const QuotationList = () => {
                             )}
                           </CTableDataCell>
                           <CTableDataCell>
+                            <small>{formatQuotationItemsLabel(quotation)}</small>
+                          </CTableDataCell>
+                          <CTableDataCell>
                             <small>
-                              {Array.isArray(quotation.products) &&
-                              quotation.products.length > 0
-                                ? `${quotation.products.length} product(s)`
-                                : quotation.items?.substring(0, 50) || ""}
-                              {quotation.items &&
-                              quotation.items.length > 50 &&
-                              !quotation.products?.length
-                                ? "..."
-                                : ""}
+                              {formatRateSubmittedFulfilledCount(quotation)}
                             </small>
                           </CTableDataCell>
                           <CTableDataCell>
@@ -770,7 +824,7 @@ const QuotationList = () => {
                     })
                   ) : (
                     <CTableRow>
-                      <CTableDataCell colSpan={8} className="text-center">
+                      <CTableDataCell colSpan={9} className="text-center">
                         {!loading &&
                           (quotations?.length === 0
                             ? "No quotations available."

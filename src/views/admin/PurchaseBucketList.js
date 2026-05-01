@@ -12,6 +12,12 @@ import {
   CRow,
   CPagination,
   CPaginationItem,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilBasket } from "@coreui/icons";
@@ -29,33 +35,6 @@ const STATUS_OPTIONS = [
   { value: "purchased", label: "Purchased" },
 ];
 
-/** Uses API `status` only (list endpoint normalizes payment-raised into `status`). */
-const statusFromRow = (row) => {
-  const s = row?.status;
-  if (s != null && String(s).trim() !== "") return String(s).trim();
-  return "pending";
-};
-
-const lineStatusBadge = (s) => {
-  switch (s) {
-    case "purchased":
-      return <CBadge color="success">Purchased</CBadge>;
-    case "finance_approved":
-      return <CBadge color="dark">Finance approved</CBadge>;
-    case "payment_request_raised":
-      return <CBadge color="info">Payment request raised</CBadge>;
-    case "inventory_received":
-      return <CBadge color="primary">Inventory received</CBadge>;
-    case "ready_for_dispatchment":
-      return <CBadge color="success">Ready for dispatch</CBadge>;
-    case "pending":
-    default:
-      return (
-        <CBadge color="warning">{s && s !== "pending" ? s : "Pending"}</CBadge>
-      );
-  }
-};
-
 const formatDateDdMmYyyy = (iso) => {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -64,6 +43,18 @@ const formatDateDdMmYyyy = (iso) => {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = String(d.getFullYear());
   return `${dd}/${mm}/${yyyy}`;
+};
+
+const cellText = (v) => {
+  if (v == null || v === "") return "—";
+  if (typeof v === "object") {
+    try {
+      return JSON.stringify(v);
+    } catch {
+      return "—";
+    }
+  }
+  return String(v);
 };
 
 const parseListResponse = (res) => {
@@ -218,64 +209,136 @@ const PurchaseBucketList = () => {
               <Loader />
             ) : (
               <>
-                <CRow className="g-3">
-                  {rows.length === 0 ? (
-                    <CCol xs={12} className="text-body-secondary">
-                      No PO lines in your groups.
-                    </CCol>
-                  ) : (
-                    rows.map((row) => (
-                      <CCol key={row._id} xs={12} sm={6} lg={4}>
-                        <CCard
-                          className="h-100 shadow-sm cursor-pointer border"
-                          role="button"
-                          tabIndex={0}
-                          onClick={() =>
-                            navigate(`/purchase-bucket/${row._id}`)
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              navigate(`/purchase-bucket/${row._id}`);
-                            }
-                          }}
-                        >
-                          <CCardBody className="d-flex flex-column">
-                            <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
-                              <strong className="text-break">
-                                {row.productName || "—"}
-                              </strong>
-                              {lineStatusBadge(statusFromRow(row))}
-                            </div>
-                            <div className="text-body-secondary small mb-1">
-                              PO:{" "}
-                              <span className="text-dark">
-                                {row.poCode || "—"}
-                              </span>
-                            </div>
-                            <div className="text-body-secondary small mb-1">
-                              Company:{" "}
-                              <span className="text-dark">
-                                {row.companyInfo?.name || "—"}
-                              </span>
-                            </div>
-                            <div className="mt-auto pt-2 small">
-                              <span className="text-body-secondary">
-                                Dispatch:{" "}
-                              </span>
-                              <strong>
+                <p className="small text-body-secondary mb-2 d-none d-md-block">
+                  Click a row to open line details.
+                </p>
+                <p className="small text-body-secondary mb-2 d-md-none">
+                  Tap a card to open line details.
+                </p>
+                {rows.length === 0 ? (
+                  <div className="text-body-secondary">
+                    No PO lines in your groups.
+                  </div>
+                ) : (
+                  <>
+                    <div className="table-responsive d-none d-md-block">
+                      <CTable
+                        hover
+                        bordered
+                        striped
+                        align="middle"
+                        className="mb-0 small"
+                      >
+                        <CTableHead className="table-light">
+                          <CTableRow>
+                            <CTableHeaderCell>PO code</CTableHeaderCell>
+                            <CTableHeaderCell>Product name</CTableHeaderCell>
+                            <CTableHeaderCell className="text-nowrap">
+                              Qty
+                            </CTableHeaderCell>
+                            <CTableHeaderCell className="text-nowrap">
+                              Dispatchment date
+                            </CTableHeaderCell>
+                            <CTableHeaderCell>Unit</CTableHeaderCell>
+                            <CTableHeaderCell className="text-nowrap">
+                              HSN number
+                            </CTableHeaderCell>
+                          </CTableRow>
+                        </CTableHead>
+                        <CTableBody>
+                          {rows.map((row, idx) => (
+                            <CTableRow
+                              key={row._id || idx}
+                              role="button"
+                              style={{ cursor: "pointer" }}
+                              onClick={() =>
+                                navigate(`/purchase-bucket/${row._id}`)
+                              }
+                            >
+                              <CTableDataCell className="text-nowrap">
+                                {cellText(row.poCode)}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {cellText(row.productName)}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-nowrap">
+                                {cellText(row.quantity)}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-nowrap">
                                 {formatDateDdMmYyyy(row.dispatchmentDate)}
-                              </strong>
-                            </div>
-                            <div className="small text-body-secondary mt-1">
-                              Qty: {row.quantity ?? "—"} {row.unit || ""}
-                            </div>
-                          </CCardBody>
-                        </CCard>
-                      </CCol>
-                    ))
-                  )}
-                </CRow>
+                              </CTableDataCell>
+                              <CTableDataCell className="text-nowrap">
+                                {cellText(row.unit)}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-nowrap">
+                                {cellText(row.hsnNumber)}
+                              </CTableDataCell>
+                            </CTableRow>
+                          ))}
+                        </CTableBody>
+                      </CTable>
+                    </div>
+
+                    <CRow className="g-3 d-md-none">
+                      {rows.map((row, idx) => (
+                        <CCol xs={12} key={row._id || idx}>
+                          <CCard
+                            className="shadow-sm border h-100"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() =>
+                              navigate(`/purchase-bucket/${row._id}`)
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                navigate(`/purchase-bucket/${row._id}`);
+                              }
+                            }}
+                          >
+                            <CCardBody className="py-3">
+                              <div className="fw-semibold text-primary mb-3">
+                                {cellText(row.poCode)}
+                              </div>
+                              <dl className="row mb-0 small g-2">
+                                <dt className="col-5 text-body-secondary">
+                                  Product
+                                </dt>
+                                <dd className="col-7 mb-2 text-break">
+                                  {cellText(row.productName)}
+                                </dd>
+                                <dt className="col-5 text-body-secondary">
+                                  Qty
+                                </dt>
+                                <dd className="col-7 mb-2">
+                                  {cellText(row.quantity)}
+                                </dd>
+                                <dt className="col-5 text-body-secondary">
+                                  Dispatchment
+                                </dt>
+                                <dd className="col-7 mb-2">
+                                  {formatDateDdMmYyyy(row.dispatchmentDate)}
+                                </dd>
+                                <dt className="col-5 text-body-secondary">
+                                  Unit
+                                </dt>
+                                <dd className="col-7 mb-2">
+                                  {cellText(row.unit)}
+                                </dd>
+                                <dt className="col-5 text-body-secondary">
+                                  HSN
+                                </dt>
+                                <dd className="col-7 mb-0">
+                                  {cellText(row.hsnNumber)}
+                                </dd>
+                              </dl>
+                            </CCardBody>
+                          </CCard>
+                        </CCol>
+                      ))}
+                    </CRow>
+                  </>
+                )}
 
                 {totalPages > 1 && (
                   <div className="d-flex justify-content-center mt-4">
