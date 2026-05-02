@@ -25,7 +25,7 @@ jobs:
         run: npm run build
 
       - name: Archive Build
-        run: tar -czf build.tar.gz dist package.json
+        run: tar -czf build.tar.gz build package.json
 
       - name: Copy Build to Server
         uses: appleboy/scp-action@v0.1.7
