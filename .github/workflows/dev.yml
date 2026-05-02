@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,24 +18,20 @@ jobs:
         with:
           node-version: 18
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Deploy to Server via SSH
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Project
+        run: npm run build
+
+      - name: Archive Build
+        run: tar -czf build.tar.gz dist package.json
+
+      - name: Copy Build to Server
+        uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           password: ${{ secrets.SERVER_PASSWORD }}
-          port: 22
-          script: |
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-            cd /var/www/migtidev/migti_frontend
-            get fetch --all
-            git checkout development
-            git stash 
-            git pull origin development
-            git stash pop
-            npm run build
+          source: "build.tar.gz"
+          target: "/var/www/migtidev/migti_frontend"
