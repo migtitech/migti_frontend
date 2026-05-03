@@ -24,6 +24,16 @@ const purchaseBillingRequestService = {
     const response = await api.put(PURCHASE_BILLING_REQUESTS.APPROVE(id), body);
     return response;
   },
+  /** Optional payment proof: pass `null` to remove. */
+  setProof: async (id, proofDocumentId) => {
+    const response = await api.put(PURCHASE_BILLING_REQUESTS.PROOF(id), {
+      proofDocumentId:
+        proofDocumentId === null || proofDocumentId === undefined
+          ? null
+          : String(proofDocumentId),
+    });
+    return response;
+  },
 };
 
 export default purchaseBillingRequestService;

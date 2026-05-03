@@ -1,7 +1,16 @@
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useMemo,
+} from "react";
 import { io } from "socket.io-client";
 import { getSocketUrl } from "../api/endpoints";
+import { getAccessToken } from "../api/axiosClient";
 import { useAuth } from "./AuthContext";
+import { emitNotificationNew } from "./notificationSocketBridge";
 import { playSirenSound, playRateUpdateSound } from "../utils/sirenSound";
 import { toast } from "react-hot-toast";
 
@@ -10,9 +19,11 @@ const SocketContext = createContext(null);
 export const SocketProvider = ({ children }) => {
   const { user } = useAuth();
   const socketRef = useRef(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
     if (!user) {
+      setIsConnected(false);
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
@@ -24,15 +35,34 @@ export const SocketProvider = ({ children }) => {
     if (!userId) return;
 
     const socketUrl = getSocketUrl();
+    const token = getAccessToken();
     const socket = io(socketUrl, {
+      path: "/socket.io/",
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: 10,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 10000,
+      timeout: 20000,
+      auth: token ? { token } : {},
+      autoConnect: true,
     });
 
     socket.on("connect", () => {
+      setIsConnected(true);
       socket.emit("register", { userId: String(userId) });
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.info("[socket] connected", socketUrl, "user", String(userId));
+      }
+    });
+
+    socket.on("disconnect", (reason) => {
+      setIsConnected(false);
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.info("[socket] disconnect", reason);
+      }
     });
 
     socket.on("task:assigned", (payload) => {
@@ -56,22 +86,53 @@ export const SocketProvider = ({ children }) => {
       toast.success(`Price updated for ${title}${detail}`, { duration: 5000 });
     });
 
-    socket.on("connect_error", () => {
-      // Optional: silent or toast for debug
+    socket.on("notification:new", (payload) => {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.info("[socket] notification:new", payload?.title, payload?._id);
+      }
+      emitNotificationNew(payload);
+    });
+
+    socket.on("connect_error", (err) => {
+      setIsConnected(false);
+      const msg =
+        err?.message ||
+        (typeof err === "string" ? err : "Could not connect to live updates");
+      toast.error(`Realtime: ${msg}`, { duration: 6000 });
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error("[socket] connect_error", socketUrl, err);
+      }
     });
 
     socketRef.current = socket;
     return () => {
+      setIsConnected(false);
       socket.disconnect();
       socketRef.current = null;
     };
   }, [user]);
 
+  const value = useMemo(
+    () => ({
+      get socket() {
+        return socketRef.current;
+      },
+      isConnected,
+    }),
+    [isConnected],
+  );
+
   return (
-    <SocketContext.Provider value={{ socket: socketRef.current }}>
-      {children}
-    </SocketContext.Provider>
+    <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
   );
 };
 
-export const useSocket = () => useContext(SocketContext);
+export const useSocket = () => {
+  const ctx = useContext(SocketContext);
+  if (!ctx) {
+    throw new Error("useSocket must be used within SocketProvider");
+  }
+  return ctx;
+};

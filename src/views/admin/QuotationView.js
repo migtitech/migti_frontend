@@ -1744,7 +1744,17 @@ const QuotationView = () => {
   };
 
   const handleConvertToPo = async () => {
-    if (!quotation?.id || !canCreatePurchaseOrder || isSnapshotPreview) return;
+    if (
+      !quotation?.id ||
+      !canCreatePurchaseOrder ||
+      isSnapshotPreview ||
+      !isHodApprovedStatus
+    ) {
+      if (quotation?.id && canCreatePurchaseOrder && !isHodApprovedStatus) {
+        toastError("Convert to PO is available only after HOD approval");
+      }
+      return;
+    }
     setConvertingPo(true);
     try {
       const res = await purchaseOrderService.createFromQuotation(quotation.id, {
@@ -2018,11 +2028,19 @@ const QuotationView = () => {
                 <CButton
                   color="success"
                   variant="outline"
-                  disabled={convertingPo || isSnapshotPreview}
+                  disabled={
+                    convertingPo ||
+                    isSnapshotPreview ||
+                    !isHodApprovedStatus
+                  }
                   onClick={handleConvertToPo}
                   className="d-inline-flex align-items-center px-3"
                   style={{ height: 40 }}
-                  title="Convert quotation to purchase order"
+                  title={
+                    isHodApprovedStatus
+                      ? "Convert quotation to purchase order"
+                      : "Convert to PO is available after HOD approval"
+                  }
                 >
                   {convertingPo ? "Converting..." : "Convert to PO"}
                 </CButton>

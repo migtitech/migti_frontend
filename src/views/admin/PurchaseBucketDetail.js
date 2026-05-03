@@ -55,6 +55,18 @@ const formatVal = (v) => {
   return String(v);
 };
 
+/** `companyInfo.area` may be a string or a populated doc / `{ name }` snapshot. */
+const formatCompanyArea = (area) => {
+  if (area == null || area === "") return "—";
+  if (typeof area === "object") {
+    const name =
+      area.name ?? area.areaName ?? area.title ?? area.label ?? "";
+    if (String(name).trim() !== "") return String(name).trim();
+    return "—";
+  }
+  return String(area);
+};
+
 /** Supplier snapshot on query line rates (Pro Bucket) */
 const formatSupplierLabel = (s) => {
   if (!s || typeof s !== "object") return "—";
@@ -310,13 +322,7 @@ const PurchaseBucketDetail = () => {
   const detailRows = item
     ? [
         ["Product", item.productName],
-        ["PO code", item.poCode],
         ["Line #", item.lineIndex],
-        [
-          "Purchase order",
-          item.purchaseOrderId?.poCode || formatVal(item.purchaseOrderId),
-        ],
-        ["PO status", item.purchaseOrderId?.status],
         [
           "Group (effective)",
           item.effectiveGroupName || formatVal(item.effectiveGroupId),
@@ -327,35 +333,13 @@ const PurchaseBucketDetail = () => {
         ["HSN", item.hsnNumber],
         ["Model", item.modelNumber],
         ["Raw product code", item.rawProductCode],
-        ["Status (line)", lineStatusText(lineStatusFromItem(item))],
         ["Dispatchment date", formatDateTime(item.dispatchmentDate)],
         ["GST %", item.gstPercentage],
-        ["PO rate", item.poRate],
-        ["Apply discount", item.applyDiscount],
-        ["Discount %", item.discountPercentage],
-        ["Discount amount", item.discountAmount],
-        ["Not available", item.notAvailable],
-        ["Not available remark", item.notAvailableRemark],
         ["Priority", item.priority],
         ["Remark", item.remark],
         ["Company", item.companyInfo?.name],
-        ["Company area", item.companyInfo?.area],
+        ["Company area", formatCompanyArea(item.companyInfo?.area)],
         ["Company location", item.companyInfo?.location],
-        ["Query code", item.queryId?.queryCode],
-        ["Quotation code", item.quotationId?.quotationCode],
-        ["Industry", item.industry_id?.name],
-        ["Branch", item.branchId?.name],
-        ["Linked product", item.product_id?.name],
-        ["SKU", item.product_id?.sku],
-        ["Procurement status (legacy)", item.procurementStatus],
-        ["Payment request amount", item.paymentRequestAmount],
-        [
-          "Payment request raised at",
-          formatDateTime(item.paymentRequestRaisedAt),
-        ],
-        ["Raised by", item.paymentRequestRaisedBy?.name],
-        ["Created", formatDateTime(item.createdAt)],
-        ["Updated", formatDateTime(item.updatedAt)],
       ]
     : [];
 
@@ -484,22 +468,6 @@ const PurchaseBucketDetail = () => {
                         </CTable>
                       </CCol>
                     </CRow>
-
-                    {item.attachmentDocumentId?.path && (
-                      <div className="mb-3">
-                        <div className="small text-body-secondary mb-1">
-                          Line attachment
-                        </div>
-                        <a
-                          href={getAssetsUrl(item.attachmentDocumentId.path)}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {item.attachmentDocumentId.originalName ||
-                            "Open attachment"}
-                        </a>
-                      </div>
-                    )}
 
                     {item.paymentRequestBillDocumentId?.path && (
                       <div className="mt-3">
@@ -640,6 +608,27 @@ const PurchaseBucketDetail = () => {
                                   </CTableRow>
                                   <CTableRow>
                                     <CTableDataCell className="text-body-secondary">
+                                      Payment proof
+                                    </CTableDataCell>
+                                    <CTableDataCell>
+                                      {br.proofDocumentId?.path ? (
+                                        <a
+                                          href={getAssetsUrl(
+                                            br.proofDocumentId.path,
+                                          )}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        >
+                                          {br.proofDocumentId.originalName ||
+                                            "Open proof"}
+                                        </a>
+                                      ) : (
+                                        "—"
+                                      )}
+                                    </CTableDataCell>
+                                  </CTableRow>
+                                  <CTableRow>
+                                    <CTableDataCell className="text-body-secondary">
                                       Approved by
                                     </CTableDataCell>
                                     <CTableDataCell>
@@ -678,16 +667,6 @@ const PurchaseBucketDetail = () => {
                   </CTabPane>
 
                   <CTabPane visible={activeTab === "rates"}>
-                    <p className="text-body-secondary small mb-3">
-                      Rates are loaded from <strong>query_products</strong> by
-                      matching <code>rawProductCode</code>
-                      {item.rawProductCode
-                        ? ` (${item.rawProductCode})`
-                        : ""}{" "}
-                      to the PO line. When the line has a query, the same query
-                      is used first; otherwise the first matching code is used.
-                    </p>
-
                     {item.queryRatesMatchNote === "missing_rawProductCode" && (
                       <p className="text-body-secondary">
                         This PO line has no raw product code set.
@@ -802,10 +781,6 @@ const PurchaseBucketDetail = () => {
                     <CCard className="mb-4 border-0 shadow-sm">
                       <CCardHeader className="bg-light">
                         <strong>Product image</strong>
-                        <span className="text-body-secondary fw-normal small ms-2">
-                          Stored on this PO line (
-                          <code>po_products.attachmentDocumentId</code>)
-                        </span>
                       </CCardHeader>
                       <CCardBody>
                         {lineProductImageUrl(item?.attachmentDocumentId) ? (
@@ -907,6 +882,70 @@ const PurchaseBucketDetail = () => {
                         ) : null}
                       </CCardBody>
                     </CCard>
+
+                    {item.purchaseBillingRequestId &&
+                      typeof item.purchaseBillingRequestId === "object" && (
+                        <CCard className="mb-4 border-0 shadow-sm">
+                          <CCardHeader className="bg-light">
+                            <strong>Payment proof</strong>
+                          </CCardHeader>
+                          <CCardBody>
+                            {lineProductImageUrl(
+                              item.purchaseBillingRequestId.proofDocumentId,
+                            ) ? (
+                              <div className="mb-2">
+                                <a
+                                  href={getAssetsUrl(
+                                    item.purchaseBillingRequestId
+                                      .proofDocumentId.path,
+                                  )}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <img
+                                    src={lineProductImageUrl(
+                                      item.purchaseBillingRequestId
+                                        .proofDocumentId,
+                                    )}
+                                    alt={
+                                      item.purchaseBillingRequestId
+                                        .proofDocumentId.originalName ||
+                                      "Payment proof"
+                                    }
+                                    className="rounded border"
+                                    style={{
+                                      maxHeight: 240,
+                                      maxWidth: "100%",
+                                      objectFit: "contain",
+                                    }}
+                                  />
+                                </a>
+                              </div>
+                            ) : item.purchaseBillingRequestId.proofDocumentId
+                                ?.path ? (
+                              <p className="small mb-0">
+                                <a
+                                  href={getAssetsUrl(
+                                    item.purchaseBillingRequestId
+                                      .proofDocumentId.path,
+                                  )}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  {item.purchaseBillingRequestId
+                                    .proofDocumentId.originalName ||
+                                    "Open proof"}
+                                </a>
+                              </p>
+                            ) : (
+                              <p className="small text-body-secondary mb-0">
+                                No payment proof uploaded for this billing
+                                request yet.
+                              </p>
+                            )}
+                          </CCardBody>
+                        </CCard>
+                      )}
 
                     {lineStatusFromItem(item) === "finance_approved" ? (
                       <p className="text-body-secondary mb-0">

@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CBadge,
@@ -32,7 +38,9 @@ import { getAssetsUrl } from "../../api/endpoints";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import documentService from "../../services/documentService";
 import employeeService from "../../services/employeeService";
+import areaService from "../../services/areaService";
 import { Loader } from "../../components";
+import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
 
 /** `status` on `po_products` (read-only here; not stored on purchase order) */
@@ -78,6 +86,47 @@ const normalizeDocId = (value) => {
 
 const isImageMime = (mime) => !!mime && /^image\//i.test(String(mime));
 
+const openPoLineDocument = (doc) => {
+  const path = doc?.path || "";
+  if (!path) return;
+  const url =
+    path.startsWith("http://") || path.startsWith("https://")
+      ? path
+      : getAssetsUrl(path);
+  window.open(url, "_blank", "noopener");
+};
+
+/** Thumbnail + open link for po_product line documents (image / payment / receiving proof). */
+const renderPoLineDocumentCell = (doc) => {
+  if (!doc || !doc._id) {
+    return <span className="text-body-secondary small">—</span>;
+  }
+  const path = doc.path || "";
+  const looksLikeImagePath = /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(path);
+  const showThumb = isImageMime(doc.mimeType) || looksLikeImagePath;
+  return (
+    <div className="d-flex flex-column align-items-start gap-1 py-1">
+      {showThumb ? (
+        <AuthImage
+          documentId={String(doc._id)}
+          fallbackUrl={path ? getAssetsUrl(path) : ""}
+          alt=""
+          className="rounded border bg-light"
+          style={{ width: 52, height: 52, objectFit: "cover" }}
+        />
+      ) : null}
+      <CButton
+        color="link"
+        className="p-0 small align-baseline text-nowrap"
+        disabled={!path}
+        onClick={() => openPoLineDocument(doc)}
+      >
+        Open
+      </CButton>
+    </div>
+  );
+};
+
 const emptyProduct = {
   productName: "",
   description: "",
@@ -106,6 +155,9 @@ const isFutureDateInput = (value) => {
   if (!value) return true;
   return value > getTodayInputDate();
 };
+
+/** When `companyInfo.area` is an ObjectId, we show the zone (area) name but save the id if unchanged. */
+const emptyCompanyAreaMeta = () => ({ areaId: "", resolvedName: "" });
 
 const toNumberOrNull = (value) => {
   if (value === "" || value == null) return null;
@@ -233,6 +285,7 @@ const PoBucketView = () => {
   const [assignEmployeesLoading, setAssignEmployeesLoading] = useState(false);
   const [assignSelectValue, setAssignSelectValue] = useState("");
   const [savingAssignedEmployee, setSavingAssignedEmployee] = useState(false);
+  const companyAreaMetaRef = useRef(emptyCompanyAreaMeta());
   const poId = purchaseOrder?._id || purchaseOrder?.id;
 
   const serverAttachmentId = useMemo(
@@ -264,15 +317,48 @@ const PoBucketView = () => {
         const pm = Array.isArray(ci.purchaseManagers)
           ? ci.purchaseManagers[0] || {}
           : {};
+        const rawArea = String(ci.area ?? "").trim();
+        const areaIsObjectId = OBJECT_ID_RE.test(rawArea);
+        companyAreaMetaRef.current = emptyCompanyAreaMeta();
         setCompanyForm({
           name: ci.name || "",
-          area: ci.area || "",
+          area: areaIsObjectId ? "" : rawArea,
           location: ci.location || "",
           address: ci.address || "",
           purchaseManagerName: pm.name || "",
           purchaseManagerPhone: pm.phone || "",
           purchaseManagerEmail: pm.email || "",
         });
+        if (areaIsObjectId) {
+          companyAreaMetaRef.current = {
+            areaId: rawArea,
+            resolvedName: "",
+          };
+          try {
+            const areaRes = await areaService.getById(rawArea);
+            const a =
+              areaRes?.data?.data ?? areaRes?.data ?? areaRes ?? null;
+            const zoneName = String(a?.name ?? "").trim();
+            if (!cancelled) {
+              companyAreaMetaRef.current = {
+                areaId: rawArea,
+                resolvedName: zoneName,
+              };
+              setCompanyForm((prev) => ({
+                ...prev,
+                area: zoneName || rawArea,
+              }));
+            }
+          } catch {
+            if (!cancelled) {
+              companyAreaMetaRef.current = emptyCompanyAreaMeta();
+              setCompanyForm((prev) => ({
+                ...prev,
+                area: rawArea,
+              }));
+            }
+          }
+        }
         setProductsForm(
           Array.isArray(data?.products)
             ? data.products.map(toEditableProduct)
@@ -457,10 +543,22 @@ const PoBucketView = () => {
     }
     setSavingCompany(true);
     try {
+      const meta = companyAreaMetaRef.current;
+      const areaTrimmed = String(companyForm.area ?? "").trim();
+      let areaForApi = areaTrimmed;
+      if (meta.areaId) {
+        const resName = String(meta.resolvedName ?? "").trim();
+        if (
+          areaTrimmed === resName ||
+          (areaTrimmed === meta.areaId && !resName)
+        ) {
+          areaForApi = meta.areaId;
+        }
+      }
       await purchaseOrderService.update(poId, {
         companyInfo: {
           name: companyForm.name,
-          area: companyForm.area,
+          area: areaForApi,
           location: companyForm.location,
           address: companyForm.address,
           purchaseManagers: [
@@ -1148,6 +1246,9 @@ const PoBucketView = () => {
                             <CTableHeaderCell>Raw code</CTableHeaderCell>
                             <CTableHeaderCell>Qty</CTableHeaderCell>
                             <CTableHeaderCell>Unit</CTableHeaderCell>
+                            <CTableHeaderCell>Product image</CTableHeaderCell>
+                            <CTableHeaderCell>Payment proof</CTableHeaderCell>
+                            <CTableHeaderCell>Receiving proof</CTableHeaderCell>
                             <CTableHeaderCell>
                               Status (po_product)
                             </CTableHeaderCell>
@@ -1175,6 +1276,21 @@ const PoBucketView = () => {
                                 {row.quantity ?? "—"}
                               </CTableDataCell>
                               <CTableDataCell>{row.unit || "—"}</CTableDataCell>
+                              <CTableDataCell className="align-top">
+                                {renderPoLineDocumentCell(
+                                  row.productImageDocument,
+                                )}
+                              </CTableDataCell>
+                              <CTableDataCell className="align-top">
+                                {renderPoLineDocumentCell(
+                                  row.paymentProofDocument,
+                                )}
+                              </CTableDataCell>
+                              <CTableDataCell className="align-top">
+                                {renderPoLineDocumentCell(
+                                  row.receivingProofDocument,
+                                )}
+                              </CTableDataCell>
                               <CTableDataCell className="text-nowrap">
                                 {lineInventoryStatusBadge(row.status)}
                               </CTableDataCell>

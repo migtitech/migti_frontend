@@ -114,6 +114,8 @@ const QueryForm = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const isEdit = Boolean(id);
+  /** New query only: each line must have group + category (edit keeps them optional). */
+  const requireGroupCategory = !isEdit;
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -437,6 +439,8 @@ const QueryForm = () => {
       description: q.description || "",
       product_id: null,
       productCode: "",
+      groupId: (q.groupId && (q.groupId._id || q.groupId)) || "",
+      categoryId: (q.categoryId && (q.categoryId._id || q.categoryId)) || "",
       isNewProduct: true,
       images: imageDocs,
       sourceQueryNewProductId: q._id || null,
@@ -483,6 +487,16 @@ const QueryForm = () => {
     ) {
       toastError("Quantity is required");
       return;
+    }
+    if (requireGroupCategory) {
+      if (!String(formProduct.groupId || "").trim()) {
+        toastError("Group is required");
+        return;
+      }
+      if (!String(formProduct.categoryId || "").trim()) {
+        toastError("Category is required");
+        return;
+      }
     }
 
     setAddingProductToQuery(true);
@@ -599,6 +613,16 @@ const QueryForm = () => {
     ) {
       toastError("Quantity is required");
       return;
+    }
+    if (requireGroupCategory) {
+      if (!String(formProduct.groupId || "").trim()) {
+        toastError("Group is required");
+        return;
+      }
+      if (!String(formProduct.categoryId || "").trim()) {
+        toastError("Category is required");
+        return;
+      }
     }
     let uploadedDocs = [];
     if (productImageFiles.length > 0) {
@@ -1021,6 +1045,34 @@ const QueryForm = () => {
           `Product "${(p.productName || "").trim() || i + 1}": GST % must be between 0 and 100`,
         );
         return;
+      }
+      if (requireGroupCategory) {
+        const gid = p.groupId
+          ? String(
+              typeof p.groupId === "object"
+                ? p.groupId._id || p.groupId
+                : p.groupId,
+            ).trim()
+          : "";
+        const cid = p.categoryId
+          ? String(
+              typeof p.categoryId === "object"
+                ? p.categoryId._id || p.categoryId
+                : p.categoryId,
+            ).trim()
+          : "";
+        if (!gid) {
+          toastError(
+            `Product "${(p.productName || "").trim() || i + 1}": group is required`,
+          );
+          return;
+        }
+        if (!cid) {
+          toastError(
+            `Product "${(p.productName || "").trim() || i + 1}": category is required`,
+          );
+          return;
+        }
       }
     }
     setSubmitting(true);
@@ -1635,7 +1687,14 @@ const QueryForm = () => {
                     <CRow>
                       <CCol md={6}>
                         <div className="mb-3">
-                          <CFormLabel>Group (optional)</CFormLabel>
+                          <CFormLabel>
+                            Group
+                            {requireGroupCategory ? (
+                              <span className="text-danger"> *</span>
+                            ) : (
+                              " (optional)"
+                            )}
+                          </CFormLabel>
                           <CFormSelect
                             value={formProduct.groupId || ""}
                             onChange={(e) =>
@@ -1646,8 +1705,13 @@ const QueryForm = () => {
                               }))
                             }
                             aria-label="Group"
+                            aria-required={requireGroupCategory}
                           >
-                            <option value="">Select group</option>
+                            <option value="">
+                              {requireGroupCategory
+                                ? "Select group (required)"
+                                : "Select group"}
+                            </option>
                             {productGroups.map((g) => (
                               <option key={g._id} value={g._id}>
                                 {g.name}
@@ -1658,15 +1722,32 @@ const QueryForm = () => {
                       </CCol>
                       <CCol md={6}>
                         <div className="mb-3">
-                          <CFormLabel>Category (optional)</CFormLabel>
+                          <CFormLabel>
+                            Category
+                            {requireGroupCategory ? (
+                              <span className="text-danger"> *</span>
+                            ) : (
+                              " (optional)"
+                            )}
+                          </CFormLabel>
                           <CFormSelect
                             value={formProduct.categoryId || ""}
                             onChange={(e) =>
                               updateFormProduct("categoryId", e.target.value)
                             }
                             aria-label="Category"
+                            aria-required={requireGroupCategory}
+                            disabled={
+                              requireGroupCategory && !formProduct.groupId
+                            }
                           >
-                            <option value="">Select category</option>
+                            <option value="">
+                              {requireGroupCategory && !formProduct.groupId
+                                ? "Select a group first"
+                                : requireGroupCategory
+                                  ? "Select category (required)"
+                                  : "Select category"}
+                            </option>
                             {productCategories.map((c) => (
                               <option key={c._id} value={c._id}>
                                 {c.name}

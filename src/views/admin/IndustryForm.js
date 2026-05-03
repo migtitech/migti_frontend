@@ -75,11 +75,7 @@ const industrySchema = yup.object({
   subZoneId: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
-  gstNumber: yup.string().when("$isEdit", {
-    is: true,
-    then: () => gstinOptional(),
-    otherwise: () => gstinRequired(),
-  }),
+  gstNumber: gstinRequired(),
   purchase_manager_name: yup
     .string()
     .trim()
@@ -300,6 +296,7 @@ const IndustryForm = () => {
         const payload = {
           location: values.location || "",
           address: values.address || "",
+          gstNumber: (values.gstNumber || "").trim().toUpperCase(),
           subZoneId:
             (values.subZoneId && String(values.subZoneId).trim()) || null,
           purchaseManagers: (values.purchaseManagers || [])
@@ -423,13 +420,10 @@ const IndustryForm = () => {
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>GST Number {!isEdit ? "*" : ""}</CFormLabel>
+                <CFormLabel>GST Number *</CFormLabel>
                 <CFormInput
                   {...register("gstNumber")}
                   placeholder="e.g. 27AABCU9603R1ZM"
-                  readOnly={isEdit}
-                  disabled={isEdit}
-                  className={isEdit ? "bg-light" : ""}
                 />
                 {errors.gstNumber && (
                   <div className="text-danger small mt-1">
