@@ -456,6 +456,13 @@ const QueryList = () => {
                                   : "-"}
                               </div>
                               <div className="small mb-1">
+                                <strong>Rate available:</strong>{" "}
+                                {String(
+                                  Number(q.queryProductRateAvailableCount) ||
+                                    0,
+                                )}
+                              </div>
+                              <div className="small mb-1">
                                 <strong>Quotation no.:</strong>{" "}
                                 {Array.isArray(q.convertedQuotations) &&
                                 q.convertedQuotations.length > 0
@@ -566,6 +573,7 @@ const QueryList = () => {
                           <CTableHeaderCell>Status</CTableHeaderCell>
                           <CTableHeaderCell>Company</CTableHeaderCell>
                           <CTableHeaderCell>Products</CTableHeaderCell>
+                          <CTableHeaderCell>Rate available</CTableHeaderCell>
                           <CTableHeaderCell>Quotation no.</CTableHeaderCell>
                           <CTableHeaderCell>Date</CTableHeaderCell>
                           <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -632,6 +640,12 @@ const QueryList = () => {
                                 {q.products?.length
                                   ? `${q.products.length} item(s)`
                                   : "-"}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {String(
+                                  Number(q.queryProductRateAvailableCount) ||
+                                    0,
+                                )}
                               </CTableDataCell>
                               <CTableDataCell className="small">
                                 {Array.isArray(q.convertedQuotations) &&
@@ -741,7 +755,7 @@ const QueryList = () => {
                           ))
                         ) : (
                           <CTableRow>
-                            <CTableDataCell colSpan={8} className="text-center">
+                            <CTableDataCell colSpan={9} className="text-center">
                               No queries found.
                             </CTableDataCell>
                           </CTableRow>

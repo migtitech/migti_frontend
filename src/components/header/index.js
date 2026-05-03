@@ -1,3 +1,4 @@
 import AppHeaderDropdown from "./AppHeaderDropdown";
+import AppHeaderNotifications from "./AppHeaderNotifications";
 
-export { AppHeaderDropdown };
+export { AppHeaderDropdown, AppHeaderNotifications };

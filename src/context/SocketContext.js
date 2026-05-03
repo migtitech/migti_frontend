@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import { getSocketUrl } from "../api/endpoints";
+import { getAccessToken } from "../api/axiosClient";
 import { useAuth } from "./AuthContext";
+import { emitNotificationNew } from "./notificationSocketBridge";
 import { playSirenSound, playRateUpdateSound } from "../utils/sirenSound";
 import { toast } from "react-hot-toast";
 
@@ -24,11 +26,13 @@ export const SocketProvider = ({ children }) => {
     if (!userId) return;
 
     const socketUrl = getSocketUrl();
+    const token = getAccessToken();
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      auth: token ? { token } : {},
     });
 
     socket.on("connect", () => {
@@ -54,6 +58,10 @@ export const SocketProvider = ({ children }) => {
       if (rate) msgParts.push(rate);
       const detail = msgParts.length ? ` (${msgParts.join(" - ")})` : "";
       toast.success(`Price updated for ${title}${detail}`, { duration: 5000 });
+    });
+
+    socket.on("notification:new", (payload) => {
+      emitNotificationNew(payload);
     });
 
     socket.on("connect_error", () => {

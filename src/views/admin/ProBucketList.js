@@ -314,27 +314,34 @@ const ProBucketList = () => {
                 </CRow>
 
                 {total > pageSize && (
-                  <CPagination
-                    align="center"
-                    className="mt-3"
-                    aria-label="Pro Bucket pages"
-                  >
-                    <CPaginationItem
-                      disabled={page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  <div className="d-flex flex-column align-items-center mt-3 gap-2">
+                    <span className="small text-body-secondary">
+                      Page {page} of {totalPages}
+                    </span>
+                    <CPagination
+                      align="center"
+                      className="mb-0"
+                      aria-label="Pro Bucket pages"
                     >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active>{page}</CPaginationItem>
-                    <CPaginationItem
-                      disabled={page >= totalPages}
-                      onClick={() =>
-                        setPage((p) => Math.min(totalPages, p + 1))
-                      }
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
+                      <CPaginationItem
+                        disabled={page <= 1}
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      >
+                        Previous
+                      </CPaginationItem>
+                      <CPaginationItem active aria-current="page">
+                        {page}
+                      </CPaginationItem>
+                      <CPaginationItem
+                        disabled={page >= totalPages}
+                        onClick={() =>
+                          setPage((p) => Math.min(totalPages, p + 1))
+                        }
+                      >
+                        Next
+                      </CPaginationItem>
+                    </CPagination>
+                  </div>
                 )}
               </>
             )}
