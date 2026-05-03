@@ -50,7 +50,6 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           script: |
             cd /var/www/migtidev/migti_frontend
-
             rm -rf build
             tar -xzf build.tar.gz
             rm -f build.tar.gz
