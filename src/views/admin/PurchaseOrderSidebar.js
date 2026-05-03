@@ -493,12 +493,8 @@ const PurchaseOrderSidebar = () => {
                 <div className="d-flex gap-2">
                   <CButton
                     color="primary"
-                    onClick={() => {
-                      setBillingModal(false);
-                      setBillingAttachment(null);
-                      setPoAttachment(null);
-                      setPoModal(true);
-                    }}
+                    disabled
+                    title="Add PO is not available from this page"
                   >
                     Add PO
                   </CButton>

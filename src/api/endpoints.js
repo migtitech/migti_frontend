@@ -1,5 +1,20 @@
-export const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:7200/api";
+/**
+ * Env sometimes ends up with `/api` twice (e.g. `https://host/api/api`),
+ * which yields 404 on `/api/api/v1/...`. Collapse repeats.
+ */
+export const normalizeApiRoot = (url) => {
+  let s = String(url ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+  while (/\/api\/api(\/|$)/i.test(s)) {
+    s = s.replace(/\/api\/api/gi, "/api");
+  }
+  return s;
+};
+
+export const BASE_URL = normalizeApiRoot(
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:7200/api",
+);
 
 /**
  * Socket.IO must hit the Node server (same origin as HTTP API), not the Vite dev origin.
