@@ -1,4 +1,4 @@
-name: CI-CD Pipeline
+name: Build and Deploy to Development Server
 
 on:
   push:
@@ -42,3 +42,5 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           source: "build.tar.gz"
           target: "/var/www/migtidev/migti_frontend"
+
+
