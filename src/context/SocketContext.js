@@ -14,6 +14,9 @@ import { emitNotificationNew } from "./notificationSocketBridge";
 import { playSirenSound, playRateUpdateSound } from "../utils/sirenSound";
 import { toast } from "react-hot-toast";
 
+/** Set true when `wss://…/socket.io` is reachable; false skips all client socket usage (no WS errors in console/UI). */
+const SOCKET_IO_ENABLED = false;
+
 const SocketContext = createContext(null);
 
 export const SocketProvider = ({ children }) => {
@@ -33,6 +36,15 @@ export const SocketProvider = ({ children }) => {
 
     const userId = user._id || user.id;
     if (!userId) return;
+
+    if (!SOCKET_IO_ENABLED) {
+      setIsConnected(false);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      return;
+    }
 
     const socketUrl = getSocketUrl();
     const token = getAccessToken();

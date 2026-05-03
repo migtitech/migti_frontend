@@ -34,7 +34,6 @@ const SIDEBAR_COUNT_BADGE_STYLE = {
 const HOD_HIDDEN_PATHS = new Set([
   "/billing-requests",
   "/my-visits",
-  "/purchase-order-sidebar",
   "/dispatchment",
   "/inventory-bucket",
   "/pro-bucket",
