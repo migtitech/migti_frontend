@@ -25,12 +25,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Install Dependencies
-        run: npm install
-
-      - name: Build Project
-        run: npm run build
-
       - name: Archive Build
         run: tar -czf build.tar.gz build package.json
 
