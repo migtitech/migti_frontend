@@ -132,6 +132,9 @@ const InventoryBucketList = React.lazy(
 const DispatchmentList = React.lazy(
   () => import("./views/admin/DispatchmentList"),
 );
+const DeliveryApprovalList = React.lazy(
+  () => import("./views/admin/DeliveryApprovalList"),
+);
 
 // Employees
 const EmployeeList = React.lazy(() => import("./views/admin/EmployeeList"));
@@ -668,6 +671,19 @@ const routes = [
     element: DispatchmentList,
     module: "dispatchment",
     action: "read",
+  },
+  {
+    path: "/delivery-approval",
+    name: "Delivery approval",
+    element: DeliveryApprovalList,
+    module: null,
+    action: "read",
+    allowedRoles: [
+      "super_admin",
+      "admin",
+      "head_of_department",
+      "hod",
+    ],
   },
   {
     path: "/pro-bucket/:id",

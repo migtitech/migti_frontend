@@ -15,6 +15,8 @@ import {
   CBadge,
   CAlert,
   CAvatar,
+  CPagination,
+  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilPencil, cilTrash } from "@coreui/icons";
@@ -33,7 +35,13 @@ const EmployeeTable = ({
   onDelete,
   canUpdate,
   canDelete,
+  page = 1,
+  pageSize = 10,
+  pagination = {},
+  onPageChange,
 }) => {
+  const totalPages = pagination?.totalPages ?? 1;
+  const totalItems = pagination?.totalItems ?? 0;
   const branchById = useMemo(() => {
     const map = new Map();
     branches.forEach((branch) => {
@@ -97,13 +105,14 @@ const EmployeeTable = ({
                 <CTableBody>
                   {employees.map((employee, index) => {
                     const branch = branchById.get(String(employee.branchId));
+                    const rowNumber = (page - 1) * pageSize + index + 1;
                     return (
                       <CTableRow
                         key={employee.id}
                         style={{ cursor: "pointer" }}
                         onClick={() => onView(employee.id)}
                       >
-                        <CTableDataCell>{index + 1}</CTableDataCell>
+                        <CTableDataCell>{rowNumber}</CTableDataCell>
                         <CTableDataCell>
                           <div className="d-flex align-items-center">
                             <CAvatar
@@ -195,6 +204,40 @@ const EmployeeTable = ({
                   )}
                 </CTableBody>
               </CTable>
+            )}
+            {!loading && totalItems > 0 && onPageChange && (
+              <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3 px-2 pb-2">
+                <div className="small text-medium-emphasis">
+                  Showing{" "}
+                  {Math.min((page - 1) * pageSize + 1, totalItems)}-
+                  {Math.min(page * pageSize, totalItems)} of {totalItems}
+                </div>
+                {totalPages > 1 && (
+                  <CPagination className="mb-0" aria-label="Employee pages">
+                    <CPaginationItem
+                      disabled={page <= 1}
+                      onClick={() => page > 1 && onPageChange(page - 1)}
+                      style={{ cursor: page <= 1 ? "default" : "pointer" }}
+                    >
+                      Previous
+                    </CPaginationItem>
+                    <CPaginationItem active aria-current="page">
+                      {page}
+                    </CPaginationItem>
+                    <CPaginationItem
+                      disabled={page >= totalPages}
+                      onClick={() =>
+                        page < totalPages && onPageChange(page + 1)
+                      }
+                      style={{
+                        cursor: page >= totalPages ? "default" : "pointer",
+                      }}
+                    >
+                      Next
+                    </CPaginationItem>
+                  </CPagination>
+                )}
+              </div>
             )}
           </CCardBody>
         </CCard>

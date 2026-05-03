@@ -1,22 +1,37 @@
 export const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:7200/api";
 
-/** Socket.IO server URL (same host as API, no /api path) */
+/**
+ * Socket.IO must hit the Node server (same origin as HTTP API), not the Vite dev origin.
+ * Optional: VITE_SOCKET_URL=http://localhost:7200
+ * If VITE_API_BASE_URL is relative (e.g. /api), we default to same hostname and port 7200.
+ */
 export const getSocketUrl = () => {
-  const base = BASE_URL.replace(/\/api\/?$/, "");
-  return (
-    base ||
-    (typeof window !== "undefined"
-      ? window.location.origin
-      : "http://localhost:7200")
-  );
+  const explicit = import.meta.env.VITE_SOCKET_URL?.trim();
+  if (explicit) {
+    return explicit.replace(/\/$/, "");
+  }
+
+  const api = String(BASE_URL || "").trim();
+  const stripped = api.replace(/\/api\/?$/i, "").replace(/\/$/, "");
+  if (/^https?:\/\//i.test(stripped)) {
+    return stripped;
+  }
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname } = window.location;
+    const port =
+      import.meta.env.VITE_BACKEND_PORT?.trim() ||
+      import.meta.env.VITE_API_PORT?.trim() ||
+      "7200";
+    return `${protocol}//${hostname}:${port}`;
+  }
+
+  return "http://localhost:7200";
 };
 
-/** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
-export const getAssetsBaseUrl = () => {
-  const base = BASE_URL.replace(/\/api\/?$/, "");
-  return base || (typeof window !== "undefined" ? window.location.origin : "");
-};
+/** Base URL for assets (same origin as API / socket, no `/api` path). */
+export const getAssetsBaseUrl = () => getSocketUrl();
 /** If path is full URL (e.g. S3), return as-is; else build local /assets/ URL */
 export const getAssetsUrl = (path) => {
   if (!path) return "";
@@ -251,6 +266,7 @@ export const PURCHASE_BILLING_REQUESTS = {
   LIST: "/purchase-billing-requests/list",
   BY_ID: (id) => `/purchase-billing-requests/${id}`,
   REMARK: (id) => `/purchase-billing-requests/${id}/remark`,
+  PROOF: (id) => `/purchase-billing-requests/${id}/proof`,
   APPROVE: (id) => `/purchase-billing-requests/${id}/approve`,
 };
 
@@ -330,6 +346,14 @@ export const DISPATCHMENT_BUCKET = {
     `/dispatchment-bucket/po-products/${id}/mark-delivered`,
 };
 
+/** HOD queue: lines with `deliverySubStatus: hod_approval_pending` */
+export const DELIVERY_APPROVAL = {
+  PO_PRODUCTS: "/delivery-approval/po-products",
+  PO_PRODUCT_BY_ID: (id) => `/delivery-approval/po-products/${id}`,
+  APPROVE_DELIVERY: (id) =>
+    `/delivery-approval/po-products/${id}/approve-delivery`,
+};
+
 export const ADMIN = {
   PERMISSIONS_MODULES: "/admin/permissions/modules",
 };
@@ -368,4 +392,5 @@ export default {
   PURCHASE_BUCKET,
   INVENTORY_BUCKET,
   DISPATCHMENT_BUCKET,
+  DELIVERY_APPROVAL,
 };

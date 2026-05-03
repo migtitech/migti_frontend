@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -73,7 +74,9 @@ export const NotificationProvider = ({ children }) => {
     return undefined;
   }, [isAuthenticated, user, refreshUnread, clearFlashTimer]);
 
-  useEffect(() => {
+  // useLayoutEffect so the bridge is registered before SocketProvider's useEffect
+  // opens the connection (avoids missing the first notification:new).
+  useLayoutEffect(() => {
     const unregister = registerNotificationNewHandler((payload) => {
       setUnreadCount((c) => c + 1);
       setUnreadList((prev) => {

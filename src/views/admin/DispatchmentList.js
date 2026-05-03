@@ -8,6 +8,7 @@ import {
   CCol,
   CFormInput,
   CFormLabel,
+  CFormSelect,
   CFormTextarea,
   COffcanvas,
   COffcanvasBody,
@@ -39,6 +40,13 @@ import usePermissions from "../../hooks/usePermissions";
 const serverStatus = (d) => d?.status ?? d?.inventoryStatus;
 
 const invStatus = (d) => String(serverStatus(d) || "pending");
+
+/** All = both statuses; otherwise filter to one (matches API). */
+const STATUS_FILTER_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "ready_for_dispatchment", label: "Ready for dispatchment" },
+  { value: "delivered", label: "Delivered" },
+];
 
 const STATUS_LABELS = {
   inventory_received: "Inventory received",
@@ -148,8 +156,8 @@ const DispatchmentList = () => {
   const [searchDebounced, setSearchDebounced] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
+  const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
-  const [actionId, setActionId] = useState(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailId, setDetailId] = useState(null);
@@ -173,7 +181,7 @@ const DispatchmentList = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, from, to]);
+  }, [searchDebounced, from, to, status]);
 
   const load = async () => {
     setLoading(true);
@@ -185,6 +193,7 @@ const DispatchmentList = () => {
           search: searchDebounced.trim() || undefined,
           from: from || undefined,
           to: to || undefined,
+          status: status.trim() ? status.trim() : undefined,
         }),
       );
       const p = parseListResponse(res);
@@ -201,7 +210,7 @@ const DispatchmentList = () => {
 
   useEffect(() => {
     load();
-  }, [page, pageSize, searchDebounced, from, to]);
+  }, [page, pageSize, searchDebounced, from, to, status]);
 
   const openDetail = async (id) => {
     setDetailId(id);
@@ -256,31 +265,15 @@ const DispatchmentList = () => {
         toastError(payload?.message || "Update failed");
         return;
       }
-      toastSuccess("Marked as delivered");
+      toastSuccess(
+        "Marked as delivered — pending HOD approval in Delivery approval",
+      );
       closeDetail();
       await load();
     } catch (e) {
       toastError(e?.message || "Update failed");
     } finally {
       setDelivering(false);
-    }
-  };
-
-  const runAction = async (id, type) => {
-    setActionId(String(id));
-    try {
-      if (type === "ready") {
-        await dispatchmentBucketService.markReadyForDispatchment(id);
-        toastSuccess("Dispatchment received");
-      } else {
-        await dispatchmentBucketService.markDelivered(id, {});
-        toastSuccess("Marked as delivered");
-      }
-      await load();
-    } catch (e) {
-      toastError(e?.message || "Update failed");
-    } finally {
-      setActionId(null);
     }
   };
 
@@ -304,8 +297,8 @@ const DispatchmentList = () => {
             <CIcon icon={cilTruck} className="text-primary" />
             <strong>Dispatchment</strong>
             <span className="text-body-secondary small">
-              PO lines with status <em>Inventory received</em> or{" "}
-              <em>Ready for dispatchment</em>
+              PO lines <em>Ready for dispatchment</em> or <em>Delivered</em> —
+              use status to filter
             </span>
           </CCardHeader>
           <CCardBody>
@@ -317,6 +310,20 @@ const DispatchmentList = () => {
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Product name, PO number, or raw product code"
                 />
+              </CCol>
+              <CCol xs={6} md={2}>
+                <CFormLabel>Status</CFormLabel>
+                <CFormSelect
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  aria-label="Filter by status"
+                >
+                  {STATUS_FILTER_OPTIONS.map((o) => (
+                    <option key={o.value || "all"} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </CFormSelect>
               </CCol>
               <CCol xs={6} md={2}>
                 <CFormLabel>From</CFormLabel>
@@ -362,14 +369,12 @@ const DispatchmentList = () => {
                           colSpan={8}
                           className="text-body-secondary"
                         >
-                          No lines in this queue. Lines appear here when
-                          inventory is received or ready for dispatch.
+                          No lines match. Lines appear here when marked ready
+                          for dispatchment or after delivery.
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
                       rows.map((row) => {
-                        const st = invStatus(row);
-                        const busy = actionId && String(row._id) === actionId;
                         return (
                           <CTableRow key={row._id}>
                             <CTableDataCell>
@@ -408,36 +413,6 @@ const DispatchmentList = () => {
                               {statusBadge(serverStatus(row))}
                             </CTableDataCell>
                             <CTableDataCell className="text-end text-nowrap d-flex flex-wrap align-items-center justify-content-end gap-1">
-                              {canAct && st === "inventory_received" && (
-                                <CButton
-                                  size="sm"
-                                  color="primary"
-                                  disabled={!!busy}
-                                  onClick={() => runAction(row._id, "ready")}
-                                >
-                                  {busy ? (
-                                    <CSpinner size="sm" />
-                                  ) : (
-                                    "Dispatchment received"
-                                  )}
-                                </CButton>
-                              )}
-                              {canAct && st === "ready_for_dispatchment" && (
-                                <CButton
-                                  size="sm"
-                                  color="success"
-                                  disabled={!!busy}
-                                  onClick={() =>
-                                    runAction(row._id, "delivered")
-                                  }
-                                >
-                                  {busy ? (
-                                    <CSpinner size="sm" />
-                                  ) : (
-                                    "Mark delivered"
-                                  )}
-                                </CButton>
-                              )}
                               <CButton
                                 size="sm"
                                 color="secondary"

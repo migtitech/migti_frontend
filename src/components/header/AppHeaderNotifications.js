@@ -11,8 +11,10 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilBell } from "@coreui/icons";
 import { useNotifications } from "../../context/NotificationContext";
+import { useSocket } from "../../context/SocketContext";
 
 const AppHeaderNotifications = () => {
+  const { isConnected } = useSocket();
   const {
     unreadCount,
     unreadList,
@@ -47,8 +49,24 @@ const AppHeaderNotifications = () => {
           caret={false}
           className="position-relative py-1"
           onClick={() => refreshUnread()}
+          title={
+            isConnected
+              ? "Live updates connected"
+              : "Live updates disconnected — check API URL and that the backend is running"
+          }
         >
           <CIcon icon={cilBell} size="lg" />
+          <span
+            className="position-absolute rounded-circle border border-light"
+            style={{
+              width: "0.55rem",
+              height: "0.55rem",
+              right: "2px",
+              bottom: "4px",
+              backgroundColor: isConnected ? "var(--cui-success)" : "var(--cui-secondary)",
+            }}
+            aria-hidden
+          />
           {unreadCount > 0 ? (
             <CBadge
               color="danger"

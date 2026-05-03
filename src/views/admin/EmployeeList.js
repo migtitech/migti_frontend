@@ -19,6 +19,9 @@ const EmployeeList = () => {
   const [branches, setBranches] = useState([]);
   const [branchFilterId, setBranchFilterId] = useState("");
   const [branchDefaultApplied, setBranchDefaultApplied] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+  const [pagination, setPagination] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -36,20 +39,34 @@ const EmployeeList = () => {
     setLoading(true);
     setError("");
     try {
-      const params = {};
+      const params = {
+        pageNumber: page,
+        pageSize,
+      };
       const effectiveBranchId = branchFilterId || userBranchId;
       if (effectiveBranchId) params.branchId = effectiveBranchId;
       const response = await withMinimumDelay(() =>
         employeeService.getAll(params),
       );
-      const list = response?.data?.employees || response?.data || [];
+      const payload = response?.data ?? response;
+      const list = payload?.employees || (Array.isArray(payload) ? payload : []);
+      const pag = payload?.pagination || {};
+      setPagination(pag);
       setEmployees(list.map(normalizeId));
+
+      const totalPages = pag?.totalPages ?? 1;
+      const totalItems = pag?.totalItems ?? 0;
+      if (list.length === 0 && totalItems > 0 && page > totalPages) {
+        setPage(totalPages);
+      } else if (list.length === 0 && totalItems === 0 && page !== 1) {
+        setPage(1);
+      }
     } catch (err) {
       toastError(err?.message || "Failed to load employees");
     } finally {
       setLoading(false);
     }
-  }, [branchFilterId, userBranchId]);
+  }, [branchFilterId, userBranchId, page, pageSize]);
 
   const loadBranches = useCallback(async () => {
     try {
@@ -76,6 +93,7 @@ const EmployeeList = () => {
     if (branches.some((b) => String(b.id || b._id) === id)) {
       setBranchFilterId(id);
       setBranchDefaultApplied(true);
+      setPage(1);
     }
   }, [userBranchId, branches, branchDefaultApplied]);
 
@@ -91,8 +109,13 @@ const EmployeeList = () => {
     setError("");
     try {
       await employeeService.delete(id);
-      setEmployees((prev) => prev.filter((employee) => employee.id !== id));
       toastSuccess("Employee deleted successfully");
+      const wasLastOnPage = employees.length === 1;
+      if (wasLastOnPage && page > 1) {
+        setPage((p) => p - 1);
+      } else {
+        loadEmployees();
+      }
     } catch (err) {
       toastError(err?.message || "Failed to delete employee");
     } finally {
@@ -111,7 +134,10 @@ const EmployeeList = () => {
           <CCol md={4}>
             <CFormSelect
               value={branchFilterId}
-              onChange={(e) => setBranchFilterId(e.target.value)}
+              onChange={(e) => {
+                setBranchFilterId(e.target.value);
+                setPage(1);
+              }}
             >
               <option value="">All branches</option>
               {branches.map((b) => (
@@ -134,6 +160,10 @@ const EmployeeList = () => {
         onDelete={handleDeleteClick}
         canUpdate={canUpdate}
         canDelete={canDelete}
+        page={page}
+        pageSize={pageSize}
+        pagination={pagination}
+        onPageChange={setPage}
       />
       <ConfirmDialog
         visible={confirmDelete.visible}

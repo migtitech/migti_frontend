@@ -29,6 +29,7 @@ import CIcon from "@coreui/icons-react";
 import { cilMoney } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBillingRequestService from "../../services/purchaseBillingRequestService";
+import documentService from "../../services/documentService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
@@ -102,6 +103,7 @@ const BillingRequestList = () => {
   const [remarkDraft, setRemarkDraft] = useState("");
   const [savingRemark, setSavingRemark] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [uploadingProof, setUploadingProof] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => setPoCodeDebounced(poCode), 400);
@@ -191,6 +193,50 @@ const BillingRequestList = () => {
       toastError(e?.message || "Could not save remark");
     } finally {
       setSavingRemark(false);
+    }
+  };
+
+  const onUploadProof = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !detailId || !canAct) return;
+    setUploadingProof(true);
+    try {
+      const up = await documentService.uploadAttachments([file]);
+      const docs = up?.data?.documents || up?.documents || [];
+      const first = docs[0];
+      if (!first?._id) {
+        toastError("Upload did not return a document id");
+        return;
+      }
+      const res = await purchaseBillingRequestService.setProof(
+        detailId,
+        String(first._id),
+      );
+      const d = unwrapPayload(res);
+      if (d) setDetail(d);
+      toastSuccess("Proof saved");
+      load();
+    } catch (err) {
+      toastError(err?.message || "Could not save proof");
+    } finally {
+      setUploadingProof(false);
+    }
+  };
+
+  const onClearProof = async () => {
+    if (!detailId || !canAct) return;
+    setUploadingProof(true);
+    try {
+      const res = await purchaseBillingRequestService.setProof(detailId, null);
+      const d = unwrapPayload(res);
+      if (d) setDetail(d);
+      toastSuccess("Proof removed");
+      load();
+    } catch (err) {
+      toastError(err?.message || "Could not remove proof");
+    } finally {
+      setUploadingProof(false);
     }
   };
 
@@ -463,6 +509,75 @@ const BillingRequestList = () => {
                   </a>
                 </p>
               ) : null}
+
+              <div className="mb-3">
+                <div className="small text-body-secondary mb-1">
+                  Payment proof (optional)
+                </div>
+                {detail.proofDocument?.url &&
+                isImageMime(detail.proofDocument.mimeType) ? (
+                  <div className="mb-2">
+                    <img
+                      src={detail.proofDocument.url}
+                      alt={detail.proofDocument.originalName || "Proof"}
+                      className="rounded border"
+                      style={{ maxHeight: 200, maxWidth: "100%" }}
+                    />
+                  </div>
+                ) : null}
+                {detail.proofDocument?.url ? (
+                  <p className="mb-2 small">
+                    <a
+                      href={detail.proofDocument.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {detail.proofDocument.originalName || "Open proof"}
+                    </a>
+                  </p>
+                ) : (
+                  <p className="mb-2 small text-body-secondary">No proof yet.</p>
+                )}
+                {canAct ? (
+                  <div className="d-flex flex-wrap align-items-center gap-2">
+                    <CFormInput
+                      type="file"
+                      id="br-proof-file"
+                      className="d-none"
+                      accept="image/*,.pdf,.doc,.docx"
+                      disabled={uploadingProof}
+                      onChange={onUploadProof}
+                    />
+                    <CButton
+                      color="primary"
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      disabled={uploadingProof}
+                      onClick={() =>
+                        document.getElementById("br-proof-file")?.click()
+                      }
+                    >
+                      {uploadingProof ? "Working…" : "Upload proof"}
+                    </CButton>
+                    {detail.proofDocument?.url ? (
+                      <CButton
+                        color="danger"
+                        variant="ghost"
+                        size="sm"
+                        type="button"
+                        disabled={uploadingProof}
+                        onClick={onClearProof}
+                      >
+                        Remove proof
+                      </CButton>
+                    ) : null}
+                    {uploadingProof ? (
+                      <CSpinner size="sm" className="ms-1" />
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
 
               {detail.approvedAt ? (
                 <p className="mb-2 small text-body-secondary">

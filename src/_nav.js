@@ -26,6 +26,7 @@ import {
   cilMoney,
   cilTruck,
   cilClock,
+  cilCheckCircle,
 } from "@coreui/icons";
 import { CNavItem, CNavGroup } from "@coreui/react";
 
@@ -286,6 +287,13 @@ const _nav = [
     to: "/dispatchment",
     icon: <CIcon icon={cilTruck} customClassName="nav-icon" />,
     module: "dispatchment",
+  },
+  {
+    component: CNavItem,
+    name: "Delivery approval",
+    to: "/delivery-approval",
+    icon: <CIcon icon={cilCheckCircle} customClassName="nav-icon" />,
+    roles: ["super_admin", "admin", "head_of_department", "hod"],
   },
   {
     component: CNavItem,
