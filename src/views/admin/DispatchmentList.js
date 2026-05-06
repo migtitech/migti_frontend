@@ -241,21 +241,24 @@ const DispatchmentList = () => {
 
   const markDeliveredFromDetail = async () => {
     if (!detailId || !canAct) return;
+    if (!receivingFile) {
+      toastError(
+        "Upload a receiving proof image (photo or gallery) before marking delivered.",
+      );
+      return;
+    }
     setDelivering(true);
     try {
-      let receivingDocumentId = null;
-      if (receivingFile) {
-        const ures = await documentService.uploadAttachments([receivingFile]);
-        const pld = ures?.data || ures;
-        const docs = pld?.data?.documents || pld?.documents || [];
-        const first = docs[0];
-        const docId = first?._id || first?.id;
-        if (!docId) {
-          toastError("Could not upload receiving file");
-          return;
-        }
-        receivingDocumentId = String(docId);
+      const ures = await documentService.uploadAttachments([receivingFile]);
+      const pld = ures?.data || ures;
+      const docs = pld?.data?.documents || pld?.documents || [];
+      const first = docs[0];
+      const docId = first?._id || first?.id;
+      if (!docId) {
+        toastError("Could not upload receiving proof");
+        return;
       }
+      const receivingDocumentId = String(docId);
       const res = await dispatchmentBucketService.markDelivered(detailId, {
         receivingDocumentId,
         receivingRemark: (receivingRemark || "").trim(),
@@ -583,19 +586,76 @@ const DispatchmentList = () => {
                   <div className="mt-4 pt-3 border-top">
                     <h6 className="mb-3">Mark delivered</h6>
                     <p className="small text-body-secondary mb-3">
-                      Optionally attach a receiving proof, add a remark, then
-                      confirm. This is saved on the PO line (
-                      <code>po_products</code>).
+                      Upload an image as receiving / delivery proof (required),
+                      optionally add a remark, then confirm. Saved on the PO
+                      line (<code>po_products</code>).
                     </p>
-                    <CFormLabel>Receiving proof (optional)</CFormLabel>
-                    <CFormInput
-                      type="file"
-                      accept="image/*,.pdf,.doc,.docx"
-                      className="mb-3"
-                      onChange={(e) =>
-                        setReceivingFile(e?.target?.files?.[0] || null)
-                      }
-                    />
+                    <CFormLabel>
+                      Receiving proof (image)
+                      <span className="text-danger ms-1" aria-hidden>
+                        *
+                      </span>
+                    </CFormLabel>
+                    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+                      <CFormInput
+                        type="file"
+                        id="dispatch-recv-img-gallery"
+                        className="d-none"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e?.target?.files?.[0] || null;
+                          e.target.value = "";
+                          setReceivingFile(f);
+                        }}
+                      />
+                      <CFormInput
+                        type="file"
+                        id="dispatch-recv-img-camera"
+                        className="d-none"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => {
+                          const f = e?.target?.files?.[0] || null;
+                          e.target.value = "";
+                          setReceivingFile(f);
+                        }}
+                      />
+                      <CButton
+                        color="primary"
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() =>
+                          document
+                            .getElementById("dispatch-recv-img-gallery")
+                            ?.click()
+                        }
+                      >
+                        Choose image
+                      </CButton>
+                      <CButton
+                        color="info"
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() =>
+                          document
+                            .getElementById("dispatch-recv-img-camera")
+                            ?.click()
+                        }
+                      >
+                        Take photo
+                      </CButton>
+                      {receivingFile ? (
+                        <span className="small text-body-secondary">
+                          {receivingFile.name}
+                        </span>
+                      ) : (
+                        <span className="small text-warning">
+                          Required before marking delivered
+                        </span>
+                      )}
+                    </div>
                     <CFormLabel>Remark</CFormLabel>
                     <CFormTextarea
                       value={receivingRemark}
@@ -606,7 +666,7 @@ const DispatchmentList = () => {
                     />
                     <CButton
                       color="success"
-                      disabled={delivering}
+                      disabled={delivering || !receivingFile}
                       onClick={markDeliveredFromDetail}
                     >
                       {delivering ? (

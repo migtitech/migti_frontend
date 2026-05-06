@@ -104,30 +104,6 @@ const formatDateDdMmYyyy = (iso) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
-const formatAddress = (c) => {
-  if (!c || typeof c !== "object") return "—";
-  const parts = [
-    c.name,
-    [c.area, c.location].filter(Boolean).join(", "),
-    c.address,
-  ].filter((p) => p && String(p).trim());
-  return parts.length ? parts.join(" · ") : "—";
-};
-
-const formatPm = (c) => {
-  const pms = c?.purchaseManagers;
-  if (!Array.isArray(pms) || !pms.length) return "—";
-  return pms
-    .map((pm) => {
-      const bits = [pm?.name, pm?.phone, pm?.email].filter(
-        (x) => x && String(x).trim(),
-      );
-      return bits.join(" · ");
-    })
-    .filter(Boolean)
-    .join(" | ");
-};
-
 const parseListResponse = (res) => {
   if (!res || typeof res !== "object") {
     return {
@@ -298,8 +274,6 @@ const InventoryBucketList = () => {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
-  const itemCompany = detail?.companyInfo;
-
   return (
     <CRow>
       <CCol xs={12}>
@@ -373,8 +347,6 @@ const InventoryBucketList = () => {
                       <CTableHeaderCell>Product</CTableHeaderCell>
                       <CTableHeaderCell>PO number</CTableHeaderCell>
                       <CTableHeaderCell>Raw code</CTableHeaderCell>
-                      <CTableHeaderCell>Company & address</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase manager</CTableHeaderCell>
                       <CTableHeaderCell>Dispatch</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell className="text-end">
@@ -386,7 +358,7 @@ const InventoryBucketList = () => {
                     {rows.length === 0 ? (
                       <CTableRow>
                         <CTableDataCell
-                          colSpan={8}
+                          colSpan={6}
                           className="text-body-secondary"
                         >
                           No PO lines in your groups.
@@ -407,22 +379,6 @@ const InventoryBucketList = () => {
                             ) : (
                               "—"
                             )}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <small
-                              className="text-break d-block"
-                              style={{ maxWidth: 280 }}
-                            >
-                              {formatAddress(row.companyInfo)}
-                            </small>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <small
-                              className="text-break d-block"
-                              style={{ maxWidth: 220 }}
-                            >
-                              {formatPm(row.companyInfo)}
-                            </small>
                           </CTableDataCell>
                           <CTableDataCell>
                             {formatDateDdMmYyyy(row.dispatchmentDate)}
@@ -519,43 +475,6 @@ const InventoryBucketList = () => {
                 <strong>Dispatchment date:</strong>{" "}
                 {formatDateDdMmYyyy(detail.dispatchmentDate)}
               </p>
-
-              <h6 className="mb-2">Company</h6>
-              {itemCompany ? (
-                <>
-                  <p className="mb-1">
-                    <strong>Name:</strong> {itemCompany.name || "—"}
-                  </p>
-                  <p className="mb-1">
-                    <strong>Area / location:</strong>{" "}
-                    {[itemCompany.area, itemCompany.location]
-                      .filter(Boolean)
-                      .join(", ") || "—"}
-                  </p>
-                  <p className="mb-1">
-                    <strong>Address:</strong> {itemCompany.address || "—"}
-                  </p>
-                </>
-              ) : (
-                <p className="text-body-secondary">—</p>
-              )}
-
-              <h6 className="mb-2 mt-3">Purchase manager contacts</h6>
-              {itemCompany &&
-              Array.isArray(itemCompany.purchaseManagers) &&
-              itemCompany.purchaseManagers.length ? (
-                <ul className="ps-3">
-                  {itemCompany.purchaseManagers.map((pm, i) => (
-                    <li key={i} className="mb-1">
-                      {[pm.name, pm.phone, pm.email]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-body-secondary">—</p>
-              )}
 
               <h6 className="mb-2 mt-3">Line</h6>
               <p className="mb-1 small text-body-secondary">

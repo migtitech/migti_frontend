@@ -242,6 +242,12 @@ const BillingRequestList = () => {
 
   const onApprove = async () => {
     if (!detailId || !canAct) return;
+    if (!proofDocIsImage(detail?.proofDocument)) {
+      toastError(
+        "Upload a payment proof image before approving this billing request.",
+      );
+      return;
+    }
     setApproving(true);
     try {
       const res = await purchaseBillingRequestService.approve(
@@ -264,6 +270,12 @@ const BillingRequestList = () => {
 
   const totalPages = Math.max(1, pagination.totalPages || 1);
   const isPending = String(detail?.status || "").toLowerCase() === "pending";
+  const proofDocIsImage = (p) => {
+    if (!p?.url) return false;
+    if (isImageMime(p.mimeType)) return true;
+    return /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(p.originalName || ""));
+  };
+  const hasPaymentProof = proofDocIsImage(detail?.proofDocument);
 
   return (
     <CRow>
@@ -512,7 +524,18 @@ const BillingRequestList = () => {
 
               <div className="mb-3">
                 <div className="small text-body-secondary mb-1">
-                  Payment proof (optional)
+                  Payment proof (image)
+                  {isPending ? (
+                    <span className="text-danger ms-1" aria-hidden>
+                      *
+                    </span>
+                  ) : null}
+                  {isPending ? (
+                    <span className="visually-hidden">
+                      {" "}
+                      required before approval
+                    </span>
+                  ) : null}
                 </div>
                 {detail.proofDocument?.url &&
                 isImageMime(detail.proofDocument.mimeType) ? (
@@ -538,14 +561,19 @@ const BillingRequestList = () => {
                 ) : (
                   <p className="mb-2 small text-body-secondary">No proof yet.</p>
                 )}
+                {canAct && isPending && !hasPaymentProof ? (
+                  <p className="small text-warning mb-2">
+                    Upload an image proof of payment before you can approve.
+                  </p>
+                ) : null}
                 {canAct ? (
                   <div className="d-flex flex-wrap align-items-center gap-2">
                     <CFormInput
                       type="file"
                       id="br-proof-file"
                       className="d-none"
-                      accept="image/*,.pdf,.doc,.docx"
-                      disabled={uploadingProof}
+                      accept="image/*"
+                      disabled={uploadingProof || !isPending}
                       onChange={onUploadProof}
                     />
                     <CButton
@@ -553,14 +581,14 @@ const BillingRequestList = () => {
                       variant="outline"
                       size="sm"
                       type="button"
-                      disabled={uploadingProof}
+                      disabled={uploadingProof || !isPending}
                       onClick={() =>
                         document.getElementById("br-proof-file")?.click()
                       }
                     >
                       {uploadingProof ? "Working…" : "Upload proof"}
                     </CButton>
-                    {detail.proofDocument?.url ? (
+                    {detail.proofDocument?.url && isPending ? (
                       <CButton
                         color="danger"
                         variant="ghost"
@@ -610,7 +638,7 @@ const BillingRequestList = () => {
                   </CButton>
                   <CButton
                     color="success"
-                    disabled={approving}
+                    disabled={approving || !hasPaymentProof}
                     onClick={onApprove}
                   >
                     {approving ? "Approving…" : "Approve"}

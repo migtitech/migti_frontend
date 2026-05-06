@@ -55,18 +55,6 @@ const formatVal = (v) => {
   return String(v);
 };
 
-/** `companyInfo.area` may be a string or a populated doc / `{ name }` snapshot. */
-const formatCompanyArea = (area) => {
-  if (area == null || area === "") return "—";
-  if (typeof area === "object") {
-    const name =
-      area.name ?? area.areaName ?? area.title ?? area.label ?? "";
-    if (String(name).trim() !== "") return String(name).trim();
-    return "—";
-  }
-  return String(area);
-};
-
 /** Supplier snapshot on query line rates (Pro Bucket) */
 const formatSupplierLabel = (s) => {
   if (!s || typeof s !== "object") return "—";
@@ -145,6 +133,30 @@ const lineProductImageUrl = (att) => {
   }
   return null;
 };
+
+/** Billing request requires an image on the line (upload / camera). */
+const hasMandatoryLineProductImage = (lineItem) =>
+  !!lineProductImageUrl(lineItem?.attachmentDocumentId);
+
+/**
+ * `queryProductMatch.images` comes from `query_products` (match: rawProductCode + queryId).
+ */
+const partitionQueryProductImages = (item) => {
+  const imgs = item?.queryProductMatch?.images;
+  if (!Array.isArray(imgs) || imgs.length === 0) {
+    return { imagePreviews: [], nonImageDocs: [] };
+  }
+  const imagePreviews = [];
+  const nonImageDocs = [];
+  for (const doc of imgs) {
+    if (!doc || typeof doc !== "object") continue;
+    const url = lineProductImageUrl(doc);
+    if (url) imagePreviews.push({ doc, url });
+    else if (doc.path) nonImageDocs.push(doc);
+  }
+  return { imagePreviews, nonImageDocs };
+};
+
 
 const lineStatusText = (s) => {
   switch (s) {
@@ -283,6 +295,12 @@ const PurchaseBucketDetail = () => {
       toastError("Upload the bill document first.");
       return;
     }
+    if (!hasMandatoryLineProductImage(item)) {
+      toastError(
+        "Upload a product image or take a photo before raising the billing request.",
+      );
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await purchaseBucketService.raisePaymentRequest(id, {
@@ -322,7 +340,6 @@ const PurchaseBucketDetail = () => {
   const detailRows = item
     ? [
         ["Product", item.productName],
-        ["Line #", item.lineIndex],
         [
           "Group (effective)",
           item.effectiveGroupName || formatVal(item.effectiveGroupId),
@@ -337,9 +354,6 @@ const PurchaseBucketDetail = () => {
         ["GST %", item.gstPercentage],
         ["Priority", item.priority],
         ["Remark", item.remark],
-        ["Company", item.companyInfo?.name],
-        ["Company area", formatCompanyArea(item.companyInfo?.area)],
-        ["Company location", item.companyInfo?.location],
       ]
     : [];
 
@@ -440,7 +454,189 @@ const PurchaseBucketDetail = () => {
                 <CTabContent>
                   <CTabPane visible={activeTab === "details"}>
                     <CRow className="g-3 mb-4">
-                      <CCol xs={12}>
+                      <CCol xs={12} md={5} lg={4}>
+                        <CCard className="border-0 shadow-sm h-100">
+                          <CCardHeader className="bg-light py-2">
+                            <strong className="small">Product images</strong>
+                            <div className="text-body-secondary fw-normal small mt-1">
+                              From query line (raw product code)
+                            </div>
+                          </CCardHeader>
+                          <CCardBody>
+                            {(() => {
+                              const { imagePreviews, nonImageDocs } =
+                                partitionQueryProductImages(item);
+                              const lineUrl = lineProductImageUrl(
+                                item?.attachmentDocumentId,
+                              );
+                              const lineNonImg =
+                                item?.attachmentDocumentId?.path && !lineUrl
+                                  ? item.attachmentDocumentId
+                                  : null;
+
+                              if (imagePreviews.length > 0) {
+                                return (
+                                  <>
+                                    <div className="d-flex flex-wrap gap-2 justify-content-center">
+                                      {imagePreviews.map(({ doc, url }, i) => (
+                                        <a
+                                          key={
+                                            doc._id != null
+                                              ? String(doc._id)
+                                              : `qp-img-${i}`
+                                          }
+                                          href={url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="d-inline-block"
+                                        >
+                                          <img
+                                            src={url}
+                                            alt={
+                                              doc.originalName ||
+                                              item.productName ||
+                                              "Product"
+                                            }
+                                            className="rounded border"
+                                            style={{
+                                              maxHeight: 200,
+                                              maxWidth: "100%",
+                                              objectFit: "contain",
+                                            }}
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                    {nonImageDocs.length > 0 ? (
+                                      <ul className="small mb-0 mt-2 ps-3">
+                                        {nonImageDocs.map((doc, i) => (
+                                          <li key={doc._id ?? i}>
+                                            <a
+                                              href={
+                                                doc.path?.startsWith("http")
+                                                  ? doc.path
+                                                  : getAssetsUrl(doc.path)
+                                              }
+                                              target="_blank"
+                                              rel="noreferrer"
+                                            >
+                                              {doc.originalName ||
+                                                "Attachment"}
+                                            </a>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    ) : null}
+                                    {lineUrl ? (
+                                      <div className="mt-3 pt-3 border-top">
+                                        <div className="small text-body-secondary mb-2">
+                                          Photo on this PO line (billing)
+                                        </div>
+                                        <div className="text-center">
+                                          <img
+                                            src={lineUrl}
+                                            alt="Line attachment"
+                                            className="rounded border img-fluid"
+                                            style={{
+                                              maxHeight: 160,
+                                              maxWidth: "100%",
+                                              objectFit: "contain",
+                                            }}
+                                          />
+                                        </div>
+                                      </div>
+                                    ) : lineNonImg ? (
+                                      <div className="mt-3 pt-3 border-top small">
+                                        <span className="text-body-secondary d-block mb-1">
+                                          Line attachment
+                                        </span>
+                                        <a
+                                          href={getAssetsUrl(lineNonImg.path)}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        >
+                                          {lineNonImg.originalName || "Open file"}
+                                        </a>
+                                      </div>
+                                    ) : null}
+                                  </>
+                                );
+                              }
+
+                              if (lineUrl) {
+                                return (
+                                  <div className="text-center">
+                                    <p className="small text-body-secondary text-start mb-2">
+                                      No catalog images on the matched query
+                                      product. Showing the photo attached to this
+                                      PO line.
+                                    </p>
+                                    <img
+                                      src={lineUrl}
+                                      alt={item.productName || "Product"}
+                                      className="rounded border img-fluid"
+                                      style={{
+                                        maxHeight: 280,
+                                        maxWidth: "100%",
+                                        objectFit: "contain",
+                                      }}
+                                    />
+                                  </div>
+                                );
+                              }
+
+                              if (nonImageDocs.length > 0) {
+                                return (
+                                  <ul className="small mb-0 ps-3">
+                                    {nonImageDocs.map((doc, i) => (
+                                      <li key={doc._id ?? i}>
+                                        <a
+                                          href={
+                                            doc.path?.startsWith("http")
+                                              ? doc.path
+                                              : getAssetsUrl(doc.path)
+                                          }
+                                          target="_blank"
+                                          rel="noreferrer"
+                                        >
+                                          {doc.originalName || "Attachment"}
+                                        </a>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                );
+                              }
+
+                              if (lineNonImg) {
+                                return (
+                                  <p className="small mb-0">
+                                    <a
+                                      href={getAssetsUrl(lineNonImg.path)}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                    >
+                                      Open line attachment (
+                                      {lineNonImg.originalName || "file"})
+                                    </a>
+                                  </p>
+                                );
+                              }
+
+                              return (
+                                <p className="small text-body-secondary mb-0">
+                                  {item.queryProductMatch == null
+                                    ? "No query product row matched this line (check raw product code and query)."
+                                    : "This query product has no images yet."}
+                                  {" "}
+                                  You can add a line photo under{" "}
+                                  <strong>Raise billing request</strong>.
+                                </p>
+                              );
+                            })()}
+                          </CCardBody>
+                        </CCard>
+                      </CCol>
+                      <CCol xs={12} md={7} lg={8}>
                         <CTable
                           responsive
                           bordered
@@ -781,6 +977,13 @@ const PurchaseBucketDetail = () => {
                     <CCard className="mb-4 border-0 shadow-sm">
                       <CCardHeader className="bg-light">
                         <strong>Product image</strong>
+                        <span className="text-danger ms-1" aria-hidden>
+                          *
+                        </span>
+                        <span className="visually-hidden">
+                          {" "}
+                          required to raise billing request
+                        </span>
                       </CCardHeader>
                       <CCardBody>
                         {lineProductImageUrl(item?.attachmentDocumentId) ? (
@@ -811,7 +1014,8 @@ const PurchaseBucketDetail = () => {
                           </p>
                         ) : (
                           <p className="small text-body-secondary mb-3">
-                            No product image yet.
+                            No product image yet. Add one before you can raise a
+                            billing request.
                           </p>
                         )}
                         {canRaise ? (
@@ -964,6 +1168,14 @@ const PurchaseBucketDetail = () => {
                       </p>
                     ) : (
                       <CRow className="g-3">
+                        {!hasMandatoryLineProductImage(item) ? (
+                          <CCol xs={12}>
+                            <p className="small text-warning mb-0">
+                              Upload a product image or take a photo in the
+                              section above before raising the request.
+                            </p>
+                          </CCol>
+                        ) : null}
                         <CCol md={6}>
                           <CFormLabel>Amount</CFormLabel>
                           <CFormInput
@@ -992,7 +1204,11 @@ const PurchaseBucketDetail = () => {
                         <CCol xs={12}>
                           <CButton
                             color="primary"
-                            disabled={submitting || uploading}
+                            disabled={
+                              submitting ||
+                              uploading ||
+                              !hasMandatoryLineProductImage(item)
+                            }
                             onClick={submitPaymentRequest}
                           >
                             {submitting ? "Submitting…" : "Raise request"}

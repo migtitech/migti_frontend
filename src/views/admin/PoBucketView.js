@@ -151,9 +151,10 @@ const getTodayInputDate = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
-const isFutureDateInput = (value) => {
+/** Dispatchment may be today or any future calendar day (YYYY-MM-DD string compare). */
+const isTodayOrFutureDispatchDate = (value) => {
   if (!value) return true;
-  return value > getTodayInputDate();
+  return value >= getTodayInputDate();
 };
 
 /** When `companyInfo.area` is an ObjectId, we show the zone (area) name but save the id if unchanged. */
@@ -620,8 +621,8 @@ const PoBucketView = () => {
       toastError("Product name is required");
       return;
     }
-    if (!isFutureDateInput(row.dispatchmentDate)) {
-      toastError("Dispatchment date must be a future date");
+    if (!isTodayOrFutureDispatchDate(row.dispatchmentDate)) {
+      toastError("Dispatchment date must be today or a future date");
       return;
     }
     await saveProducts(productsForm, "Product updated");
@@ -634,8 +635,8 @@ const PoBucketView = () => {
       );
       return;
     }
-    if (!isFutureDateInput(dispatchmentDateForAll)) {
-      toastError("Dispatchment date must be a future date");
+    if (!isTodayOrFutureDispatchDate(dispatchmentDateForAll)) {
+      toastError("Dispatchment date must be today or a future date");
       return;
     }
     setProductsForm((prev) =>
@@ -737,8 +738,8 @@ const PoBucketView = () => {
       toastError("Rate is required and must be greater than 0");
       return;
     }
-    if (!isFutureDateInput(newProductForm.dispatchmentDate)) {
-      toastError("Dispatchment date must be a future date");
+    if (!isTodayOrFutureDispatchDate(newProductForm.dispatchmentDate)) {
+      toastError("Dispatchment date must be today or a future date");
       return;
     }
     const next = [...productsForm, toEditableProduct(newProductForm)];

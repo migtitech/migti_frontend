@@ -69,6 +69,9 @@ const PURCHASE_ROLES = [
   "purchase_executive",
 ];
 
+/** Static gate for converting quotation → PO (replace with configurable auth later). */
+const PO_FROM_QUOTATION_SECRET_CODE = "2003";
+
 const getCurrentUserRole = () => {
   try {
     const raw = localStorage.getItem("migticrm_user");
@@ -247,6 +250,10 @@ const QuotationView = () => {
   const [exportingPdf, setExportingPdf] = useState(false);
   const [approvingHod, setApprovingHod] = useState(false);
   const [convertingPo, setConvertingPo] = useState(false);
+  /** Single modal, two steps — avoids CoreUI modal swap timing (second modal not opening). */
+  const [convertPoModalVisible, setConvertPoModalVisible] = useState(false);
+  const [convertPoModalStep, setConvertPoModalStep] = useState("confirm");
+  const [convertPoSecretInput, setConvertPoSecretInput] = useState("");
   const [activeTab, setActiveTab] = useState("preview");
   const [productIndex, setProductIndex] = useState(0);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -1743,18 +1750,8 @@ const QuotationView = () => {
     }
   };
 
-  const handleConvertToPo = async () => {
-    if (
-      !quotation?.id ||
-      !canCreatePurchaseOrder ||
-      isSnapshotPreview ||
-      !isHodApprovedStatus
-    ) {
-      if (quotation?.id && canCreatePurchaseOrder && !isHodApprovedStatus) {
-        toastError("Convert to PO is available only after HOD approval");
-      }
-      return;
-    }
+  const performConvertToPo = async () => {
+    if (!quotation?.id) return;
     setConvertingPo(true);
     try {
       const res = await purchaseOrderService.createFromQuotation(quotation.id, {
@@ -1776,6 +1773,45 @@ const QuotationView = () => {
     } finally {
       setConvertingPo(false);
     }
+  };
+
+  const handleConvertToPoClick = () => {
+    if (
+      !quotation?.id ||
+      !canCreatePurchaseOrder ||
+      isSnapshotPreview ||
+      !isHodApprovedStatus
+    ) {
+      if (quotation?.id && canCreatePurchaseOrder && !isHodApprovedStatus) {
+        toastError("Convert to PO is available only after HOD approval");
+      }
+      return;
+    }
+    setConvertPoModalStep("confirm");
+    setConvertPoSecretInput("");
+    setConvertPoModalVisible(true);
+  };
+
+  const closeConvertPoModals = () => {
+    setConvertPoModalVisible(false);
+    setConvertPoModalStep("confirm");
+    setConvertPoSecretInput("");
+  };
+
+  const onConvertPoConfirmYes = () => {
+    setConvertPoSecretInput("");
+    setConvertPoModalStep("secret");
+  };
+
+  const submitConvertPoSecret = () => {
+    if (convertingPo) return;
+    const entered = String(convertPoSecretInput ?? "").trim();
+    if (entered !== PO_FROM_QUOTATION_SECRET_CODE) {
+      toastError("Invalid code. Purchase order was not created.");
+      return;
+    }
+    closeConvertPoModals();
+    performConvertToPo();
   };
 
   const openImageGallery = (images, startIndex = 0) => {
@@ -2033,7 +2069,7 @@ const QuotationView = () => {
                     isSnapshotPreview ||
                     !isHodApprovedStatus
                   }
-                  onClick={handleConvertToPo}
+                  onClick={handleConvertToPoClick}
                   className="d-inline-flex align-items-center px-3"
                   style={{ height: 40 }}
                   title={
@@ -4337,6 +4373,99 @@ const QuotationView = () => {
         onToggle={() => setQuoteLogsOpen((prev) => !prev)}
         showFloatingToggle={false}
       />
+
+      <CModal
+        visible={convertPoModalVisible}
+        onClose={closeConvertPoModals}
+        alignment="center"
+        backdrop="static"
+      >
+        <CModalHeader>
+          <CModalTitle>
+            {convertPoModalStep === "confirm"
+              ? "Create purchase order?"
+              : "Authorization"}
+          </CModalTitle>
+        </CModalHeader>
+        {convertPoModalStep === "confirm" ? (
+          <>
+            <CModalBody>
+              Do you want to create a purchase order from this quotation?
+            </CModalBody>
+            <CModalFooter>
+              <CButton
+                type="button"
+                color="secondary"
+                onClick={closeConvertPoModals}
+              >
+                No
+              </CButton>
+              <CButton
+                type="button"
+                color="success"
+                onClick={onConvertPoConfirmYes}
+              >
+                Yes
+              </CButton>
+            </CModalFooter>
+          </>
+        ) : (
+          <>
+            <CModalBody>
+              <p className="text-muted small mb-2">
+                Enter the secret code to create the purchase order.
+              </p>
+              <CFormLabel htmlFor="convert-po-secret">Secret code</CFormLabel>
+              <CFormInput
+                id="convert-po-secret"
+                type="password"
+                autoComplete="off"
+                autoFocus
+                value={convertPoSecretInput}
+                onChange={(e) => setConvertPoSecretInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") submitConvertPoSecret();
+                }}
+              />
+            </CModalBody>
+            <CModalFooter>
+              <CButton
+                type="button"
+                color="secondary"
+                onClick={() => {
+                  setConvertPoModalStep("confirm");
+                  setConvertPoSecretInput("");
+                }}
+              >
+                Back
+              </CButton>
+              <CButton
+                type="button"
+                color="secondary"
+                variant="outline"
+                onClick={closeConvertPoModals}
+              >
+                Cancel
+              </CButton>
+              <CButton
+                type="button"
+                color="primary"
+                onClick={submitConvertPoSecret}
+                disabled={convertingPo}
+              >
+                {convertingPo ? (
+                  <>
+                    <CSpinner size="sm" className="me-2" />
+                    Creating...
+                  </>
+                ) : (
+                  "Create PO"
+                )}
+              </CButton>
+            </CModalFooter>
+          </>
+        )}
+      </CModal>
 
       <CModal
         visible={assignTaskModalVisible}
