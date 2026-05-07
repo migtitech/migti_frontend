@@ -42,6 +42,7 @@ import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import FindProductModal from "./FindProductModal";
+import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 const INITIAL_PRODUCT = {
   productName: "",
@@ -452,10 +453,9 @@ const QuotationGenerate = () => {
                 </CCol>
                 <CCol md={2}>
                   <CFormLabel>Unit</CFormLabel>
-                  <CFormInput
+                  <ProductUnitSelect
                     value={formProduct.unit}
                     onChange={(e) => updateFormProduct("unit", e.target.value)}
-                    placeholder="pcs"
                   />
                 </CCol>
                 <CCol md={2}>

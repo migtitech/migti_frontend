@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
@@ -113,7 +113,7 @@ const productSchema = yup.object({
     .string()
     .oneOf(["active", "inactive", "draft"], "Invalid status")
     .default("draft"),
-  unit: yup.string().optional().default("pcs"),
+  unit: yup.string().trim().max(50).optional().default("PCS"),
 });
 
 const defaultValues = {
@@ -134,7 +134,7 @@ const defaultValues = {
   dimensionUnit: "cm",
   tags: "",
   status: "draft",
-  unit: "pcs",
+  unit: "PCS",
 };
 
 const PRODUCT_FORM_DRAFT_KEY = "product_form_draft";
@@ -173,6 +173,7 @@ const ProductForm = () => {
     reset,
     setValue,
     watch,
+    control,
     formState: { errors },
   } = useForm({
     defaultValues,
@@ -346,7 +347,7 @@ const ProductForm = () => {
           dimensionUnit: product.dimensionUnit || "cm",
           tags: (product.tags || []).join(", "),
           status: product.status || "draft",
-          unit: product.unit || "pcs",
+          unit: product.unit || "PCS",
         });
         const loadedVariants = product.variants || [];
         setVariants(loadedVariants);
@@ -1047,9 +1048,18 @@ const ProductForm = () => {
             <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Unit *</CFormLabel>
-                <CFormInput
-                  placeholder="e.g., pcs, kg, ltr"
-                  {...register("unit")}
+                <Controller
+                  name="unit"
+                  control={control}
+                  render={({ field }) => (
+                    <ProductUnitSelect
+                      ref={field.ref}
+                      name={field.name}
+                      value={field.value ?? ""}
+                      onChange={(e) => field.onChange(e.target.value)}
+                      onBlur={field.onBlur}
+                    />
+                  )}
                 />
                 {errors.unit && (
                   <div className="text-danger small mt-1">

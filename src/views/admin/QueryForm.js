@@ -57,6 +57,7 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
 import QueryNewProductFindSidebar from "./QueryNewProductFindSidebar";
+import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 const INITIAL_COMPANY = {
   name: "",
@@ -428,7 +429,7 @@ const QueryForm = () => {
     setFormProduct({
       productName: q.name || "",
       quantity: 1,
-      unit: (q.unit && String(q.unit).trim()) || "pcs",
+      unit: (q.unit && String(q.unit).trim()) || "PCS",
       hsnNumber: q.hsnNumber || "",
       modelNumber: q.modelNumber || "",
       gstPercentage: null,
@@ -1646,12 +1647,11 @@ const QueryForm = () => {
                       <CCol md={3}>
                         <div className="mb-3">
                           <CFormLabel>Unit</CFormLabel>
-                          <CFormInput
+                          <ProductUnitSelect
                             value={formProduct.unit || ""}
                             onChange={(e) =>
                               updateFormProduct("unit", e.target.value)
                             }
-                            placeholder="pcs, kg, etc."
                           />
                         </div>
                       </CCol>

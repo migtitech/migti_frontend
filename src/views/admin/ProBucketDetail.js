@@ -27,6 +27,7 @@ import usePermissions from "../../hooks/usePermissions";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
+import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { getAssetsUrl } from "../../api/endpoints";
 
 /** Below Bootstrap `md` (768px) — treat as phone for add-rate panel layout */
@@ -663,7 +664,7 @@ const ProBucketDetail = () => {
                   </CCol>
                   <CCol {...(isPhoneView ? { md: 2, sm: 3 } : { xs: 6 })}>
                     <CFormLabel className="mb-0">Unit</CFormLabel>
-                    <CFormInput
+                    <ProductUnitSelect
                       value={row.unit}
                       onChange={(e) =>
                         updateRateRow(idx, "unit", e.target.value)

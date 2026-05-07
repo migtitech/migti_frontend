@@ -61,6 +61,7 @@ import { toastError, toastSuccess } from "../../utils/toast";
 import { formatIstDisplayDate } from "../../utils/istDate";
 import { ROLES, ROLE_LABELS } from "../../context/AuthContext";
 import QuoteLogsSidebar from "./QuoteLogsSidebar";
+import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 const PURCHASE_ROLES = [
   ROLES.PURCHASE_MANAGER,
@@ -3266,12 +3267,11 @@ const QuotationView = () => {
                           </div>
                           <div className="mb-3">
                             <CFormLabel>Unit</CFormLabel>
-                            <CFormInput
+                            <ProductUnitSelect
                               value={editingProduct.unit || ""}
                               onChange={(e) =>
                                 updateFormField("unit", e.target.value)
                               }
-                              placeholder="Unit"
                               disabled={
                                 isSnapshotPreview ||
                                 isCurrentProductNotAvailable
@@ -3528,12 +3528,11 @@ const QuotationView = () => {
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Unit</CFormLabel>
-                        <CFormInput
+                        <ProductUnitSelect
                           value={newProductForm.unit}
                           onChange={(e) =>
                             updateNewProductForm("unit", e.target.value)
                           }
-                          placeholder="Unit"
                         />
                       </div>
                     </CCol>

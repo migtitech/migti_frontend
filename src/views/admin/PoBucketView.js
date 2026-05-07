@@ -42,6 +42,7 @@ import areaService from "../../services/areaService";
 import { Loader } from "../../components";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
+import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 /** `status` on `po_products` (read-only here; not stored on purchase order) */
 const lineInventoryStatusBadge = (inv) => {
@@ -1580,7 +1581,7 @@ const PoBucketView = () => {
             </CCol>
             <CCol md={6}>
               <CFormLabel>Unit</CFormLabel>
-              <CFormInput
+              <ProductUnitSelect
                 value={newProductForm.unit}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
