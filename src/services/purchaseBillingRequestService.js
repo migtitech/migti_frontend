@@ -24,6 +24,12 @@ const purchaseBillingRequestService = {
     const response = await api.put(PURCHASE_BILLING_REQUESTS.APPROVE(id), body);
     return response;
   },
+  reject: async (id, statusRemark) => {
+    const response = await api.put(PURCHASE_BILLING_REQUESTS.REJECT(id), {
+      statusRemark: String(statusRemark ?? "").trim(),
+    });
+    return response;
+  },
   /** Optional payment proof: pass `null` to remove. */
   setProof: async (id, proofDocumentId) => {
     const response = await api.put(PURCHASE_BILLING_REQUESTS.PROOF(id), {

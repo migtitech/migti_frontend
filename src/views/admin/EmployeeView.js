@@ -17,6 +17,13 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CModal,
+  CModalHeader,
+  CModalTitle,
+  CModalBody,
+  CModalFooter,
+  CFormInput,
+  CFormLabel,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
@@ -27,6 +34,7 @@ import {
   cilContact,
   cilCreditCard,
   cilDevices,
+  cilLockLocked,
 } from "@coreui/icons";
 import employeeService from "../../services/employeeService";
 import groupService from "../../services/groupService";
@@ -34,7 +42,7 @@ import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
-import { toastError } from "../../utils/toast";
+import { toastError, toastSuccess } from "../../utils/toast";
 
 const empty = (v) => v === undefined || v === null || v === "";
 const show = (v) => (empty(v) ? "-" : String(v).trim() || "-");
@@ -48,6 +56,47 @@ const EmployeeView = () => {
   const [assignedGroups, setAssignedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+
+  const closePasswordModal = () => {
+    setPasswordModalVisible(false);
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const handleUpdatePassword = async () => {
+    const np = String(newPassword || "");
+    const cp = String(confirmPassword || "");
+    if (np.length < 6) {
+      toastError("New password must be at least 6 characters.");
+      return;
+    }
+    if (np !== cp) {
+      toastError("New password and confirm password do not match.");
+      return;
+    }
+    setPasswordSubmitting(true);
+    try {
+      await employeeService.updatePassword(id, {
+        newPassword: np,
+        confirmPassword: cp,
+      });
+      toastSuccess("Password updated successfully.");
+      closePasswordModal();
+    } catch (err) {
+      const detail = err?.data?.error ?? err?.errors;
+      const msg =
+        Array.isArray(detail) && detail.length
+          ? detail.join(" ")
+          : err?.message || "Failed to update password.";
+      toastError(msg);
+    } finally {
+      setPasswordSubmitting(false);
+    }
+  };
 
   const ROLES = {
     head_of_department: "Head Of Department",
@@ -286,13 +335,23 @@ const EmployeeView = () => {
             <CIcon icon={cilArrowLeft} className="me-2" />
             Back to Employees
           </CButton>
-          <CButton
-            color="primary"
-            onClick={() => navigate(`/employees/edit/${e.id}`)}
-          >
-            <CIcon icon={cilPencil} className="me-2" />
-            Edit Employee
-          </CButton>
+          <div className="d-flex flex-wrap gap-2 justify-content-end">
+            <CButton
+              color="warning"
+              variant="outline"
+              onClick={() => setPasswordModalVisible(true)}
+            >
+              <CIcon icon={cilLockLocked} className="me-2" />
+              Update password
+            </CButton>
+            <CButton
+              color="primary"
+              onClick={() => navigate(`/employees/edit/${e.id}`)}
+            >
+              <CIcon icon={cilPencil} className="me-2" />
+              Edit Employee
+            </CButton>
+          </div>
         </CCol>
       </CRow>
 
@@ -333,7 +392,7 @@ const EmployeeView = () => {
           <CCard className="h-100">
             <CCardHeader>
               <CIcon icon={cilPeople} className="me-2" />
-              <strong>Personal Information</strong>x
+              <strong>Personal Information</strong>
             </CCardHeader>
             <CCardBody>
               <CListGroup flush>
@@ -549,6 +608,65 @@ const EmployeeView = () => {
           </CTable>
         </CCardBody>
       </CCard>
+
+      <CModal
+        alignment="center"
+        visible={passwordModalVisible}
+        backdrop={passwordSubmitting ? "static" : true}
+        onClose={() => {
+          if (!passwordSubmitting) closePasswordModal();
+        }}
+      >
+        <CModalHeader>
+          <CModalTitle>Update password</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <p className="text-muted small mb-3">
+            The new password is stored encrypted on the server. The employee
+            will use it the next time they sign in.
+          </p>
+          <div className="mb-3">
+            <CFormLabel htmlFor="emp-new-password">New password</CFormLabel>
+            <CFormInput
+              id="emp-new-password"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(ev) => setNewPassword(ev.target.value)}
+              disabled={passwordSubmitting}
+            />
+          </div>
+          <div className="mb-0">
+            <CFormLabel htmlFor="emp-confirm-password">
+              Confirm password
+            </CFormLabel>
+            <CFormInput
+              id="emp-confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(ev) => setConfirmPassword(ev.target.value)}
+              disabled={passwordSubmitting}
+            />
+          </div>
+        </CModalBody>
+        <CModalFooter>
+          <CButton
+            color="light"
+            onClick={closePasswordModal}
+            disabled={passwordSubmitting}
+          >
+            Cancel
+          </CButton>
+          <CButton
+            color="primary"
+            onClick={handleUpdatePassword}
+            disabled={passwordSubmitting}
+          >
+            {passwordSubmitting ? "Updating…" : "Update password"}
+          </CButton>
+        </CModalFooter>
+      </CModal>
     </>
   );
 };

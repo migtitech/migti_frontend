@@ -1,4 +1,51 @@
 /**
+ * Resolves the first audio file inside `src/assets/audio/` (if any) at build time.
+ * Drop a file like `siren.mp3` there and it will be picked up automatically.
+ */
+const sirenAssets = import.meta.glob(
+  "../assets/audio/*.{mp3,wav,ogg,m4a,aac}",
+  { eager: true, query: "?url", import: "default" },
+);
+const sirenAssetUrl = Object.values(sirenAssets)[0] || null;
+
+let cachedAudio = null;
+const getCachedAudio = () => {
+  if (!sirenAssetUrl) return null;
+  if (!cachedAudio) {
+    try {
+      cachedAudio = new Audio(sirenAssetUrl);
+      cachedAudio.preload = "auto";
+      cachedAudio.volume = 0.7;
+    } catch {
+      cachedAudio = null;
+    }
+  }
+  return cachedAudio;
+};
+
+/**
+ * Play the bundled notification siren audio file (if present).
+ * Falls back to the synthesized `playSirenSound` if no file is available
+ * or the browser blocks playback.
+ */
+export const playNotificationSiren = () => {
+  const audio = getCachedAudio();
+  if (!audio) {
+    playSirenSound();
+    return;
+  }
+  try {
+    audio.currentTime = 0;
+    const result = audio.play();
+    if (result && typeof result.catch === "function") {
+      result.catch(() => playSirenSound());
+    }
+  } catch {
+    playSirenSound();
+  }
+};
+
+/**
  * Play a siren-like sound using Web Audio API (no external file).
  * Two-tone alternating pattern for ~2 seconds.
  */

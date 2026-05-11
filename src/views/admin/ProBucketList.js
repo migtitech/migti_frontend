@@ -190,7 +190,7 @@ const ProBucketList = () => {
                 </div>
               </CCol>
               <CCol xs={6} sm={4} md={2} lg={2}>
-                <CFormLabel className="mb-1">From (query date)</CFormLabel>
+                <CFormLabel className="mb-1">From</CFormLabel>
                 <CFormInput
                   type="date"
                   value={from}
@@ -198,7 +198,7 @@ const ProBucketList = () => {
                 />
               </CCol>
               <CCol xs={6} sm={4} md={2} lg={2}>
-                <CFormLabel className="mb-1">To (query date)</CFormLabel>
+                <CFormLabel className="mb-1">To</CFormLabel>
                 <CFormInput
                   type="date"
                   value={to}

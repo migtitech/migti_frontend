@@ -28,6 +28,14 @@ export const clearTokens = () => {
 };
 
 const USER_STORAGE_KEY = "migticrm_user";
+const AUTH_BYPASS_401_PATHS = new Set([
+  AUTH.LOGIN,
+  AUTH.ADMIN_LOGIN,
+  AUTH.SUPERADMIN_LOGIN,
+  AUTH.EMPLOYEE_LOGIN,
+  AUTH.EMPLOYEE_PASSWORD_RESET_REQUEST,
+  AUTH.REFRESH_TOKEN,
+]);
 
 /** Clear auth data and redirect to login (e.g. on 401 / token expired) */
 const redirectToLogin = () => {
@@ -58,11 +66,13 @@ axiosClient.interceptors.response.use(
     return response.data;
   },
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config || {};
     const status = error.response?.status;
     const errorMessage = error.response?.data?.message || error.message || "";
+    const requestUrl = String(originalRequest.url || "");
+    const isAuthBypassRequest = AUTH_BYPASS_401_PATHS.has(requestUrl);
 
-    if (status === 401 && !originalRequest._retry) {
+    if (status === 401 && !isAuthBypassRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
       const refreshToken = getRefreshToken();
@@ -88,7 +98,14 @@ axiosClient.interceptors.response.use(
 
       // No refresh token or token expired: clear auth and redirect to login
       redirectToLogin();
-      return Promise.reject(error);
+      const errorResponse = {
+        status: error.response?.status,
+        message:
+          error.response?.data?.message || error.message || "An error occurred",
+        errors: error.response?.data?.errors || null,
+        data: error.response?.data || null,
+      };
+      return Promise.reject(errorResponse);
     }
 
     // Some backends return 403 for invalid/mismatched token

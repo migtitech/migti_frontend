@@ -292,6 +292,7 @@ const IndustryView = () => {
       "purchaseManagers",
       "purchase_manager_name",
       "purchase_manager_phone",
+      "subZoneId",
       "branchId",
       "isActive",
       "isDeleted",

@@ -167,6 +167,11 @@ const IndustryBranchView = React.lazy(
   () => import("./views/admin/IndustryBranchView"),
 );
 
+// Notifications
+const NotificationsPage = React.lazy(
+  () => import("./views/notifications/NotificationsPage"),
+);
+
 // Error pages
 const Page401 = React.lazy(() => import("./views/pages/page401/Page401"));
 
@@ -864,6 +869,9 @@ const routes = [
     module: "branches",
     action: "read",
   },
+
+  // Notifications - accessible to all authenticated users
+  { path: "/notifications", name: "Notifications", element: NotificationsPage },
 
   // Unauthorized page - accessible by all
   { path: "/unauthorized", name: "Unauthorized", element: Page401 },

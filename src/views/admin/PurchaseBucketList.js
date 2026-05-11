@@ -57,6 +57,34 @@ const cellText = (v) => {
   return String(v);
 };
 
+/** Matches list API `status` (see purchaseBucket.service list pipeline). */
+const purchaseBucketStatusBadge = (raw) => {
+  const s =
+    raw != null && String(raw).trim() !== "" ? String(raw).trim() : "pending";
+  switch (s) {
+    case "purchased":
+      return <CBadge color="success">Purchased</CBadge>;
+    case "finance_approved":
+      return <CBadge color="dark">Finance approved</CBadge>;
+    case "payment_request_raised":
+      return <CBadge color="info">Payment request raised</CBadge>;
+    case "billing_request_rejected":
+      return <CBadge color="danger">Billing request rejected</CBadge>;
+    case "inventory_received":
+      return <CBadge color="primary">Inventory received</CBadge>;
+    case "ready_for_dispatchment":
+      return <CBadge color="success">Ready for dispatch</CBadge>;
+    case "delivered":
+      return <CBadge color="success">Delivered</CBadge>;
+    case "po_closed":
+      return <CBadge color="secondary">PO closed</CBadge>;
+    case "pending":
+      return <CBadge color="warning">Open</CBadge>;
+    default:
+      return <CBadge color="secondary">{s}</CBadge>;
+  }
+};
+
 const parseListResponse = (res) => {
   if (!res || typeof res !== "object") {
     return {
@@ -175,19 +203,6 @@ const PurchaseBucketList = () => {
                 />
               </CCol>
               <CCol xs={6} md={2}>
-                <CFormLabel>Status</CFormLabel>
-                <CFormSelect
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  {STATUS_OPTIONS.map((o) => (
-                    <option key={o.value || "all"} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </CFormSelect>
-              </CCol>
-              <CCol xs={6} md={2}>
                 <CFormLabel>From</CFormLabel>
                 <CFormInput
                   type="date"
@@ -202,6 +217,19 @@ const PurchaseBucketList = () => {
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
                 />
+              </CCol>
+              <CCol xs={6} md={2}>
+                <CFormLabel>Status</CFormLabel>
+                <CFormSelect
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  {STATUS_OPTIONS.map((o) => (
+                    <option key={o.value || "all"} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </CFormSelect>
               </CCol>
             </CRow>
 
@@ -239,6 +267,9 @@ const PurchaseBucketList = () => {
                             <CTableHeaderCell className="text-nowrap">
                               Dispatchment date
                             </CTableHeaderCell>
+                            <CTableHeaderCell className="text-nowrap">
+                              Status
+                            </CTableHeaderCell>
                             <CTableHeaderCell>Unit</CTableHeaderCell>
                             <CTableHeaderCell className="text-nowrap">
                               HSN number
@@ -266,6 +297,9 @@ const PurchaseBucketList = () => {
                               </CTableDataCell>
                               <CTableDataCell className="text-nowrap">
                                 {formatDateDdMmYyyy(row.dispatchmentDate)}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-nowrap">
+                                {purchaseBucketStatusBadge(row.status)}
                               </CTableDataCell>
                               <CTableDataCell className="text-nowrap">
                                 {cellText(row.unit)}
@@ -318,6 +352,12 @@ const PurchaseBucketList = () => {
                                 </dt>
                                 <dd className="col-7 mb-2">
                                   {formatDateDdMmYyyy(row.dispatchmentDate)}
+                                </dd>
+                                <dt className="col-5 text-body-secondary">
+                                  Status
+                                </dt>
+                                <dd className="col-7 mb-2">
+                                  {purchaseBucketStatusBadge(row.status)}
                                 </dd>
                                 <dt className="col-5 text-body-secondary">
                                   Unit

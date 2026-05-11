@@ -4,6 +4,10 @@
 @use "@coreui/chartjs/scss/coreui-chartjs";
 @use "vendors/simplebar";
 
+html {
+  color-scheme: light;
+}
+
 body {
   background-color: var(--cui-tertiary-bg);
   // Scale up base font size moderately (~1.2x)

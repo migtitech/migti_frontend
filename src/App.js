@@ -1,9 +1,7 @@
-import React, { Suspense, useEffect } from "react";
+import React, { Suspense, useLayoutEffect } from "react";
 import { HashRouter, Route, Routes } from "react-router-dom";
-import { useSelector } from "react-redux";
 import { Toaster } from "react-hot-toast";
 
-import { useColorModes } from "@coreui/react";
 import "./scss/style.scss";
 
 import { AuthProvider } from "./context/AuthContext";
@@ -11,6 +9,7 @@ import { SocketProvider } from "./context/SocketContext";
 import { NotificationProvider } from "./context/NotificationContext";
 import { DataProvider } from "./context/DataContext";
 import Loader from "./components/Loader/Loader";
+import RealtimeNotificationAlert from "./components/RealtimeNotificationAlert";
 
 // Containers
 const DefaultLayout = React.lazy(() => import("./layout/DefaultLayout"));
@@ -20,34 +19,24 @@ const Login = React.lazy(() => import("./views/pages/login/Login"));
 const Page404 = React.lazy(() => import("./views/pages/page404/Page404"));
 const Page500 = React.lazy(() => import("./views/pages/page500/Page500"));
 
+/** Must match CoreUI template default so any legacy code reads the same key. */
+const COREUI_THEME_STORAGE_KEY = "coreui-free-react-admin-template-theme";
+
+function applyGlobalLightTheme() {
+  const root = document.documentElement;
+  root.dataset.coreuiTheme = "light";
+  root.dispatchEvent(new Event("ColorSchemeChange"));
+  try {
+    localStorage.setItem(COREUI_THEME_STORAGE_KEY, "light");
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 const App = () => {
-  const { isColorModeSet, setColorMode } = useColorModes(
-    "coreui-free-react-admin-template-theme",
-  );
-  const storedTheme = useSelector((state) => state.theme);
-
-  useEffect(() => {
-    try {
-      const queryString = window.location.href.split("?")[1] || "";
-      const urlParams = new URLSearchParams(queryString);
-      const themeParam = urlParams.get("theme");
-      const theme =
-        (themeParam && themeParam.match(/^[A-Za-z0-9\s\-_]+/)?.[0]) || null;
-      if (theme) {
-        setColorMode(theme);
-      }
-
-      if (isColorModeSet()) {
-        return;
-      }
-
-      if (storedTheme) {
-        setColorMode(storedTheme);
-      }
-    } catch {
-      // Ignore theme parsing errors
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => {
+    applyGlobalLightTheme();
+  }, []);
 
   return (
     <AuthProvider>
@@ -56,6 +45,7 @@ const App = () => {
           <DataProvider>
             <Toaster />
             <HashRouter>
+              <RealtimeNotificationAlert />
               <Suspense
                 fallback={
                   <div className="pt-3 min-vh-100 d-flex align-items-center justify-content-center">

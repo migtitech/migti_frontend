@@ -65,6 +65,7 @@ export const AUTH = {
   ADMIN_LOGIN: "/admin/login",
   SUPERADMIN_LOGIN: "/admin/superadmin/login",
   EMPLOYEE_LOGIN: "/employees/login",
+  EMPLOYEE_PASSWORD_RESET_REQUEST: "/employees/password-reset-request",
   LOGOUT: "/auth/logout",
   REGISTER: "/auth/register",
   REFRESH_TOKEN: "/auth/refresh-token",
@@ -103,6 +104,7 @@ export const EMPLOYEES = {
   LIST: "/employees/list",
   GET_BY_ID: "/employees/get-by-id",
   UPDATE: "/employees/update",
+  UPDATE_PASSWORD: "/employees/update-password",
   DELETE: "/employees/delete",
 };
 
@@ -237,6 +239,7 @@ export const QUERIES = {
   TARGET_ANALYTICS_EMPLOYEE_SUMMARY:
     "/queries/target-analytics/employee/summary",
   GET_BY_ID: "/queries/get-by-id",
+  QUERY_LINE_PROCUREMENT_RATES: "/queries/query-line-procurement-rates",
   UPDATE: "/queries/update",
   DELETE: "/queries/delete",
   CONVERT_TO_QUOTATION: "/queries/convert-to-quotation",
@@ -269,6 +272,8 @@ export const PURCHASE_ORDERS = {
   CREATE_FROM_QUOTATION: "/purchase-orders/create-from-quotation",
   UPDATE: "/purchase-orders/update",
   UPDATE_STATUS: "/purchase-orders/update-status",
+  /** HOD-only: PO `closed` + all `po_products` → `po_closed` */
+  HOD_CLOSE: "/purchase-orders/hod-close",
   APPEND_PAYMENT: "/purchase-orders/append-payment",
 };
 
@@ -283,6 +288,7 @@ export const PURCHASE_BILLING_REQUESTS = {
   REMARK: (id) => `/purchase-billing-requests/${id}/remark`,
   PROOF: (id) => `/purchase-billing-requests/${id}/proof`,
   APPROVE: (id) => `/purchase-billing-requests/${id}/approve`,
+  REJECT: (id) => `/purchase-billing-requests/${id}/reject`,
 };
 
 export const PURCHASE_TASKS = {

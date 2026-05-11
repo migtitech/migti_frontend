@@ -123,6 +123,14 @@ const formatDateDdMmYyyy = (iso) => {
   return `${dd}/${mm}/${yyyy}`;
 };
 
+const QUERY_ROW_RATE_HIGHLIGHT_BG = "#e0f2fe";
+
+const getAvailableRateRowBg = (query) => {
+  const available = Number(query?.queryProductRateAvailableCount) || 0;
+  if (available > 1) return QUERY_ROW_RATE_HIGHLIGHT_BG;
+  return null;
+};
+
 const QUERY_STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "drafted", label: "Drafted" },
@@ -409,15 +417,22 @@ const QueryList = () => {
                   {isMobileView ? (
                     <div>
                       {queries?.length > 0 ? (
-                        queries.map((q, index) => (
-                          <CCard
-                            key={q._id || q.id}
-                            className="mb-3 border"
-                            style={{ cursor: "pointer" }}
-                            onClick={() =>
-                              navigate(`/queries/${q._id || q.id}`)
-                            }
-                          >
+                        queries.map((q, index) => {
+                          const rowRateBg = getAvailableRateRowBg(q);
+                          return (
+                            <CCard
+                              key={q._id || q.id}
+                              className="mb-3 border"
+                              style={{
+                                cursor: "pointer",
+                                ...(rowRateBg && {
+                                  backgroundColor: rowRateBg,
+                                }),
+                              }}
+                              onClick={() =>
+                                navigate(`/queries/${q._id || q.id}`)
+                              }
+                            >
                             <CCardBody>
                               <div className="d-flex justify-content-between align-items-start mb-2">
                                 <div>
@@ -556,8 +571,9 @@ const QueryList = () => {
                                 </CButton>
                               </div>
                             </CCardBody>
-                          </CCard>
-                        ))
+                            </CCard>
+                          );
+                        })
                       ) : (
                         <div className="text-center text-muted py-4">
                           No queries found.
@@ -581,14 +597,22 @@ const QueryList = () => {
                       </CTableHead>
                       <CTableBody>
                         {queries?.length > 0 ? (
-                          queries.map((q, index) => (
-                            <CTableRow
-                              key={q._id || q.id}
-                              style={{ cursor: "pointer" }}
-                              onClick={() =>
-                                navigate(`/queries/${q._id || q.id}`)
-                              }
-                            >
+                          queries.map((q, index) => {
+                            const rowRateBg = getAvailableRateRowBg(q);
+                            return (
+                              <CTableRow
+                                key={q._id || q.id}
+                                style={{
+                                  cursor: "pointer",
+                                  ...(rowRateBg && {
+                                    "--cui-table-bg": rowRateBg,
+                                    backgroundColor: rowRateBg,
+                                  }),
+                                }}
+                                onClick={() =>
+                                  navigate(`/queries/${q._id || q.id}`)
+                                }
+                              >
                               <CTableDataCell>
                                 {(currentPage - 1) * pageSize + index + 1}
                               </CTableDataCell>
@@ -751,8 +775,9 @@ const QueryList = () => {
                                   </CButton>
                                 )}
                               </CTableDataCell>
-                            </CTableRow>
-                          ))
+                              </CTableRow>
+                            );
+                          })
                         ) : (
                           <CTableRow>
                             <CTableDataCell colSpan={9} className="text-center">

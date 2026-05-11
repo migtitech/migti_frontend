@@ -48,6 +48,20 @@ const employeeService = {
   },
 
   /**
+   * Set a new login password (stored encrypted on the server).
+   * @param {string|number} id
+   * @param {{ newPassword: string, confirmPassword: string }} passwords
+   */
+  updatePassword: async (id, { newPassword, confirmPassword }) => {
+    const response = await api.put(
+      EMPLOYEES.UPDATE_PASSWORD,
+      { newPassword, confirmPassword },
+      { params: { employeeId: id } },
+    );
+    return response;
+  },
+
+  /**
    * Delete employee
    * @param {string|number} id
    * @returns {Promise}

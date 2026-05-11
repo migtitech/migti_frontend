@@ -1,16 +1,19 @@
-let onNotificationNew = null;
+const handlers = new Set();
 
 export const registerNotificationNewHandler = (fn) => {
-  onNotificationNew = typeof fn === "function" ? fn : null;
+  if (typeof fn !== "function") return () => {};
+  handlers.add(fn);
   return () => {
-    onNotificationNew = null;
+    handlers.delete(fn);
   };
 };
 
 export const emitNotificationNew = (payload) => {
-  try {
-    onNotificationNew?.(payload);
-  } catch {
-    // ignore handler errors
+  for (const fn of handlers) {
+    try {
+      fn(payload);
+    } catch {
+      // ignore handler errors
+    }
   }
 };

@@ -13,6 +13,6 @@ echo "Committing changes..."
 git commit -m "$COMMIT_MSG"
 
 echo "Pushing to development branch..."
-git push origin development
+git push origin prod
 
 echo "Done 🚀"

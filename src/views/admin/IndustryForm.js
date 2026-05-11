@@ -24,7 +24,6 @@ import { cilArrowLeft, cilPlus, cilTrash } from "@coreui/icons";
 import {
   phoneOptional,
   gstinOptional,
-  gstinRequired,
   MSG,
 } from "../../utils/validation";
 import industryService from "../../services/industryService";
@@ -71,11 +70,15 @@ const industrySchema = yup.object({
     .oneOf(["A", "B", "C", "D", ""], "Invalid category")
     .optional()
     .nullable(),
-  area: yup.string().optional().nullable(),
+  area: yup.string().trim().required("Zone selection is required"),
   subZoneId: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
-  address: yup.string().optional().max(500),
-  gstNumber: gstinRequired(),
+  address: yup
+    .string()
+    .trim()
+    .required("Address is required")
+    .max(500),
+  gstNumber: gstinOptional(),
   purchase_manager_name: yup
     .string()
     .trim()
@@ -420,7 +423,7 @@ const IndustryForm = () => {
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>GST Number *</CFormLabel>
+                <CFormLabel>GST Number</CFormLabel>
                 <CFormInput
                   {...register("gstNumber")}
                   placeholder="e.g. 27AABCU9603R1ZM"
@@ -465,7 +468,7 @@ const IndustryForm = () => {
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Zone</CFormLabel>
+                <CFormLabel>Zone *</CFormLabel>
                 <CFormSelect
                   {...register("area")}
                   disabled={isEdit}
@@ -611,7 +614,7 @@ const IndustryForm = () => {
           <CRow>
             <CCol md={12}>
               <div className="mb-3">
-                <CFormLabel>Address</CFormLabel>
+                <CFormLabel>Address *</CFormLabel>
                 <CFormTextarea rows={3} {...register("address")} />
                 {errors.address && (
                   <div className="text-danger small mt-1">

@@ -32,6 +32,9 @@ const SIDEBAR_COUNT_BADGE_STYLE = {
 
 /** Nav routes hidden for head_of_department / hod only (full-access otherwise sees all modules). */
 const HOD_HIDDEN_PATHS = new Set([
+  "/companies",
+  "/branches",
+  "/employee-locations",
   "/billing-requests",
   "/my-visits",
   "/dispatchment",

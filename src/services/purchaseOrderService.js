@@ -65,6 +65,18 @@ const purchaseOrderService = {
     return response;
   },
 
+  /** Head of department only (backend enforces). */
+  hodClose: async (id) => {
+    const response = await api.put(
+      PURCHASE_ORDERS.HOD_CLOSE,
+      {},
+      {
+        params: { purchaseOrderId: id },
+      },
+    );
+    return response;
+  },
+
   appendPayment: async (id, body) => {
     const response = await api.post(PURCHASE_ORDERS.APPEND_PAYMENT, body, {
       params: { purchaseOrderId: id },

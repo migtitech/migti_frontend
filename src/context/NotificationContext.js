@@ -11,6 +11,7 @@ import React, {
 import { useAuth } from "./AuthContext";
 import { registerNotificationNewHandler } from "./notificationSocketBridge";
 import * as notificationService from "../services/notificationService";
+import { playNotificationSiren } from "../utils/sirenSound";
 
 const NotificationContext = createContext(null);
 
@@ -35,13 +36,19 @@ export const NotificationProvider = ({ children }) => {
         title: payload?.title || "Notification",
         description: payload?.description || "",
       });
+      playNotificationSiren();
       flashTimerRef.current = setTimeout(() => {
         setFlash(null);
         flashTimerRef.current = null;
-      }, 1000);
+      }, 5000);
     },
     [clearFlashTimer],
   );
+
+  const clearFlash = useCallback(() => {
+    clearFlashTimer();
+    setFlash(null);
+  }, [clearFlashTimer]);
 
   const refreshUnread = useCallback(async () => {
     if (!isAuthenticated || !user) return;
@@ -117,6 +124,7 @@ export const NotificationProvider = ({ children }) => {
       unreadCount,
       unreadList,
       flash,
+      clearFlash,
       refreshUnread,
       markOneRead,
       markAllRead,
@@ -125,6 +133,7 @@ export const NotificationProvider = ({ children }) => {
       unreadCount,
       unreadList,
       flash,
+      clearFlash,
       refreshUnread,
       markOneRead,
       markAllRead,
@@ -141,7 +150,9 @@ export const NotificationProvider = ({ children }) => {
 export const useNotifications = () => {
   const ctx = useContext(NotificationContext);
   if (!ctx) {
-    throw new Error("useNotifications must be used within NotificationProvider");
+    throw new Error(
+      "useNotifications must be used within NotificationProvider",
+    );
   }
   return ctx;
 };

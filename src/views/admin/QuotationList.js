@@ -154,15 +154,14 @@ const formatRateSubmittedFulfilledCount = (quotation) => {
   );
 };
 
-/** All query lines have rate_submitted or fulfilled when counts match (and there is at least one line) */
-const isQueryProductLineCountsEqual = (quotation) => {
-  if (!quotationHasQueryId(quotation)) return false;
-  const items = Number(quotation.queryProductItemCount) || 0;
-  const rated = Number(quotation.queryProductRateSubmittedOrFulfilledCount) || 0;
-  return items > 0 && items === rated;
-};
+const QUOTATION_ROW_RATE_HIGHLIGHT_BG = "#e0f2fe";
 
-const QUOTATION_ROW_RATED_COMPLETE_BG = "#e9ecef";
+const getSubmittedOrFulfilledRateRowBg = (quotation) => {
+  if (!quotationHasQueryId(quotation)) return null;
+  const rated = Number(quotation.queryProductRateSubmittedOrFulfilledCount) || 0;
+  if (rated > 1) return QUOTATION_ROW_RATE_HIGHLIGHT_BG;
+  return null;
+};
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -575,16 +574,16 @@ const QuotationList = () => {
               <div>
                 {filteredQuotations && filteredQuotations.length > 0 ? (
                   filteredQuotations.map((quotation, index) => {
-                    const rowRatedComplete =
-                      isQueryProductLineCountsEqual(quotation);
+                    const rowRateBg =
+                      getSubmittedOrFulfilledRateRowBg(quotation);
                     return (
                       <CCard
                         key={quotation.id}
                         className="mb-3 border"
                         style={{
                           cursor: "pointer",
-                          ...(rowRatedComplete && {
-                            backgroundColor: QUOTATION_ROW_RATED_COMPLETE_BG,
+                          ...(rowRateBg && {
+                            backgroundColor: rowRateBg,
                           }),
                         }}
                         onClick={() => navigate(`/quotations/${quotation.id}`)}
@@ -710,8 +709,8 @@ const QuotationList = () => {
                 <CTableBody>
                   {filteredQuotations && filteredQuotations.length > 0 ? (
                     filteredQuotations.map((quotation, index) => {
-                      const rowRatedComplete =
-                        isQueryProductLineCountsEqual(quotation);
+                      const rowRateBg =
+                        getSubmittedOrFulfilledRateRowBg(quotation);
                       return (
                         <CTableRow
                           key={quotation.id}
@@ -720,8 +719,9 @@ const QuotationList = () => {
                           }
                           style={{
                             cursor: "pointer",
-                            ...(rowRatedComplete && {
-                              backgroundColor: QUOTATION_ROW_RATED_COMPLETE_BG,
+                            ...(rowRateBg && {
+                              "--cui-table-bg": rowRateBg,
+                              backgroundColor: rowRateBg,
                             }),
                           }}
                         >

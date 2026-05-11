@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  CAlert,
   CBadge,
   CButton,
   CCard,
@@ -24,7 +25,7 @@ import {
   CSpinner,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilArrowLeft } from "@coreui/icons";
+import { cilArrowLeft, cilCamera, cilCloudUpload } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBucketService from "../../services/purchaseBucketService";
 import documentService from "../../services/documentService";
@@ -39,6 +40,17 @@ const formatDateTime = (iso) => {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
   return d.toLocaleString();
+};
+
+/** Date only as DD-MM-YYYY (no time). */
+const formatDateDdMmYyyy = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(d.getFullYear());
+  return `${dd}-${mm}-${yyyy}`;
 };
 
 const formatVal = (v) => {
@@ -104,10 +116,14 @@ const lineStatusBadge = (s) => {
       return <CBadge color="dark">Finance approved</CBadge>;
     case "payment_request_raised":
       return <CBadge color="info">Payment request raised</CBadge>;
+    case "billing_request_rejected":
+      return <CBadge color="danger">Billing request rejected</CBadge>;
     case "inventory_received":
       return <CBadge color="primary">Inventory received</CBadge>;
     case "ready_for_dispatchment":
       return <CBadge color="success">Ready for dispatch</CBadge>;
+    case "po_closed":
+      return <CBadge color="secondary">PO closed</CBadge>;
     case "pending":
     default:
       return (
@@ -166,10 +182,14 @@ const lineStatusText = (s) => {
       return "Finance approved";
     case "payment_request_raised":
       return "Payment request raised";
+    case "billing_request_rejected":
+      return "Billing request rejected";
     case "inventory_received":
       return "Inventory received";
     case "ready_for_dispatchment":
       return "Ready for dispatch";
+    case "po_closed":
+      return "PO closed";
     case "pending":
     default:
       return s && s !== "pending" ? s : "Pending";
@@ -187,6 +207,7 @@ const PurchaseBucketDetail = () => {
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState("");
   const [billDocId, setBillDocId] = useState("");
+  const [billFileName, setBillFileName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadingLineImage, setUploadingLineImage] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -217,6 +238,49 @@ const PurchaseBucketDetail = () => {
     load();
   }, [load]);
 
+  const itemId = item?._id != null ? String(item._id) : "";
+  const lineStatusKey = item ? lineStatusFromItem(item) : "";
+  const lineActionsLocked = lineStatusKey === "po_closed";
+  const paymentAmtForPrefill = item?.paymentRequestAmount;
+  const billingRequestAmtForPrefill =
+    item?.purchaseBillingRequestId &&
+    typeof item.purchaseBillingRequestId === "object"
+      ? item.purchaseBillingRequestId.amount
+      : undefined;
+
+  useEffect(() => {
+    if (!id || !itemId || itemId !== String(id)) return;
+    if (
+      lineStatusKey === "finance_approved" ||
+      lineStatusKey === "payment_request_raised"
+    ) {
+      setAmount("");
+      return;
+    }
+    const raw =
+      paymentAmtForPrefill != null && paymentAmtForPrefill !== ""
+        ? paymentAmtForPrefill
+        : billingRequestAmtForPrefill != null && billingRequestAmtForPrefill !== ""
+          ? billingRequestAmtForPrefill
+          : null;
+    if (raw == null) {
+      setAmount("");
+      return;
+    }
+    const n = Number(raw);
+    if (Number.isNaN(n) || n <= 0) {
+      setAmount("");
+      return;
+    }
+    setAmount(String(n));
+  }, [
+    id,
+    itemId,
+    lineStatusKey,
+    paymentAmtForPrefill,
+    billingRequestAmtForPrefill,
+  ]);
+
   const onLineProductImage = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -245,27 +309,7 @@ const PurchaseBucketDetail = () => {
     }
   };
 
-  const clearLineProductImage = async () => {
-    if (!id) return;
-    setUploadingLineImage(true);
-    try {
-      const res = await purchaseBucketService.setLineAttachment(id, {
-        attachmentDocumentId: null,
-      });
-      const doc = unwrapPayload(res);
-      if (doc && typeof doc === "object") setItem(doc);
-      else await load();
-      toastSuccess("Product image removed");
-    } catch (err) {
-      toastError(err?.message || "Failed to remove image");
-    } finally {
-      setUploadingLineImage(false);
-    }
-  };
-
-  const onUploadBill = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
+  const uploadBillFile = async (file) => {
     if (!file) return;
     setUploading(true);
     try {
@@ -274,6 +318,7 @@ const PurchaseBucketDetail = () => {
       const first = docs[0];
       if (first?._id) {
         setBillDocId(String(first._id));
+        setBillFileName(file.name || "Document");
         toastSuccess("Bill uploaded");
       } else {
         toastError("Upload did not return a document id");
@@ -283,6 +328,13 @@ const PurchaseBucketDetail = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  const onUploadBill = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await uploadBillFile(file);
   };
 
   const submitPaymentRequest = async () => {
@@ -312,6 +364,7 @@ const PurchaseBucketDetail = () => {
       toastSuccess("Payment request raised");
       setAmount("");
       setBillDocId("");
+      setBillFileName("");
       setActiveTab("details");
       load();
     } catch (e) {
@@ -350,7 +403,7 @@ const PurchaseBucketDetail = () => {
         ["HSN", item.hsnNumber],
         ["Model", item.modelNumber],
         ["Raw product code", item.rawProductCode],
-        ["Dispatchment date", formatDateTime(item.dispatchmentDate)],
+        ["Dispatchment date", formatDateDdMmYyyy(item.dispatchmentDate)],
         ["GST %", item.gstPercentage],
         ["Priority", item.priority],
         ["Remark", item.remark],
@@ -403,7 +456,7 @@ const PurchaseBucketDetail = () => {
                       color="success"
                       size="sm"
                       className="ms-1"
-                      disabled={markingPurchased}
+                      disabled={markingPurchased || lineActionsLocked}
                       onClick={markAsPurchased}
                     >
                       {markingPurchased ? "Updating…" : "Mark purchased"}
@@ -458,9 +511,6 @@ const PurchaseBucketDetail = () => {
                         <CCard className="border-0 shadow-sm h-100">
                           <CCardHeader className="bg-light py-2">
                             <strong className="small">Product images</strong>
-                            <div className="text-body-secondary fw-normal small mt-1">
-                              From query line (raw product code)
-                            </div>
                           </CCardHeader>
                           <CCardBody>
                             {(() => {
@@ -624,12 +674,7 @@ const PurchaseBucketDetail = () => {
 
                               return (
                                 <p className="small text-body-secondary mb-0">
-                                  {item.queryProductMatch == null
-                                    ? "No query product row matched this line (check raw product code and query)."
-                                    : "This query product has no images yet."}
-                                  {" "}
-                                  You can add a line photo under{" "}
-                                  <strong>Raise billing request</strong>.
+                                  No Image Found
                                 </p>
                               );
                             })()}
@@ -729,6 +774,16 @@ const PurchaseBucketDetail = () => {
                                       </strong>
                                     </CTableDataCell>
                                   </CTableRow>
+                                  {br.statusRemark ? (
+                                    <CTableRow>
+                                      <CTableDataCell className="text-body-secondary">
+                                        Financier remark
+                                      </CTableDataCell>
+                                      <CTableDataCell className="text-break">
+                                        {String(br.statusRemark)}
+                                      </CTableDataCell>
+                                    </CTableRow>
+                                  ) : null}
                                   <CTableRow>
                                     <CTableDataCell className="text-body-secondary">
                                       Amount
@@ -1012,20 +1067,15 @@ const PurchaseBucketDetail = () => {
                               )
                             </a>
                           </p>
-                        ) : (
-                          <p className="small text-body-secondary mb-3">
-                            No product image yet. Add one before you can raise a
-                            billing request.
-                          </p>
-                        )}
+                        ) : null}
                         {canRaise ? (
-                          <div className="d-flex flex-wrap align-items-center gap-2">
+                          <>
                             <CFormInput
                               type="file"
                               id="pb-line-img-gallery"
                               className="d-none"
                               accept="image/*"
-                              disabled={uploadingLineImage}
+                              disabled={uploadingLineImage || lineActionsLocked}
                               onChange={onLineProductImage}
                             />
                             <CFormInput
@@ -1034,55 +1084,55 @@ const PurchaseBucketDetail = () => {
                               className="d-none"
                               accept="image/*"
                               capture="environment"
-                              disabled={uploadingLineImage}
+                              disabled={uploadingLineImage || lineActionsLocked}
                               onChange={onLineProductImage}
                             />
-                            <CButton
-                              color="primary"
-                              variant="outline"
-                              size="sm"
-                              type="button"
-                              disabled={uploadingLineImage}
-                              onClick={() =>
-                                document
-                                  .getElementById("pb-line-img-gallery")
-                                  ?.click()
-                              }
-                            >
-                              Upload image
-                            </CButton>
-                            <CButton
-                              color="info"
-                              variant="outline"
-                              size="sm"
-                              type="button"
-                              disabled={uploadingLineImage}
-                              onClick={() =>
-                                document
-                                  .getElementById("pb-line-img-camera")
-                                  ?.click()
-                              }
-                            >
-                              Take photo
-                            </CButton>
-                            {uploadingLineImage ? (
-                              <span className="small text-body-secondary d-inline-flex align-items-center gap-1">
-                                <CSpinner size="sm" /> Saving…
-                              </span>
-                            ) : null}
-                            {item?.attachmentDocumentId && (
-                              <CButton
-                                color="danger"
-                                variant="ghost"
-                                size="sm"
-                                type="button"
-                                disabled={uploadingLineImage}
-                                onClick={clearLineProductImage}
-                              >
-                                Remove image
-                              </CButton>
-                            )}
-                          </div>
+                            <CRow className="g-2 align-items-center">
+                              <CCol xs={6}>
+                                <CButton
+                                  color="primary"
+                                  variant="outline"
+                                  className="w-100 d-flex justify-content-center align-items-center py-3 rounded"
+                                  type="button"
+                                  disabled={uploadingLineImage || lineActionsLocked}
+                                  title="Upload image"
+                                  aria-label="Upload image from gallery"
+                                  onClick={() =>
+                                    document
+                                      .getElementById("pb-line-img-gallery")
+                                      ?.click()
+                                  }
+                                >
+                                  <CIcon icon={cilCloudUpload} size="xl" />
+                                </CButton>
+                              </CCol>
+                              <CCol xs={6}>
+                                <CButton
+                                  color="info"
+                                  variant="outline"
+                                  className="w-100 d-flex justify-content-center align-items-center py-3 rounded"
+                                  type="button"
+                                  disabled={uploadingLineImage || lineActionsLocked}
+                                  title="Take photo"
+                                  aria-label="Take photo with camera"
+                                  onClick={() =>
+                                    document
+                                      .getElementById("pb-line-img-camera")
+                                      ?.click()
+                                  }
+                                >
+                                  <CIcon icon={cilCamera} size="xl" />
+                                </CButton>
+                              </CCol>
+                              {uploadingLineImage ? (
+                                <CCol xs={12}>
+                                  <span className="small text-body-secondary d-inline-flex align-items-center gap-1">
+                                    <CSpinner size="sm" /> Saving…
+                                  </span>
+                                </CCol>
+                              ) : null}
+                            </CRow>
+                          </>
                         ) : null}
                       </CCardBody>
                     </CCard>
@@ -1151,7 +1201,12 @@ const PurchaseBucketDetail = () => {
                         </CCard>
                       )}
 
-                    {lineStatusFromItem(item) === "finance_approved" ? (
+                    {lineStatusFromItem(item) === "po_closed" ? (
+                      <p className="text-body-secondary mb-0">
+                        This PO line is <strong>closed</strong>. Billing and
+                        purchase actions are not available.
+                      </p>
+                    ) : lineStatusFromItem(item) === "finance_approved" ? (
                       <p className="text-body-secondary mb-0">
                         This line has been <strong>approved by finance</strong>.
                         The linked billing request is approved.
@@ -1167,15 +1222,24 @@ const PurchaseBucketDetail = () => {
                         You do not have permission to raise billing requests.
                       </p>
                     ) : (
-                      <CRow className="g-3">
-                        {!hasMandatoryLineProductImage(item) ? (
-                          <CCol xs={12}>
-                            <p className="small text-warning mb-0">
-                              Upload a product image or take a photo in the
-                              section above before raising the request.
-                            </p>
-                          </CCol>
-                        ) : null}
+                      <>
+                        {lineStatusFromItem(item) ===
+                          "billing_request_rejected" &&
+                          item.purchaseBillingRequestId &&
+                          typeof item.purchaseBillingRequestId === "object" &&
+                          String(
+                            item.purchaseBillingRequestId.statusRemark || "",
+                          ).trim() !== "" && (
+                            <CAlert color="danger" className="mb-3">
+                              <strong>Previous rejection note</strong>
+                              <div className="small mt-2 mb-0 text-break">
+                                {String(
+                                  item.purchaseBillingRequestId.statusRemark,
+                                )}
+                              </div>
+                            </CAlert>
+                          )}
+                        <CRow className="g-3">
                         <CCol md={6}>
                           <CFormLabel>Amount</CFormLabel>
                           <CFormInput
@@ -1185,36 +1249,113 @@ const PurchaseBucketDetail = () => {
                             value={amount}
                             onChange={(e) => setAmount(e.target.value)}
                             placeholder="Enter amount"
+                            disabled={lineActionsLocked}
                           />
                         </CCol>
                         <CCol md={6}>
                           <CFormLabel>Bill (PDF / image)</CFormLabel>
                           <CFormInput
                             type="file"
-                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
-                            disabled={uploading}
+                            id="pb-bill-gallery"
+                            className="d-none"
+                            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,application/pdf"
+                            disabled={uploading || lineActionsLocked}
                             onChange={onUploadBill}
                           />
-                          {billDocId && (
-                            <div className="small text-success mt-1">
-                              Document ready ({billDocId})
-                            </div>
-                          )}
+                          <CFormInput
+                            type="file"
+                            id="pb-bill-camera"
+                            className="d-none"
+                            accept="image/*"
+                            capture="environment"
+                            disabled={uploading || lineActionsLocked}
+                            onChange={onUploadBill}
+                          />
+                          <CRow className="g-2 align-items-center">
+                            <CCol xs={6}>
+                              <CButton
+                                color="primary"
+                                variant="outline"
+                                className="w-100 d-flex justify-content-center align-items-center py-3 rounded"
+                                type="button"
+                                disabled={uploading || lineActionsLocked}
+                                title="Upload bill (PDF, image, Word, Excel)"
+                                aria-label="Upload bill file from gallery"
+                                onClick={() =>
+                                  document
+                                    .getElementById("pb-bill-gallery")
+                                    ?.click()
+                                }
+                              >
+                                <CIcon icon={cilCloudUpload} size="xl" />
+                              </CButton>
+                            </CCol>
+                            <CCol xs={6}>
+                              <CButton
+                                color="info"
+                                variant="outline"
+                                className="w-100 d-flex justify-content-center align-items-center py-3 rounded"
+                                type="button"
+                                disabled={uploading || lineActionsLocked}
+                                title="Capture bill as photo"
+                                aria-label="Take photo of bill with camera"
+                                onClick={() =>
+                                  document
+                                    .getElementById("pb-bill-camera")
+                                    ?.click()
+                                }
+                              >
+                                <CIcon icon={cilCamera} size="xl" />
+                              </CButton>
+                            </CCol>
+                            {uploading ? (
+                              <CCol xs={12}>
+                                <span className="small text-body-secondary d-inline-flex align-items-center gap-1">
+                                  <CSpinner size="sm" /> Uploading bill…
+                                </span>
+                              </CCol>
+                            ) : null}
+                            {billDocId && !uploading ? (
+                              <CCol xs={12}>
+                                <div className="small text-success fw-semibold">
+                                  Bill ready
+                                </div>
+                                {billFileName ? (
+                                  <div
+                                    className="small text-body-secondary text-truncate"
+                                    title={billFileName}
+                                  >
+                                    {billFileName}
+                                  </div>
+                                ) : null}
+                                <div className="small text-body-secondary mt-1">
+                                  Use upload or camera to replace
+                                </div>
+                              </CCol>
+                            ) : null}
+                          </CRow>
                         </CCol>
-                        <CCol xs={12}>
+                        <CCol xs={12} className="d-flex justify-content-end">
                           <CButton
                             color="primary"
                             disabled={
+                              lineActionsLocked ||
                               submitting ||
                               uploading ||
                               !hasMandatoryLineProductImage(item)
                             }
                             onClick={submitPaymentRequest}
                           >
-                            {submitting ? "Submitting…" : "Raise request"}
+                            {submitting
+                              ? "Submitting…"
+                              : lineStatusFromItem(item) ===
+                                  "billing_request_rejected"
+                                ? "Raise billing request again"
+                                : "Raise request"}
                           </CButton>
                         </CCol>
                       </CRow>
+                      </>
                     )}
                   </CTabPane>
                 </CTabContent>

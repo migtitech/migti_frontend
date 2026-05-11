@@ -22,6 +22,7 @@ import "./ConfirmDialog.scss";
  * @param {string} [cancelText='Cancel'] - Cancel button label
  * @param {string} [confirmColor='danger'] - CoreUI color for confirm button (danger, primary, etc.)
  * @param {string} [icon='trash'] - 'trash' | 'warning' for the header icon
+ * @param {boolean} [closeOnConfirm=true] - If false, only onConfirm runs (parent closes the modal)
  */
 const ConfirmDialog = ({
   visible,
@@ -33,10 +34,13 @@ const ConfirmDialog = ({
   cancelText = "Cancel",
   confirmColor = "danger",
   icon = "trash",
+  closeOnConfirm = true,
 }) => {
   const handleConfirm = () => {
     onConfirm?.();
-    onClose?.();
+    if (closeOnConfirm) {
+      onClose?.();
+    }
   };
 
   const IconComponent = icon === "warning" ? cilWarning : cilTrash;

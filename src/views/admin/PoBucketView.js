@@ -31,6 +31,7 @@ import {
   CTableHeaderCell,
   CTableRow,
   CSpinner,
+  CAlert,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilPlus, cilTrash, cilX } from "@coreui/icons";
@@ -54,6 +55,8 @@ const lineInventoryStatusBadge = (inv) => {
       return <CBadge color="success">Received</CBadge>;
     case "ready_for_dispatchment":
       return <CBadge color="primary">Ready dispatch</CBadge>;
+    case "po_closed":
+      return <CBadge color="dark">PO closed</CBadge>;
     default:
       return <CBadge color="secondary">{s}</CBadge>;
   }
@@ -289,6 +292,8 @@ const PoBucketView = () => {
   const [savingAssignedEmployee, setSavingAssignedEmployee] = useState(false);
   const companyAreaMetaRef = useRef(emptyCompanyAreaMeta());
   const poId = purchaseOrder?._id || purchaseOrder?.id;
+  const poClosed =
+    String(purchaseOrder?.status || "").toLowerCase() === "closed";
 
   const serverAttachmentId = useMemo(
     () => normalizeDocId(purchaseOrder?.attachmentDocumentId),
@@ -299,7 +304,8 @@ const PoBucketView = () => {
     [poAttachment?.documentId],
   );
   const poAttachmentIsDirty = localAttachmentId !== serverAttachmentId;
-  const poAttachmentActionsLocked = savingPoAttachment || poAttachmentUploading;
+  const poAttachmentActionsLocked =
+    savingPoAttachment || poAttachmentUploading || poClosed;
   const canSavePoAttachment = poAttachmentIsDirty && !poAttachmentActionsLocked;
   const canUploadPoAttachment =
     !localAttachmentId && !poAttachmentActionsLocked;
@@ -338,8 +344,7 @@ const PoBucketView = () => {
           };
           try {
             const areaRes = await areaService.getById(rawArea);
-            const a =
-              areaRes?.data?.data ?? areaRes?.data ?? areaRes ?? null;
+            const a = areaRes?.data?.data ?? areaRes?.data ?? areaRes ?? null;
             const zoneName = String(a?.name ?? "").trim();
             if (!cancelled) {
               companyAreaMetaRef.current = {
@@ -435,9 +440,7 @@ const PoBucketView = () => {
       Array.isArray(data?.products) ? data.products.map(toEditableProduct) : [],
     );
     const ae = data?.assigned_employee;
-    setAssignSelectValue(
-      ae?._id != null ? String(ae._id) : "",
-    );
+    setAssignSelectValue(ae?._id != null ? String(ae._id) : "");
     if (activeTab === "productStatus") {
       await loadPoProductStatusLines();
     }
@@ -507,12 +510,18 @@ const PoBucketView = () => {
   }, [assignSelectValue, purchaseOrder?.assigned_employee]);
 
   const saveAssignedEmployee = async () => {
+    if (poClosed) {
+      toastError("This purchase order is closed and cannot be edited.");
+      return;
+    }
     if (!poId) {
       toastError("Purchase order id not found");
       return;
     }
     if (assignSelectValue && !selectedAssignEmployeePayload) {
-      toastError("Could not resolve employee details. Reload the page and try again.");
+      toastError(
+        "Could not resolve employee details. Reload the page and try again.",
+      );
       return;
     }
     setSavingAssignedEmployee(true);
@@ -539,6 +548,10 @@ const PoBucketView = () => {
   }, [activeTab, id, loadPoProductStatusLines]);
 
   const saveCompanyInfo = async () => {
+    if (poClosed) {
+      toastError("This purchase order is closed and cannot be edited.");
+      return;
+    }
     if (!poId) {
       toastError("Purchase order id not found");
       return;
@@ -585,6 +598,10 @@ const PoBucketView = () => {
     nextProducts,
     successMessage = "Product list updated",
   ) => {
+    if (poClosed) {
+      toastError("This purchase order is closed and cannot be edited.");
+      return;
+    }
     if (!poId) {
       toastError("Purchase order id not found");
       return;
@@ -605,6 +622,7 @@ const PoBucketView = () => {
   };
 
   const updateProductField = (index, field, value) => {
+    if (poClosed) return;
     setProductsForm((prev) =>
       prev.map((p, i) => (i === index ? { ...p, [field]: value } : p)),
     );
@@ -630,6 +648,7 @@ const PoBucketView = () => {
   };
 
   const applyDispatchmentDateToAll = () => {
+    if (poClosed) return;
     if (!dispatchmentDateForAll) {
       setProductsForm((prev) =>
         prev.map((p) => ({ ...p, dispatchmentDate: "" })),
@@ -668,6 +687,7 @@ const PoBucketView = () => {
   };
 
   const onPoDocumentFile = async (e) => {
+    if (poClosed) return;
     const input = e?.target;
     const file = input?.files?.[0];
     if (input) input.value = "";
@@ -700,10 +720,15 @@ const PoBucketView = () => {
   };
 
   const clearPoAttachment = () => {
+    if (poClosed) return;
     setPoAttachment({ documentId: "", meta: null });
   };
 
   const savePoAttachment = async () => {
+    if (poClosed) {
+      toastError("This purchase order is closed and cannot be edited.");
+      return;
+    }
     if (!poId) {
       toastError("Purchase order id not found");
       return;
@@ -725,6 +750,10 @@ const PoBucketView = () => {
   };
 
   const addNewProduct = async () => {
+    if (poClosed) {
+      toastError("This purchase order is closed and cannot be edited.");
+      return;
+    }
     if (!String(newProductForm.productName || "").trim()) {
       toastError("Product name is required");
       return;
@@ -785,6 +814,12 @@ const PoBucketView = () => {
             <strong>Purchase Order Details</strong>
           </CCardHeader>
           <CCardBody>
+            {poClosed ? (
+              <CAlert color="dark" className="mb-3">
+                This purchase order is <strong>closed</strong>. Editing is
+                disabled.
+              </CAlert>
+            ) : null}
             <CNav variant="tabs" className="mb-3">
               <CNavItem>
                 <CNavLink
@@ -849,6 +884,7 @@ const PoBucketView = () => {
                     <CFormLabel>Name</CFormLabel>
                     <CFormInput
                       value={companyForm.name}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -861,6 +897,7 @@ const PoBucketView = () => {
                     <CFormLabel>Area</CFormLabel>
                     <CFormInput
                       value={companyForm.area}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -873,6 +910,7 @@ const PoBucketView = () => {
                     <CFormLabel>Location</CFormLabel>
                     <CFormInput
                       value={companyForm.location}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -885,6 +923,7 @@ const PoBucketView = () => {
                     <CFormLabel>Address</CFormLabel>
                     <CFormInput
                       value={companyForm.address}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -897,6 +936,7 @@ const PoBucketView = () => {
                     <CFormLabel>Purchase Manager Name</CFormLabel>
                     <CFormInput
                       value={companyForm.purchaseManagerName}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -909,6 +949,7 @@ const PoBucketView = () => {
                     <CFormLabel>Purchase Manager Phone</CFormLabel>
                     <CFormInput
                       value={companyForm.purchaseManagerPhone}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -922,6 +963,7 @@ const PoBucketView = () => {
                     <CFormInput
                       type="email"
                       value={companyForm.purchaseManagerEmail}
+                      readOnly={poClosed}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -933,7 +975,7 @@ const PoBucketView = () => {
                   <CCol xs={12}>
                     <CButton
                       color="primary"
-                      disabled={savingCompany}
+                      disabled={savingCompany || poClosed}
                       onClick={saveCompanyInfo}
                     >
                       {savingCompany ? "Saving..." : "Save Company Information"}
@@ -959,6 +1001,7 @@ const PoBucketView = () => {
                           size="sm"
                           type="date"
                           value={dispatchmentDateForAll}
+                          readOnly={poClosed}
                           onChange={(e) =>
                             setDispatchmentDateForAll(e.target.value)
                           }
@@ -969,6 +1012,7 @@ const PoBucketView = () => {
                           size="sm"
                           color="secondary"
                           variant="outline"
+                          disabled={poClosed}
                           onClick={applyDispatchmentDateToAll}
                         >
                           Set for all
@@ -978,6 +1022,7 @@ const PoBucketView = () => {
                         color="success"
                         size="sm"
                         className="d-inline-flex align-items-center"
+                        disabled={poClosed}
                         onClick={() => setAddProductSidebarOpen(true)}
                       >
                         <CIcon icon={cilPlus} className="me-1" />
@@ -1013,6 +1058,7 @@ const PoBucketView = () => {
                               <CFormInput
                                 size="sm"
                                 value={p.productName || ""}
+                                readOnly={poClosed}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1039,6 +1085,7 @@ const PoBucketView = () => {
                                 type="number"
                                 min={0}
                                 value={p.quantity}
+                                readOnly={poClosed}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1055,6 +1102,7 @@ const PoBucketView = () => {
                                 min={0}
                                 max={100}
                                 value={p.gstPercentage}
+                                readOnly={poClosed}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1070,6 +1118,7 @@ const PoBucketView = () => {
                                 type="number"
                                 min={0}
                                 value={p.rate}
+                                readOnly={poClosed}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1085,6 +1134,7 @@ const PoBucketView = () => {
                                 type="date"
                                 min={getTodayInputDate()}
                                 value={p.dispatchmentDate || ""}
+                                readOnly={poClosed}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1101,6 +1151,7 @@ const PoBucketView = () => {
                               <CFormTextarea
                                 rows={1}
                                 value={p.remark || ""}
+                                readOnly={poClosed}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1116,7 +1167,7 @@ const PoBucketView = () => {
                                 size="sm"
                                 className="me-2"
                                 onClick={() => updateSingleProduct(index)}
-                                disabled={savingProducts}
+                                disabled={savingProducts || poClosed}
                               >
                                 Update
                               </CButton>
@@ -1125,7 +1176,7 @@ const PoBucketView = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => removeProduct(index)}
-                                disabled={savingProducts}
+                                disabled={savingProducts || poClosed}
                               >
                                 <CIcon icon={cilTrash} />
                               </CButton>
@@ -1145,7 +1196,9 @@ const PoBucketView = () => {
                     <CButton
                       color="primary"
                       size="sm"
-                      disabled={savingProducts || productsForm.length === 0}
+                      disabled={
+                        savingProducts || productsForm.length === 0 || poClosed
+                      }
                       onClick={savePriorities}
                     >
                       {savingProducts ? "Saving..." : "Save priorities"}
@@ -1182,6 +1235,7 @@ const PoBucketView = () => {
                                 <CFormSelect
                                   size="sm"
                                   value={normalizeProductPriority(p.priority)}
+                                  disabled={poClosed}
                                   onChange={(e) =>
                                     updateProductField(
                                       index,
@@ -1315,7 +1369,8 @@ const PoBucketView = () => {
                       disabled={
                         savingAssignedEmployee ||
                         !assignEmployeeDirty ||
-                        (assignSelectValue && !selectedAssignEmployeePayload)
+                        (assignSelectValue && !selectedAssignEmployeePayload) ||
+                        poClosed
                       }
                       onClick={saveAssignedEmployee}
                     >
@@ -1328,7 +1383,7 @@ const PoBucketView = () => {
                         <CFormLabel>Employee (sales / HOD roles)</CFormLabel>
                         <CFormSelect
                           value={assignSelectValue}
-                          disabled={assignEmployeesLoading}
+                          disabled={assignEmployeesLoading || poClosed}
                           onChange={(e) => setAssignSelectValue(e.target.value)}
                         >
                           <option value="">
@@ -1347,8 +1402,8 @@ const PoBucketView = () => {
                           })}
                         </CFormSelect>
                         <div className="small text-body-secondary mt-2">
-                          Stores a full snapshot of the selected employee on this
-                          purchase order.
+                          Stores a full snapshot of the selected employee on
+                          this purchase order.
                         </div>
                       </CCol>
                       {purchaseOrder?.assigned_employee &&
@@ -1361,8 +1416,14 @@ const PoBucketView = () => {
                             <div className="row g-2">
                               {[
                                 ["Name", purchaseOrder.assigned_employee.name],
-                                ["Email", purchaseOrder.assigned_employee.email],
-                                ["Phone", purchaseOrder.assigned_employee.phone],
+                                [
+                                  "Email",
+                                  purchaseOrder.assigned_employee.email,
+                                ],
+                                [
+                                  "Phone",
+                                  purchaseOrder.assigned_employee.phone,
+                                ],
                                 ["Role", purchaseOrder.assigned_employee.role],
                                 [
                                   "Designation",
@@ -1370,7 +1431,9 @@ const PoBucketView = () => {
                                 ],
                               ].map(([k, v]) => (
                                 <div className="col-md-4" key={k}>
-                                  <span className="text-body-secondary">{k}: </span>
+                                  <span className="text-body-secondary">
+                                    {k}:{" "}
+                                  </span>
                                   {v != null && v !== "" ? String(v) : "—"}
                                 </div>
                               ))}
@@ -1544,6 +1607,7 @@ const PoBucketView = () => {
               <CFormLabel>Product name *</CFormLabel>
               <CFormInput
                 value={newProductForm.productName}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1557,6 +1621,7 @@ const PoBucketView = () => {
               <CFormTextarea
                 rows={3}
                 value={newProductForm.description}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1571,6 +1636,7 @@ const PoBucketView = () => {
                 type="number"
                 min={0}
                 value={newProductForm.quantity}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1583,6 +1649,7 @@ const PoBucketView = () => {
               <CFormLabel>Unit</CFormLabel>
               <ProductUnitSelect
                 value={newProductForm.unit}
+                disabled={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1597,6 +1664,7 @@ const PoBucketView = () => {
                 type="number"
                 min={0}
                 value={newProductForm.rate}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1612,6 +1680,7 @@ const PoBucketView = () => {
                 min={0}
                 max={100}
                 value={newProductForm.gstPercentage}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1626,6 +1695,7 @@ const PoBucketView = () => {
                 type="date"
                 min={getTodayInputDate()}
                 value={newProductForm.dispatchmentDate}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1638,6 +1708,7 @@ const PoBucketView = () => {
               <CFormLabel>HSN Number</CFormLabel>
               <CFormInput
                 value={newProductForm.hsnNumber}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1650,6 +1721,7 @@ const PoBucketView = () => {
               <CFormLabel>Model Number</CFormLabel>
               <CFormInput
                 value={newProductForm.modelNumber}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1662,6 +1734,7 @@ const PoBucketView = () => {
               <CFormLabel>Remark</CFormLabel>
               <CFormInput
                 value={newProductForm.remark}
+                readOnly={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1674,6 +1747,7 @@ const PoBucketView = () => {
               <CFormCheck
                 label="Apply discount"
                 checked={!!newProductForm.applyDiscount}
+                disabled={poClosed}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
                     ...prev,
@@ -1688,7 +1762,7 @@ const PoBucketView = () => {
                 type="number"
                 min={0}
                 max={100}
-                disabled={!newProductForm.applyDiscount}
+                disabled={poClosed || !newProductForm.applyDiscount}
                 value={newProductForm.discountPercentage}
                 onChange={(e) =>
                   setNewProductForm((prev) => ({
@@ -1708,7 +1782,7 @@ const PoBucketView = () => {
           >
             Cancel
           </CButton>
-          <CButton color="success" onClick={addNewProduct}>
+          <CButton color="success" disabled={poClosed} onClick={addNewProduct}>
             Add Product
           </CButton>
         </div>

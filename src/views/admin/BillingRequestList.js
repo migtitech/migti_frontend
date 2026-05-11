@@ -103,6 +103,7 @@ const BillingRequestList = () => {
   const [remarkDraft, setRemarkDraft] = useState("");
   const [savingRemark, setSavingRemark] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [uploadingProof, setUploadingProof] = useState(false);
 
   useEffect(() => {
@@ -268,6 +269,32 @@ const BillingRequestList = () => {
     }
   };
 
+  const onReject = async () => {
+    if (!detailId || !canAct) return;
+    if (remarkWordCount < 10) {
+      toastError("Reject remark must contain at least 10 words.");
+      return;
+    }
+    setRejecting(true);
+    try {
+      const res = await purchaseBillingRequestService.reject(
+        detailId,
+        remarkDraft,
+      );
+      const d = unwrapPayload(res);
+      if (d) {
+        setDetail((prev) => (prev ? { ...prev, ...d } : d));
+        setRemarkDraft(String(d.statusRemark || ""));
+      }
+      toastSuccess("Billing request rejected");
+      load();
+    } catch (e) {
+      toastError(e?.message || "Could not reject");
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const totalPages = Math.max(1, pagination.totalPages || 1);
   const isPending = String(detail?.status || "").toLowerCase() === "pending";
   const proofDocIsImage = (p) => {
@@ -276,6 +303,11 @@ const BillingRequestList = () => {
     return /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(p.originalName || ""));
   };
   const hasPaymentProof = proofDocIsImage(detail?.proofDocument);
+  const remarkWordCount = String(remarkDraft || "")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+  const canReject = remarkWordCount >= 10;
 
   return (
     <CRow>
@@ -558,13 +590,6 @@ const BillingRequestList = () => {
                       {detail.proofDocument.originalName || "Open proof"}
                     </a>
                   </p>
-                ) : (
-                  <p className="mb-2 small text-body-secondary">No proof yet.</p>
-                )}
-                {canAct && isPending && !hasPaymentProof ? (
-                  <p className="small text-warning mb-2">
-                    Upload an image proof of payment before you can approve.
-                  </p>
                 ) : null}
                 {canAct ? (
                   <div className="d-flex flex-wrap align-items-center gap-2">
@@ -616,7 +641,7 @@ const BillingRequestList = () => {
                 </p>
               ) : null}
 
-              <CFormLabel>Remark (stored on request)</CFormLabel>
+              <CFormLabel>Remark</CFormLabel>
               <CFormTextarea
                 rows={4}
                 value={remarkDraft}
@@ -628,22 +653,43 @@ const BillingRequestList = () => {
                 className="mb-2"
               />
               {canAct && isPending && (
-                <div className="d-flex flex-column gap-2">
+                <>
                   <CButton
                     color="secondary"
+                    className="mb-2 w-100"
                     disabled={savingRemark}
                     onClick={onSaveRemark}
                   >
                     {savingRemark ? "Saving…" : "Save remark"}
                   </CButton>
-                  <CButton
-                    color="success"
-                    disabled={approving || !hasPaymentProof}
-                    onClick={onApprove}
-                  >
-                    {approving ? "Approving…" : "Approve"}
-                  </CButton>
-                </div>
+                  <CRow className="g-2">
+                    <CCol xs={6}>
+                      <CButton
+                        color="success"
+                        className="w-100"
+                        disabled={approving || rejecting || !hasPaymentProof}
+                        onClick={onApprove}
+                      >
+                        {approving ? "Approving…" : "Approve"}
+                      </CButton>
+                    </CCol>
+                    <CCol xs={6}>
+                      <CButton
+                        color="danger"
+                        className="w-100"
+                        disabled={approving || rejecting || !canReject}
+                        onClick={onReject}
+                        title={
+                          !canReject
+                            ? "Add a remark with at least 10 words to reject"
+                            : undefined
+                        }
+                      >
+                        {rejecting ? "Rejecting…" : "Reject"}
+                      </CButton>
+                    </CCol>
+                  </CRow>
+                </>
               )}
             </>
           )}

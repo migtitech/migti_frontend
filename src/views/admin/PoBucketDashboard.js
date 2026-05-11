@@ -10,6 +10,11 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
+  CModal,
+  CModalBody,
+  CModalFooter,
+  CModalHeader,
+  CModalTitle,
   CRow,
   CTable,
   CTableBody,
@@ -20,11 +25,13 @@ import {
   CPagination,
   CPaginationItem,
 } from "@coreui/react";
-import { EyeIcon } from "../../components";
+import CIcon from "@coreui/icons-react";
+import { cilTrash } from "@coreui/icons";
 import purchaseOrderService from "../../services/purchaseOrderService";
-import { Loader } from "../../components";
+import { Loader, EyeIcon } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
-import { toastError } from "../../utils/toast";
+import { toastError, toastSuccess } from "../../utils/toast";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -32,6 +39,7 @@ const STATUS_OPTIONS = [
   { value: "confirmed", label: "Confirmed" },
   { value: "fulfilled", label: "Fulfilled" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "closed", label: "Closed" },
 ];
 
 const formatDateDdMmYyyy = (iso) => {
@@ -57,13 +65,28 @@ const getStatusBadge = (status) => {
       return <CBadge color="success">Fulfilled</CBadge>;
     case "cancelled":
       return <CBadge color="danger">Cancelled</CBadge>;
+    case "closed":
+      return <CBadge color="dark">Closed</CBadge>;
     default:
       return <CBadge color="secondary">{status || "-"}</CBadge>;
   }
 };
 
+const isHodRole = (role) => {
+  const r = String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return r === "head_of_department" || r === "hod";
+};
+
+/** PIN required on PO Bucket before HOD can close a purchase order (UI gate). */
+const PO_CLOSE_SECRET_PIN = "2003";
+
 const PoBucketDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const hodUser = isHodRole(user?.role);
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -72,6 +95,12 @@ const PoBucketDashboard = () => {
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
+  /** Single modal: confirm message first, then PIN (avoids CoreUI firing onClose when swapping modals). */
+  const [poCloseModalOpen, setPoCloseModalOpen] = useState(false);
+  const [poCloseStep, setPoCloseStep] = useState("confirm");
+  const [closePinInput, setClosePinInput] = useState("");
+  const [closing, setClosing] = useState(false);
+  const pendingClosePoIdRef = useRef(null);
   const latestFetchIdRef = useRef(0);
 
   useEffect(() => {
@@ -120,9 +149,157 @@ const PoBucketDashboard = () => {
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
 
+  const resetClosePoFlow = () => {
+    pendingClosePoIdRef.current = null;
+    setClosePinInput("");
+    setPoCloseStep("confirm");
+    setPoCloseModalOpen(false);
+  };
+
+  const openCloseConfirm = (po, e) => {
+    e?.stopPropagation?.();
+    pendingClosePoIdRef.current = po._id || po.id || null;
+    setClosePinInput("");
+    setPoCloseStep("confirm");
+    setPoCloseModalOpen(true);
+  };
+
+  const handlePoCloseModalDismiss = () => {
+    if (closing) return;
+    resetClosePoFlow();
+  };
+
+  const handleConfirmedCloseAfterPin = () => {
+    const trimmed = String(closePinInput || "").trim();
+    if (trimmed !== PO_CLOSE_SECRET_PIN) {
+      toastError("Incorrect PIN. Purchase order was not closed.");
+      return;
+    }
+    const id = pendingClosePoIdRef.current;
+    if (!id) return;
+    resetClosePoFlow();
+    setClosing(true);
+    void (async () => {
+      try {
+        await purchaseOrderService.hodClose(id);
+        toastSuccess("Purchase order closed");
+        const res = await purchaseOrderService.getAll({
+          pageNumber,
+          pageSize,
+          search: searchDebounced.trim() || undefined,
+          status: statusFilter || undefined,
+        });
+        const data = res?.data || res;
+        const result = data?.data ?? data;
+        setRows(result?.purchaseOrders || []);
+        setPagination(result?.pagination || null);
+      } catch (err) {
+        toastError(err?.message || "Failed to close purchase order");
+      } finally {
+        setClosing(false);
+      }
+    })();
+  };
+
   return (
     <CRow>
       <CCol xs={12}>
+        <CModal
+          alignment="center"
+          visible={poCloseModalOpen}
+          onClose={handlePoCloseModalDismiss}
+          backdrop="static"
+        >
+          <CModalHeader>
+            <CModalTitle>
+              {poCloseStep === "confirm"
+                ? "Close purchase order?"
+                : "Enter secret PIN"}
+            </CModalTitle>
+          </CModalHeader>
+          <CModalBody>
+            {poCloseStep === "confirm" ? (
+              <p className="mb-0">
+                This purchase order will be marked closed and all product lines
+                will be set to PO closed. Click Continue, then enter the secret
+                PIN to confirm.
+              </p>
+            ) : (
+              <>
+                <CFormLabel htmlFor="po-close-pin" className="mb-2">
+                  PIN required to close this purchase order
+                </CFormLabel>
+                <CFormInput
+                  id="po-close-pin"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  placeholder="PIN"
+                  value={closePinInput}
+                  disabled={closing}
+                  autoFocus
+                  onChange={(e) => setClosePinInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (!closing) handleConfirmedCloseAfterPin();
+                    }
+                  }}
+                />
+              </>
+            )}
+          </CModalBody>
+          <CModalFooter className="d-flex flex-wrap gap-2 justify-content-end">
+            {poCloseStep === "confirm" ? (
+              <>
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  disabled={closing}
+                  onClick={handlePoCloseModalDismiss}
+                >
+                  Cancel
+                </CButton>
+                <CButton
+                  color="danger"
+                  disabled={closing}
+                  onClick={() => setPoCloseStep("pin")}
+                >
+                  Continue
+                </CButton>
+              </>
+            ) : (
+              <>
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  disabled={closing}
+                  onClick={() => {
+                    setPoCloseStep("confirm");
+                    setClosePinInput("");
+                  }}
+                >
+                  Back
+                </CButton>
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  disabled={closing}
+                  onClick={handlePoCloseModalDismiss}
+                >
+                  Cancel
+                </CButton>
+                <CButton
+                  color="danger"
+                  disabled={closing}
+                  onClick={handleConfirmedCloseAfterPin}
+                >
+                  Close PO
+                </CButton>
+              </>
+            )}
+          </CModalFooter>
+        </CModal>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>PO Bucket</strong>
@@ -188,49 +365,69 @@ const PoBucketDashboard = () => {
               </CTableHead>
               <CTableBody>
                 {rows.length > 0 ? (
-                  rows.map((po, index) => (
-                    <CTableRow
-                      key={po._id || po.id}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => navigate(`/po-bucket/${po._id || po.id}`)}
-                    >
-                      <CTableDataCell>
-                        {(currentPage - 1) * pageSize + index + 1}
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        <strong>{po.poCode || "-"}</strong>
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        {po.companyInfo?.name || "-"}
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        {Array.isArray(po.products) ? po.products.length : 0}{" "}
-                        item(s)
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        ₹{formatInrAmount(po.totalAmount)}
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        {getStatusBadge(po.status)}
-                      </CTableDataCell>
-                      <CTableDataCell>
-                        {po.createdAt ? formatDateDdMmYyyy(po.createdAt) : "-"}
-                      </CTableDataCell>
-                      <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                        <CButton
-                          color="info"
-                          variant="ghost"
-                          size="sm"
-                          title="View"
-                          onClick={() =>
-                            navigate(`/po-bucket/${po._id || po.id}`)
-                          }
-                        >
-                          <EyeIcon />
-                        </CButton>
-                      </CTableDataCell>
-                    </CTableRow>
-                  ))
+                  rows.map((po, index) => {
+                    const poId = po._id || po.id;
+                    const st = String(po.status || "").toLowerCase();
+                    const canShowClose =
+                      hodUser && st !== "closed" && st !== "cancelled";
+                    return (
+                      <CTableRow
+                        key={poId}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => navigate(`/po-bucket/${poId}`)}
+                      >
+                        <CTableDataCell>
+                          {(currentPage - 1) * pageSize + index + 1}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <strong>{po.poCode || "-"}</strong>
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {po.companyInfo?.name || "-"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {Array.isArray(po.products) ? po.products.length : 0}{" "}
+                          item(s)
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          ₹{formatInrAmount(po.totalAmount)}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {getStatusBadge(po.status)}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {po.createdAt
+                            ? formatDateDdMmYyyy(po.createdAt)
+                            : "-"}
+                        </CTableDataCell>
+                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
+                          <div className="d-flex align-items-center gap-1 flex-wrap">
+                            <CButton
+                              color="info"
+                              variant="ghost"
+                              size="sm"
+                              title="View"
+                              onClick={() => navigate(`/po-bucket/${poId}`)}
+                            >
+                              <EyeIcon />
+                            </CButton>
+                            {canShowClose ? (
+                              <CButton
+                                color="danger"
+                                variant="ghost"
+                                size="sm"
+                                title="Close PO"
+                                disabled={closing}
+                                onClick={(e) => openCloseConfirm(po, e)}
+                              >
+                                <CIcon icon={cilTrash} />
+                              </CButton>
+                            ) : null}
+                          </div>
+                        </CTableDataCell>
+                      </CTableRow>
+                    );
+                  })
                 ) : (
                   <CTableRow>
                     <CTableDataCell colSpan={8} className="text-center">

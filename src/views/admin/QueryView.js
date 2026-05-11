@@ -25,6 +25,7 @@ import {
   CFormTextarea,
   CSpinner,
   CImage,
+  CAlert,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
@@ -37,6 +38,7 @@ import {
   cilCloudDownload,
   cilBan,
   cilLocationPin,
+  cilList,
 } from "@coreui/icons";
 import { getAssetsUrl } from "../../api/endpoints";
 import queryService from "../../services/queryService";
@@ -134,6 +136,16 @@ const QueryView = () => {
   const [closeModalVisible, setCloseModalVisible] = useState(false);
   const [closeRemark, setCloseRemark] = useState("");
   const [closing, setClosing] = useState(false);
+  const [procurementRatesModal, setProcurementRatesModal] = useState({
+    visible: false,
+    loading: false,
+    error: "",
+    productLabel: "",
+    rawProductCode: "",
+    lineIndex: null,
+    status: null,
+    rates: [],
+  });
 
   const getImageUrl = (img) => {
     if (!img) return "";
@@ -323,6 +335,84 @@ const QueryView = () => {
     if (ref == null) return "—";
     if (typeof ref === "object" && ref != null) return ref.name || "—";
     return "—";
+  };
+
+  const formatProcurementSupplier = (supplier) => {
+    if (supplier == null) return "—";
+    if (typeof supplier === "object") {
+      const name =
+        supplier.name ||
+        supplier.shopname ||
+        supplier.shopName ||
+        "";
+      const extra = [supplier.phone_1, supplier.email]
+        .filter(Boolean)
+        .join(" • ");
+      if (name && extra) return `${name} (${extra})`;
+      if (name) return name;
+      if (extra) return extra;
+      if (supplier._id) return `ID: ${supplier._id}`;
+      return "—";
+    }
+    return String(supplier);
+  };
+
+  const openProcurementRatesModal = async (productRow, lineIndex) => {
+    const rawCode = String(productRow?.rawProductCode ?? "").trim();
+    if (!id || !rawCode) {
+      toastError("This line has no product code; procurement rates are unavailable.");
+      return;
+    }
+    const productLabel =
+      productRow?.productName?.trim() || rawCode || `Line ${lineIndex + 1}`;
+    setProcurementRatesModal({
+      visible: true,
+      loading: true,
+      error: "",
+      productLabel,
+      rawProductCode: rawCode,
+      lineIndex,
+      status: null,
+      rates: [],
+    });
+    try {
+      const res = await queryService.getLineProcurementRates(id, {
+        rawProductCode: rawCode,
+        lineIndex,
+      });
+      const block = res?.data?.data ?? res?.data ?? res;
+      const rates = Array.isArray(block?.rates) ? block.rates : [];
+      setProcurementRatesModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: "",
+        status: block?.status ?? null,
+        rates,
+        productLabel: block?.productName?.trim() || productLabel,
+      }));
+    } catch (err) {
+      const msg = err?.message || "Failed to load procurement rates";
+      toastError(msg);
+      setProcurementRatesModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: msg,
+        rates: [],
+      }));
+    }
+  };
+
+  const closeProcurementRatesModal = () => {
+    setProcurementRatesModal({
+      visible: false,
+      loading: false,
+      error: "",
+      productLabel: "",
+      rawProductCode: "",
+      lineIndex: null,
+      status: null,
+      rates: [],
+    });
   };
 
   const handleExportPDF = async () => {
@@ -737,6 +827,12 @@ const QueryView = () => {
                       <CTableHeaderCell>HSN Number</CTableHeaderCell>
                       <CTableHeaderCell>GST %</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
+                      <CTableHeaderCell
+                        className="text-center"
+                        style={{ width: 140 }}
+                      >
+                        Procurement rate
+                      </CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 120 }}>
                         Images
                       </CTableHeaderCell>
@@ -759,6 +855,7 @@ const QueryView = () => {
                       const imageUrls = allImages
                         .map((img) => getImageUrl(img))
                         .filter((src) => !!src);
+                      const rawCode = String(p.rawProductCode ?? "").trim();
 
                       return (
                         <CTableRow key={p._id || index}>
@@ -796,6 +893,26 @@ const QueryView = () => {
                           </CTableDataCell>
                           <CTableDataCell className="small">
                             {p.remark || "—"}
+                          </CTableDataCell>
+                          <CTableDataCell className="text-center align-middle">
+                            {rawCode ? (
+                              <CButton
+                                type="button"
+                                color="secondary"
+                                variant="ghost"
+                                size="sm"
+                                className="p-1"
+                                title="View procurement rates"
+                                aria-label="View procurement rates"
+                                onClick={() =>
+                                  openProcurementRatesModal(p, index)
+                                }
+                              >
+                                <CIcon icon={cilList} size="lg" />
+                              </CButton>
+                            ) : (
+                              <span className="text-muted small">—</span>
+                            )}
                           </CTableDataCell>
                           <CTableDataCell>
                             {imageUrls.length > 0 ? (
@@ -877,6 +994,107 @@ const QueryView = () => {
         confirmText="Yes, convert"
         cancelText="Cancel"
       />
+      <CModal
+        visible={procurementRatesModal.visible}
+        onClose={() =>
+          !procurementRatesModal.loading && closeProcurementRatesModal()
+        }
+        alignment="center"
+        size="lg"
+      >
+        <CModalHeader>
+          <CModalTitle>Procurement rates</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          {procurementRatesModal.loading ? (
+            <div className="text-center py-4">
+              <CSpinner />
+              <div className="small text-muted mt-2">Loading rates…</div>
+            </div>
+          ) : procurementRatesModal.error ? (
+            <CAlert color="danger" className="mb-0">
+              {procurementRatesModal.error}
+            </CAlert>
+          ) : (
+            <>
+              <div className="small text-muted mb-2">
+                <strong>{procurementRatesModal.productLabel}</strong>
+                {procurementRatesModal.rawProductCode ? (
+                  <>
+                    {" "}
+                    · Code{" "}
+                    <span className="text-body">
+                      {procurementRatesModal.rawProductCode}
+                    </span>
+                  </>
+                ) : null}
+                {procurementRatesModal.status ? (
+                  <>
+                    {" "}
+                    · Status{" "}
+                    <CBadge color="info" className="text-uppercase">
+                      {procurementRatesModal.status}
+                    </CBadge>
+                  </>
+                ) : null}
+              </div>
+              {procurementRatesModal.rates.length === 0 ? (
+                <p className="text-muted mb-0">
+                  No procurement rates submitted for this line yet.
+                </p>
+              ) : (
+                <CTable responsive bordered hover className="mb-0 small">
+                  <CTableHead>
+                    <CTableRow>
+                      <CTableHeaderCell scope="col">#</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Supplier</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Rate</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Unit</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Remark</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Submitted</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {procurementRatesModal.rates.map((r, i) => (
+                      <CTableRow key={r._id || i}>
+                        <CTableDataCell>{i + 1}</CTableDataCell>
+                        <CTableDataCell className="text-break">
+                          {formatProcurementSupplier(r.supplier)}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {r.rate != null && !Number.isNaN(Number(r.rate))
+                            ? Number(r.rate)
+                            : "—"}
+                        </CTableDataCell>
+                        <CTableDataCell>{r.unit || "—"}</CTableDataCell>
+                        <CTableDataCell className="text-break">
+                          {r.remark || "—"}
+                        </CTableDataCell>
+                        <CTableDataCell className="text-nowrap">
+                          {r.submittedAt
+                            ? new Date(r.submittedAt).toLocaleString()
+                            : "—"}
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              )}
+            </>
+          )}
+        </CModalBody>
+        <CModalFooter>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={closeProcurementRatesModal}
+            disabled={procurementRatesModal.loading}
+          >
+            Close
+          </CButton>
+        </CModalFooter>
+      </CModal>
+
       <CModal
         visible={closeModalVisible}
         onClose={() => !closing && setCloseModalVisible(false)}

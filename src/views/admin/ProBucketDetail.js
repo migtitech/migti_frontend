@@ -181,11 +181,6 @@ const ItemInfoSections = ({ item }) => {
                 <RefName refVal={item.categoryId} />
               </Field>
             </CCol>
-            <CCol md={4}>
-              <Field label="Linked catalog product">
-                <RefName refVal={item.product_id} />
-              </Field>
-            </CCol>
           </CRow>
         </CCardBody>
       </CCard>
@@ -453,32 +448,98 @@ const ProBucketDetail = () => {
               <p className="text-body-secondary">Item not found.</p>
             ) : (
               <>
-                <CNav variant="tabs" className="mb-3" role="tablist">
-                  <CNavItem>
-                    <CNavLink
-                      active={activeTab === 0}
-                      onClick={() => setActiveTab(0)}
-                      style={{ cursor: "pointer" }}
+                <div
+                  className={
+                    isPhoneView
+                      ? "sticky-top mb-3 border-bottom pb-2"
+                      : undefined
+                  }
+                  style={
+                    isPhoneView
+                      ? {
+                          zIndex: 6,
+                          marginLeft: "-1rem",
+                          marginRight: "-1rem",
+                          paddingLeft: "1rem",
+                          paddingRight: "1rem",
+                          marginTop: "-0.5rem",
+                          paddingTop: "0.75rem",
+                          background: "var(--cui-body-bg)",
+                          boxShadow: "0 6px 16px rgba(0, 0, 0, 0.06)",
+                        }
+                      : undefined
+                  }
+                >
+                  <div
+                    className={
+                      isPhoneView
+                        ? "d-flex align-items-end gap-2 flex-nowrap"
+                        : undefined
+                    }
+                  >
+                    <CNav
+                      variant="tabs"
+                      className={
+                        isPhoneView
+                          ? "mb-0 flex-grow-1 min-w-0 flex-nowrap border-bottom-0"
+                          : "mb-3"
+                      }
+                      style={
+                        isPhoneView
+                          ? { flexWrap: "nowrap", overflowX: "auto" }
+                          : undefined
+                      }
+                      role="tablist"
                     >
-                      Item info
-                    </CNavLink>
-                  </CNavItem>
-                  <CNavItem>
-                    <CNavLink
-                      active={activeTab === 1}
-                      onClick={() => setActiveTab(1)}
-                      style={{ cursor: "pointer" }}
-                    >
-                      Rate
-                    </CNavLink>
-                  </CNavItem>
-                </CNav>
+                      <CNavItem className="flex-shrink-0">
+                        <CNavLink
+                          active={activeTab === 0}
+                          onClick={() => setActiveTab(0)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          Item info
+                        </CNavLink>
+                      </CNavItem>
+                      <CNavItem className="flex-shrink-0">
+                        <CNavLink
+                          active={activeTab === 1}
+                          onClick={() => setActiveTab(1)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          Rate
+                        </CNavLink>
+                      </CNavItem>
+                    </CNav>
+                    {isPhoneView && canAddRate && activeTab === 1 ? (
+                      <button
+                        type="button"
+                        className="btn btn-primary d-inline-flex align-items-center gap-1 flex-shrink-0 border-0 rounded-pill shadow-sm"
+                        style={{
+                          fontSize: "0.8125rem",
+                          fontWeight: 600,
+                          lineHeight: 1.2,
+                          padding: "0.4rem 0.75rem",
+                          boxShadow:
+                            "0 2px 10px rgba(var(--cui-primary-rgb, 50, 31, 219), 0.35)",
+                        }}
+                        onClick={() => {
+                          setRateRows([emptyRow()]);
+                          setSupplierSearch("");
+                          setRateBarOpen(true);
+                        }}
+                      >
+                        <CIcon icon={cilPlus} size="sm" />
+                        <span>Add rate</span>
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
                 <CTabContent>
                   <CTabPane role="tabpanel" visible={activeTab === 0}>
                     <ItemInfoSections item={item} />
                   </CTabPane>
                   <CTabPane role="tabpanel" visible={activeTab === 1}>
-                    {canAddRate && (
+                    {canAddRate && !isPhoneView ? (
                       <CButton
                         color="primary"
                         className="mb-3"
@@ -491,7 +552,7 @@ const ProBucketDetail = () => {
                         <CIcon icon={cilPlus} className="me-1" />
                         Add rate
                       </CButton>
-                    )}
+                    ) : null}
                     <CRow>
                       {(!item.rates || !item.rates.length) && (
                         <CCol xs={12}>
@@ -544,7 +605,12 @@ const ProBucketDetail = () => {
       {rateBarOpen && (
         <div
           className="position-fixed top-0 start-0 w-100 h-100"
-          style={{ zIndex: 1040, background: "rgba(0,0,0,0.45)" }}
+          style={{
+            zIndex: 1040,
+            background: "rgba(15, 23, 42, 0.42)",
+            backdropFilter: "blur(3px)",
+            WebkitBackdropFilter: "blur(3px)",
+          }}
           onClick={closeRateBar}
           role="button"
           tabIndex={-1}
@@ -556,12 +622,19 @@ const ProBucketDetail = () => {
         <div
           className={
             isPhoneView
-              ? "position-fixed bottom-0 start-0 end-0 d-flex flex-column border-top border-2 bg-body shadow-lg"
+              ? "position-fixed bottom-0 start-0 end-0 d-flex flex-column bg-body"
               : "position-fixed top-0 end-0 d-flex flex-column border-start border-2 bg-body shadow-lg h-100"
           }
           style={
             isPhoneView
-              ? { zIndex: 1050, maxHeight: "min(85vh, 100%)" }
+              ? {
+                  zIndex: 1050,
+                  maxHeight: "min(90vh, 100%)",
+                  borderTopLeftRadius: "1rem",
+                  borderTopRightRadius: "1rem",
+                  boxShadow: "0 -10px 40px rgba(0, 0, 0, 0.2)",
+                  borderTop: "1px solid var(--cui-border-color-translucent, rgba(0,0,0,0.08))",
+                }
               : { zIndex: 1050, width: "min(28rem, 100%)" }
           }
           onClick={(e) => e.stopPropagation()}
@@ -569,14 +642,36 @@ const ProBucketDetail = () => {
           aria-modal="true"
           aria-label="Add rates"
         >
-          <div className="d-flex align-items-center justify-content-between gap-2 px-3 py-2 border-bottom flex-shrink-0">
+          {isPhoneView ? (
+            <div
+              className="d-flex justify-content-center pt-2 pb-1 flex-shrink-0"
+              aria-hidden
+            >
+              <span
+                className="rounded-pill"
+                style={{
+                  width: "2.25rem",
+                  height: "0.28rem",
+                  background: "var(--cui-secondary-color, #adb5bd)",
+                  opacity: 0.45,
+                }}
+              />
+            </div>
+          ) : null}
+          <div
+            className={`d-flex align-items-center justify-content-between gap-2 border-bottom flex-shrink-0 ${
+              isPhoneView ? "px-3 pt-1 pb-3" : "px-3 py-2"
+            }`}
+          >
             <div>
-              <h2 className="h6 mb-0">Add rate(s)</h2>
-              <p className="text-body-secondary small mb-0">
-                {isPhoneView
-                  ? "Add lines with a rate. Supplier is optional. Search narrows the supplier list."
-                  : "Rate is required. Supplier, unit, and remark are optional. Use search to filter suppliers."}
-              </p>
+              <h2
+                className={`mb-0 ${isPhoneView ? "fs-5 fw-semibold" : "h6"}`}
+                style={
+                  isPhoneView ? { letterSpacing: "-0.02em" } : undefined
+                }
+              >
+                Add rate(s)
+              </h2>
             </div>
             <CButton
               type="button"
@@ -592,7 +687,11 @@ const ProBucketDetail = () => {
             </CButton>
           </div>
 
-          <div className="px-3 py-2 border-bottom flex-shrink-0">
+          <div
+            className={`border-bottom flex-shrink-0 ${
+              isPhoneView ? "px-3 py-3" : "px-3 py-2"
+            }`}
+          >
             <CFormLabel className="mb-1" htmlFor="pro-bucket-supplier-search">
               Search suppliers
             </CFormLabel>
@@ -613,14 +712,21 @@ const ProBucketDetail = () => {
           </div>
 
           <div
-            className="flex-grow-1 overflow-auto px-3 py-2"
+            className={`flex-grow-1 overflow-auto px-3 ${
+              isPhoneView ? "py-3" : "py-2"
+            }`}
             onClick={(e) => e.stopPropagation()}
             role="presentation"
           >
             {rateRows.map((row, idx) => {
               const options = supplierOptionsForRow(row);
               return (
-                <CRow className="g-2 align-items-end mb-3" key={idx}>
+                <CRow
+                  className={`${
+                    isPhoneView ? "g-3" : "g-2"
+                  } align-items-end mb-3`}
+                  key={idx}
+                >
                   <CCol {...(isPhoneView ? { md: 4, sm: 6 } : { xs: 12 })}>
                     <CFormLabel className="mb-0">
                       Supplier (optional)
@@ -713,7 +819,17 @@ const ProBucketDetail = () => {
           </div>
 
           <div
-            className="d-flex justify-content-end flex-wrap gap-2 px-3 py-2 border-top bg-body-secondary flex-shrink-0"
+            className={`d-flex justify-content-end flex-wrap gap-2 px-3 border-top flex-shrink-0 ${
+              isPhoneView
+                ? "py-3 bg-body shadow-sm"
+                : "py-2 bg-body-secondary"
+            }`}
+            style={{
+              paddingBottom: isPhoneView
+                ? "max(0.75rem, env(safe-area-inset-bottom, 0px))"
+                : undefined,
+              boxShadow: isPhoneView ? "0 -4px 20px rgba(0,0,0,0.06)" : undefined,
+            }}
             onClick={(e) => e.stopPropagation()}
             role="presentation"
           >

@@ -90,6 +90,21 @@ const queryService = {
     return response;
   },
 
+  /** Procurement (Pro Bucket) rates for one line: `query_products` matched by queryId + rawProductCode / lineIndex */
+  getLineProcurementRates: async (queryId, { rawProductCode, lineIndex } = {}) => {
+    const params = {
+      queryId,
+      rawProductCode: String(rawProductCode ?? "").trim(),
+    };
+    if (lineIndex != null && lineIndex !== "") {
+      params.lineIndex = Number(lineIndex);
+    }
+    const response = await api.get(QUERIES.QUERY_LINE_PROCUREMENT_RATES, {
+      params,
+    });
+    return response;
+  },
+
   getTodayStats: async (params = {}) => {
     const response = await api.get(QUERIES.TODAY_STATS, { params });
     return response;

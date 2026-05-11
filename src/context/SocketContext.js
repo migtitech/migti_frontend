@@ -15,7 +15,7 @@ import { playSirenSound, playRateUpdateSound } from "../utils/sirenSound";
 import { toast } from "react-hot-toast";
 
 /** Set true when `wss://…/socket.io` is reachable; false skips all client socket usage (no WS errors in console/UI). */
-const SOCKET_IO_ENABLED = false;
+const SOCKET_IO_ENABLED = true;
 
 const SocketContext = createContext(null);
 
