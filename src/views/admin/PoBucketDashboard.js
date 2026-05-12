@@ -38,6 +38,7 @@ const STATUS_OPTIONS = [
   { value: "draft", label: "Draft" },
   { value: "confirmed", label: "Confirmed" },
   { value: "fulfilled", label: "Fulfilled" },
+  { value: "hod_approved", label: "HOD approved" },
   { value: "cancelled", label: "Cancelled" },
   { value: "closed", label: "Closed" },
 ];
@@ -67,6 +68,8 @@ const getStatusBadge = (status) => {
       return <CBadge color="danger">Cancelled</CBadge>;
     case "closed":
       return <CBadge color="dark">Closed</CBadge>;
+    case "hod_approved":
+      return <CBadge color="success">HOD approved</CBadge>;
     default:
       return <CBadge color="secondary">{status || "-"}</CBadge>;
   }

@@ -34,6 +34,7 @@ const MODULE_LABEL_DISPLAY = {
   "Visit Management": "Visit Management",
   "My Visits": "My Visits",
   "Po Payment": "PO payment",
+  "Po Payment Backlog": "Pending Payments",
 };
 
 const ALLOWED_MODULE_LABELS = new Set([
@@ -65,6 +66,7 @@ const ALLOWED_MODULE_LABELS = new Set([
   "Purchase Bucket",
   "Inventory Bucket",
   "Po Payment",
+  "Po Payment Backlog",
   "Billing Request",
   "Dispatchment",
   "Employees",

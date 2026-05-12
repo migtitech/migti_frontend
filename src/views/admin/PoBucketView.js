@@ -44,6 +44,7 @@ import { Loader } from "../../components";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
+import { useAuth } from "../../context/AuthContext";
 
 /** `status` on `po_products` (read-only here; not stored on purchase order) */
 const lineInventoryStatusBadge = (inv) => {
@@ -77,6 +78,15 @@ const normalizeProductPriority = (value) => {
 };
 
 const OBJECT_ID_RE = /^[0-9a-fA-F]{24}$/;
+
+/** PO bucket HOD Approve: visible only for Head of Department (not legacy `hod`). */
+const isHeadOfDepartmentRole = (role) => {
+  const r = String(role || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  return r === "head_of_department";
+};
 
 const normalizeDocId = (value) => {
   if (value == null) return "";
@@ -258,6 +268,7 @@ const poAttachmentStateFromPo = (data) => {
 const PoBucketView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [savingCompany, setSavingCompany] = useState(false);
   const [savingProducts, setSavingProducts] = useState(false);
@@ -290,10 +301,20 @@ const PoBucketView = () => {
   const [assignEmployeesLoading, setAssignEmployeesLoading] = useState(false);
   const [assignSelectValue, setAssignSelectValue] = useState("");
   const [savingAssignedEmployee, setSavingAssignedEmployee] = useState(false);
+  const [hodApproving, setHodApproving] = useState(false);
   const companyAreaMetaRef = useRef(emptyCompanyAreaMeta());
   const poId = purchaseOrder?._id || purchaseOrder?.id;
   const poClosed =
     String(purchaseOrder?.status || "").toLowerCase() === "closed";
+  const poStatusNorm = String(purchaseOrder?.status || "").toLowerCase();
+  const poHodApproved = poStatusNorm === "hod_approved";
+  const headOfDepartmentUser = isHeadOfDepartmentRole(user?.role);
+  const canShowHodApprove =
+    headOfDepartmentUser &&
+    poId &&
+    !poClosed &&
+    !poHodApproved &&
+    poStatusNorm !== "cancelled";
 
   const serverAttachmentId = useMemo(
     () => normalizeDocId(purchaseOrder?.attachmentDocumentId),
@@ -443,6 +464,20 @@ const PoBucketView = () => {
     setAssignSelectValue(ae?._id != null ? String(ae._id) : "");
     if (activeTab === "productStatus") {
       await loadPoProductStatusLines();
+    }
+  };
+
+  const handleHodApprove = async () => {
+    if (!poId || !canShowHodApprove) return;
+    setHodApproving(true);
+    try {
+      await purchaseOrderService.hodApprove(poId);
+      toastSuccess("Purchase order marked HOD approved");
+      await refreshAfterUpdate();
+    } catch (err) {
+      toastError(err?.message || "HOD approve failed");
+    } finally {
+      setHodApproving(false);
     }
   };
 
@@ -810,8 +845,23 @@ const PoBucketView = () => {
         </CCard>
 
         <CCard>
-          <CCardHeader>
+          <CCardHeader className="d-flex flex-wrap align-items-center justify-content-between gap-2">
             <strong>Purchase Order Details</strong>
+            <div className="d-flex flex-wrap align-items-center gap-2">
+              {poHodApproved ? (
+                <CBadge color="success">HOD approved</CBadge>
+              ) : null}
+              {canShowHodApprove ? (
+                <CButton
+                  color="success"
+                  size="sm"
+                  disabled={hodApproving}
+                  onClick={() => void handleHodApprove()}
+                >
+                  {hodApproving ? "Approving…" : "HOD Approve"}
+                </CButton>
+              ) : null}
+            </div>
           </CCardHeader>
           <CCardBody>
             {poClosed ? (

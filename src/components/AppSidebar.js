@@ -30,6 +30,12 @@ const SIDEBAR_COUNT_BADGE_STYLE = {
   color: "#FFFFFF",
 };
 
+/**
+ * Modules where HOD must have explicit permission to see the sidebar item.
+ * The full-access bypass is skipped for these modules when the user is HOD.
+ */
+const HOD_PERMISSION_REQUIRED_MODULES = new Set(["po_payment_backlog"]);
+
 /** Nav routes hidden for head_of_department / hod only (full-access otherwise sees all modules). */
 const HOD_HIDDEN_PATHS = new Set([
   "/companies",
@@ -157,6 +163,7 @@ const AppSidebar = () => {
         "/dispatchment",
         "/delivery-approval",
         "/billing-requests",
+        "/po-payment-backlog",
       ]);
       return navigation.filter((item) => item?.to && allowedPaths.has(item.to));
     }
@@ -188,6 +195,15 @@ const AppSidebar = () => {
       // Show Sub-zones by default only to HOD; other roles need explicit permission.
       if (item.module === "sub_zones")
         return isHod || hasAnyPermission("sub_zones");
+      // HOD must have an explicit permission entry for these modules (no full-access bypass).
+      if (isHod && HOD_PERMISSION_REQUIRED_MODULES.has(item.module)) {
+        return (
+          Array.isArray(user?.permissions) &&
+          user.permissions.some((p) =>
+            String(p).startsWith(`${item.module}:`),
+          )
+        );
+      }
       // Full-access roles see everything
       if (isFullAccess) return true;
       // Check if user has any permission for this module
@@ -215,6 +231,14 @@ const AppSidebar = () => {
             if (!subItem.module) return true;
             if (subItem.module === "sub_zones")
               return isHod || hasAnyPermission("sub_zones");
+            if (isHod && HOD_PERMISSION_REQUIRED_MODULES.has(subItem.module)) {
+              return (
+                Array.isArray(user?.permissions) &&
+                user.permissions.some((p) =>
+                  String(p).startsWith(`${subItem.module}:`),
+                )
+              );
+            }
             if (isFullAccess) return true;
             return hasAnyPermission(subItem.module);
           });

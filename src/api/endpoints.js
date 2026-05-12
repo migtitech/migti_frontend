@@ -274,11 +274,18 @@ export const PURCHASE_ORDERS = {
   UPDATE_STATUS: "/purchase-orders/update-status",
   /** HOD-only: PO `closed` + all `po_products` → `po_closed` */
   HOD_CLOSE: "/purchase-orders/hod-close",
+  /** HOD-only: sets `purchaseorders.status` → `hod_approved` */
+  HOD_APPROVE: "/purchase-orders/hod-approve",
   APPEND_PAYMENT: "/purchase-orders/append-payment",
 };
 
 export const PO_PAYMENTS = {
   APPEND_LEDGER: "/po-payments/append-ledger",
+};
+
+export const PO_PAYMENT_BACKLOG = {
+  LIST: "/po-payment-backlog/list",
+  SETTLE: "/po-payment-backlog/settle",
 };
 
 /** Admin list & actions for `purchase_billing_requests` (Mongo collection) */

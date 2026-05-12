@@ -297,6 +297,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "Payment Backlog",
+    to: "/hod-payment-backlog",
+    icon: <CIcon icon={cilClock} customClassName="nav-icon" />,
+    roles: ["head_of_department", "hod"],
+  },
+  {
+    component: CNavItem,
     name: "Branch Analytics",
     to: "/branch-analytics",
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
@@ -331,6 +338,13 @@ const _nav = [
     module: "po_payment",
     /** Only roles whose normalized name starts with `sales` (e.g. sales_manager). */
     rolePrefix: "sales",
+  },
+  {
+    component: CNavItem,
+    name: "Pending Payments",
+    to: "/po-payment-backlog",
+    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
+    module: "po_payment_backlog",
   },
   {
     component: CNavItem,

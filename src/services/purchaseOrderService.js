@@ -77,6 +77,18 @@ const purchaseOrderService = {
     return response;
   },
 
+  /** Head of department only (backend enforces). Sets PO `status` to `hod_approved`. */
+  hodApprove: async (id) => {
+    const response = await api.put(
+      PURCHASE_ORDERS.HOD_APPROVE,
+      {},
+      {
+        params: { purchaseOrderId: id },
+      },
+    );
+    return response;
+  },
+
   appendPayment: async (id, body) => {
     const response = await api.post(PURCHASE_ORDERS.APPEND_PAYMENT, body, {
       params: { purchaseOrderId: id },

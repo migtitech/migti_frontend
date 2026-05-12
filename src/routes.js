@@ -76,6 +76,12 @@ const PoPaymentSidebar = React.lazy(
 const PendingPayment = React.lazy(
   () => import("./views/admin/PendingPayment"),
 );
+const PoPaymentBacklog = React.lazy(
+  () => import("./views/admin/PoPaymentBacklog"),
+);
+const HodPaymentBacklog = React.lazy(
+  () => import("./views/hod/HodPaymentBacklog"),
+);
 const BillingRequestList = React.lazy(
   () => import("./views/admin/BillingRequestList"),
 );
@@ -500,6 +506,19 @@ const routes = [
     module: "po_payment",
     action: "read",
     allowedRolePrefix: "sales",
+  },
+  {
+    path: "/po-payment-backlog",
+    name: "PO Payment Backlog",
+    element: PoPaymentBacklog,
+    module: "po_payment_backlog",
+    action: "read",
+  },
+  {
+    path: "/hod-payment-backlog",
+    name: "Payment Backlog",
+    element: HodPaymentBacklog,
+    allowedRoles: ["head_of_department", "hod", "super_admin"],
   },
   {
     path: "/billing-requests",
