@@ -11,7 +11,7 @@ import {
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilX, cilDataTransferDown } from "@coreui/icons";
-import queryNewProductService from "../../services/queryNewProductService";
+import productService from "../../services/productService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { toastError } from "../../utils/toast";
 
@@ -23,7 +23,7 @@ const getImageUrl = (img) => {
   return typeof img === "string" ? img : "";
 };
 
-const QueryNewProductFindSidebar = ({
+const QueryProductFindSidebar = ({
   isOpen = false,
   onToggle = () => {},
   onSelectProduct = () => {},
@@ -32,29 +32,27 @@ const QueryNewProductFindSidebar = ({
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState([]);
   const [nameFilter, setNameFilter] = useState("");
-  const [descriptionFilter, setDescriptionFilter] = useState("");
   const [hsnFilter, setHsnFilter] = useState("");
 
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await queryNewProductService.list({
+      const res = await productService.getAll({
         pageNumber: 1,
         pageSize: 50,
         status: "hod_approved",
-        name: nameFilter || undefined,
-        description: descriptionFilter || undefined,
+        search: nameFilter || undefined,
         hsnNumber: hsnFilter || undefined,
       });
       const inner = res?.data ?? res;
-      setItems(inner?.items || []);
+      setItems(inner?.data?.products || inner?.products || []);
     } catch (err) {
-      toastError(err?.message || "Failed to load new query products");
+      toastError(err?.message || "Failed to load products");
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [nameFilter, descriptionFilter, hsnFilter]);
+  }, [nameFilter, hsnFilter]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -105,7 +103,7 @@ const QueryNewProductFindSidebar = ({
         }}
       >
         <div className="d-flex justify-content-between align-items-center mb-2">
-          <h6 className="mb-0">New query products</h6>
+          <h6 className="mb-0">Products</h6>
           <div className="d-flex align-items-center gap-2">
             <CBadge color="info">{items.length}</CBadge>
             <CButton
@@ -122,8 +120,7 @@ const QueryNewProductFindSidebar = ({
         </div>
 
         <p className="text-muted small mb-2">
-          Filter by name, description, or HSN, then use the import icon below
-          each image.
+          Filter by name or HSN, then use the import icon below each image.
         </p>
 
         <div className="mb-2">
@@ -133,15 +130,6 @@ const QueryNewProductFindSidebar = ({
             placeholder="Product name"
             value={nameFilter}
             onChange={(e) => setNameFilter(e.target.value)}
-          />
-        </div>
-        <div className="mb-2">
-          <CFormLabel className="small mb-1">Description</CFormLabel>
-          <CFormInput
-            size="sm"
-            placeholder="Description"
-            value={descriptionFilter}
-            onChange={(e) => setDescriptionFilter(e.target.value)}
           />
         </div>
         <div className="mb-3">
@@ -227,7 +215,7 @@ const QueryNewProductFindSidebar = ({
                             lineHeight: 1.35,
                           }}
                         >
-                          {p.description?.trim() ? p.description : "—"}
+                          {p.shortDescription?.trim() ? p.shortDescription : "—"}
                         </div>
                         <div className="small mt-2">
                           <span className="text-muted">HSN: </span>
@@ -241,6 +229,12 @@ const QueryNewProductFindSidebar = ({
                               : "—"}
                           </span>
                         </div>
+                        {p.productCode && (
+                          <div className="small">
+                            <span className="text-muted">Code: </span>
+                            <span>{p.productCode}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </CCardBody>
@@ -254,4 +248,4 @@ const QueryNewProductFindSidebar = ({
   );
 };
 
-export default QueryNewProductFindSidebar;
+export default QueryProductFindSidebar;

@@ -15,16 +15,16 @@ import {
   CRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilBasket, cilSearch } from "@coreui/icons";
+import { cilBasket, cilChevronRight, cilSearch } from "@coreui/icons";
 import proBucketService from "../../services/proBucketService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
 import { Loader } from "../../components";
 
-/** Pending listed first; default filter is All (`""`). */
+/** All listed first (default); Pending next so it's easy to pick. */
 const STATUS_OPTIONS = [
-  { value: "pending", label: "Pending" },
   { value: "", label: "All" },
+  { value: "pending", label: "Pending" },
   { value: "rate_submitted", label: "Rate submitted" },
   { value: "fulfilled", label: "Fulfilled" },
 ];
@@ -54,19 +54,19 @@ const statusBadge = (s) => {
   }
 };
 
-/** Elapsed time since `createdAt` as dd:hh:mm:ss (days, hours, minutes, seconds). */
+/** Human-readable age since `createdAt` — e.g. "just now", "45 min ago", "2d 5h ago". */
 const formatDurationSinceCreated = (d) => {
   const t = d ? new Date(d).getTime() : NaN;
   if (Number.isNaN(t)) return "—";
   let sec = Math.floor((Date.now() - t) / 1000);
   if (sec < 0) sec = 0;
+  if (sec < 60) return "just now";
   const days = Math.floor(sec / 86400);
-  sec %= 86400;
-  const h = Math.floor(sec / 3600);
-  sec %= 3600;
-  const m = Math.floor(sec / 60);
-  const s = sec % 60;
-  return [days, h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (days >= 1) return h > 0 ? `${days}d ${h}h ago` : `${days}d ago`;
+  if (h >= 1) return m > 0 ? `${h}h ${m}m ago` : `${h}h ago`;
+  return `${m}m ago`;
 };
 
 /** API: { success, data: { data, total, pendingCount, page, pageSize } } (axios body = response) */
@@ -109,8 +109,6 @@ const ProBucketList = () => {
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
   const [status, setStatus] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -120,7 +118,7 @@ const ProBucketList = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, status, from, to]);
+  }, [searchDebounced, status]);
 
   const load = async () => {
     setLoading(true);
@@ -131,8 +129,6 @@ const ProBucketList = () => {
           pageSize,
           search: searchDebounced.trim() || undefined,
           status: status.trim() ? status.trim() : undefined,
-          from: from || undefined,
-          to: to || undefined,
         }),
       );
       const p = parseListResponse(res);
@@ -151,7 +147,7 @@ const ProBucketList = () => {
 
   useEffect(() => {
     load();
-  }, [page, pageSize, searchDebounced, status, from, to]);
+  }, [page, pageSize, searchDebounced, status]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
@@ -164,16 +160,19 @@ const ProBucketList = () => {
               <CIcon icon={cilBasket} className="text-primary" />
               <strong>Pro Bucket</strong>
             </div>
-            <div className="d-flex flex-wrap align-items-center gap-3 small">
-              <span>
-                <span className="text-body-secondary me-1">Pending items:</span>
-                <strong>{pendingCount}</strong>
-              </span>
-            </div>
+            {pendingCount > 0 && (
+              <CBadge
+                color="warning"
+                className="px-2 py-1"
+                style={{ fontSize: "0.8rem" }}
+              >
+                {pendingCount} pending
+              </CBadge>
+            )}
           </CCardHeader>
           <CCardBody>
-            <CRow className="g-3 mb-3">
-              <CCol xs={12} md={4} lg={3}>
+            <CRow className="g-2 mb-3">
+              <CCol xs={12} sm={12} md={5} lg={4}>
                 <CFormLabel className="mb-1">Search</CFormLabel>
                 <div className="position-relative">
                   <CFormInput
@@ -184,28 +183,12 @@ const ProBucketList = () => {
                   <CIcon
                     icon={cilSearch}
                     className="position-absolute"
-                    style={{ right: 10, top: 10, opacity: 0.4 }}
+                    style={{ right: 10, top: "50%", transform: "translateY(-50%)", opacity: 0.4 }}
                     size="sm"
                   />
                 </div>
               </CCol>
-              <CCol xs={6} sm={4} md={2} lg={2}>
-                <CFormLabel className="mb-1">From</CFormLabel>
-                <CFormInput
-                  type="date"
-                  value={from}
-                  onChange={(e) => setFrom(e.target.value)}
-                />
-              </CCol>
-              <CCol xs={6} sm={4} md={2} lg={2}>
-                <CFormLabel className="mb-1">To</CFormLabel>
-                <CFormInput
-                  type="date"
-                  value={to}
-                  onChange={(e) => setTo(e.target.value)}
-                />
-              </CCol>
-              <CCol xs={6} sm={4} md={2} lg={2}>
+              <CCol xs={12} sm={4} md={2} lg={2}>
                 <CFormLabel className="mb-1">Status</CFormLabel>
                 <CFormSelect
                   value={status}
@@ -218,25 +201,18 @@ const ProBucketList = () => {
                   ))}
                 </CFormSelect>
               </CCol>
-              <CCol
-                xs={6}
-                sm={4}
-                md={2}
-                lg={1}
-                className="d-flex align-items-end"
-              >
+              <CCol xs={12} sm="auto" className="d-flex align-items-end">
                 <CButton
                   color="secondary"
                   variant="outline"
+                  className="w-100 w-sm-auto"
                   onClick={() => {
                     setSearch("");
                     setStatus("");
-                    setFrom("");
-                    setTo("");
                     setPage(1);
                   }}
                 >
-                  Clear
+                  Clear filters
                 </CButton>
               </CCol>
             </CRow>
@@ -254,10 +230,17 @@ const ProBucketList = () => {
                     </CCol>
                   )}
                   {rows.map((row) => (
-                    <CCol key={row._id} md={6} className="mb-3">
+                    <CCol key={row._id} xs={12} md={6} className="mb-3">
                       <CCard
-                        className="h-100 shadow-sm"
-                        style={{ cursor: "pointer" }}
+                        className="h-100"
+                        style={{
+                          cursor: "pointer",
+                          transition: "border-color 0.15s, box-shadow 0.15s",
+                          borderColor:
+                            row.status === "pending"
+                              ? "var(--cui-warning)"
+                              : undefined,
+                        }}
                         role="button"
                         onClick={() => navigate(`/pro-bucket/${row._id}`)}
                         onKeyDown={(e) => {
@@ -267,15 +250,33 @@ const ProBucketList = () => {
                           }
                         }}
                         tabIndex={0}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.boxShadow =
+                            "0 0 0 2px var(--cui-primary)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.boxShadow = "none")
+                        }
                       >
-                        <CCardHeader className="d-flex justify-content-between align-items-center py-2">
+                        <CCardHeader
+                          className="d-flex justify-content-between align-items-center py-2 gap-2"
+                          style={{ minHeight: "3rem" }}
+                        >
                           <span
-                            className="text-truncate fw-semibold"
+                            className="fw-semibold text-truncate"
+                            style={{ minWidth: 0 }}
                             title={row.productName}
                           >
                             {row.productName}
                           </span>
-                          {statusBadge(row.status)}
+                          <div className="d-flex align-items-center gap-2 flex-shrink-0">
+                            {statusBadge(row.status)}
+                            <CIcon
+                              icon={cilChevronRight}
+                              size="sm"
+                              className="text-body-secondary"
+                            />
+                          </div>
                         </CCardHeader>
                         <CCardBody className="py-2 small">
                           <div className="d-flex justify-content-between">
@@ -299,11 +300,11 @@ const ProBucketList = () => {
                               {row.modelNumber?.toString().trim() || "—"}
                             </span>
                           </div>
-                          <div className="d-flex justify-content-between mt-1">
+                          <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
                             <span className="text-body-secondary">
-                              Time since created
+                              Created
                             </span>
-                            <span className="text-nowrap ps-1 font-monospace small">
+                            <span className="text-nowrap ps-1 small">
                               {formatDurationSinceCreated(row.createdAt)}
                             </span>
                           </div>

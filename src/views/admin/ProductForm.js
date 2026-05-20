@@ -28,6 +28,7 @@ import brandService from "../../services/brandService";
 import groupService from "../../services/groupService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
+import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 

@@ -343,8 +343,20 @@ export const TASK_MANAGEMENT = {
 export const PRO_BUCKET = {
   QUERY_PRODUCTS: "/pro-bucket/query-products",
   QUERY_PRODUCT_BY_ID: (id) => `/pro-bucket/query-products/${id}`,
+  UPDATE_QUERY_PRODUCT: (id) => `/pro-bucket/query-products/${id}`,
   APPEND_RATES: (id) => `/pro-bucket/query-products/${id}/rates`,
 };
+
+/** Batch billing requests raised from Purchase Bucket (collection: billing_requests) */
+export const BILLING_REQUESTS = {
+  CREATE: '/billing-requests',
+  LIST: '/billing-requests',
+  BY_ID: (id) => `/billing-requests/${id}`,
+  FINANCE_APPROVE: (id) => `/billing-requests/${id}/finance-approve`,
+  HOD_PRODUCT_ACTION: (id, productId) => `/billing-requests/${id}/products/${productId}/hod-action`,
+  RESUBMIT_PRODUCT: (id, productId) => `/billing-requests/${id}/products/${productId}/resubmit`,
+  MARK_PRODUCT_PURCHASED: (id, productId) => `/billing-requests/${id}/products/${productId}/mark-purchased`,
+}
 
 export const PURCHASE_BUCKET = {
   PO_PRODUCTS: "/purchase-bucket/po-products",
@@ -378,6 +390,17 @@ export const DISPATCHMENT_BUCKET = {
 export const DELIVERY_APPROVAL = {
   PO_PRODUCTS: "/delivery-approval/po-products",
   PO_PRODUCT_BY_ID: (id) => `/delivery-approval/po-products/${id}`,
+  APPROVE_DELIVERY: (id) =>
+    `/delivery-approval/po-products/${id}/approve-delivery`,
+};
+
+/** PO Products bucket — full list + enrichment (no deliverySubStatus restriction on detail) */
+export const PO_PRODUCTS_BUCKET = {
+  PO_PRODUCTS: "/delivery-approval/po-products",
+  PO_PRODUCT_BY_ID: (id) => `/delivery-approval/po-products-bucket/${id}`,
+  UPDATE_PO_PRODUCT: (id) => `/delivery-approval/po-products-bucket/${id}`,
+  CREATE_PO_PRODUCT: "/delivery-approval/po-products-bucket",
+  PO_CODE_SUGGESTIONS: "/delivery-approval/po-code-suggestions",
   APPROVE_DELIVERY: (id) =>
     `/delivery-approval/po-products/${id}/approve-delivery`,
 };

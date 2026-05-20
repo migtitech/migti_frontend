@@ -61,6 +61,7 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
 import QueryNewProductFindSidebar from "./QueryNewProductFindSidebar";
+import QueryProductFindSidebar from "./QueryProductFindSidebar";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 const INITIAL_COMPANY = {
@@ -143,6 +144,7 @@ const QueryForm = () => {
   const [formProduct, setFormProduct] = useState({ ...INITIAL_PRODUCT });
   const [editingProductIndex, setEditingProductIndex] = useState(null);
   const [findProductSidebarOpen, setFindProductSidebarOpen] = useState(false);
+  const [findProductCatalogSidebarOpen, setFindProductCatalogSidebarOpen] = useState(false);
 
   const quantityInputRef = useRef(null);
   const [imagesModal, setImagesModal] = useState({
@@ -472,6 +474,72 @@ const QueryForm = () => {
       (q.variants || []).length > 0 ||
       Boolean((q.description || "").trim()) ||
       (q.images || []).length > 0;
+    setShowOptionalProductFields(hasOptionalLoaded);
+    setTimeout(() => {
+      if (quantityInputRef.current) {
+        quantityInputRef.current.focus();
+      }
+    }, 0);
+    toastSuccess("Product details loaded. Review and save to add to the list.");
+  };
+
+  const applyProductFromCatalog = (product) => {
+    if (!product) return;
+    const imageDocs = (product.images || [])
+      .map((img) => {
+        if (typeof img === "object" && img?._id) {
+          return { _id: img._id, path: img.path || "" };
+        }
+        if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img)) {
+          return { _id: img, path: "" };
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    setFormProduct({
+      productName: product.name || "",
+      quantity: 1,
+      unit: (product.unit && String(product.unit).trim()) || "PCS",
+      hsnNumber: product.hsnNumber || "",
+      modelNumber: product.defaultModelNumber || "",
+      gstPercentage:
+        typeof product.gstPercentage === "number" &&
+        !Number.isNaN(product.gstPercentage)
+          ? product.gstPercentage
+          : null,
+      variants: [],
+      remark: "",
+      description: product.shortDescription || "",
+      product_id: product._id || null,
+      productCode: product.productCode || "",
+      rawProductCode: product.productCode || "",
+      query_tracking_code: "",
+      groupId:
+        (product.group && (product.group._id || product.group)) || "",
+      categoryId:
+        (product.category && (product.category._id || product.category)) || "",
+      isNewProduct: false,
+      images: imageDocs,
+      sourceQueryNewProductId: null,
+    });
+    setEditingProductIndex(null);
+    productImagePreviews.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
+    });
+    setProductImagePreviews([]);
+    setProductImageFiles([]);
+    const hasOptionalLoaded =
+      Boolean((product.hsnNumber || "").trim()) ||
+      Boolean((product.defaultModelNumber || "").trim()) ||
+      (typeof product.gstPercentage === "number" &&
+        !Number.isNaN(product.gstPercentage)) ||
+      Boolean((product.shortDescription || "").trim()) ||
+      (product.images || []).length > 0;
     setShowOptionalProductFields(hasOptionalLoaded);
     setTimeout(() => {
       if (quantityInputRef.current) {
@@ -1619,15 +1687,15 @@ const QueryForm = () => {
                         aria-label="Create shared catalog product"
                       />
                       <CButton
-                        color="primary"
+                        color="success"
                         variant="outline"
                         size="sm"
                         type="button"
                         className="flex-shrink-0"
-                        onClick={() => setFindProductSidebarOpen(true)}
+                        onClick={() => setFindProductCatalogSidebarOpen(true)}
                       >
                         <CIcon icon={cilSearch} className="me-1" />
-                        Find in catalog
+                        Find in products
                       </CButton>
                     </div>
                   </CCardHeader>
@@ -2506,6 +2574,16 @@ const QueryForm = () => {
         onSelectProduct={(p) => {
           applyQueryNewProductFromLibrary(p);
           setFindProductSidebarOpen(false);
+        }}
+      />
+
+      <QueryProductFindSidebar
+        isOpen={findProductCatalogSidebarOpen}
+        onToggle={() => setFindProductCatalogSidebarOpen((v) => !v)}
+        showFloatingToggle={false}
+        onSelectProduct={(p) => {
+          applyProductFromCatalog(p);
+          setFindProductCatalogSidebarOpen(false);
         }}
       />
 

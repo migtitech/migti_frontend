@@ -21,6 +21,7 @@ import dispatchmentBucketService from "../services/dispatchmentBucketService";
 import proBucketService from "../services/proBucketService";
 import purchaseBucketService from "../services/purchaseBucketService";
 import purchaseBillingRequestService from "../services/purchaseBillingRequestService";
+import billingRequestBatchService from "../services/billingRequestBatchService";
 
 // sidebar nav config
 import navigation from "../_nav";
@@ -42,6 +43,7 @@ const HOD_HIDDEN_PATHS = new Set([
   "/branches",
   "/employee-locations",
   "/billing-requests",
+  "/batch-billing-requests",
   "/my-visits",
   "/dispatchment",
   "/inventory-bucket",
@@ -81,6 +83,12 @@ const AppSidebar = () => {
     useState(null);
   const [billingRequestPendingCount, setBillingRequestPendingCount] =
     useState(null);
+  const [queryProductsHodPendingCount, setQueryProductsHodPendingCount] =
+    useState(null);
+  const [poProductsHodPendingCount, setPoProductsHodPendingCount] =
+    useState(null);
+  const [purchaseRequestPendingCount, setPurchaseRequestPendingCount] =
+    useState(null);
 
   // Filter navigation items based on permissions (or use purchase-only nav for PM/PE)
   const filteredNavigation = useMemo(() => {
@@ -102,7 +110,11 @@ const AppSidebar = () => {
           return false;
         }
         if (!item.module) {
-          return item.to === "/dashboard";
+          if (item.to === "/dashboard") return true;
+          return Boolean(
+            item.rolePrefix &&
+              role.startsWith(String(item.rolePrefix).toLowerCase()),
+          );
         }
         return hasAnyPermission(item.module);
       };
@@ -282,6 +294,21 @@ const AppSidebar = () => {
 
   const billingRequestsNavVisible = useMemo(
     () => navContainsTo(filteredNavigation, "/billing-requests"),
+    [filteredNavigation],
+  );
+
+  const queryProductsNavVisible = useMemo(
+    () => navContainsTo(filteredNavigation, "/query-products"),
+    [filteredNavigation],
+  );
+
+  const poProductsNavVisible = useMemo(
+    () => navContainsTo(filteredNavigation, "/po-products"),
+    [filteredNavigation],
+  );
+
+  const purchaseRequestNavVisible = useMemo(
+    () => navContainsTo(filteredNavigation, "/purchase-requests"),
     [filteredNavigation],
   );
 
@@ -512,6 +539,104 @@ const AppSidebar = () => {
     };
   }, [billingRequestsNavVisible, location.pathname]);
 
+  useEffect(() => {
+    if (!queryProductsNavVisible) {
+      setQueryProductsHodPendingCount(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await proBucketService.list({
+          page: 1,
+          pageSize: 1,
+          status: "approval_pending",
+        });
+        const inner = res?.data ?? res;
+        const total = Number(inner?.total ?? 0);
+        if (!cancelled)
+          setQueryProductsHodPendingCount(Number.isFinite(total) ? total : 0);
+      } catch {
+        if (!cancelled) setQueryProductsHodPendingCount(0);
+      }
+    };
+    load();
+    const onVis = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [queryProductsNavVisible, location.pathname]);
+
+  useEffect(() => {
+    if (!poProductsNavVisible) {
+      setPoProductsHodPendingCount(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await deliveryApprovalService.list({
+          page: 1,
+          pageSize: 1,
+          deliverySubStatus: "all",
+          status: "hod_approval_pending",
+        });
+        const inner = res?.data ?? res;
+        const total = Number(inner?.total ?? 0);
+        if (!cancelled)
+          setPoProductsHodPendingCount(Number.isFinite(total) ? total : 0);
+      } catch {
+        if (!cancelled) setPoProductsHodPendingCount(0);
+      }
+    };
+    load();
+    const onVis = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [poProductsNavVisible, location.pathname]);
+
+  useEffect(() => {
+    if (!purchaseRequestNavVisible) {
+      setPurchaseRequestPendingCount(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await billingRequestBatchService.list({
+          pageNumber: 1,
+          pageSize: 1,
+          status: "hod_approval_pending",
+        });
+        const inner = res?.data ?? res;
+        const data = inner?.data ?? inner;
+        const total = Number(data?.pagination?.totalItems ?? 0);
+        if (!cancelled)
+          setPurchaseRequestPendingCount(Number.isFinite(total) ? total : 0);
+      } catch {
+        if (!cancelled) setPurchaseRequestPendingCount(0);
+      }
+    };
+    load();
+    const onVis = () => {
+      if (document.visibilityState === "visible") load();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [purchaseRequestNavVisible, location.pathname]);
+
   const navigationForSidebar = useMemo(() => {
     const formatBadgeText = (n) => (n > 99 ? "99+" : String(n));
     const mapItems = (items) =>
@@ -610,6 +735,45 @@ const AppSidebar = () => {
             },
           };
         }
+        if (
+          item.to === "/query-products" &&
+          queryProductsHodPendingCount != null &&
+          queryProductsHodPendingCount > 0
+        ) {
+          return {
+            ...item,
+            badge: {
+              text: formatBadgeText(queryProductsHodPendingCount),
+              style: { backgroundColor: "#dc3545", color: "#fff" },
+            },
+          };
+        }
+        if (
+          item.to === "/po-products" &&
+          poProductsHodPendingCount != null &&
+          poProductsHodPendingCount > 0
+        ) {
+          return {
+            ...item,
+            badge: {
+              text: formatBadgeText(poProductsHodPendingCount),
+              style: { backgroundColor: "#dc3545", color: "#fff" },
+            },
+          };
+        }
+        if (
+          item.to === "/purchase-requests" &&
+          purchaseRequestPendingCount != null &&
+          purchaseRequestPendingCount > 0
+        ) {
+          return {
+            ...item,
+            badge: {
+              text: formatBadgeText(purchaseRequestPendingCount),
+              style: SIDEBAR_COUNT_BADGE_STYLE,
+            },
+          };
+        }
         return item;
       });
     return mapItems(filteredNavigation);
@@ -622,6 +786,9 @@ const AppSidebar = () => {
     proBucketPendingCount,
     purchaseBucketOpenCount,
     billingRequestPendingCount,
+    queryProductsHodPendingCount,
+    poProductsHodPendingCount,
+    purchaseRequestPendingCount,
   ]);
 
   return (

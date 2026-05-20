@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
 import {
   CCard,
   CCardBody,
@@ -7,75 +6,12 @@ import {
   CCol,
   CRow,
   CAlert,
-  CListGroup,
-  CListGroupItem,
-  CBadge,
 } from "@coreui/react";
-import CIcon from "@coreui/icons-react";
-import { cilBasket, cilArrowRight, cilLockLocked } from "@coreui/icons";
 import { useAuth } from "../../context/AuthContext";
 import usePermissions from "../../hooks/usePermissions";
 import proBucketService from "../../services/proBucketService";
 import { toastError } from "../../utils/toast";
 import { Loader } from "../../components";
-
-/** Purchase / procurement workspace modules we surface on this dashboard */
-const ACCESSIBLE_AREAS = [
-  {
-    module: "pro_bucket",
-    title: "Pro Bucket",
-    to: "/pro-bucket",
-    blurb: "Query lines, rates, and status for assigned product groups.",
-  },
-  {
-    module: "purchase_bucket",
-    title: "Purchase Bucket",
-    to: "/purchase-bucket",
-    blurb: "Purchase queue and PO product follow-up.",
-  },
-  {
-    module: "po_bucket",
-    title: "PO Bucket",
-    to: "/po-bucket",
-    blurb: "Purchase order queue and line management.",
-  },
-  {
-    module: "inventory_bucket",
-    title: "Inventory bucket",
-    to: "/inventory-bucket",
-    blurb: "Inventory-linked purchase lines.",
-  },
-  {
-    module: "dispatchment",
-    title: "Dispatchment",
-    to: "/dispatchment",
-    blurb: "Dispatch and fulfillment.",
-  },
-  {
-    module: "purchase_tasks",
-    title: "Procurement Bucket",
-    to: "/purchase-tasks",
-    blurb: "Purchase tasks and rate work.",
-  },
-  {
-    module: "follow_up",
-    title: "Follow up Bucket",
-    to: "/follow-up",
-    blurb: "Follow-ups on queries and orders.",
-  },
-  {
-    module: "dmg",
-    title: "DMG Bucket",
-    to: "/dmg",
-    blurb: "DMG bucket items.",
-  },
-  {
-    module: "po_payment",
-    title: "PO payment",
-    to: "/po-payment",
-    blurb: "PO payment and billing sidebar.",
-  },
-];
 
 const emptySummary = () => ({
   pending: 0,
@@ -98,7 +34,7 @@ const summarizeStatuses = (rows) => {
 
 const ProDashboard = () => {
   const { user } = useAuth();
-  const { hasAnyPermission, isFullAccess } = usePermissions();
+  const { hasAnyPermission } = usePermissions();
   const canProBucket = hasAnyPermission("pro_bucket");
   const [summary, setSummary] = useState(emptySummary);
   const [statsLoading, setStatsLoading] = useState(false);
@@ -132,21 +68,6 @@ const ProDashboard = () => {
       cancelled = true;
     };
   }, [canProBucket]);
-
-  const areasYouCanOpen = useMemo(
-    () => ACCESSIBLE_AREAS.filter((a) => hasAnyPermission(a.module)),
-    [hasAnyPermission],
-  );
-
-  const otherModules = useMemo(() => {
-    const listed = new Set(ACCESSIBLE_AREAS.map((a) => a.module));
-    const keys = new Set();
-    for (const p of user?.permissions || []) {
-      const mod = String(p).split(":")[0];
-      if (mod && !listed.has(mod)) keys.add(mod);
-    }
-    return [...keys].sort();
-  }, [user?.permissions]);
 
   return (
     <>
@@ -229,101 +150,6 @@ const ProDashboard = () => {
         </CRow>
       )}
 
-      <CRow className="mb-4">
-        <CCol>
-          <CCard className="h-100 border-0 shadow-sm">
-            <CCardHeader className="d-flex align-items-center gap-2 bg-body-tertiary fw-semibold">
-              <CIcon icon={cilLockLocked} className="text-body-secondary" />
-              Your access
-            </CCardHeader>
-            <CCardBody>
-              {isFullAccess ? (
-                <CAlert color="info" className="mb-0">
-                  You have full access; all modules are available from the main
-                  sidebar.
-                </CAlert>
-              ) : areasYouCanOpen.length === 0 && otherModules.length === 0 ? (
-                <CAlert color="warning" className="mb-0">
-                  No workspace modules are assigned yet. Ask an administrator to
-                  grant Pro Bucket (or related) permissions.
-                </CAlert>
-              ) : (
-                <>
-                  {areasYouCanOpen.length > 0 && (
-                    <CListGroup flush className="mb-3">
-                      {areasYouCanOpen.map((a) => (
-                        <CListGroupItem
-                          key={a.module}
-                          className="d-flex justify-content-between align-items-start flex-wrap gap-2"
-                        >
-                          <div>
-                            <div className="fw-semibold">{a.title}</div>
-                            <div className="small text-body-secondary">
-                              {a.blurb}
-                            </div>
-                          </div>
-                          <Link
-                            to={a.to}
-                            className="btn btn-sm btn-primary text-nowrap"
-                          >
-                            Open
-                            <CIcon
-                              icon={cilArrowRight}
-                              className="ms-1"
-                              size="sm"
-                            />
-                          </Link>
-                        </CListGroupItem>
-                      ))}
-                    </CListGroup>
-                  )}
-                  {otherModules.length > 0 && (
-                    <div>
-                      <div className="small text-body-secondary mb-2">
-                        Other permission modules on your account (no quick link
-                        configured here):
-                      </div>
-                      <div className="d-flex flex-wrap gap-1">
-                        {otherModules.map((m) => (
-                          <CBadge key={m} color="secondary">
-                            {m}
-                          </CBadge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
-
-      <CRow>
-        <CCol>
-          <CCard className="border-0 shadow-sm">
-            <CCardHeader className="d-flex align-items-center gap-2 bg-primary text-white">
-              <CIcon icon={cilBasket} />
-              <strong>Pro Bucket</strong>
-            </CCardHeader>
-            <CCardBody>
-              <p className="text-body-secondary mb-3">
-                Open the list to work lines, add rates, and update status.
-              </p>
-              {hasAnyPermission("pro_bucket") ? (
-                <Link to="/pro-bucket" className="btn btn-primary">
-                  Go to Pro Bucket list
-                  <CIcon icon={cilArrowRight} className="ms-1" size="sm" />
-                </Link>
-              ) : (
-                <span className="text-body-secondary">
-                  No access to Pro Bucket.
-                </span>
-              )}
-            </CCardBody>
-          </CCard>
-        </CCol>
-      </CRow>
     </>
   );
 };

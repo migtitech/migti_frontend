@@ -412,15 +412,19 @@ const ProBucketDetail = () => {
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-3">
-          <CCardBody className="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2">
-            <CBreadcrumb className="mb-0">
+          <CCardBody className="d-flex align-items-center justify-content-between gap-2 py-2">
+            <CBreadcrumb className="mb-0 flex-shrink-1" style={{ minWidth: 0, overflow: "hidden" }}>
               <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
               <CBreadcrumbItem href="#/pro-bucket">Pro Bucket</CBreadcrumbItem>
-              <CBreadcrumbItem active>Item</CBreadcrumbItem>
+              <CBreadcrumbItem active className="text-truncate d-inline-block" style={{ maxWidth: "10rem" }}>
+                {item?.productName || "Item"}
+              </CBreadcrumbItem>
             </CBreadcrumb>
             <CButton
               color="secondary"
               variant="ghost"
+              size="sm"
+              className="flex-shrink-0"
               onClick={() => navigate("/pro-bucket")}
             >
               <CIcon icon={cilArrowLeft} className="me-1" size="sm" />
@@ -505,8 +509,18 @@ const ProBucketDetail = () => {
                           active={activeTab === 1}
                           onClick={() => setActiveTab(1)}
                           style={{ cursor: "pointer" }}
+                          className="d-flex align-items-center gap-2"
                         >
-                          Rate
+                          Rates
+                          {item?.rates?.length > 0 && (
+                            <CBadge
+                              color={activeTab === 1 ? "primary" : "secondary"}
+                              shape="rounded-pill"
+                              style={{ fontSize: "0.65rem" }}
+                            >
+                              {item.rates.length}
+                            </CBadge>
+                          )}
                         </CNavLink>
                       </CNavItem>
                     </CNav>
@@ -539,7 +553,7 @@ const ProBucketDetail = () => {
                     <ItemInfoSections item={item} />
                   </CTabPane>
                   <CTabPane role="tabpanel" visible={activeTab === 1}>
-                    {canAddRate && !isPhoneView ? (
+                    {canAddRate && !isPhoneView && (item.rates?.length > 0) && (
                       <CButton
                         color="primary"
                         className="mb-3"
@@ -552,48 +566,109 @@ const ProBucketDetail = () => {
                         <CIcon icon={cilPlus} className="me-1" />
                         Add rate
                       </CButton>
-                    ) : null}
-                    <CRow>
-                      {(!item.rates || !item.rates.length) && (
-                        <CCol xs={12}>
-                          <p className="text-body-secondary">
-                            No rates submitted yet.
+                    )}
+
+                    {(!item.rates || !item.rates.length) && (
+                      <div
+                        className="d-flex flex-column align-items-center justify-content-center text-center py-5 px-3 rounded border"
+                        style={{
+                          background: "var(--cui-tertiary-bg, #f8f9fa)",
+                          minHeight: "12rem",
+                        }}
+                      >
+                        <p className="text-body-secondary mb-3 fs-6">
+                          No rates have been submitted yet for this item.
+                        </p>
+                        {canAddRate && !isPhoneView && (
+                          <CButton
+                            color="primary"
+                            onClick={() => {
+                              setRateRows([emptyRow()]);
+                              setSupplierSearch("");
+                              setRateBarOpen(true);
+                            }}
+                          >
+                            <CIcon icon={cilPlus} className="me-1" />
+                            Add first rate
+                          </CButton>
+                        )}
+                        {canAddRate && isPhoneView && (
+                          <p className="text-body-secondary small mb-0">
+                            Tap <strong>Add rate</strong> above to submit a rate.
                           </p>
-                        </CCol>
-                      )}
-                      {(item.rates || []).map((r) => (
-                        <CCol
-                          key={r._id || `${r.submittedAt}-${r.rate}`}
-                          md={6}
-                          className="mb-3"
-                        >
-                          <CCard>
-                            <CCardHeader className="py-2 d-flex justify-content-between">
-                              <span className="text-truncate">
-                                {r.supplier?.name ||
-                                  r.supplier?.shopname ||
-                                  (r.supplier ? "Supplier" : "No supplier")}
-                              </span>
-                              <CBadge color="dark">₹ {r.rate}</CBadge>
-                            </CCardHeader>
-                            <CCardBody className="py-2 small">
-                              <div>Unit: {r.unit || "—"}</div>
-                              {r.remark && <div>Remark: {r.remark}</div>}
-                              {r.supplier?.phone_1 && (
-                                <div className="text-body-secondary">
-                                  Phone: {r.supplier.phone_1}
+                        )}
+                      </div>
+                    )}
+
+                    {(item.rates?.length > 0) && (
+                      <CRow>
+                        {(item.rates || []).map((r) => (
+                          <CCol
+                            key={r._id || `${r.submittedAt}-${r.rate}`}
+                            xs={12}
+                            md={6}
+                            className="mb-3"
+                          >
+                            <CCard>
+                              <CCardBody className="py-3">
+                                <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                  <div style={{ minWidth: 0 }}>
+                                    <div
+                                      className="fw-semibold text-truncate"
+                                      title={
+                                        r.supplier?.name ||
+                                        r.supplier?.shopname ||
+                                        undefined
+                                      }
+                                    >
+                                      {r.supplier?.name ||
+                                        r.supplier?.shopname ||
+                                        (r.supplier
+                                          ? "Supplier"
+                                          : "No supplier")}
+                                    </div>
+                                    {r.supplier?.phone_1 && (
+                                      <div className="text-body-secondary small">
+                                        {r.supplier.phone_1}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div
+                                    className="fw-bold text-nowrap"
+                                    style={{
+                                      fontSize: "1.15rem",
+                                      color: "var(--cui-primary)",
+                                    }}
+                                  >
+                                    ₹ {r.rate}
+                                  </div>
                                 </div>
-                              )}
-                              {r.submittedAt && (
-                                <div className="text-body-secondary mt-1">
-                                  {new Date(r.submittedAt).toLocaleString()}
+                                <div className="d-flex flex-wrap gap-3 small text-body-secondary border-top pt-2 mt-1">
+                                  <span>
+                                    <span className="me-1">Unit:</span>
+                                    <span className="text-body">{r.unit || "—"}</span>
+                                  </span>
+                                  {r.remark && (
+                                    <span>
+                                      <span className="me-1">Remark:</span>
+                                      <span className="text-body">{r.remark}</span>
+                                    </span>
+                                  )}
+                                  {r.submittedAt && (
+                                    <span className="ms-auto text-nowrap">
+                                      {new Date(r.submittedAt).toLocaleDateString(
+                                        undefined,
+                                        { day: "numeric", month: "short", year: "numeric" },
+                                      )}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
-                            </CCardBody>
-                          </CCard>
-                        </CCol>
-                      ))}
-                    </CRow>
+                              </CCardBody>
+                            </CCard>
+                          </CCol>
+                        ))}
+                      </CRow>
+                    )}
                   </CTabPane>
                 </CTabContent>
               </>
@@ -663,15 +738,24 @@ const ProBucketDetail = () => {
               isPhoneView ? "px-3 pt-1 pb-3" : "px-3 py-2"
             }`}
           >
-            <div>
+            <div style={{ minWidth: 0 }}>
               <h2
                 className={`mb-0 ${isPhoneView ? "fs-5 fw-semibold" : "h6"}`}
                 style={
                   isPhoneView ? { letterSpacing: "-0.02em" } : undefined
                 }
               >
-                Add rate(s)
+                Add rate
               </h2>
+              {item?.productName && (
+                <div
+                  className="text-body-secondary text-truncate"
+                  style={{ fontSize: "0.78rem" }}
+                  title={item.productName}
+                >
+                  {item.productName}
+                </div>
+              )}
             </div>
             <CButton
               type="button"
@@ -680,7 +764,7 @@ const ProBucketDetail = () => {
               size="sm"
               onClick={closeRateBar}
               disabled={saving}
-              className="rounded-pill"
+              className="rounded-pill flex-shrink-0"
               aria-label="Close"
             >
               <CIcon icon={cilX} size="lg" />
@@ -721,108 +805,126 @@ const ProBucketDetail = () => {
             {rateRows.map((row, idx) => {
               const options = supplierOptionsForRow(row);
               return (
-                <CRow
-                  className={`${
-                    isPhoneView ? "g-3" : "g-2"
-                  } align-items-end mb-3`}
+                <div
                   key={idx}
+                  className="mb-3 rounded border"
+                  style={{
+                    background: "var(--cui-tertiary-bg, #f8f9fa)",
+                  }}
                 >
-                  <CCol {...(isPhoneView ? { md: 4, sm: 6 } : { xs: 12 })}>
-                    <CFormLabel className="mb-0">
-                      Supplier (optional)
-                    </CFormLabel>
-                    <CFormSelect
-                      value={row.supplierId}
-                      onChange={(e) =>
-                        updateRateRow(idx, "supplierId", e.target.value)
-                      }
-                    >
-                      <option value="">
-                        {options.length
-                          ? "No supplier"
-                          : "No matches — change search"}
-                      </option>
-                      {options.map((s) => (
-                        <option key={s._id} value={s._id}>
-                          {s.name}
-                          {s.shopname ? ` — ${s.shopname}` : ""}
-                        </option>
-                      ))}
-                    </CFormSelect>
-                  </CCol>
-                  <CCol {...(isPhoneView ? { md: 2, sm: 3 } : { xs: 6 })}>
-                    <CFormLabel className="mb-0">Rate</CFormLabel>
-                    <CFormInput
-                      type="text"
-                      inputMode="decimal"
-                      autoComplete="off"
-                      spellCheck={false}
-                      placeholder="0.00"
-                      value={row.rate}
-                      onChange={(e) =>
-                        updateRateRow(
-                          idx,
-                          "rate",
-                          sanitizeRateInput(e.target.value),
-                        )
-                      }
-                    />
-                  </CCol>
-                  <CCol {...(isPhoneView ? { md: 2, sm: 3 } : { xs: 6 })}>
-                    <CFormLabel className="mb-0">Unit</CFormLabel>
-                    <ProductUnitSelect
-                      value={row.unit}
-                      onChange={(e) =>
-                        updateRateRow(idx, "unit", e.target.value)
-                      }
-                    />
-                  </CCol>
-                  <CCol {...(isPhoneView ? { md: 3, sm: 6 } : { xs: 12 })}>
-                    <CFormLabel className="mb-0">Remark</CFormLabel>
-                    <CFormInput
-                      value={row.remark}
-                      onChange={(e) =>
-                        updateRateRow(idx, "remark", e.target.value)
-                      }
-                    />
-                  </CCol>
-                  <CCol
-                    {...(isPhoneView ? { md: 1, sm: "auto" } : { xs: 12 })}
-                    className="d-flex justify-content-end"
+                  <div
+                    className="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
+                    style={{ background: "var(--cui-secondary-bg, #e9ecef)", borderRadius: "calc(0.375rem - 1px) calc(0.375rem - 1px) 0 0" }}
                   >
+                    <span
+                      className="fw-semibold small text-body-secondary"
+                      style={{ textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.05em" }}
+                    >
+                      Rate entry {rateRows.length > 1 ? idx + 1 : ""}
+                    </span>
                     {rateRows.length > 1 && (
                       <CButton
                         color="danger"
                         variant="ghost"
-                        className={isPhoneView ? "mt-4" : "mt-0 mb-1"}
+                        size="sm"
                         type="button"
+                        className="p-1"
+                        style={{ lineHeight: 1 }}
                         onClick={() => removeRateRow(idx)}
+                        aria-label="Remove this entry"
                       >
-                        <CIcon icon={cilTrash} />
+                        <CIcon icon={cilTrash} size="sm" />
                       </CButton>
                     )}
-                  </CCol>
-                </CRow>
+                  </div>
+                  <div className="p-3">
+                    <CRow className="g-3">
+                      <CCol xs={12}>
+                        <CFormLabel className="mb-1">
+                          Supplier{" "}
+                          <span className="text-body-secondary fw-normal" style={{ fontSize: "0.8em" }}>(optional)</span>
+                        </CFormLabel>
+                        <CFormSelect
+                          value={row.supplierId}
+                          onChange={(e) =>
+                            updateRateRow(idx, "supplierId", e.target.value)
+                          }
+                        >
+                          <option value="">
+                            {options.length
+                              ? "— No supplier —"
+                              : "No matches — change search"}
+                          </option>
+                          {options.map((s) => (
+                            <option key={s._id} value={s._id}>
+                              {s.name}
+                              {s.shopname ? ` — ${s.shopname}` : ""}
+                            </option>
+                          ))}
+                        </CFormSelect>
+                      </CCol>
+                      <CCol xs={6}>
+                        <CFormLabel className="mb-1">
+                          Rate <span className="text-danger">*</span>
+                        </CFormLabel>
+                        <CFormInput
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="0.00"
+                          value={row.rate}
+                          onChange={(e) =>
+                            updateRateRow(
+                              idx,
+                              "rate",
+                              sanitizeRateInput(e.target.value),
+                            )
+                          }
+                        />
+                      </CCol>
+                      <CCol xs={6}>
+                        <CFormLabel className="mb-1">Unit</CFormLabel>
+                        <ProductUnitSelect
+                          value={row.unit}
+                          onChange={(e) =>
+                            updateRateRow(idx, "unit", e.target.value)
+                          }
+                        />
+                      </CCol>
+                      <CCol xs={12}>
+                        <CFormLabel className="mb-1">Remark</CFormLabel>
+                        <CFormInput
+                          placeholder="Optional note…"
+                          value={row.remark}
+                          onChange={(e) =>
+                            updateRateRow(idx, "remark", e.target.value)
+                          }
+                        />
+                      </CCol>
+                    </CRow>
+                  </div>
+                </div>
               );
             })}
             <CButton
               type="button"
-              color="secondary"
-              size="sm"
+              color="primary"
               variant="outline"
+              size="sm"
               onClick={addRateRow}
               className="mb-1"
             >
               <CIcon icon={cilPlus} className="me-1" size="sm" />
-              Add line
+              Add another entry
             </CButton>
           </div>
 
           <div
-            className={`d-flex justify-content-end flex-wrap gap-2 px-3 border-top flex-shrink-0 ${
+            className={`d-flex gap-2 px-3 border-top flex-shrink-0 ${
               isPhoneView
-                ? "py-3 bg-body shadow-sm"
-                : "py-2 bg-body-secondary"
+                ? "py-3 bg-body flex-column"
+                : "py-2 bg-body-secondary justify-content-end flex-wrap"
             }`}
             style={{
               paddingBottom: isPhoneView
@@ -835,20 +937,22 @@ const ProBucketDetail = () => {
           >
             <CButton
               type="button"
-              color="secondary"
-              variant="ghost"
-              onClick={closeRateBar}
-              disabled={saving}
-            >
-              Cancel
-            </CButton>
-            <CButton
-              type="button"
               color="primary"
               onClick={submitRates}
               disabled={saving}
+              className={isPhoneView ? "w-100" : undefined}
             >
               {saving ? "Saving…" : "Save rates"}
+            </CButton>
+            <CButton
+              type="button"
+              color="secondary"
+              variant={isPhoneView ? "outline" : "ghost"}
+              onClick={closeRateBar}
+              disabled={saving}
+              className={isPhoneView ? "w-100" : undefined}
+            >
+              Cancel
             </CButton>
           </div>
         </div>

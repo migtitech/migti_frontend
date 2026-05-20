@@ -51,6 +51,10 @@ const proBucketService = {
     const response = await api.get(PRO_BUCKET.QUERY_PRODUCT_BY_ID(id));
     return response;
   },
+  updateQueryProduct: async (id, data) => {
+    const response = await api.put(PRO_BUCKET.UPDATE_QUERY_PRODUCT(id), data);
+    return response;
+  },
   appendRates: async (id, rates) => {
     const response = await api.post(PRO_BUCKET.APPEND_RATES(id), { rates });
     return response;

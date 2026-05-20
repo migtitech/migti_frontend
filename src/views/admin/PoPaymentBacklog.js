@@ -58,7 +58,7 @@ const PoPaymentBacklog = () => {
   const loadEmployees = useCallback(async () => {
     if (!isAdmin) return;
     try {
-      const res = await employeeService.getAll({ pageSize: 200 });
+      const res = await employeeService.getAll({ pageSize: 100 });
       const payload = unwrap(res);
       const data = payload?.data || payload;
       setEmployees(data?.employees || data?.items || []);

@@ -7,3 +7,4 @@ export {
   toastDismiss,
 } from "./toast";
 export * from "./validation";
+export { sortAlphabetically } from "./sort";

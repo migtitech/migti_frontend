@@ -85,6 +85,21 @@ const HodPaymentBacklog = React.lazy(
 const BillingRequestList = React.lazy(
   () => import("./views/admin/BillingRequestList"),
 );
+const BillingRequestView = React.lazy(
+  () => import("./views/admin/BillingRequestView"),
+);
+const HodPurchaseRequestList = React.lazy(
+  () => import("./views/admin/HodPurchaseRequestList"),
+);
+const HodPurchaseRequestView = React.lazy(
+  () => import("./views/admin/HodPurchaseRequestView"),
+);
+const BatchBillingRequests = React.lazy(
+  () => import("./views/admin/BatchBillingRequests"),
+);
+const BatchBillingRequestDetail = React.lazy(
+  () => import("./views/admin/BatchBillingRequestDetail"),
+);
 const VisitManagementSidebar = React.lazy(
   () => import("./views/admin/VisitManagementSidebar"),
 );
@@ -118,6 +133,12 @@ const TaskBucketRateForm = React.lazy(
 // DMG Bucket (Purchase role)
 const DmgBucket = React.lazy(() => import("./views/admin/DmgBucket"));
 const ProBucketList = React.lazy(() => import("./views/admin/ProBucketList"));
+const QueryProductsList = React.lazy(
+  () => import("./views/admin/QueryProductsList"),
+);
+const QueryProductView = React.lazy(
+  () => import("./views/admin/QueryProductView"),
+);
 const ProBucketDetail = React.lazy(
   () => import("./views/admin/ProBucketDetail"),
 );
@@ -127,6 +148,9 @@ const PurchaseBucketList = React.lazy(
 );
 const PurchaseBucketDetail = React.lazy(
   () => import("./views/admin/PurchaseBucketDetail"),
+);
+const RaiseBillingRequest = React.lazy(
+  () => import("./views/admin/RaiseBillingRequest"),
 );
 const PoBucketDashboard = React.lazy(
   () => import("./views/admin/PoBucketDashboard"),
@@ -140,6 +164,18 @@ const DispatchmentList = React.lazy(
 );
 const DeliveryApprovalList = React.lazy(
   () => import("./views/admin/DeliveryApprovalList"),
+);
+const PoProductsList = React.lazy(
+  () => import("./views/admin/PoProductsList"),
+);
+const PoProductView = React.lazy(
+  () => import("./views/admin/PoProductView"),
+);
+const PoProductAdd = React.lazy(
+  () => import("./views/admin/PoProductAdd"),
+);
+const PoProductCreate = React.lazy(
+  () => import("./views/admin/PoProductCreate"),
 );
 
 // Employees
@@ -528,6 +564,41 @@ const routes = [
     action: "read",
   },
   {
+    path: "/billing-requests/:id",
+    name: "Billing Request Detail",
+    element: BillingRequestView,
+    module: "billing_request",
+    action: "read",
+  },
+  {
+    path: "/purchase-requests",
+    name: "Purchase Requests",
+    element: HodPurchaseRequestList,
+    module: null,
+    action: "read",
+    allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/purchase-requests/:id",
+    name: "Purchase Request Detail",
+    element: HodPurchaseRequestView,
+    module: null,
+    action: "read",
+    allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/batch-billing-requests",
+    name: "Batch Billing Requests",
+    element: BatchBillingRequests,
+    allowedRolePrefix: "purchase",
+  },
+  {
+    path: "/batch-billing-requests/:id",
+    name: "Batch Billing Request Detail",
+    element: BatchBillingRequestDetail,
+    allowedRolePrefix: "purchase",
+  },
+  {
     path: "/visit-management-sidebar",
     name: "Visit Management",
     element: VisitManagementSidebar,
@@ -669,6 +740,20 @@ const routes = [
     action: "read",
   },
   {
+    path: "/query-products",
+    name: "Query Products",
+    element: QueryProductsList,
+    module: "queries",
+    action: "read",
+  },
+  {
+    path: "/query-products/:id",
+    name: "Query Product Detail",
+    element: QueryProductView,
+    module: "queries",
+    action: "read",
+  },
+  {
     path: "/po-bucket",
     name: "PO Bucket",
     element: PoBucketDashboard,
@@ -710,6 +795,38 @@ const routes = [
     ],
   },
   {
+    path: "/po-products",
+    name: "PO Products",
+    element: PoProductsList,
+    module: null,
+    action: "read",
+    allowedRoles: ["super_admin", "admin", "head_of_department", "hod"],
+  },
+  {
+    path: "/po-products/add",
+    name: "Add PO Product",
+    element: PoProductAdd,
+    module: null,
+    action: "read",
+    allowedRoles: ["super_admin", "admin", "head_of_department", "hod"],
+  },
+  {
+    path: "/po-products/create",
+    name: "Create PO Product",
+    element: PoProductCreate,
+    module: null,
+    action: "read",
+    allowedRoles: ["super_admin", "admin", "head_of_department", "hod"],
+  },
+  {
+    path: "/po-products/:id",
+    name: "PO Product Detail",
+    element: PoProductView,
+    module: null,
+    action: "read",
+    allowedRoles: ["super_admin", "admin", "head_of_department", "hod"],
+  },
+  {
     path: "/pro-bucket/:id",
     name: "Pro Bucket item",
     element: ProBucketDetail,
@@ -722,6 +839,13 @@ const routes = [
     element: PurchaseBucketList,
     module: "purchase_bucket",
     action: "read",
+  },
+  {
+    path: "/purchase-bucket/raise-billing-request",
+    name: "Raise Billing Request",
+    element: RaiseBillingRequest,
+    module: "purchase_bucket",
+    action: "update",
   },
   {
     path: "/purchase-bucket/:id",

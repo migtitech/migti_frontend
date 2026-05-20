@@ -11,7 +11,11 @@ const normalizeRole = (role) =>
     .replace(/[\s-]+/g, "_");
 
 /** Paths a purchase manager may open without a `module` on the route (see routes.js). */
-const PURCHASE_MANAGER_OPEN_PATHS = new Set(["/dashboard", "/unauthorized"]);
+const PURCHASE_MANAGER_OPEN_PATHS = new Set([
+  "/dashboard",
+  "/unauthorized",
+  "/batch-billing-requests",
+]);
 
 const normalizePath = (pathname) => {
   const p = String(pathname || "").replace(/\/+$/, "") || "/";
@@ -67,6 +71,8 @@ const ProtectedRoute = ({
         />
       );
     }
+    // Role prefix matched — grant access without further module/path checks
+    return children;
   }
 
   // Purchase manager: only dashboard (and unauthorized fallback) without module; else require RBAC

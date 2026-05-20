@@ -20,14 +20,18 @@ import {
   CModalBody,
   CModalHeader,
   CModalTitle,
+  CModalFooter,
+  CFormInput,
+  CFormLabel,
+  CSpinner,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilArrowLeft, cilPencil, cilX } from "@coreui/icons";
+import { cilArrowLeft, cilPencil, cilX, cilCheckCircle } from "@coreui/icons";
 import productService from "../../services/productService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
-import { toastError } from "../../utils/toast";
+import { toastError, toastSuccess } from "../../utils/toast";
 
 const getImageUrl = (img) => {
   if (!img) return "";
@@ -42,6 +46,12 @@ const ProductView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedImage, setExpandedImage] = useState(null);
+
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showSecretModal, setShowSecretModal] = useState(false);
+  const [secretCode, setSecretCode] = useState("");
+  const [secretError, setSecretError] = useState("");
+  const [approving, setApproving] = useState(false);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -60,6 +70,31 @@ const ProductView = () => {
     fetchProduct();
   }, [id]);
 
+  const handleHodApproveConfirm = () => {
+    setShowConfirmModal(false);
+    setSecretCode("");
+    setSecretError("");
+    setShowSecretModal(true);
+  };
+
+  const handleSecretSubmit = async () => {
+    if (secretCode !== "2003") {
+      setSecretError("Incorrect secret code. Please try again.");
+      return;
+    }
+    setApproving(true);
+    try {
+      await productService.update(id, { status: "hod_approved" });
+      setProduct((prev) => ({ ...prev, status: "hod_approved" }));
+      toastSuccess("Product HOD approved successfully.");
+      setShowSecretModal(false);
+    } catch (err) {
+      toastError(err?.message || "Failed to approve product.");
+    } finally {
+      setApproving(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case "active":
@@ -68,6 +103,10 @@ const ProductView = () => {
         return <CBadge color="secondary">Inactive</CBadge>;
       case "draft":
         return <CBadge color="warning">Draft</CBadge>;
+      case "hod_approved":
+        return <CBadge color="success">HOD Approved</CBadge>;
+      case "hod_approval_pending":
+        return <CBadge color="warning">HOD Approval Pending</CBadge>;
       default:
         return <CBadge color="info">{status}</CBadge>;
     }
@@ -172,6 +211,20 @@ const ProductView = () => {
             <CIcon icon={cilPencil} className="me-1" />
             Edit
           </CButton>
+          {product?.status !== "hod_approved" && (
+            <CButton
+              color="success"
+              onClick={() => setShowConfirmModal(true)}
+            >
+              <CIcon icon={cilCheckCircle} className="me-1" />
+              HOD Approve
+            </CButton>
+          )}
+          {product?.status === "hod_approved" && (
+            <CBadge color="success" className="px-3 py-2 fs-6">
+              HOD Approved
+            </CBadge>
+          )}
         </CCol>
       </CRow>
 
@@ -487,6 +540,75 @@ const ProductView = () => {
           </CCard>
         </CCol>
       </CRow>
+
+      {/* HOD Approve — confirmation modal */}
+      <CModal
+        alignment="center"
+        visible={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+      >
+        <CModalHeader>
+          <CModalTitle>Confirm HOD Approval</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          Are you sure you want to HOD approve <strong>{product?.name}</strong>?
+          This will mark the product as approved by HOD.
+        </CModalBody>
+        <CModalFooter>
+          <CButton color="secondary" onClick={() => setShowConfirmModal(false)}>
+            Cancel
+          </CButton>
+          <CButton color="success" onClick={handleHodApproveConfirm}>
+            Yes, Proceed
+          </CButton>
+        </CModalFooter>
+      </CModal>
+
+      {/* HOD Approve — secret code modal */}
+      <CModal
+        alignment="center"
+        visible={showSecretModal}
+        onClose={() => !approving && setShowSecretModal(false)}
+      >
+        <CModalHeader>
+          <CModalTitle>Enter Secret Code</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <CFormLabel className="fw-semibold">Secret Code</CFormLabel>
+          <CFormInput
+            type="password"
+            placeholder="Enter secret code"
+            value={secretCode}
+            onChange={(e) => {
+              setSecretCode(e.target.value);
+              setSecretError("");
+            }}
+            onKeyDown={(e) => e.key === "Enter" && !approving && handleSecretSubmit()}
+            autoFocus
+            invalid={!!secretError}
+          />
+          {secretError && (
+            <div className="text-danger small mt-1">{secretError}</div>
+          )}
+        </CModalBody>
+        <CModalFooter>
+          <CButton
+            color="secondary"
+            disabled={approving}
+            onClick={() => setShowSecretModal(false)}
+          >
+            Cancel
+          </CButton>
+          <CButton
+            color="success"
+            disabled={approving || !secretCode}
+            onClick={handleSecretSubmit}
+          >
+            {approving ? <CSpinner size="sm" className="me-1" /> : null}
+            Confirm Approval
+          </CButton>
+        </CModalFooter>
+      </CModal>
 
       {/* Image expand modal */}
       <CModal

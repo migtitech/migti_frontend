@@ -206,6 +206,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "Query Products",
+    to: "/query-products",
+    icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
+    module: "queries",
+  },
+  {
+    component: CNavItem,
     name: "Product Lead",
     to: "/product-lead",
     icon: <CIcon icon={cilStar} customClassName="nav-icon" />,
@@ -297,6 +304,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "PO Products",
+    to: "/po-products",
+    icon: <CIcon icon={cilList} customClassName="nav-icon" />,
+    roles: ["super_admin", "admin", "head_of_department", "hod"],
+  },
+  {
+    component: CNavItem,
     name: "Payment Backlog",
     to: "/hod-payment-backlog",
     icon: <CIcon icon={cilClock} customClassName="nav-icon" />,
@@ -352,6 +366,20 @@ const _nav = [
     to: "/billing-requests",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
     module: "billing_request",
+  },
+  {
+    component: CNavItem,
+    name: "Purchase Request",
+    to: "/purchase-requests",
+    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
+    roles: ["head_of_department", "hod"],
+  },
+  {
+    component: CNavItem,
+    name: "Batch Billing Requests",
+    to: "/batch-billing-requests",
+    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
+    rolePrefix: "purchase",
   },
   {
     component: CNavItem,
