@@ -35,11 +35,15 @@ export const getSocketUrl = () => {
 
   if (typeof window !== "undefined") {
     const { protocol, hostname } = window.location;
-    const port =
+    const explicitPort =
       import.meta.env.VITE_BACKEND_PORT?.trim() ||
-      import.meta.env.VITE_API_PORT?.trim() ||
-      "7200";
-    return `${protocol}//${hostname}:${port}`;
+      import.meta.env.VITE_API_PORT?.trim();
+    // When behind nginx proxy (VITE_API_BASE_URL is relative like /api),
+    // socket must connect to same origin with no port so nginx routes it.
+    if (explicitPort) {
+      return `${protocol}//${hostname}:${explicitPort}`;
+    }
+    return `${protocol}//${hostname}`;
   }
 
   return "http://localhost:7200";
@@ -128,6 +132,7 @@ export const DASHBOARD = {
 export const CATEGORIES = {
   CREATE: "/categories/create",
   LIST: "/categories/list",
+  GET_ALL: "/categories/get-all",
   GET_BY_ID: "/categories/get-by-id",
   UPDATE: "/categories/update",
   DELETE: "/categories/delete",
@@ -190,6 +195,12 @@ export const RATE_CARDS = {
   SEARCH_SUPPLIERS: "/rate-cards/search-suppliers",
 };
 
+export const RATE_MASTER = {
+  SEARCH_CODES: "/rate-master/search-codes",
+  SUMMARY: "/rate-master/summary",
+  RATES: "/rate-master/rates",
+};
+
 export const AREAS = {
   CREATE: "/areas/create",
   LIST: "/areas/list",
@@ -235,6 +246,7 @@ export const QUERIES = {
   TARGET_ANALYTICS_SUMMARY: "/queries/target-analytics/summary",
   TARGET_ANALYTICS_ZONE: "/queries/target-analytics/zone",
   TARGET_ANALYTICS_ZONE_SUMMARY: "/queries/target-analytics/zone/summary",
+  TARGET_ANALYTICS_ZONE_MY_TARGETS: "/queries/target-analytics/zone/my-targets",
   TARGET_ANALYTICS_EMPLOYEE: "/queries/target-analytics/employee",
   TARGET_ANALYTICS_EMPLOYEE_SUMMARY:
     "/queries/target-analytics/employee/summary",
@@ -254,6 +266,8 @@ export const QUOTATIONS = {
   BY_INDUSTRY: "/quotations/by-industry",
   GET_BY_ID: "/quotations/get-by-id",
   PRO_BUCKET_LINES: "/quotations/pro-bucket-lines",
+  LINE_PROCUREMENT_RATES: "/quotations/line-procurement-rates",
+  ALL_PRODUCTS_HOD_RATES_APPROVED: "/quotations/all-products-hod-rates-approved",
   SNAPSHOTS_LIST: "/quotations/snapshots/list",
   UPDATE: "/quotations/update",
   UPDATE_STATUS: "/quotations/update-status",
@@ -286,6 +300,11 @@ export const PO_PAYMENTS = {
 export const PO_PAYMENT_BACKLOG = {
   LIST: "/po-payment-backlog/list",
   SETTLE: "/po-payment-backlog/settle",
+};
+
+export const QUOTATION_FOLLOWUP = {
+  LIST: "/quotation-followups/list",
+  UPDATE_REMARK: "/quotation-followups/update-remark",
 };
 
 /** Admin list & actions for `purchase_billing_requests` (Mongo collection) */
@@ -345,6 +364,24 @@ export const PRO_BUCKET = {
   QUERY_PRODUCT_BY_ID: (id) => `/pro-bucket/query-products/${id}`,
   UPDATE_QUERY_PRODUCT: (id) => `/pro-bucket/query-products/${id}`,
   APPEND_RATES: (id) => `/pro-bucket/query-products/${id}/rates`,
+  UPDATE_HOD_RATES: (id) => `/pro-bucket/query-products/${id}/hod-rates`,
+  HOD_RATE_HISTORIES: (id) => `/pro-bucket/query-products/${id}/hod-rate-histories`,
+};
+
+export const LOCAL_PROCUREMENT = {
+  LIST: "/local-procurement",
+  ASSIGN: "/local-procurement/assign",
+  EMPLOYEES: "/local-procurement/employees",
+  SUBMIT: (id) => `/local-procurement/${id}/submit`,
+};
+
+export const LOCAL_PURCHASE = {
+  LIST: "/local-purchase",
+  BY_ID: (id) => `/local-purchase/${id}`,
+  SUBMIT: (id) => `/local-purchase/${id}/submit`,
+  ATTACHMENTS: (id) => `/local-purchase/${id}/attachments`,
+  ASSIGN: "/local-purchase/assign",
+  EMPLOYEES: "/local-purchase/employees",
 };
 
 /** Batch billing requests raised from Purchase Bucket (collection: billing_requests) */
@@ -427,6 +464,7 @@ export default {
   QUERY_NEW_PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
+  RATE_MASTER,
   AREAS,
   INDUSTRIES,
   INDUSTRY_BRANCHES,

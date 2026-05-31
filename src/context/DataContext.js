@@ -93,8 +93,8 @@ const initialBranchUsers = [
     id: 4,
     branchId: 1,
     name: "Sarah Williams",
-    email: "purchase_manager@gmail.com",
-    role: "purchase_manager",
+    email: "procurement@gmail.com",
+    role: "procurement",
     createdAt: new Date().toISOString(),
   },
   {

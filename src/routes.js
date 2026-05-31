@@ -67,6 +67,10 @@ const BranchAnalytics = React.lazy(
 const TargetAnalytics = React.lazy(
   () => import("./views/admin/TargetAnalytics"),
 );
+const TargetDashboard = React.lazy(
+  () => import("./views/admin/TargetDashboard"),
+);
+const MyTargets = React.lazy(() => import("./views/admin/MyTargets"));
 const PurchaseOrderSidebar = React.lazy(
   () => import("./views/admin/PurchaseOrderSidebar"),
 );
@@ -81,6 +85,9 @@ const PoPaymentBacklog = React.lazy(
 );
 const HodPaymentBacklog = React.lazy(
   () => import("./views/hod/HodPaymentBacklog"),
+);
+const QuotationFollowupDashboard = React.lazy(
+  () => import("./views/admin/QuotationFollowupDashboard"),
 );
 const BillingRequestList = React.lazy(
   () => import("./views/admin/BillingRequestList"),
@@ -117,6 +124,9 @@ const FollowUpDashboard = React.lazy(
 // Rate Cards
 const RateCardList = React.lazy(() => import("./views/admin/RateCardList"));
 
+// Rate Master
+const RateMaster = React.lazy(() => import("./views/admin/RateMaster"));
+
 // Purchase Tasks (My Task / Rate Bucket / Admin Tracking)
 const PurchaseTasks = React.lazy(() => import("./views/admin/PurchaseTasks"));
 
@@ -141,6 +151,15 @@ const QueryProductView = React.lazy(
 );
 const ProBucketDetail = React.lazy(
   () => import("./views/admin/ProBucketDetail"),
+);
+const LocalProcurementList = React.lazy(
+  () => import("./views/admin/LocalProcurementList"),
+);
+const LocalPurchaseList = React.lazy(
+  () => import("./views/admin/LocalPurchaseList"),
+);
+const MyPurchaseList = React.lazy(
+  () => import("./views/admin/MyPurchaseList"),
 );
 const ProDashboard = React.lazy(() => import("./views/dashboard/ProDashboard"));
 const PurchaseBucketList = React.lazy(
@@ -476,6 +495,8 @@ const routes = [
     element: QuotationGenerate,
     module: "quotations",
     action: "create",
+    allowedRolePrefix: "sales",
+    allowRolePrefixOrModule: true,
   },
   {
     path: "/quotations/new",
@@ -522,6 +543,20 @@ const routes = [
     action: "read",
   },
   {
+    path: "/target-dashboard",
+    name: "Target Dashboard",
+    element: TargetDashboard,
+    allowedRoles: ["head_of_department", "hod", "super_admin", "admin"],
+  },
+  {
+    path: "/my-targets",
+    name: "My Targets",
+    element: MyTargets,
+    module: "target_analytics",
+    action: "read",
+    allowedRolePrefix: "sales",
+  },
+  {
     path: "/purchase-order-sidebar",
     name: "Purchase Order",
     element: PurchaseOrderSidebar,
@@ -534,13 +569,12 @@ const routes = [
     element: PoPaymentSidebar,
     module: "po_payment",
     action: "read",
+    excludeRolePrefix: "sales",
   },
   {
     path: "/pending-payment",
     name: "Pending payment",
     element: PendingPayment,
-    module: "po_payment",
-    action: "read",
     allowedRolePrefix: "sales",
   },
   {
@@ -554,6 +588,20 @@ const routes = [
     path: "/hod-payment-backlog",
     name: "Payment Backlog",
     element: HodPaymentBacklog,
+    allowedRoles: ["head_of_department", "hod", "super_admin"],
+  },
+  {
+    path: "/quotation-followup",
+    name: "Quotation Follow-up",
+    element: QuotationFollowupDashboard,
+    module: "quotations",
+    action: "read",
+    allowedRolePrefix: "sales",
+  },
+  {
+    path: "/followup-dashboard",
+    name: "Follow-up Dashboard",
+    element: QuotationFollowupDashboard,
     allowedRoles: ["head_of_department", "hod", "super_admin"],
   },
   {
@@ -652,6 +700,15 @@ const routes = [
     action: "read",
   },
 
+  // Rate Master
+  {
+    path: "/rate-master",
+    name: "Rate Master",
+    element: RateMaster,
+    module: "rate_cards",
+    action: "read",
+  },
+
   // Purchase Tasks
   {
     path: "/purchase-tasks",
@@ -716,7 +773,7 @@ const routes = [
     action: "read",
   },
 
-  // DMG Bucket (Purchase Manager / Purchase Executive)
+  // DMG Bucket (Purchase Executive)
   {
     path: "/dmg",
     name: "DMG Bucket",
@@ -832,6 +889,37 @@ const routes = [
     element: ProBucketDetail,
     module: "pro_bucket",
     action: "read",
+  },
+  {
+    path: "/local-pro",
+    name: "Local Pro",
+    element: LocalProcurementList,
+    module: null,
+    action: "read",
+    allowedRoles: ["procurement", "localprocurement", "super_admin", "admin", "head_of_department", "hod"],
+  },
+  {
+    path: "/local-purchase",
+    name: "Local Purchase",
+    element: LocalPurchaseList,
+    module: null,
+    action: "read",
+    allowedRoles: [
+      "procurement",
+      "purchase_exicutive",
+      "super_admin",
+      "admin",
+      "head_of_department",
+      "hod",
+    ],
+  },
+  {
+    path: "/my-purchase",
+    name: "My Purchase",
+    element: MyPurchaseList,
+    module: null,
+    action: "read",
+    allowedRoles: ["localpurchase"],
   },
   {
     path: "/purchase-bucket",

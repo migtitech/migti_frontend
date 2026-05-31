@@ -49,9 +49,19 @@ const LOGIN_FORM_SELECTABLE_ROLES = Object.values(ROLES).filter(
   (r) => !EXCLUDED_FROM_LOGIN_ROLE_SELECT.has(r),
 );
 
+const getPostLoginPath = (role) => {
+  const normalized = String(role || "").toLowerCase();
+  if (normalized === ROLES.LOCAL_PROCUREMENT) return "/local-pro";
+  if (normalized === ROLES.LOCAL_PURCHASE) return "/my-purchase";
+  if (normalized === ROLES.DISPATCH_MANAGER) return "/dispatchment";
+  if (normalized === ROLES.INVENTRY_MANAGER) return "/inventory-bucket";
+  if (normalized === ROLES.FINANCE) return "/billing-requests";
+  return "/dashboard";
+};
+
 const Login = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, user } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,9 +78,9 @@ const Login = () => {
   // Redirect if already logged in
   React.useEffect(() => {
     if (isAuthenticated) {
-      navigate("/dashboard");
+      navigate(getPostLoginPath(user?.role));
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, user?.role]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -101,7 +111,7 @@ const Login = () => {
 
     if (result.success) {
       toastSuccess("Signed in successfully");
-      navigate("/dashboard");
+      navigate(getPostLoginPath(result.user?.role || role));
     } else {
       toastError(result.error);
     }

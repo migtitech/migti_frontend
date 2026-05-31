@@ -78,6 +78,7 @@ const mapPurchaseManagers = (list) =>
     name: pm?.name || "",
     phone: pm?.phone || "",
     email: pm?.email || "",
+    department: pm?.department || "",
   }));
 
 const INITIAL_VARIANT = { variantName: "" };
@@ -879,6 +880,7 @@ const QueryForm = () => {
           name: m?.name || "",
           phone: m?.phone || "",
           email: m?.email || "",
+          department: m?.department || "",
         }));
         if (
           managers.length === 0 &&
@@ -889,6 +891,7 @@ const QueryForm = () => {
               name: ci.purchase_manager_name || "",
               phone: ci.purchase_manager_phone || "",
               email: ci.email || "",
+              department: "",
             },
           ];
         }
@@ -1184,6 +1187,7 @@ const QueryForm = () => {
               name: (m?.name || "").trim(),
               phone: (m?.phone || "").trim(),
               email: (m?.email || "").trim(),
+              department: (m?.department || "").trim(),
             }))
             .filter((m) => m.name || m.phone),
         },
@@ -1327,29 +1331,40 @@ const QueryForm = () => {
             <CCard className="mb-4">
               <CCardHeader className="d-flex justify-content-between align-items-center">
                 <strong>1. Company Information</strong>
-                {!isEdit && (
+                <div className="d-flex gap-2">
                   <CButton
-                    color="secondary"
+                    color="primary"
                     size="sm"
                     variant="outline"
                     type="button"
-                    onClick={() => {
-                      try {
-                        localStorage.removeItem(DRAFT_STORAGE_KEY);
-                      } catch {
-                        // ignore
-                      }
-                      setCompanyInfo({ ...INITIAL_COMPANY });
-                      setIndustryId(null);
-                      setIndustrySearch("");
-                      setProducts([]);
-                      setCurrentStep(1);
-                      toastSuccess("Saved query form data cleared");
-                    }}
+                    onClick={() => navigate("/industries/new")}
                   >
-                    Clear saved data
+                    Create client
                   </CButton>
-                )}
+                  {!isEdit && (
+                    <CButton
+                      color="secondary"
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      onClick={() => {
+                        try {
+                          localStorage.removeItem(DRAFT_STORAGE_KEY);
+                        } catch {
+                          // ignore
+                        }
+                        setCompanyInfo({ ...INITIAL_COMPANY });
+                        setIndustryId(null);
+                        setIndustrySearch("");
+                        setProducts([]);
+                        setCurrentStep(1);
+                        toastSuccess("Saved query form data cleared");
+                      }}
+                    >
+                      Clear saved data
+                    </CButton>
+                  )}
+                </div>
               </CCardHeader>
               <CCardBody>
                 <div
@@ -1426,44 +1441,31 @@ const QueryForm = () => {
                 <CRow>
                   <CCol md={6}>
                     <div className="mb-3">
-                      <CFormLabel>Company name (max 100 characters)</CFormLabel>
+                      <CFormLabel>Company name</CFormLabel>
                       <CFormInput
                         value={companyInfo.name}
-                        onChange={(e) =>
-                          setCompanyInfo((c) => ({
-                            ...c,
-                            name: e.target.value.slice(0, 100),
-                          }))
-                        }
-                        placeholder="Company / Client name"
-                        maxLength={100}
+                        readOnly
+                        className="bg-light"
+                        placeholder="Auto-filled from selected client"
                       />
-                      <div className="form-text text-muted small">
-                        {(companyInfo.name || "").length}/100
-                      </div>
                     </div>
                   </CCol>
                   <CCol md={6}>
                     <div className="mb-3">
                       <CFormLabel>Zone</CFormLabel>
-                      <CFormSelect
-                        value={companyInfo.area}
-                        onChange={(e) =>
-                          setCompanyInfo((c) => ({
-                            ...c,
-                            area: e.target.value,
-                            subZoneId: "",
-                          }))
+                      <CFormInput
+                        value={
+                          companyInfo.area
+                            ? (areas.find(
+                                (a) =>
+                                  (a._id || a.id) === companyInfo.area
+                              )?.name || companyInfo.area)
+                            : ""
                         }
-                      >
-                        <option value="">Select zone</option>
-                        {areas.map((a) => (
-                          <option key={a._id || a.id} value={a._id || a.id}>
-                            {a.name}
-                            {a.city ? ` - ${a.city}` : ""}
-                          </option>
-                        ))}
-                      </CFormSelect>
+                        readOnly
+                        className="bg-light"
+                        placeholder="Auto-filled from selected client"
+                      />
                     </div>
                   </CCol>
                 </CRow>
@@ -1471,35 +1473,26 @@ const QueryForm = () => {
                   <CCol md={6}>
                     <div className="mb-3">
                       <CFormLabel>Sub-zone</CFormLabel>
-                      <CFormSelect
-                        value={companyInfo.subZoneId || ""}
-                        onChange={(e) =>
-                          setCompanyInfo((c) => ({
-                            ...c,
-                            subZoneId: e.target.value,
-                          }))
+                      <CFormInput
+                        value={
+                          companyInfo.subZoneId
+                            ? (() => {
+                                const sz = querySubZones.find(
+                                  (s) =>
+                                    (s._id || s.id) === companyInfo.subZoneId
+                                );
+                                return sz
+                                  ? (sz.subZoneCode
+                                      ? `${sz.subZoneCode} — `
+                                      : "") + (sz.name || "")
+                                  : companyInfo.subZoneId;
+                              })()
+                            : ""
                         }
-                        disabled={
-                          !companyInfo.area || querySubZones.length === 0
-                        }
-                      >
-                        <option value="">
-                          {!companyInfo.area
-                            ? "Select a zone first"
-                            : querySubZones.length === 0
-                              ? "No sub-zones (optional)"
-                              : "Optional"}
-                        </option>
-                        {querySubZones.map((sz) => {
-                          const sid = sz._id || sz.id;
-                          return (
-                            <option key={sid} value={sid}>
-                              {(sz.subZoneCode ? `${sz.subZoneCode} — ` : "") +
-                                (sz.name || "")}
-                            </option>
-                          );
-                        })}
-                      </CFormSelect>
+                        readOnly
+                        className="bg-light"
+                        placeholder="Auto-filled from selected client"
+                      />
                     </div>
                   </CCol>
                 </CRow>
@@ -1509,98 +1502,124 @@ const QueryForm = () => {
                       <CFormLabel>Location Link</CFormLabel>
                       <CFormInput
                         value={companyInfo.location}
-                        onChange={(e) =>
-                          setCompanyInfo((c) => ({
-                            ...c,
-                            location: e.target.value,
-                          }))
-                        }
-                        placeholder="Location Link"
+                        readOnly
+                        className="bg-light"
+                        placeholder="Auto-filled from selected client"
                       />
                     </div>
                   </CCol>
                 </CRow>
                 <div className="mb-3">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <CFormLabel className="mb-0">Purchase managers</CFormLabel>
-                    <CButton
-                      color="primary"
-                      size="sm"
-                      type="button"
-                      onClick={() =>
-                        setCompanyInfo((c) => ({
-                          ...c,
-                          purchaseManagers: [
-                            ...(c.purchaseManagers || []),
-                            { name: "", phone: "", email: "" },
-                          ],
-                        }))
-                      }
-                    >
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Add purchase manager
-                    </CButton>
-                  </div>
+                  <CFormLabel className="mb-2">Purchase managers</CFormLabel>
                   {(companyInfo.purchaseManagers || []).length > 0 ? (
                     <div className="border rounded p-2">
                       {(companyInfo.purchaseManagers || []).map((m, idx) => (
                         <CRow key={idx} className="align-items-end mb-2 g-2">
-                          <CCol md={3}>
+                          <CCol md={2}>
                             <CFormInput
                               value={m.name || ""}
-                              onChange={(e) =>
-                                setCompanyInfo((c) => {
-                                  const next = [...(c.purchaseManagers || [])];
-                                  next[idx] = {
-                                    ...next[idx],
-                                    name: e.target.value.slice(0, 100),
-                                  };
-                                  return { ...c, purchaseManagers: next };
-                                })
+                              readOnly={!m._new}
+                              className={!m._new ? "bg-light" : ""}
+                              onChange={
+                                m._new
+                                  ? (e) =>
+                                      setCompanyInfo((c) => {
+                                        const next = [
+                                          ...(c.purchaseManagers || []),
+                                        ];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          name: e.target.value.slice(0, 100),
+                                        };
+                                        return { ...c, purchaseManagers: next };
+                                      })
+                                  : undefined
                               }
-                              placeholder="Name (max 100)"
+                              placeholder="Name"
                               maxLength={100}
                             />
                           </CCol>
-                          <CCol md={3}>
+                          <CCol md={2}>
+                            <CFormInput
+                              value={m.department || ""}
+                              readOnly={!m._new}
+                              className={!m._new ? "bg-light" : ""}
+                              onChange={
+                                m._new
+                                  ? (e) =>
+                                      setCompanyInfo((c) => {
+                                        const next = [
+                                          ...(c.purchaseManagers || []),
+                                        ];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          department: e.target.value.slice(
+                                            0,
+                                            100,
+                                          ),
+                                        };
+                                        return { ...c, purchaseManagers: next };
+                                      })
+                                  : undefined
+                              }
+                              placeholder="Department"
+                              maxLength={100}
+                            />
+                          </CCol>
+                          <CCol md={2}>
                             <CFormInput
                               value={m.phone || ""}
-                              onChange={(e) =>
-                                setCompanyInfo((c) => {
-                                  const next = [...(c.purchaseManagers || [])];
-                                  next[idx] = {
-                                    ...next[idx],
-                                    phone: e.target.value,
-                                  };
-                                  return { ...c, purchaseManagers: next };
-                                })
+                              readOnly={!m._new}
+                              className={!m._new ? "bg-light" : ""}
+                              onChange={
+                                m._new
+                                  ? (e) =>
+                                      setCompanyInfo((c) => {
+                                        const next = [
+                                          ...(c.purchaseManagers || []),
+                                        ];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          phone: e.target.value,
+                                        };
+                                        return { ...c, purchaseManagers: next };
+                                      })
+                                  : undefined
                               }
                               placeholder="Phone"
                             />
                           </CCol>
-                          <CCol md={4}>
+                          <CCol md={3}>
                             <CFormInput
                               type="email"
                               value={m.email || ""}
-                              onChange={(e) =>
-                                setCompanyInfo((c) => {
-                                  const next = [...(c.purchaseManagers || [])];
-                                  next[idx] = {
-                                    ...next[idx],
-                                    email: e.target.value,
-                                  };
-                                  return { ...c, purchaseManagers: next };
-                                })
+                              readOnly={!m._new}
+                              className={!m._new ? "bg-light" : ""}
+                              onChange={
+                                m._new
+                                  ? (e) =>
+                                      setCompanyInfo((c) => {
+                                        const next = [
+                                          ...(c.purchaseManagers || []),
+                                        ];
+                                        next[idx] = {
+                                          ...next[idx],
+                                          email: e.target.value,
+                                        };
+                                        return { ...c, purchaseManagers: next };
+                                      })
+                                  : undefined
                               }
                               placeholder="Email"
                             />
                           </CCol>
-                          <CCol md={2}>
+                          <CCol md={1} className="d-flex align-items-end">
                             <CButton
                               color="danger"
                               variant="ghost"
                               size="sm"
                               type="button"
+                              title="Remove purchase manager"
                               onClick={() =>
                                 setCompanyInfo((c) => ({
                                   ...c,
@@ -1625,18 +1644,10 @@ const QueryForm = () => {
                       <CFormTextarea
                         rows={2}
                         value={companyInfo.address}
-                        onChange={(e) =>
-                          setCompanyInfo((c) => ({
-                            ...c,
-                            address: e.target.value.slice(0, 500),
-                          }))
-                        }
-                        placeholder="Address"
-                        maxLength={500}
+                        readOnly
+                        className="bg-light"
+                        placeholder="Auto-filled from selected client"
                       />
-                      <div className="form-text text-muted small">
-                        {(companyInfo.address || "").length}/500
-                      </div>
                     </div>
                   </CCol>
                 </CRow>
@@ -2433,6 +2444,7 @@ const QueryForm = () => {
                     <CTableHead className="table-light">
                       <CTableRow>
                         <CTableHeaderCell>Name</CTableHeaderCell>
+                        <CTableHeaderCell>Department</CTableHeaderCell>
                         <CTableHeaderCell>Phone</CTableHeaderCell>
                         <CTableHeaderCell>Email</CTableHeaderCell>
                       </CTableRow>
@@ -2442,6 +2454,9 @@ const QueryForm = () => {
                         <CTableRow key={idx}>
                           <CTableDataCell className="text-break">
                             {m.name || "—"}
+                          </CTableDataCell>
+                          <CTableDataCell className="text-break">
+                            {m.department || "—"}
                           </CTableDataCell>
                           <CTableDataCell>{m.phone || "—"}</CTableDataCell>
                           <CTableDataCell className="text-break">

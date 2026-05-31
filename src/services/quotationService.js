@@ -29,6 +29,30 @@ const quotationService = {
     return response;
   },
 
+  getLineProcurementRates: async (
+    quotationId,
+    { rawProductCode, lineIndex } = {},
+  ) => {
+    const params = {
+      quotationId,
+      rawProductCode: String(rawProductCode ?? "").trim(),
+    };
+    if (lineIndex != null && lineIndex !== "") {
+      params.lineIndex = Number(lineIndex);
+    }
+    const response = await api.get(QUOTATIONS.LINE_PROCUREMENT_RATES, {
+      params,
+    });
+    return response;
+  },
+
+  checkAllProductsHodRatesApproved: async (quotationId) => {
+    const response = await api.get(QUOTATIONS.ALL_PRODUCTS_HOD_RATES_APPROVED, {
+      params: { quotationId },
+    });
+    return response;
+  },
+
   listSnapshots: async (quotationId) => {
     const response = await api.get(QUOTATIONS.SNAPSHOTS_LIST, {
       params: { quotationId },

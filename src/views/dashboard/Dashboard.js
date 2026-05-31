@@ -21,7 +21,6 @@ const Dashboard = () => {
       case ROLES.SALES_MANAGER:
       case ROLES.SALES_EXICUTIVE:
         return <SalesDashboard />;
-      case ROLES.PURCHASE_MANAGER:
       case ROLES.PURCHASE_EXICUTIVE:
       case ROLES.PROCUREMENT:
         return <PurchaseDashboard />;

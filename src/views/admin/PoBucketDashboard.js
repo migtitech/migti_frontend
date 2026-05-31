@@ -32,6 +32,7 @@ import { Loader, EyeIcon } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../hooks/usePermissions";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -90,6 +91,7 @@ const PoBucketDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const hodUser = isHodRole(user?.role);
+  const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -127,6 +129,16 @@ const PoBucketDashboard = () => {
             pageSize,
             search: searchDebounced.trim() || undefined,
             status: statusFilter || undefined,
+            ...((() => {
+              if (!isSalesRole) return {};
+              const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+              const userZoneIds = storedUser?.zoneIds;
+              if (Array.isArray(userZoneIds) && userZoneIds.length)
+                return { zoneIds: userZoneIds.join(",") };
+              if (typeof userZoneIds === "string" && userZoneIds)
+                return { zoneIds: userZoneIds };
+              return {};
+            })()),
           }),
         );
         const data = res?.data || res;
@@ -144,7 +156,7 @@ const PoBucketDashboard = () => {
       }
     };
     fetchData();
-  }, [pageNumber, pageSize, searchDebounced, statusFilter]);
+  }, [pageNumber, pageSize, searchDebounced, statusFilter, isSalesRole]);
 
   const totalPages = pagination?.totalPages ?? 1;
   const currentPage = pagination?.currentPage ?? pageNumber;

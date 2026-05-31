@@ -101,7 +101,17 @@ const QueryProductsList = () => {
 
   /* dropdown meta */
   const [groups, setGroups] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [allCategories, setAllCategories] = useState([]);
+
+  const filteredCategories = filterGroupId
+    ? allCategories.filter((c) => {
+        const gId =
+          c.group && typeof c.group === "object"
+            ? c.group._id || c.group.id
+            : c.group;
+        return String(gId || "") === String(filterGroupId);
+      })
+    : allCategories;
 
   /* image preview modal */
   const [imgModal, setImgModal] = useState({ visible: false, images: [], title: "" });
@@ -122,7 +132,7 @@ const QueryProductsList = () => {
       try {
         const [grpRes, catRes] = await Promise.all([
           groupService.getAll({ pageSize: 100 }),
-          categoryService.getAll({ pageSize: 100 }),
+          categoryService.getAllCategories(),
         ]);
         setGroups(sortAlphabetically(
           Array.isArray(grpRes?.data?.groups)
@@ -131,7 +141,7 @@ const QueryProductsList = () => {
             ? grpRes.data
             : [],
         ));
-        setCategories(sortAlphabetically(
+        setAllCategories(sortAlphabetically(
           Array.isArray(catRes?.data?.categories)
             ? catRes.data.categories
             : Array.isArray(catRes?.data)
@@ -238,7 +248,20 @@ const QueryProductsList = () => {
                   <CFormLabel className="mb-1">Group</CFormLabel>
                   <CFormSelect
                     value={filterGroupId}
-                    onChange={(e) => setFilterGroupId(e.target.value)}
+                    onChange={(e) => {
+                      const newGroupId = e.target.value;
+                      const catStillValid = allCategories.some((c) => {
+                        if ((c._id || c.id) !== filterCategoryId) return false;
+                        if (!newGroupId) return true;
+                        const gId =
+                          c.group && typeof c.group === "object"
+                            ? c.group._id || c.group.id
+                            : c.group;
+                        return String(gId || "") === String(newGroupId);
+                      });
+                      setFilterGroupId(newGroupId);
+                      if (!catStillValid) setFilterCategoryId("");
+                    }}
                   >
                     <option value="">All Groups</option>
                     {groups.map((g) => (
@@ -250,13 +273,20 @@ const QueryProductsList = () => {
                 </CCol>
 
                 <CCol xs={6} sm={4} md={2} lg={2}>
-                  <CFormLabel className="mb-1">Category</CFormLabel>
+                  <CFormLabel className="mb-1">
+                    Category
+                    {filterGroupId && (
+                      <span className="ms-1 small text-body-secondary">
+                        ({filteredCategories.length})
+                      </span>
+                    )}
+                  </CFormLabel>
                   <CFormSelect
                     value={filterCategoryId}
                     onChange={(e) => setFilterCategoryId(e.target.value)}
                   >
                     <option value="">All Categories</option>
-                    {categories.map((c) => (
+                    {filteredCategories.map((c) => (
                       <option key={c._id || c.id} value={c._id || c.id}>
                         {c.name}
                       </option>

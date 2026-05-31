@@ -36,6 +36,8 @@ import Filtered from "../../filtered/Filtered";
 import { Loader, ConfirmDialog } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../hooks/usePermissions";
 
 const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null);
 
@@ -117,6 +119,13 @@ const formatDateDdMmYyyy = (iso) => {
 const formatInrAmount = (value) =>
   Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 const isHodApproved = (quotation) => quotation?.status === "hod_approved";
+const hasAllProductsHodRatesApproved = (quotation) =>
+  !!quotation?.allProductsHodRatesApproved;
+
+const PDF_DOWNLOAD_BLOCKED_MESSAGE =
+  "PDF export requires HOD quotation approval or all product HOD rates approved";
+const PDF_DOWNLOAD_DISABLED_TITLE =
+  "Download disabled until HOD approval or all product rates are HOD approved";
 
 /** Quotation row is tied to a query when `queryId` is populated or is an ObjectId string */
 const quotationHasQueryId = (quotation) => {
@@ -179,6 +188,8 @@ const STATUS_OPTIONS = [
 const QuotationList = () => {
   const MOBILE_BREAKPOINT = 576;
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const [qFilterInit] = useState(() => getQInitialFilterState());
   const [quotations, setQuotations] = useState([]);
   const [pagination, setPagination] = useState(null);
@@ -202,11 +213,16 @@ const QuotationList = () => {
   const latestFetchIdRef = useRef(0);
   const [isMobileView, setIsMobileView] = useState(false);
 
+  const canDownloadQuotationPdf = (quotation) =>
+    isSalesRole ||
+    isHodApproved(quotation) ||
+    hasAllProductsHodRatesApproved(quotation);
+
   const handleDownloadPdf = async (e, quotation) => {
     e?.stopPropagation();
     if (!quotation?.id) return;
-    if (!isHodApproved(quotation)) {
-      toastError("PDF export is available only after HOD approval");
+    if (!canDownloadQuotationPdf(quotation)) {
+      toastError(PDF_DOWNLOAD_BLOCKED_MESSAGE);
       return;
     }
     setExportingPdfId(quotation.id);
@@ -355,16 +371,26 @@ const QuotationList = () => {
     latestFetchIdRef.current = fetchId;
     setLoading(true);
     try {
+      const params = {
+        pageNumber,
+        pageSize,
+        search: searchDebounced.trim() || undefined,
+        status: statusFilter || undefined,
+        areaIds: selectedAreaId || undefined,
+        dateFrom: dateFrom.trim() || undefined,
+        dateTo: dateTo.trim() || undefined,
+      };
+      if (isSalesRole) {
+        const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+        const userZoneIds = storedUser?.zoneIds;
+        if (Array.isArray(userZoneIds) && userZoneIds.length) {
+          params.zoneIds = userZoneIds.join(",");
+        } else if (typeof userZoneIds === "string" && userZoneIds) {
+          params.zoneIds = userZoneIds;
+        }
+      }
       const res = await withMinimumDelay(() =>
-        quotationService.getAll({
-          pageNumber,
-          pageSize,
-          search: searchDebounced.trim() || undefined,
-          status: statusFilter || undefined,
-          areaIds: selectedAreaId || undefined,
-          dateFrom: dateFrom.trim() || undefined,
-          dateTo: dateTo.trim() || undefined,
-        }),
+        quotationService.getAll(params),
       );
       const data = res?.data || res;
       const result = data?.data ?? data;
@@ -506,7 +532,7 @@ const QuotationList = () => {
                   </CFormSelect>
                 </div>
               </CCol>
-              <CCol xs={12} sm={6} md={6} lg={2}>
+              {!isSalesRole && <CCol xs={12} sm={6} md={6} lg={2}>
                 <CFormLabel className="mb-1 small text-body-secondary">
                   Zones
                 </CFormLabel>
@@ -525,7 +551,7 @@ const QuotationList = () => {
                     );
                   })}
                 </CFormSelect>
-              </CCol>
+              </CCol>}
               <CCol
                 xs={12}
                 sm={6}
@@ -646,13 +672,13 @@ const QuotationList = () => {
                               variant="ghost"
                               size="sm"
                               title={
-                                isHodApproved(quotation)
+                                canDownloadQuotationPdf(quotation)
                                   ? "Download PDF"
-                                  : "Download disabled until HOD approval"
+                                  : PDF_DOWNLOAD_DISABLED_TITLE
                               }
                               disabled={
                                 exportingPdfId === quotation.id ||
-                                !isHodApproved(quotation)
+                                !canDownloadQuotationPdf(quotation)
                               }
                               onClick={(e) => handleDownloadPdf(e, quotation)}
                             >
@@ -789,13 +815,13 @@ const QuotationList = () => {
                               variant="ghost"
                               size="sm"
                               title={
-                                isHodApproved(quotation)
+                                canDownloadQuotationPdf(quotation)
                                   ? "Download PDF"
-                                  : "Download disabled until HOD approval"
+                                  : PDF_DOWNLOAD_DISABLED_TITLE
                               }
                               disabled={
                                 exportingPdfId === quotation.id ||
-                                !isHodApproved(quotation)
+                                !canDownloadQuotationPdf(quotation)
                               }
                               onClick={(e) => handleDownloadPdf(e, quotation)}
                             >

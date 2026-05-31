@@ -61,6 +61,13 @@ const purchaseManagerSchema = yup.object({
     .optional()
     .nullable()
     .transform((v, o) => (o === "" ? "" : v)),
+  department: yup
+    .string()
+    .trim()
+    .optional()
+    .max(100, MSG.maxLength(100))
+    .nullable()
+    .transform((v, o) => (o === "" ? "" : v)),
 });
 
 const industrySchema = yup.object({
@@ -251,6 +258,7 @@ const IndustryForm = () => {
         name: pm.name || "",
         phone: pm.phone || "",
         email: pm.email || "",
+        department: pm.department || "",
       }));
       const branchId =
         data?.branchId ||
@@ -308,6 +316,7 @@ const IndustryForm = () => {
               name: (pm.name || "").trim(),
               phone: (pm.phone || "").trim(),
               email: (pm.email || "").trim(),
+              department: (pm.department || "").trim(),
             })),
         };
         await industryService.update(id, payload);
@@ -324,6 +333,7 @@ const IndustryForm = () => {
               name: (pm.name || "").trim(),
               phone: (pm.phone || "").trim(),
               email: (pm.email || "").trim(),
+              department: (pm.department || "").trim(),
             })),
         };
         await industryService.create(payload);
@@ -537,7 +547,9 @@ const IndustryForm = () => {
                     color="primary"
                     variant="outline"
                     size="sm"
-                    onClick={() => append({ name: "", phone: "", email: "" })}
+                    onClick={() =>
+                      append({ name: "", phone: "", email: "", department: "" })
+                    }
                   >
                     <CIcon icon={cilPlus} className="me-1" />
                     Add Purchase Manager
@@ -553,7 +565,7 @@ const IndustryForm = () => {
                     <CCard key={field.id} className="mb-2">
                       <CCardBody className="py-2 px-3">
                         <CRow className="g-2 align-items-end">
-                          <CCol md={4}>
+                          <CCol md={3}>
                             <CFormLabel className="small">Name *</CFormLabel>
                             <CFormInput
                               {...register(`purchaseManagers.${index}.name`)}
@@ -566,6 +578,23 @@ const IndustryForm = () => {
                             )}
                           </CCol>
                           <CCol md={3}>
+                            <CFormLabel className="small">Department</CFormLabel>
+                            <CFormInput
+                              {...register(
+                                `purchaseManagers.${index}.department`,
+                              )}
+                              placeholder="Department"
+                            />
+                            {errors.purchaseManagers?.[index]?.department && (
+                              <div className="text-danger small">
+                                {
+                                  errors.purchaseManagers[index].department
+                                    .message
+                                }
+                              </div>
+                            )}
+                          </CCol>
+                          <CCol md={2}>
                             <CFormLabel className="small">Phone</CFormLabel>
                             <CFormInput
                               {...register(`purchaseManagers.${index}.phone`)}
@@ -577,7 +606,7 @@ const IndustryForm = () => {
                               </div>
                             )}
                           </CCol>
-                          <CCol md={4}>
+                          <CCol md={3}>
                             <CFormLabel className="small">Email</CFormLabel>
                             <CFormInput
                               type="email"

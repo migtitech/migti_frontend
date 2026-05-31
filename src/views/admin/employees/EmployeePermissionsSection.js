@@ -41,6 +41,7 @@ const ALLOWED_MODULE_LABELS = new Set([
   "MigtiCRM",
   "Dashboard",
   "Companies",
+  "Branch Settings",
   "Branches",
   "Zones",
   "Sub Zones",
@@ -106,8 +107,8 @@ const EmployeePermissionsSection = ({
   if (!selectedRole) {
     return (
       <CAlert color="info" className="mb-0">
-        Select an employee role above (HOD, SM, SE, PM, PE, Procurement, BOE,
-        ADMIN) to configure granular access permissions.
+        Select an employee role above (HOD, SM, SE, PM, PE, Procurement, LP,
+        BOE, ADMIN) to configure granular access permissions.
       </CAlert>
     );
   }

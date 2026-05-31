@@ -35,7 +35,8 @@ import Filtered from "../../filtered/Filtered";
 import { Loader, ConfirmDialog } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
-import usePermissions from "../../hooks/usePermissions";
+import usePermissions, { normalizeRole } from "../../hooks/usePermissions";
+import { useAuth } from "../../context/AuthContext";
 
 const FILTERS_LOCKED_KEY = "migti_queries_list_filters_locked";
 const FILTERS_STATUS_KEY = "migti_queries_list_filters_status";
@@ -142,6 +143,8 @@ const QueryList = () => {
   const MOBILE_BREAKPOINT = 576;
   const navigate = useNavigate();
   const { canDelete, canUpdate } = usePermissions();
+  const { user } = useAuth();
+  const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const [filterInit] = useState(() => getInitialFilterState());
   const [queries, setQueries] = useState([]);
   const [pagination, setPagination] = useState(null);
@@ -167,17 +170,25 @@ const QueryList = () => {
     setLoading(true);
     setError("");
     try {
-      const res = await withMinimumDelay(() =>
-        queryService.getAll({
-          pageNumber,
-          pageSize,
-          search: searchDebounced.trim() || undefined,
-          status: statusFilter || undefined,
-          areaIds: selectedAreaId || undefined,
-          dateFrom: dateFrom.trim() || undefined,
-          dateTo: dateTo.trim() || undefined,
-        }),
-      );
+      const params = {
+        pageNumber,
+        pageSize,
+        search: searchDebounced.trim() || undefined,
+        status: statusFilter || undefined,
+        areaIds: selectedAreaId || undefined,
+        dateFrom: dateFrom.trim() || undefined,
+        dateTo: dateTo.trim() || undefined,
+      };
+      if (isSalesRole) {
+        const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+        const userZoneIds = storedUser?.zoneIds;
+        if (Array.isArray(userZoneIds) && userZoneIds.length) {
+          params.zoneIds = userZoneIds.join(",");
+        } else if (typeof userZoneIds === "string" && userZoneIds) {
+          params.zoneIds = userZoneIds;
+        }
+      }
+      const res = await withMinimumDelay(() => queryService.getAll(params));
       const data = res?.data || res;
       const result = data?.data ?? data;
       setQueries(result?.queries || []);
@@ -364,7 +375,7 @@ const QueryList = () => {
                     </CFormSelect>
                   </div>
                 </CCol>
-                <CCol md={3}>
+                {!isSalesRole && <CCol md={3}>
                   <div>
                     <CFormLabel className="mb-1 small text-muted">
                       Zones
@@ -385,8 +396,7 @@ const QueryList = () => {
                       })}
                     </CFormSelect>
                   </div>
-                </CCol>
-                <CCol md={2} className="d-flex align-items-end">
+                </CCol>}                <CCol md={2} className="d-flex align-items-end">
                   <CButton
                     type="button"
                     color={filtersLocked ? "warning" : "secondary"}

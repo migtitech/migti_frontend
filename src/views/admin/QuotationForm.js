@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -15,6 +15,8 @@ import {
   CFormLabel,
   CFormTextarea,
   CFormSelect,
+  CListGroup,
+  CListGroupItem,
   CRow,
   CTable,
   CTableBody,
@@ -31,6 +33,7 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import FindProductModal from "./FindProductModal";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
+import industryService from "../../services/industryService";
 
 const INITIAL_COMPANY = {
   name: "",
@@ -72,9 +75,19 @@ const QuotationCreate = () => {
       purchase_manager_name: ci.purchase_manager_name || "",
       purchase_manager_phone: ci.purchase_manager_phone || "",
       email: ci.email || "",
-      industryId: fromQuery?.industry_id?._id || fromQuery?.industry_id || null,
     };
   });
+
+  const [industrySearch, setIndustrySearch] = useState(
+    () => fromQuery?.companyInfo?.name || "",
+  );
+  const [industryDropdownOpen, setIndustryDropdownOpen] = useState(false);
+  const [industrySearchResults, setIndustrySearchResults] = useState([]);
+  const [industrySearchLoading, setIndustrySearchLoading] = useState(false);
+  const [industryId, setIndustryId] = useState(
+    () => fromQuery?.industry_id?._id || fromQuery?.industry_id || null,
+  );
+  const companyDropdownRef = useRef(null);
 
   const [status, setStatus] = useState("draft");
 
@@ -104,6 +117,79 @@ const QuotationCreate = () => {
 
   const updateCompanyField = (field, value) => {
     setCompanyInfo((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const fetchIndustrySearch = useCallback(async (term) => {
+    if (!term?.trim()) {
+      setIndustrySearchResults([]);
+      return;
+    }
+    setIndustrySearchLoading(true);
+    try {
+      const res = await industryService.getAll({
+        search: term.trim(),
+        pageSize: 5,
+      });
+      const data = res?.data || res;
+      setIndustrySearchResults(data?.industries || []);
+    } catch {
+      setIndustrySearchResults([]);
+    } finally {
+      setIndustrySearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (industryId) return;
+    const t = setTimeout(() => fetchIndustrySearch(industrySearch), 300);
+    return () => clearTimeout(t);
+  }, [industrySearch, fetchIndustrySearch, industryId]);
+
+  const handleSelectIndustry = async (industry) => {
+    const indId = industry._id || industry.id;
+    setIndustryId(indId);
+    setIndustrySearch(
+      (industry.name || "") +
+        (industry.location ? ` (${industry.location})` : ""),
+    );
+    setIndustryDropdownOpen(false);
+    try {
+      const res = await industryService.getById(indId);
+      const data = res?.data || res;
+      const firstPm = (data?.purchaseManagers || [])[0] || {};
+      setCompanyInfo({
+        name: data?.name || "",
+        area:
+          typeof data?.area === "object"
+            ? data.area?.name || ""
+            : data?.area || "",
+        location: data?.location || "",
+        address: data?.address || "",
+        email: data?.email || "",
+        purchase_manager_name: firstPm.name || "",
+        purchase_manager_phone: firstPm.phone || "",
+      });
+    } catch {
+      const firstPm = (industry?.purchaseManagers || [])[0] || {};
+      setCompanyInfo({
+        name: industry?.name || "",
+        area:
+          typeof industry?.area === "object"
+            ? industry.area?.name || ""
+            : industry?.area || "",
+        location: industry?.location || "",
+        address: industry?.address || "",
+        email: industry?.email || "",
+        purchase_manager_name: firstPm.name || "",
+        purchase_manager_phone: firstPm.phone || "",
+      });
+    }
+  };
+
+  const handleClearIndustry = () => {
+    setIndustryId(null);
+    setIndustrySearch("");
+    setCompanyInfo(INITIAL_COMPANY);
   };
 
   const updateFormProduct = (field, value) => {
@@ -295,6 +381,7 @@ const QuotationCreate = () => {
     const payload = {
       queryId: fromQuery?._id || fromQuery?.id || null,
       queryCode: fromQuery?.queryCode || "",
+      industry_id: industryId || null,
       companyInfo,
       products: products.map((p) => ({
         productName: p.productName,
@@ -335,21 +422,107 @@ const QuotationCreate = () => {
           <strong>1. Company Information</strong>
         </CCardHeader>
         <CCardBody>
+          {/* Company search */}
+          <div className="mb-4 position-relative" ref={companyDropdownRef}>
+            <CFormLabel>Search Client / Company</CFormLabel>
+            <CFormInput
+              type="text"
+              value={industrySearch}
+              onChange={(e) => {
+                setIndustrySearch(e.target.value);
+                if (industryId) handleClearIndustry();
+              }}
+              onFocus={() => setIndustryDropdownOpen(true)}
+              onBlur={() =>
+                setTimeout(() => setIndustryDropdownOpen(false), 200)
+              }
+              placeholder="Type to search for a client / company..."
+              autoComplete="off"
+            />
+            {industryId && (
+              <div className="mt-1">
+                <CButton
+                  color="link"
+                  size="sm"
+                  type="button"
+                  className="p-0 text-danger"
+                  onClick={handleClearIndustry}
+                >
+                  Clear selection
+                </CButton>
+              </div>
+            )}
+            {industryDropdownOpen && !industryId && (
+              <div
+                className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                style={{ zIndex: 10, maxHeight: 280, overflowY: "auto" }}
+              >
+                <CListGroup flush>
+                  {industrySearchLoading && (
+                    <CListGroupItem className="text-muted">
+                      Searching...
+                    </CListGroupItem>
+                  )}
+                  {!industrySearchLoading &&
+                    industrySearchResults.length === 0 &&
+                    industrySearch.trim() && (
+                      <CListGroupItem className="text-muted">
+                        No matches found.
+                      </CListGroupItem>
+                    )}
+                  {!industrySearchLoading &&
+                    industrySearchResults.map((ind) => (
+                      <CListGroupItem
+                        key={ind._id || ind.id}
+                        component="button"
+                        type="button"
+                        className="text-start"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          handleSelectIndustry(ind);
+                        }}
+                      >
+                        <div className="fw-semibold">{ind.name}</div>
+                        {ind.location && (
+                          <div className="text-muted small">{ind.location}</div>
+                        )}
+                      </CListGroupItem>
+                    ))}
+                </CListGroup>
+              </div>
+            )}
+          </div>
+
+          {/* Auto-filled company details (read-only once a company is selected) */}
           <CRow className="mb-3">
             <CCol md={6}>
               <CFormLabel>Company name</CFormLabel>
               <CFormInput
                 value={companyInfo.name}
-                onChange={(e) => updateCompanyField("name", e.target.value)}
-                placeholder="Company name"
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
+                onChange={(e) =>
+                  !industryId && updateCompanyField("name", e.target.value)
+                }
+                placeholder={
+                  industryId
+                    ? "Auto-filled from selected client"
+                    : "Company name"
+                }
               />
             </CCol>
             <CCol md={6}>
               <CFormLabel>Location</CFormLabel>
               <CFormInput
                 value={companyInfo.location}
-                onChange={(e) => updateCompanyField("location", e.target.value)}
-                placeholder="Location"
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
+                onChange={(e) =>
+                  !industryId && updateCompanyField("location", e.target.value)
+                }
+                placeholder={
+                  industryId ? "Auto-filled from selected client" : "Location"
+                }
               />
             </CCol>
           </CRow>
@@ -359,8 +532,14 @@ const QuotationCreate = () => {
               <CFormLabel>Area</CFormLabel>
               <CFormInput
                 value={companyInfo.area || ""}
-                onChange={(e) => updateCompanyField("area", e.target.value)}
-                placeholder="Area"
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
+                onChange={(e) =>
+                  !industryId && updateCompanyField("area", e.target.value)
+                }
+                placeholder={
+                  industryId ? "Auto-filled from selected client" : "Area"
+                }
               />
             </CCol>
             <CCol md={6}>
@@ -368,8 +547,14 @@ const QuotationCreate = () => {
               <CFormInput
                 type="email"
                 value={companyInfo.email || ""}
-                onChange={(e) => updateCompanyField("email", e.target.value)}
-                placeholder="Email"
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
+                onChange={(e) =>
+                  !industryId && updateCompanyField("email", e.target.value)
+                }
+                placeholder={
+                  industryId ? "Auto-filled from selected client" : "Email"
+                }
               />
             </CCol>
           </CRow>
@@ -379,20 +564,32 @@ const QuotationCreate = () => {
               <CFormLabel>Purchase manager name</CFormLabel>
               <CFormInput
                 value={companyInfo.purchase_manager_name || ""}
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
                 onChange={(e) =>
+                  !industryId &&
                   updateCompanyField("purchase_manager_name", e.target.value)
                 }
-                placeholder="Purchase manager name"
+                placeholder={
+                  industryId
+                    ? "Auto-filled from selected client"
+                    : "Purchase manager name"
+                }
               />
             </CCol>
             <CCol md={6}>
               <CFormLabel>Purchase manager phone</CFormLabel>
               <CFormInput
                 value={companyInfo.purchase_manager_phone || ""}
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
                 onChange={(e) =>
+                  !industryId &&
                   updateCompanyField("purchase_manager_phone", e.target.value)
                 }
-                placeholder="Phone"
+                placeholder={
+                  industryId ? "Auto-filled from selected client" : "Phone"
+                }
               />
             </CCol>
           </CRow>
@@ -403,8 +600,14 @@ const QuotationCreate = () => {
               <CFormTextarea
                 rows={2}
                 value={companyInfo.address || ""}
-                onChange={(e) => updateCompanyField("address", e.target.value)}
-                placeholder="Address"
+                readOnly={!!industryId}
+                className={industryId ? "bg-light" : ""}
+                onChange={(e) =>
+                  !industryId && updateCompanyField("address", e.target.value)
+                }
+                placeholder={
+                  industryId ? "Auto-filled from selected client" : "Address"
+                }
               />
             </CCol>
           </CRow>

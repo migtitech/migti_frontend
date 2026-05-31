@@ -59,6 +59,14 @@ const proBucketService = {
     const response = await api.post(PRO_BUCKET.APPEND_RATES(id), { rates });
     return response;
   },
+  updateHodRates: async (id, data) => {
+    const response = await api.put(PRO_BUCKET.UPDATE_HOD_RATES(id), data);
+    return response;
+  },
+  listHodRateHistories: async (id, params = {}) => {
+    const response = await api.get(PRO_BUCKET.HOD_RATE_HISTORIES(id), { params });
+    return response;
+  },
 };
 
 export default proBucketService;

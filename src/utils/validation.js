@@ -150,7 +150,6 @@ export const EMPLOYEE_LOGIN_ROLES = [
   "head_of_department",
   "sales_manager",
   "sales_exicutive",
-  "purchase_manager",
   "purchase_exicutive",
   "procurement",
   "back_office_exicutive",
@@ -158,7 +157,6 @@ export const EMPLOYEE_LOGIN_ROLES = [
   "hod",
   "sm",
   "se",
-  "pm",
   "pe",
   "boe",
   "admin",
@@ -168,6 +166,8 @@ export const EMPLOYEE_LOGIN_ROLES = [
   "delivery",
   "inventry_manager",
   "dispatch_manager",
+  "localprocurement",
+  "localpurchase",
 ];
 
 export default {

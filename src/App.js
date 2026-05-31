@@ -43,7 +43,7 @@ const App = () => {
       <SocketProvider>
         <NotificationProvider>
           <DataProvider>
-            <Toaster />
+            <Toaster containerStyle={{ zIndex: 20000 }} />
             <HashRouter>
               <RealtimeNotificationAlert />
               <Suspense

@@ -87,6 +87,20 @@ const formatDateDdMmYyyy = (iso) => {
   return `${dd}/${mm}/${d.getFullYear()}`;
 };
 
+const getPriorityRowBg = (priority) => {
+  const p = String(priority || "medium").toLowerCase();
+  switch (p) {
+    case "low":
+      return "#d4edda";
+    case "medium":
+      return "#ffe8cc";
+    case "high":
+      return "#f8d7da";
+    default:
+      return null;
+  }
+};
+
 const parseListResponse = (res) => {
   const block = res?.data;
   if (!block || typeof block !== "object") return { list: [], total: 0, page: 1, pageSize: 20 };
@@ -267,8 +281,17 @@ const PoProductsList = () => {
                           </CTableDataCell>
                         </CTableRow>
                       ) : (
-                        rows.map((row, idx) => (
-                          <CTableRow key={row._id || row.id}>
+                        rows.map((row, idx) => {
+                          const rowBg = getPriorityRowBg(row.priority);
+                          return (
+                          <CTableRow
+                            key={row._id || row.id}
+                            style={
+                              rowBg
+                                ? { "--cui-table-bg": rowBg, backgroundColor: rowBg }
+                                : undefined
+                            }
+                          >
                             <CTableDataCell className="text-center fw-semibold text-body-secondary">
                               {(page - 1) * pageSize + idx + 1}
                             </CTableDataCell>
@@ -330,7 +353,8 @@ const PoProductsList = () => {
                               </CButton>
                             </CTableDataCell>
                           </CTableRow>
-                        ))
+                          );
+                        })
                       )}
                     </CTableBody>
                   </CTable>

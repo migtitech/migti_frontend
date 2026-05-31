@@ -12,19 +12,27 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
+  CFormTextarea,
   CNav,
   CNavItem,
   CNavLink,
   CRow,
   CTabContent,
   CTabPane,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilArrowLeft, cilPlus, cilTrash, cilX } from "@coreui/icons";
+import { cilArrowLeft, cilPlus, cilTrash, cilUser, cilX } from "@coreui/icons";
 import proBucketService from "../../services/proBucketService";
 import supplierService from "../../services/supplierService";
+import localProcurementService from "../../services/localProcurementService";
 import usePermissions from "../../hooks/usePermissions";
-import { Loader } from "../../components";
+import { EyeIcon, Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
@@ -86,6 +94,115 @@ const RefName = ({ refVal }) => {
     return "—";
   }
   return String(refVal);
+};
+
+const TAB_ITEM = 0;
+const TAB_SUPPLIERS = 1;
+const TAB_RATES = 2;
+
+const refId = (refVal) => {
+  if (refVal == null || refVal === "") return null;
+  if (typeof refVal === "object") {
+    const id = refVal._id ?? refVal.id;
+    return id ? String(id) : null;
+  }
+  return String(refVal);
+};
+
+const fetchAllSuppliersByCategory = async (categoryId) => {
+  const all = [];
+  let page = 1;
+  let hasNext = true;
+  while (hasNext) {
+    const res = await supplierService.getAll({
+      pageNumber: page,
+      pageSize: 100,
+      category: categoryId,
+    });
+    const block = res?.data;
+    const list = Array.isArray(block?.suppliers) ? block.suppliers : [];
+    all.push(...list);
+    hasNext = block?.pagination?.hasNextPage === true;
+    page += 1;
+    if (page > 50) break;
+  }
+  return all;
+};
+
+const CategorySuppliersTable = ({ suppliers, loading, categoryName, navigate }) => {
+  if (loading) {
+    return <Loader message="Loading category suppliers…" />;
+  }
+  if (!suppliers.length) {
+    return (
+      <p className="text-body-secondary mb-0">
+        No suppliers are linked to
+        {categoryName ? ` "${categoryName}"` : " this category"}.
+      </p>
+    );
+  }
+  return (
+    <div className="table-responsive">
+      <CTable hover responsive bordered className="mb-0 align-middle">
+        <CTableHead>
+          <CTableRow>
+            <CTableHeaderCell>#</CTableHeaderCell>
+            <CTableHeaderCell>Name</CTableHeaderCell>
+            <CTableHeaderCell>Shop</CTableHeaderCell>
+            <CTableHeaderCell>Phone 1</CTableHeaderCell>
+            <CTableHeaderCell>Phone 2</CTableHeaderCell>
+            <CTableHeaderCell>Email</CTableHeaderCell>
+            <CTableHeaderCell>Other contact</CTableHeaderCell>
+            <CTableHeaderCell>Label</CTableHeaderCell>
+            <CTableHeaderCell>Location</CTableHeaderCell>
+            <CTableHeaderCell>GST</CTableHeaderCell>
+            <CTableHeaderCell>Address</CTableHeaderCell>
+            <CTableHeaderCell>Remark</CTableHeaderCell>
+            <CTableHeaderCell>View</CTableHeaderCell>
+          </CTableRow>
+        </CTableHead>
+        <CTableBody>
+          {suppliers.map((s, index) => (
+            <CTableRow
+              key={s._id}
+              style={{ cursor: "pointer" }}
+              onClick={() => navigate(`/suppliers/${s._id}`)}
+            >
+              <CTableDataCell>{index + 1}</CTableDataCell>
+              <CTableDataCell>
+                <strong>{dash(s.name)}</strong>
+              </CTableDataCell>
+              <CTableDataCell>{dash(s.shopname)}</CTableDataCell>
+              <CTableDataCell>{dash(s.phone_1)}</CTableDataCell>
+              <CTableDataCell>{dash(s.phone_2)}</CTableDataCell>
+              <CTableDataCell>{dash(s.email)}</CTableDataCell>
+              <CTableDataCell>{dash(s.other_contact)}</CTableDataCell>
+              <CTableDataCell>{dash(s.label)}</CTableDataCell>
+              <CTableDataCell>{dash(s.shop_location)}</CTableDataCell>
+              <CTableDataCell>{dash(s.gst)}</CTableDataCell>
+              <CTableDataCell className="text-break" style={{ maxWidth: "14rem" }}>
+                {dash(s.address)}
+              </CTableDataCell>
+              <CTableDataCell className="text-break" style={{ maxWidth: "12rem" }}>
+                {dash(s.remark)}
+              </CTableDataCell>
+              <CTableDataCell onClick={(e) => e.stopPropagation()}>
+                <CButton
+                  color="info"
+                  variant="ghost"
+                  size="sm"
+                  title="View supplier"
+                  onClick={() => navigate(`/suppliers/${s._id}`)}
+                >
+                  <EyeIcon />
+                </CButton>
+              </CTableDataCell>
+            </CTableRow>
+          ))}
+        </CTableBody>
+      </CTable>
+    </div>
+  );
 };
 
 const Field = ({ label, children, className = "" }) => (
@@ -253,6 +370,7 @@ const ProBucketDetail = () => {
   const navigate = useNavigate();
   const { canUpdate } = usePermissions();
   const canAddRate = canUpdate("pro_bucket");
+  const canAssignLocalPro = canUpdate("pro_bucket");
   const isPhoneView = useIsPhoneView();
 
   const [activeTab, setActiveTab] = useState(0);
@@ -264,6 +382,25 @@ const ProBucketDetail = () => {
   const [allSuppliersCache, setAllSuppliersCache] = useState([]);
   const [rateRows, setRateRows] = useState([emptyRow()]);
   const [saving, setSaving] = useState(false);
+  const [categorySuppliers, setCategorySuppliers] = useState([]);
+  const [categorySuppliersLoading, setCategorySuppliersLoading] =
+    useState(false);
+  const [localProBarOpen, setLocalProBarOpen] = useState(false);
+  const [localProEmployees, setLocalProEmployees] = useState([]);
+  const [localProEmployeesLoading, setLocalProEmployeesLoading] =
+    useState(false);
+  const [selectedLocalProEmployee, setSelectedLocalProEmployee] = useState("");
+  const [localProAssignRemark, setLocalProAssignRemark] = useState("");
+  const [assigningLocalPro, setAssigningLocalPro] = useState(false);
+
+  const productCategoryId = useMemo(
+    () => refId(item?.categoryId),
+    [item?.categoryId],
+  );
+  const productCategoryName = useMemo(
+    () => <RefName refVal={item?.categoryId} />,
+    [item?.categoryId],
+  );
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -285,6 +422,33 @@ const ProBucketDetail = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!productCategoryId) {
+      setCategorySuppliers([]);
+      setCategorySuppliersLoading(false);
+      return;
+    }
+    let cancelled = false;
+    const run = async () => {
+      setCategorySuppliersLoading(true);
+      try {
+        const list = await fetchAllSuppliersByCategory(productCategoryId);
+        if (!cancelled) setCategorySuppliers(list);
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e?.message || "Failed to load category suppliers");
+          setCategorySuppliers([]);
+        }
+      } finally {
+        if (!cancelled) setCategorySuppliersLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [productCategoryId]);
 
   const loadSuppliers = useCallback(async (search, saveAsCache) => {
     try {
@@ -326,6 +490,30 @@ const ProBucketDetail = () => {
     return () => clearTimeout(t);
   }, [rateBarOpen, supplierSearch, loadSuppliers]);
 
+  useEffect(() => {
+    if (!localProBarOpen) return;
+    let cancelled = false;
+    const run = async () => {
+      setLocalProEmployeesLoading(true);
+      try {
+        const res = await localProcurementService.listEmployees();
+        const list = Array.isArray(res?.data) ? res.data : [];
+        if (!cancelled) setLocalProEmployees(list);
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e?.message || "Failed to load local procurement staff");
+          setLocalProEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setLocalProEmployeesLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [localProBarOpen]);
+
   const byId = useMemo(() => {
     const m = new Map();
     (allSuppliersCache || []).forEach((s) => m.set(String(s._id), s));
@@ -353,6 +541,34 @@ const ProBucketDetail = () => {
     if (saving) return;
     setRateBarOpen(false);
     setSupplierSearch("");
+  };
+
+  const closeLocalProBar = () => {
+    if (assigningLocalPro) return;
+    setLocalProBarOpen(false);
+    setSelectedLocalProEmployee("");
+    setLocalProAssignRemark("");
+  };
+
+  const submitLocalProAssignment = async () => {
+    if (!selectedLocalProEmployee) {
+      toastError("Select a local procurement employee.");
+      return;
+    }
+    setAssigningLocalPro(true);
+    try {
+      await localProcurementService.assign({
+        queryProductId: id,
+        employeeId: selectedLocalProEmployee,
+        remark: localProAssignRemark,
+      });
+      toastSuccess("Assigned to local procurement");
+      closeLocalProBar();
+    } catch (e) {
+      toastError(e?.message || "Failed to assign local procurement");
+    } finally {
+      setAssigningLocalPro(false);
+    }
   };
 
   const addRateRow = () => setRateRows((r) => [...r, emptyRow()]);
@@ -442,6 +658,22 @@ const ProBucketDetail = () => {
                   <strong className="me-1">{item.productName}</strong>
                 )}
                 {rateBadge(item.status)}
+                {canAssignLocalPro && (
+                  <CButton
+                    color="primary"
+                    variant="outline"
+                    size="sm"
+                    className="ms-auto"
+                    onClick={() => {
+                      setSelectedLocalProEmployee("");
+                      setLocalProAssignRemark("");
+                      setLocalProBarOpen(true);
+                    }}
+                  >
+                    <CIcon icon={cilUser} className="me-1" size="sm" />
+                    Assign Local Pro
+                  </CButton>
+                )}
               </>
             )}
           </CCardHeader>
@@ -497,8 +729,8 @@ const ProBucketDetail = () => {
                     >
                       <CNavItem className="flex-shrink-0">
                         <CNavLink
-                          active={activeTab === 0}
-                          onClick={() => setActiveTab(0)}
+                          active={activeTab === TAB_ITEM}
+                          onClick={() => setActiveTab(TAB_ITEM)}
                           style={{ cursor: "pointer" }}
                         >
                           Item info
@@ -506,15 +738,40 @@ const ProBucketDetail = () => {
                       </CNavItem>
                       <CNavItem className="flex-shrink-0">
                         <CNavLink
-                          active={activeTab === 1}
-                          onClick={() => setActiveTab(1)}
+                          active={activeTab === TAB_SUPPLIERS}
+                          onClick={() => setActiveTab(TAB_SUPPLIERS)}
+                          style={{ cursor: "pointer" }}
+                          className="d-flex align-items-center gap-2"
+                        >
+                          Suppliers
+                          {productCategoryId && categorySuppliers.length > 0 && (
+                            <CBadge
+                              color={
+                                activeTab === TAB_SUPPLIERS
+                                  ? "primary"
+                                  : "secondary"
+                              }
+                              shape="rounded-pill"
+                              style={{ fontSize: "0.65rem" }}
+                            >
+                              {categorySuppliers.length}
+                            </CBadge>
+                          )}
+                        </CNavLink>
+                      </CNavItem>
+                      <CNavItem className="flex-shrink-0">
+                        <CNavLink
+                          active={activeTab === TAB_RATES}
+                          onClick={() => setActiveTab(TAB_RATES)}
                           style={{ cursor: "pointer" }}
                           className="d-flex align-items-center gap-2"
                         >
                           Rates
                           {item?.rates?.length > 0 && (
                             <CBadge
-                              color={activeTab === 1 ? "primary" : "secondary"}
+                              color={
+                                activeTab === TAB_RATES ? "primary" : "secondary"
+                              }
                               shape="rounded-pill"
                               style={{ fontSize: "0.65rem" }}
                             >
@@ -524,7 +781,7 @@ const ProBucketDetail = () => {
                         </CNavLink>
                       </CNavItem>
                     </CNav>
-                    {isPhoneView && canAddRate && activeTab === 1 ? (
+                    {isPhoneView && canAddRate && activeTab === TAB_RATES ? (
                       <button
                         type="button"
                         className="btn btn-primary d-inline-flex align-items-center gap-1 flex-shrink-0 border-0 rounded-pill shadow-sm"
@@ -549,10 +806,37 @@ const ProBucketDetail = () => {
                   </div>
                 </div>
                 <CTabContent>
-                  <CTabPane role="tabpanel" visible={activeTab === 0}>
+                  <CTabPane role="tabpanel" visible={activeTab === TAB_ITEM}>
                     <ItemInfoSections item={item} />
                   </CTabPane>
-                  <CTabPane role="tabpanel" visible={activeTab === 1}>
+                  <CTabPane role="tabpanel" visible={activeTab === TAB_SUPPLIERS}>
+                    {!productCategoryId ? (
+                      <p className="text-body-secondary mb-0">
+                        No category is assigned to this product, so suppliers
+                        cannot be listed by category.
+                      </p>
+                    ) : (
+                      <>
+                        <p className="text-body-secondary small mb-3">
+                          Suppliers linked to category{" "}
+                          <strong>{productCategoryName}</strong> (matched via
+                          supplier <code>categories</code>).
+                        </p>
+                        <CategorySuppliersTable
+                          suppliers={categorySuppliers}
+                          loading={categorySuppliersLoading}
+                          categoryName={
+                            typeof item?.categoryId === "object" &&
+                            item.categoryId?.name
+                              ? String(item.categoryId.name)
+                              : ""
+                          }
+                          navigate={navigate}
+                        />
+                      </>
+                    )}
+                  </CTabPane>
+                  <CTabPane role="tabpanel" visible={activeTab === TAB_RATES}>
                     {canAddRate && !isPhoneView && (item.rates?.length > 0) && (
                       <CButton
                         color="primary"
@@ -953,6 +1237,144 @@ const ProBucketDetail = () => {
               className={isPhoneView ? "w-100" : undefined}
             >
               Cancel
+            </CButton>
+          </div>
+        </div>
+      )}
+
+      {localProBarOpen && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100"
+          style={{
+            zIndex: 1040,
+            background: "rgba(15, 23, 42, 0.42)",
+            backdropFilter: "blur(3px)",
+            WebkitBackdropFilter: "blur(3px)",
+          }}
+          onClick={closeLocalProBar}
+          role="button"
+          tabIndex={-1}
+          aria-label="Close"
+        />
+      )}
+
+      {localProBarOpen && (
+        <div
+          className={
+            isPhoneView
+              ? "position-fixed bottom-0 start-0 end-0 d-flex flex-column bg-body"
+              : "position-fixed top-0 end-0 d-flex flex-column border-start border-2 bg-body shadow-lg h-100"
+          }
+          style={
+            isPhoneView
+              ? {
+                  zIndex: 1050,
+                  maxHeight: "min(90vh, 100%)",
+                  borderTopLeftRadius: "1rem",
+                  borderTopRightRadius: "1rem",
+                  boxShadow: "0 -10px 40px rgba(0, 0, 0, 0.2)",
+                  borderTop:
+                    "1px solid var(--cui-border-color-translucent, rgba(0,0,0,0.08))",
+                }
+              : { zIndex: 1050, width: "min(24rem, 100%)" }
+          }
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Assign local procurement"
+        >
+          <div className="d-flex align-items-center justify-content-between gap-2 border-bottom px-3 py-2 flex-shrink-0">
+            <div style={{ minWidth: 0 }}>
+              <h2 className="h6 mb-0">Assign Local Pro</h2>
+              {item?.productName && (
+                <div
+                  className="text-body-secondary text-truncate small"
+                  title={item.productName}
+                >
+                  {item.productName}
+                </div>
+              )}
+            </div>
+            <CButton
+              type="button"
+              color="secondary"
+              variant="ghost"
+              size="sm"
+              onClick={closeLocalProBar}
+              disabled={assigningLocalPro}
+              aria-label="Close"
+            >
+              <CIcon icon={cilX} size="lg" />
+            </CButton>
+          </div>
+
+          <div className="flex-grow-1 overflow-auto px-3 py-3">
+            {localProEmployeesLoading ? (
+              <Loader message="Loading employees…" />
+            ) : localProEmployees.length === 0 ? (
+              <p className="text-body-secondary mb-0">
+                No employees with the local procurement role were found.
+              </p>
+            ) : (
+              <>
+                <CFormLabel htmlFor="local-pro-employee">
+                  Local procurement employee
+                </CFormLabel>
+                <CFormSelect
+                  id="local-pro-employee"
+                  value={selectedLocalProEmployee}
+                  onChange={(e) => setSelectedLocalProEmployee(e.target.value)}
+                  className="mb-3"
+                >
+                  <option value="">— Select employee —</option>
+                  {localProEmployees.map((emp) => {
+                    const empId = emp.employeeId || emp._id;
+                    const label =
+                      emp.email ||
+                      emp.companyEmail ||
+                      "—";
+                    return (
+                      <option key={empId} value={String(empId)}>
+                        {label}
+                      </option>
+                    );
+                  })}
+                </CFormSelect>
+                <CFormLabel htmlFor="local-pro-remark" className="mt-2">
+                  Remark
+                </CFormLabel>
+                <CFormTextarea
+                  id="local-pro-remark"
+                  rows={3}
+                  placeholder="Optional note for the assignee…"
+                  value={localProAssignRemark}
+                  onChange={(e) => setLocalProAssignRemark(e.target.value)}
+                />
+              </>
+            )}
+          </div>
+
+          <div className="d-flex gap-2 px-3 py-2 border-top flex-shrink-0 justify-content-end">
+            <CButton
+              type="button"
+              color="secondary"
+              variant="ghost"
+              onClick={closeLocalProBar}
+              disabled={assigningLocalPro}
+            >
+              Cancel
+            </CButton>
+            <CButton
+              type="button"
+              color="primary"
+              onClick={submitLocalProAssignment}
+              disabled={
+                assigningLocalPro ||
+                !selectedLocalProEmployee ||
+                localProEmployeesLoading
+              }
+            >
+              {assigningLocalPro ? "Assigning…" : "Assign"}
             </CButton>
           </div>
         </div>

@@ -7,6 +7,21 @@ import "simplebar-react/dist/simplebar.min.css";
 
 import { CBadge, CNavLink, CSidebarNav } from "@coreui/react";
 
+const NAV_META_KEYS = new Set([
+  "roles",
+  "module",
+  "rolePrefix",
+  "excludeRolePrefix",
+]);
+
+const stripNavMeta = (item = {}) => {
+  const next = { ...item };
+  for (const key of NAV_META_KEYS) {
+    delete next[key];
+  }
+  return next;
+};
+
 export const AppSidebarNav = ({ items }) => {
   const navLink = (name, icon, badge, indent = false) => {
     return (
@@ -35,7 +50,7 @@ export const AppSidebarNav = ({ items }) => {
   };
 
   const navItem = (item, index, indent = false) => {
-    const { component, name, badge, icon, ...rest } = item;
+    const { component, name, badge, icon, ...rest } = stripNavMeta(item);
     const Component = component;
     return (
       <Component as="div" key={index}>
@@ -55,7 +70,7 @@ export const AppSidebarNav = ({ items }) => {
   };
 
   const navGroup = (item, index) => {
-    const { component, name, icon, items, to, ...rest } = item;
+    const { component, name, icon, items, to, ...rest } = stripNavMeta(item);
     const Component = component;
     return (
       <Component

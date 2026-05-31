@@ -55,6 +55,22 @@ const statusBadge = (s) => {
 };
 
 /** Human-readable age since `createdAt` — e.g. "just now", "45 min ago", "2d 5h ago". */
+const queryCodeLast4 = (code) => {
+  const s = code != null ? String(code).trim() : "";
+  if (!s) return "—";
+  return s.length <= 4 ? s : s.slice(-4);
+};
+
+const refName = (refVal) => {
+  if (refVal == null || refVal === "") return "—";
+  if (typeof refVal === "object") {
+    if (refVal.name != null && String(refVal.name).trim() !== "")
+      return String(refVal.name);
+    return "—";
+  }
+  return String(refVal);
+};
+
 const formatDurationSinceCreated = (d) => {
   const t = d ? new Date(d).getTime() : NaN;
   if (Number.isNaN(t)) return "—";
@@ -280,24 +296,34 @@ const ProBucketList = () => {
                         </CCardHeader>
                         <CCardBody className="py-2 small">
                           <div className="d-flex justify-content-between">
+                            <span className="text-body-secondary">Query code</span>
+                            <span
+                              className="text-truncate ps-2 fw-medium font-monospace"
+                              title={row.queryCode?.toString().trim() || ""}
+                            >
+                              {queryCodeLast4(row.queryCode)}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between mt-1">
                             <span className="text-body-secondary">Unit</span>
                             <span>{row.unit || "—"}</span>
                           </div>
                           <div className="d-flex justify-content-between mt-1">
-                            <span className="text-body-secondary">HSN</span>
-                            <span className="text-truncate ps-2">
-                              {row.hsnNumber?.toString().trim() || "—"}
+                            <span className="text-body-secondary">Group</span>
+                            <span
+                              className="text-truncate ps-2"
+                              title={refName(row.groupId)}
+                            >
+                              {refName(row.groupId)}
                             </span>
                           </div>
                           <div className="d-flex justify-content-between mt-1">
-                            <span className="text-body-secondary">
-                              Model number
-                            </span>
+                            <span className="text-body-secondary">Category</span>
                             <span
                               className="text-truncate ps-2"
-                              title={row.modelNumber || ""}
+                              title={refName(row.categoryId)}
                             >
-                              {row.modelNumber?.toString().trim() || "—"}
+                              {refName(row.categoryId)}
                             </span>
                           </div>
                           <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">

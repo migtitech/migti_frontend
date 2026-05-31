@@ -45,6 +45,7 @@ import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../hooks/usePermissions";
 
 /** `status` on `po_products` (read-only here; not stored on purchase order) */
 const lineInventoryStatusBadge = (inv) => {
@@ -225,7 +226,10 @@ const toProductPayload = (p) => {
     gstPercentage: gst,
     variants: Array.isArray(p.variants) ? p.variants : [],
     remark: String(p.remark || ""),
-    product_id: p.product_id || null,
+    product_id:
+      p.product_id && typeof p.product_id === "object"
+        ? String(p.product_id._id || "")
+        : p.product_id || null,
     rate,
     images: imageIds,
     applyDiscount: !!p.applyDiscount,
@@ -270,7 +274,6 @@ const PoBucketView = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
-  const [savingCompany, setSavingCompany] = useState(false);
   const [savingProducts, setSavingProducts] = useState(false);
   const [purchaseOrder, setPurchaseOrder] = useState(null);
   const [poProductLineStatuses, setPoProductLineStatuses] = useState([]);
@@ -306,9 +309,11 @@ const PoBucketView = () => {
   const poId = purchaseOrder?._id || purchaseOrder?.id;
   const poClosed =
     String(purchaseOrder?.status || "").toLowerCase() === "closed";
+  const headOfDepartmentUser = isHeadOfDepartmentRole(user?.role);
+  const isSalesRole = normalizeRole(user?.role).startsWith("sales");
+  const companyInfoReadOnly = true;
   const poStatusNorm = String(purchaseOrder?.status || "").toLowerCase();
   const poHodApproved = poStatusNorm === "hod_approved";
-  const headOfDepartmentUser = isHeadOfDepartmentRole(user?.role);
   const canShowHodApprove =
     headOfDepartmentUser &&
     poId &&
@@ -582,52 +587,11 @@ const PoBucketView = () => {
     void loadPoProductStatusLines();
   }, [activeTab, id, loadPoProductStatusLines]);
 
-  const saveCompanyInfo = async () => {
-    if (poClosed) {
-      toastError("This purchase order is closed and cannot be edited.");
-      return;
+  useEffect(() => {
+    if (isSalesRole && activeTab === "priority") {
+      setActiveTab("company");
     }
-    if (!poId) {
-      toastError("Purchase order id not found");
-      return;
-    }
-    setSavingCompany(true);
-    try {
-      const meta = companyAreaMetaRef.current;
-      const areaTrimmed = String(companyForm.area ?? "").trim();
-      let areaForApi = areaTrimmed;
-      if (meta.areaId) {
-        const resName = String(meta.resolvedName ?? "").trim();
-        if (
-          areaTrimmed === resName ||
-          (areaTrimmed === meta.areaId && !resName)
-        ) {
-          areaForApi = meta.areaId;
-        }
-      }
-      await purchaseOrderService.update(poId, {
-        companyInfo: {
-          name: companyForm.name,
-          area: areaForApi,
-          location: companyForm.location,
-          address: companyForm.address,
-          purchaseManagers: [
-            {
-              name: companyForm.purchaseManagerName,
-              phone: companyForm.purchaseManagerPhone,
-              email: companyForm.purchaseManagerEmail,
-            },
-          ],
-        },
-      });
-      toastSuccess("Company information updated");
-      await refreshAfterUpdate();
-    } catch (err) {
-      toastError(err?.message || "Failed to update company information");
-    } finally {
-      setSavingCompany(false);
-    }
-  };
+  }, [isSalesRole, activeTab]);
 
   const saveProducts = async (
     nextProducts,
@@ -889,15 +853,17 @@ const PoBucketView = () => {
                   Product List
                 </CNavLink>
               </CNavItem>
-              <CNavItem>
-                <CNavLink
-                  active={activeTab === "priority"}
-                  onClick={() => setActiveTab("priority")}
-                  style={{ cursor: "pointer" }}
-                >
-                  Priority
-                </CNavLink>
-              </CNavItem>
+              {!isSalesRole ? (
+                <CNavItem>
+                  <CNavLink
+                    active={activeTab === "priority"}
+                    onClick={() => setActiveTab("priority")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Priority
+                  </CNavLink>
+                </CNavItem>
+              ) : null}
               <CNavItem>
                 <CNavLink
                   active={activeTab === "productStatus"}
@@ -929,12 +895,16 @@ const PoBucketView = () => {
 
             <CTabContent>
               <CTabPane visible={activeTab === "company"}>
+                <CAlert color="info" className="mb-3">
+                  Company information is view-only.
+                </CAlert>
                 <CRow className="g-3">
                   <CCol md={6}>
                     <CFormLabel>Name</CFormLabel>
                     <CFormInput
                       value={companyForm.name}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -947,7 +917,8 @@ const PoBucketView = () => {
                     <CFormLabel>Area</CFormLabel>
                     <CFormInput
                       value={companyForm.area}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -960,7 +931,8 @@ const PoBucketView = () => {
                     <CFormLabel>Location</CFormLabel>
                     <CFormInput
                       value={companyForm.location}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -973,7 +945,8 @@ const PoBucketView = () => {
                     <CFormLabel>Address</CFormLabel>
                     <CFormInput
                       value={companyForm.address}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -986,7 +959,8 @@ const PoBucketView = () => {
                     <CFormLabel>Purchase Manager Name</CFormLabel>
                     <CFormInput
                       value={companyForm.purchaseManagerName}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -999,7 +973,8 @@ const PoBucketView = () => {
                     <CFormLabel>Purchase Manager Phone</CFormLabel>
                     <CFormInput
                       value={companyForm.purchaseManagerPhone}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -1013,7 +988,8 @@ const PoBucketView = () => {
                     <CFormInput
                       type="email"
                       value={companyForm.purchaseManagerEmail}
-                      readOnly={poClosed}
+                      readOnly={companyInfoReadOnly}
+                      disabled={companyInfoReadOnly}
                       onChange={(e) =>
                         setCompanyForm((prev) => ({
                           ...prev,
@@ -1021,15 +997,6 @@ const PoBucketView = () => {
                         }))
                       }
                     />
-                  </CCol>
-                  <CCol xs={12}>
-                    <CButton
-                      color="primary"
-                      disabled={savingCompany || poClosed}
-                      onClick={saveCompanyInfo}
-                    >
-                      {savingCompany ? "Saving..." : "Save Company Information"}
-                    </CButton>
                   </CCol>
                 </CRow>
               </CTabPane>
@@ -1050,8 +1017,10 @@ const PoBucketView = () => {
                         <CFormInput
                           size="sm"
                           type="date"
+                          min={getTodayInputDate()}
                           value={dispatchmentDateForAll}
                           readOnly={poClosed}
+                          disabled={poClosed}
                           onChange={(e) =>
                             setDispatchmentDateForAll(e.target.value)
                           }
@@ -1090,7 +1059,9 @@ const PoBucketView = () => {
                             Line status (PO product)
                           </CTableHeaderCell>
                           <CTableHeaderCell>Qty</CTableHeaderCell>
-                          <CTableHeaderCell>GST %</CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 110 }}>
+                            GST %
+                          </CTableHeaderCell>
                           <CTableHeaderCell>Rate</CTableHeaderCell>
                           <CTableHeaderCell>Dispatchment Date</CTableHeaderCell>
                           <CTableHeaderCell>Total Amount</CTableHeaderCell>
@@ -1145,7 +1116,7 @@ const PoBucketView = () => {
                                 }
                               />
                             </CTableDataCell>
-                            <CTableDataCell>
+                            <CTableDataCell style={{ minWidth: 110 }}>
                               <CFormInput
                                 size="sm"
                                 type="number"
@@ -1153,6 +1124,7 @@ const PoBucketView = () => {
                                 max={100}
                                 value={p.gstPercentage}
                                 readOnly={poClosed}
+                                style={{ minWidth: 100, width: "100%" }}
                                 onChange={(e) =>
                                   updateProductField(
                                     index,
@@ -1239,76 +1211,82 @@ const PoBucketView = () => {
                 </CCard>
               </CTabPane>
 
-              <CTabPane visible={activeTab === "priority"}>
-                <CCard className="mb-4 border-0 shadow-sm">
-                  <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
-                    <strong>Product priority</strong>
-                    <CButton
-                      color="primary"
-                      size="sm"
-                      disabled={
-                        savingProducts || productsForm.length === 0 || poClosed
-                      }
-                      onClick={savePriorities}
-                    >
-                      {savingProducts ? "Saving..." : "Save priorities"}
-                    </CButton>
-                  </CCardHeader>
-                  <CCardBody className="pt-3">
-                    {productsForm.length === 0 ? (
-                      <p className="text-body-secondary mb-0">
-                        No products on this purchase order.
-                      </p>
-                    ) : (
-                      <CTable hover responsive bordered align="middle">
-                        <CTableHead>
-                          <CTableRow>
-                            <CTableHeaderCell>S No</CTableHeaderCell>
-                            <CTableHeaderCell>Product</CTableHeaderCell>
-                            <CTableHeaderCell>Qty</CTableHeaderCell>
-                            <CTableHeaderCell>Priority</CTableHeaderCell>
-                          </CTableRow>
-                        </CTableHead>
-                        <CTableBody>
-                          {productsForm.map((p, index) => (
-                            <CTableRow key={p._id || index}>
-                              <CTableDataCell className="fw-semibold">
-                                {index + 1}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {p.productName || "—"}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {p.quantity ?? "—"}
-                              </CTableDataCell>
-                              <CTableDataCell style={{ maxWidth: 220 }}>
-                                <CFormSelect
-                                  size="sm"
-                                  value={normalizeProductPriority(p.priority)}
-                                  disabled={poClosed}
-                                  onChange={(e) =>
-                                    updateProductField(
-                                      index,
-                                      "priority",
-                                      e.target.value,
-                                    )
-                                  }
-                                >
-                                  {PRODUCT_PRIORITY_OPTIONS.map((opt) => (
-                                    <option key={opt.value} value={opt.value}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </CFormSelect>
-                              </CTableDataCell>
+              {!isSalesRole ? (
+                <CTabPane visible={activeTab === "priority"}>
+                  <CCard className="mb-4 border-0 shadow-sm">
+                    <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
+                      <strong>Product priority</strong>
+                      <CButton
+                        color="primary"
+                        size="sm"
+                        disabled={
+                          savingProducts ||
+                          productsForm.length === 0 ||
+                          poClosed
+                        }
+                        onClick={savePriorities}
+                      >
+                        {savingProducts ? "Saving..." : "Save priorities"}
+                      </CButton>
+                    </CCardHeader>
+                    <CCardBody className="pt-3">
+                      {productsForm.length === 0 ? (
+                        <p className="text-body-secondary mb-0">
+                          No products on this purchase order.
+                        </p>
+                      ) : (
+                        <CTable hover responsive bordered align="middle">
+                          <CTableHead>
+                            <CTableRow>
+                              <CTableHeaderCell>S No</CTableHeaderCell>
+                              <CTableHeaderCell>Product</CTableHeaderCell>
+                              <CTableHeaderCell>Qty</CTableHeaderCell>
+                              <CTableHeaderCell>Priority</CTableHeaderCell>
                             </CTableRow>
-                          ))}
-                        </CTableBody>
-                      </CTable>
-                    )}
-                  </CCardBody>
-                </CCard>
-              </CTabPane>
+                          </CTableHead>
+                          <CTableBody>
+                            {productsForm.map((p, index) => (
+                              <CTableRow key={p._id || index}>
+                                <CTableDataCell className="fw-semibold">
+                                  {index + 1}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {p.productName || "—"}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {p.quantity ?? "—"}
+                                </CTableDataCell>
+                                <CTableDataCell style={{ maxWidth: 220 }}>
+                                  <CFormSelect
+                                    size="sm"
+                                    value={normalizeProductPriority(
+                                      p.priority,
+                                    )}
+                                    disabled={poClosed}
+                                    onChange={(e) =>
+                                      updateProductField(
+                                        index,
+                                        "priority",
+                                        e.target.value,
+                                      )
+                                    }
+                                  >
+                                    {PRODUCT_PRIORITY_OPTIONS.map((opt) => (
+                                      <option key={opt.value} value={opt.value}>
+                                        {opt.label}
+                                      </option>
+                                    ))}
+                                  </CFormSelect>
+                                </CTableDataCell>
+                              </CTableRow>
+                            ))}
+                          </CTableBody>
+                        </CTable>
+                      )}
+                    </CCardBody>
+                  </CCard>
+                </CTabPane>
+              ) : null}
 
               <CTabPane visible={activeTab === "productStatus"}>
                 <CCard className="mb-4 border-0 shadow-sm">
@@ -1353,8 +1331,14 @@ const PoBucketView = () => {
                             <CTableHeaderCell>Qty</CTableHeaderCell>
                             <CTableHeaderCell>Unit</CTableHeaderCell>
                             <CTableHeaderCell>Product image</CTableHeaderCell>
-                            <CTableHeaderCell>Payment proof</CTableHeaderCell>
-                            <CTableHeaderCell>Receiving proof</CTableHeaderCell>
+                            {!isSalesRole ? (
+                              <>
+                                <CTableHeaderCell>Payment proof</CTableHeaderCell>
+                                <CTableHeaderCell>
+                                  Receiving proof
+                                </CTableHeaderCell>
+                              </>
+                            ) : null}
                             <CTableHeaderCell>
                               Status (po_product)
                             </CTableHeaderCell>
@@ -1387,16 +1371,20 @@ const PoBucketView = () => {
                                   row.productImageDocument,
                                 )}
                               </CTableDataCell>
-                              <CTableDataCell className="align-top">
-                                {renderPoLineDocumentCell(
-                                  row.paymentProofDocument,
-                                )}
-                              </CTableDataCell>
-                              <CTableDataCell className="align-top">
-                                {renderPoLineDocumentCell(
-                                  row.receivingProofDocument,
-                                )}
-                              </CTableDataCell>
+                              {!isSalesRole ? (
+                                <>
+                                  <CTableDataCell className="align-top">
+                                    {renderPoLineDocumentCell(
+                                      row.paymentProofDocument,
+                                    )}
+                                  </CTableDataCell>
+                                  <CTableDataCell className="align-top">
+                                    {renderPoLineDocumentCell(
+                                      row.receivingProofDocument,
+                                    )}
+                                  </CTableDataCell>
+                                </>
+                              ) : null}
                               <CTableDataCell className="text-nowrap">
                                 {lineInventoryStatusBadge(row.status)}
                               </CTableDataCell>
@@ -1443,7 +1431,7 @@ const PoBucketView = () => {
                           </option>
                           {assignEmployeeOptions.map((emp) => {
                             const eid = String(emp?._id || emp?.id || "");
-                            const label = `${emp?.name || "Employee"} (${emp?.role || "role"})`;
+                            const label = emp?.email || "—";
                             return (
                               <option key={eid || label} value={eid}>
                                 {label}

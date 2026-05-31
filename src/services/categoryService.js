@@ -7,6 +7,11 @@ const categoryService = {
     return response;
   },
 
+  getAllCategories: async () => {
+    const response = await api.get(CATEGORIES.GET_ALL);
+    return response;
+  },
+
   getById: async (id) => {
     const response = await api.get(CATEGORIES.GET_BY_ID, {
       params: { categoryId: id },

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   CBadge,
@@ -11,8 +11,16 @@ import {
   CFormLabel,
   CFormSelect,
   CFormTextarea,
+  CPagination,
+  CPaginationItem,
   CRow,
   CSpinner,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilSave, cilCheckCircle, cilTrash, cilCloudUpload } from "@coreui/icons";
@@ -26,10 +34,52 @@ import { toastError, toastSuccess } from "../../utils/toast";
 import { sortAlphabetically } from "../../utils/sort";
 import { Loader } from "../../components";
 
-/* ── helpers ─────────────────────────────────────── */
 const isHodRole = (role) => {
   const r = String(role || "").toLowerCase();
   return r === "head_of_department" || r === "hod";
+};
+
+const normalizeRateComparison = (value, { isDiscount = false } = {}) => {
+  if (value === "" || value == null) return isDiscount ? 0 : null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return isDiscount ? 0 : null;
+  return n;
+};
+
+const formatDateTime = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })}`;
+};
+
+const formatRateValue = (value) =>
+  value != null && !Number.isNaN(Number(value)) ? Number(value) : "—";
+
+const formatCurrencyRate = (value) => {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return `₹${Number(value).toLocaleString("en-IN")}`;
+};
+
+const supplierDisplayName = (supplier) => {
+  if (!supplier || typeof supplier !== "object") return "—";
+  return (
+    supplier.name?.trim() ||
+    supplier.shopname?.trim() ||
+    "Supplier"
+  );
+};
+
+const submitterDisplayName = (submittedBy) => {
+  if (!submittedBy) return "—";
+  if (typeof submittedBy === "object") {
+    return submittedBy.name?.trim() || submittedBy.email?.trim() || "—";
+  }
+  return String(submittedBy);
 };
 
 const resolveUrl = (img) => {
@@ -85,6 +135,39 @@ const QueryProductView = () => {
     categoryId:     "",
   });
 
+  const [rateForm, setRateForm] = useState({
+    minRate: "",
+    maxRate: "",
+  });
+  const [updatingRate, setUpdatingRate] = useState(false);
+  const [historyRows, setHistoryRows] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyPageSize] = useState(10);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
+  const [historyFilters, setHistoryFilters] = useState({
+    from: "",
+    to: "",
+    search: "",
+  });
+  const [historyFilterDraft, setHistoryFilterDraft] = useState({
+    from: "",
+    to: "",
+    search: "",
+  });
+
+  const applyRateManagement = (rm) => {
+    const toFormRate = (value) => {
+      if (value == null || value === "") return "0";
+      return String(value);
+    };
+    setRateForm({
+      minRate: toFormRate(rm?.minRate),
+      maxRate: toFormRate(rm?.maxRate),
+    });
+  };
+
   /* categories filtered by selected group — must be after form useState */
   const filteredCategories = form.groupId
     ? allCategories.filter((c) => {
@@ -101,7 +184,7 @@ const QueryProductView = () => {
       try {
         const [grpRes, catRes] = await Promise.all([
           groupService.getAll({ pageSize: 100 }),
-          categoryService.getAll({ pageSize: 100 }),
+          categoryService.getAllCategories(),
         ]);
         setGroups(sortAlphabetically(
           Array.isArray(grpRes?.data?.groups)   ? grpRes.data.groups
@@ -124,6 +207,7 @@ const QueryProductView = () => {
         const res  = await withMinimumDelay(() => proBucketService.getById(id));
         const data = res?.data?.data || res?.data;
         setDoc(data);
+        applyRateManagement(data?.rateManagement);
         setForm({
           productName:    data?.productName    || "",
           rawProductCode: data?.rawProductCode || "",
@@ -156,6 +240,59 @@ const QueryProductView = () => {
   }, [pendingPreviews]);
 
   const setField = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const setRateField = (key, val) => setRateForm((f) => ({ ...f, [key]: val }));
+
+  const loadRateHistories = useCallback(async (page = 1, filters = historyFilters) => {
+    if (!userIsHod || !id) return;
+    setHistoryLoading(true);
+    try {
+      const params = {
+        page,
+        pageSize: historyPageSize,
+      };
+      if (filters.from) params.from = filters.from;
+      if (filters.to) params.to = filters.to;
+      if (filters.search?.trim()) params.search = filters.search.trim();
+
+      const res = await proBucketService.listHodRateHistories(id, params);
+      const payload = res?.data || res;
+      setHistoryRows(Array.isArray(payload?.data) ? payload.data : []);
+      setHistoryTotal(Number(payload?.total) || 0);
+      setHistoryPage(Number(payload?.page) || page);
+      setHistoryTotalPages(Number(payload?.totalPages) || 1);
+    } catch (e) {
+      toastError(e?.message || "Failed to load rate history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [historyFilters, historyPageSize, id, userIsHod]);
+
+  const applyHistoryFilters = () => {
+    setHistoryFilters({
+      from: historyFilterDraft.from || "",
+      to: historyFilterDraft.to || "",
+      search: historyFilterDraft.search || "",
+    });
+    setHistoryPage(1);
+  };
+
+  const clearHistoryFilters = () => {
+    const empty = { from: "", to: "", search: "" };
+    setHistoryFilterDraft(empty);
+    setHistoryFilters(empty);
+    setHistoryPage(1);
+  };
+
+  useEffect(() => {
+    if (!userIsHod || !id || !form.rawProductCode?.trim()) {
+      setHistoryRows([]);
+      setHistoryTotal(0);
+      setHistoryPage(1);
+      setHistoryTotalPages(1);
+      return;
+    }
+    loadRateHistories(historyPage);
+  }, [form.rawProductCode, historyPage, historyFilters, id, loadRateHistories, userIsHod]);
 
   /* ── image helpers ── */
   const handleFilePick = (e) => {
@@ -202,16 +339,10 @@ const QueryProductView = () => {
 
       const payload = {
         productName:    form.productName,
-        rawProductCode: form.rawProductCode,
         quantity:       form.quantity !== "" ? Number(form.quantity) : undefined,
-        unit:           form.unit,
-        hsnNumber:      form.hsnNumber,
         modelNumber:    form.modelNumber,
         gstPercentage:  form.gstPercentage !== "" ? Number(form.gstPercentage) : null,
-        description:    form.description,
         remark:         form.remark,
-        groupId:        form.groupId    || null,
-        categoryId:     form.categoryId || null,
         images:         buildImageIds(uploadedDocs),
       };
 
@@ -226,6 +357,58 @@ const QueryProductView = () => {
       toastError(e?.message || "Failed to update");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /* ── HOD rate management ── */
+  const handleUpdateRate = async () => {
+    if (!userIsHod) {
+      toastError("Only Head of Department can update rates");
+      return;
+    }
+    const minRate = Number(rateForm.minRate);
+    const maxRate = Number(rateForm.maxRate);
+
+    if (!Number.isFinite(minRate) || minRate < 0) {
+      toastError("Enter a valid minimum rate");
+      return;
+    }
+    if (!Number.isFinite(maxRate) || maxRate < 0) {
+      toastError("Enter a valid maximum rate");
+      return;
+    }
+    if (minRate > maxRate) {
+      toastError("Minimum rate cannot exceed maximum rate");
+      return;
+    }
+
+    setUpdatingRate(true);
+    try {
+      const res     = await proBucketService.updateHodRates(id, {
+        minRate,
+        maxRate,
+        discount: 0,
+      });
+      const updated = res?.data?.data || res?.data;
+      if (updated) {
+        setDoc(updated);
+        applyRateManagement(updated?.rateManagement);
+        if (historyPage === 1) {
+          loadRateHistories(1);
+        } else {
+          setHistoryPage(1);
+        }
+      }
+      const approved = updated?.rateManagement?.isHodRateApproved;
+      toastSuccess(
+        approved
+          ? "Rates approved and updated successfully"
+          : "Rates updated successfully",
+      );
+    } catch (e) {
+      toastError(e?.message || "Failed to update rates");
+    } finally {
+      setUpdatingRate(false);
     }
   };
 
@@ -255,6 +438,46 @@ const QueryProductView = () => {
     doc?.queryCode ||
     (doc?.queryId && typeof doc.queryId === "object" ? doc.queryId.queryCode : "") ||
     "—";
+
+  const submittedRateUnit =
+    doc?.rateManagement?.submittedRateUnit?.trim() ||
+    form.unit?.trim() ||
+    "—";
+
+  const hasRateData =
+    doc?.rateManagement?.hasSubmittedRates ||
+    doc?.rateManagement?.hasHodRates ||
+    (Array.isArray(doc?.rates) && doc.rates.length > 0);
+
+  const ratesAwaitingHodApproval =
+    hasRateData && !doc?.rateManagement?.isHodRateApproved;
+
+  const ratesUnchanged =
+    normalizeRateComparison(rateForm.minRate) ===
+      normalizeRateComparison(doc?.rateManagement?.minRate) &&
+    normalizeRateComparison(rateForm.maxRate) ===
+      normalizeRateComparison(doc?.rateManagement?.maxRate);
+
+  const minRateValue = normalizeRateComparison(rateForm.minRate);
+  const maxRateValue = normalizeRateComparison(rateForm.maxRate);
+  const ratesMinExceedsMax =
+    minRateValue != null &&
+    maxRateValue != null &&
+    minRateValue > maxRateValue;
+
+  const ratesHaveZero =
+    minRateValue === 0 || maxRateValue === 0;
+
+  const historyStartItem =
+    historyTotal === 0 ? 0 : (historyPage - 1) * historyPageSize + 1;
+  const historyEndItem = Math.min(historyPage * historyPageSize, historyTotal);
+  const hasHistoryFilters = !!(
+    historyFilters.from ||
+    historyFilters.to ||
+    historyFilters.search?.trim()
+  );
+
+  const procurementRates = Array.isArray(doc?.rates) ? doc.rates : [];
 
   if (loading) return <Loader />;
 
@@ -470,10 +693,9 @@ const QueryProductView = () => {
                     <CFormLabel>Raw Product Code</CFormLabel>
                     <CFormInput
                       value={form.rawProductCode}
-                      onChange={(e) => setField("rawProductCode", e.target.value)}
                       placeholder="Raw product code"
-                      className="font-monospace"
-                      disabled={!canUpdate}
+                      className="font-monospace bg-light"
+                      disabled
                     />
                   </CCol>
 
@@ -486,9 +708,9 @@ const QueryProductView = () => {
                     <CFormLabel>Unit</CFormLabel>
                     <CFormInput
                       value={form.unit}
-                      onChange={(e) => setField("unit", e.target.value)}
                       placeholder="e.g. pcs"
-                      disabled={!canUpdate}
+                      className="bg-light"
+                      disabled
                     />
                   </CCol>
 
@@ -507,9 +729,9 @@ const QueryProductView = () => {
                     <CFormLabel>HSN Number</CFormLabel>
                     <CFormInput
                       value={form.hsnNumber}
-                      onChange={(e) => setField("hsnNumber", e.target.value)}
                       placeholder="HSN code"
-                      disabled={!canUpdate}
+                      className="bg-light"
+                      disabled
                     />
                   </CCol>
 
@@ -538,23 +760,8 @@ const QueryProductView = () => {
                     <CFormLabel>Group</CFormLabel>
                     <CFormSelect
                       value={form.groupId}
-                      onChange={(e) => {
-                        const newGroupId = e.target.value;
-                        /* clear category if it doesn't belong to the new group */
-                        const catStillValid = allCategories.some((c) => {
-                          if ((c._id || c.id) !== form.categoryId) return false;
-                          if (!newGroupId) return true;
-                          const gId = c.group && typeof c.group === "object"
-                            ? c.group._id || c.group.id : c.group;
-                          return String(gId || "") === String(newGroupId);
-                        });
-                        setForm((f) => ({
-                          ...f,
-                          groupId: newGroupId,
-                          categoryId: catStillValid ? f.categoryId : "",
-                        }));
-                      }}
-                      disabled={!canUpdate}
+                      className="bg-light"
+                      disabled
                     >
                       <option value="">— No Group —</option>
                       {groups.map((g) => (
@@ -574,8 +781,8 @@ const QueryProductView = () => {
                     </CFormLabel>
                     <CFormSelect
                       value={form.categoryId}
-                      onChange={(e) => setField("categoryId", e.target.value)}
-                      disabled={!canUpdate}
+                      className="bg-light"
+                      disabled
                     >
                       <option value="">— No Category —</option>
                       {filteredCategories.map((c) => (
@@ -589,9 +796,9 @@ const QueryProductView = () => {
                     <CFormTextarea
                       rows={3}
                       value={form.description}
-                      onChange={(e) => setField("description", e.target.value)}
                       placeholder="Product description…"
-                      disabled={!canUpdate}
+                      className="bg-light"
+                      disabled
                     />
                   </CCol>
 
@@ -631,6 +838,364 @@ const QueryProductView = () => {
               </CCardBody>
             </CCard>
           </CCol>
+
+          {/* ── Rate Management ── */}
+          <CCol xs={12}>
+            <CCard>
+              <CCardHeader className="d-flex justify-content-between align-items-center">
+                <strong>Rate Management</strong>
+                {doc?.rateManagement?.isHodRateApproved && (
+                  <CBadge color="success">HOD rate approved</CBadge>
+                )}
+                {ratesAwaitingHodApproval && (
+                  <CBadge color="warning">Awaiting HOD approval</CBadge>
+                )}
+              </CCardHeader>
+              <CCardBody>
+                {!hasRateData && !form.rawProductCode?.trim() ? (
+                  <p className="text-body-secondary mb-0">
+                    No supplier rates have been submitted yet. Rates can be managed here
+                    after procurement submits rates for this product.
+                  </p>
+                ) : (
+                  <>
+                    <CRow className="g-3">
+                      <CCol xs={12} md={6} lg={4}>
+                        <CFormLabel>Submitted rate unit</CFormLabel>
+                        <CFormInput
+                          value={submittedRateUnit}
+                          readOnly
+                          className="bg-light"
+                        />
+                      </CCol>
+
+                      <CCol xs={12} md={6} lg={4}>
+                        <CFormLabel>Minimum rate</CFormLabel>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          value={rateForm.minRate}
+                          onChange={(e) => setRateField("minRate", e.target.value)}
+                          placeholder="0"
+                          disabled={!userIsHod}
+                          invalid={ratesMinExceedsMax}
+                        />
+                      </CCol>
+
+                      <CCol xs={12} md={6} lg={4}>
+                        <CFormLabel>Maximum rate</CFormLabel>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          value={rateForm.maxRate}
+                          onChange={(e) => setRateField("maxRate", e.target.value)}
+                          placeholder="0"
+                          disabled={!userIsHod}
+                          invalid={ratesMinExceedsMax}
+                        />
+                      </CCol>
+                    </CRow>
+
+                    {ratesMinExceedsMax && (
+                      <p className="small text-danger mt-3 mb-0">
+                        Minimum rate cannot be greater than maximum rate.
+                      </p>
+                    )}
+
+                    {ratesHaveZero && userIsHod && (
+                      <p className="small text-warning mt-3 mb-0">
+                        Minimum and maximum rates must both be greater than 0 to update.
+                      </p>
+                    )}
+
+                    {!form.rawProductCode?.trim() && (
+                      <p className="small text-warning mt-3 mb-0">
+                        Raw product code is missing — rates cannot be updated until it is
+                        set on the source query.
+                      </p>
+                    )}
+
+                    {userIsHod && (
+                      <div className="d-flex justify-content-end mt-4 pt-3 border-top">
+                        <CButton
+                          color="primary"
+                          onClick={handleUpdateRate}
+                          disabled={
+                            updatingRate ||
+                            !form.rawProductCode?.trim() ||
+                            ratesMinExceedsMax ||
+                            ratesHaveZero ||
+                            (ratesUnchanged &&
+                              !ratesAwaitingHodApproval)
+                          }
+                        >
+                          {updatingRate ? (
+                            <><CSpinner size="sm" className="me-2" />
+                              {ratesAwaitingHodApproval ? "Approving…" : "Updating rate…"}
+                            </>
+                          ) : ratesAwaitingHodApproval ? (
+                            <><CIcon icon={cilCheckCircle} className="me-2" />Approve & Update Rate</>
+                          ) : (
+                            <><CIcon icon={cilSave} className="me-2" />Update Rate</>
+                          )}
+                        </CButton>
+                      </div>
+                    )}
+
+                    {!userIsHod && (
+                      <p className="small text-body-secondary mt-3 mb-0">
+                        Rate updates are available to Head of Department only.
+                      </p>
+                    )}
+                  </>
+                )}
+              </CCardBody>
+            </CCard>
+          </CCol>
+
+          <CCol xs={12}>
+            <CCard>
+              <CCardHeader className="d-flex justify-content-between align-items-center">
+                <strong>Procurement Rates</strong>
+                {procurementRates.length > 0 && (
+                  <CBadge color="info">
+                    {procurementRates.length} rate{procurementRates.length === 1 ? "" : "s"}
+                  </CBadge>
+                )}
+              </CCardHeader>
+              <CCardBody>
+                {procurementRates.length === 0 ? (
+                  <p className="text-body-secondary mb-0">
+                    No procurement rates have been submitted for this product yet.
+                  </p>
+                ) : (
+                  <CTable responsive hover className="mb-0">
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell style={{ width: 48 }}>#</CTableHeaderCell>
+                        <CTableHeaderCell>Supplier</CTableHeaderCell>
+                        <CTableHeaderCell>Phone</CTableHeaderCell>
+                        <CTableHeaderCell>Rate</CTableHeaderCell>
+                        <CTableHeaderCell>Unit</CTableHeaderCell>
+                        <CTableHeaderCell>Remark</CTableHeaderCell>
+                        <CTableHeaderCell>Submitted By</CTableHeaderCell>
+                        <CTableHeaderCell>Submitted At</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {procurementRates.map((row, idx) => (
+                        <CTableRow key={row._id || `${row.submittedAt}-${row.rate}-${idx}`}>
+                          <CTableDataCell>{idx + 1}</CTableDataCell>
+                          <CTableDataCell>
+                            <span className="fw-semibold">
+                              {supplierDisplayName(row.supplier)}
+                            </span>
+                            {row.supplier?.uniqueId ? (
+                              <div className="small text-body-secondary font-monospace">
+                                {row.supplier.uniqueId}
+                              </div>
+                            ) : null}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {row.supplier?.phone_1?.trim() || "—"}
+                          </CTableDataCell>
+                          <CTableDataCell className="fw-semibold text-primary">
+                            {formatCurrencyRate(row.rate)}
+                          </CTableDataCell>
+                          <CTableDataCell>{row.unit?.trim() || "—"}</CTableDataCell>
+                          <CTableDataCell>{row.remark?.trim() || "—"}</CTableDataCell>
+                          <CTableDataCell>
+                            {submitterDisplayName(row.submittedBy)}
+                          </CTableDataCell>
+                          <CTableDataCell className="text-nowrap">
+                            {formatDateTime(row.submittedAt)}
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                )}
+              </CCardBody>
+            </CCard>
+          </CCol>
+
+          {userIsHod && (
+            <CCol xs={12}>
+              <CCard>
+                <CCardHeader className="d-flex justify-content-between align-items-center">
+                  <strong>Product Rate History</strong>
+                  {historyTotal > 0 && (
+                    <CBadge color="info">{historyTotal} record{historyTotal === 1 ? "" : "s"}</CBadge>
+                  )}
+                </CCardHeader>
+                <CCardBody>
+                  {!form.rawProductCode?.trim() ? (
+                    <p className="text-body-secondary mb-0">
+                      Rate history is available once this product has a raw product code.
+                    </p>
+                  ) : (
+                    <>
+                      <CRow className="g-3 mb-3 align-items-end">
+                        <CCol xs={12} md={6} lg={3}>
+                          <CFormLabel className="small text-muted mb-1">
+                            Search query code
+                          </CFormLabel>
+                          <CFormInput
+                            value={historyFilterDraft.search}
+                            placeholder="Query code"
+                            onChange={(e) =>
+                              setHistoryFilterDraft((prev) => ({
+                                ...prev,
+                                search: e.target.value,
+                              }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") applyHistoryFilters();
+                            }}
+                          />
+                        </CCol>
+                        <CCol xs={12} md={6} lg={2}>
+                          <CFormLabel className="small text-muted mb-1">
+                            From date
+                          </CFormLabel>
+                          <CFormInput
+                            type="date"
+                            value={historyFilterDraft.from}
+                            max={historyFilterDraft.to || undefined}
+                            onChange={(e) =>
+                              setHistoryFilterDraft((prev) => ({
+                                ...prev,
+                                from: e.target.value,
+                              }))
+                            }
+                          />
+                        </CCol>
+                        <CCol xs={12} md={6} lg={2}>
+                          <CFormLabel className="small text-muted mb-1">
+                            To date
+                          </CFormLabel>
+                          <CFormInput
+                            type="date"
+                            value={historyFilterDraft.to}
+                            min={historyFilterDraft.from || undefined}
+                            onChange={(e) =>
+                              setHistoryFilterDraft((prev) => ({
+                                ...prev,
+                                to: e.target.value,
+                              }))
+                            }
+                          />
+                        </CCol>
+                        <CCol xs={12} md={6} lg={5} className="d-flex flex-wrap gap-2">
+                          <CButton
+                            color="primary"
+                            onClick={applyHistoryFilters}
+                            disabled={historyLoading}
+                          >
+                            Apply Filters
+                          </CButton>
+                          <CButton
+                            color="secondary"
+                            variant="outline"
+                            onClick={clearHistoryFilters}
+                            disabled={historyLoading || !hasHistoryFilters}
+                          >
+                            Clear
+                          </CButton>
+                        </CCol>
+                      </CRow>
+
+                      {historyLoading && historyRows.length === 0 ? (
+                        <div className="text-center py-4">
+                          <CSpinner size="sm" className="me-2" />
+                          Loading rate history…
+                        </div>
+                      ) : historyRows.length === 0 ? (
+                        <p className="text-body-secondary mb-0">
+                          {hasHistoryFilters
+                            ? "No rate history matches your filters."
+                            : "No rate history recorded for this product yet."}
+                        </p>
+                      ) : (
+                        <>
+                          <CTable responsive hover className="mb-0">
+                            <CTableHead>
+                              <CTableRow>
+                                <CTableHeaderCell>Date &amp; Time</CTableHeaderCell>
+                                <CTableHeaderCell>Unit</CTableHeaderCell>
+                                <CTableHeaderCell>Minimum Rate</CTableHeaderCell>
+                                <CTableHeaderCell>Maximum Rate</CTableHeaderCell>
+                                <CTableHeaderCell>Query ID</CTableHeaderCell>
+                              </CTableRow>
+                            </CTableHead>
+                            <CTableBody>
+                              {historyRows.map((row) => (
+                                <CTableRow key={row.id || row._id}>
+                                  <CTableDataCell>{formatDateTime(row.createdAt)}</CTableDataCell>
+                                  <CTableDataCell>{row.unit?.trim() || "—"}</CTableDataCell>
+                                  <CTableDataCell>{formatRateValue(row.minRate)}</CTableDataCell>
+                                  <CTableDataCell>{formatRateValue(row.maxRate)}</CTableDataCell>
+                                  <CTableDataCell>
+                                    <span className="font-monospace small">
+                                      {row.queryId ? String(row.queryId) : "—"}
+                                    </span>
+                                    {row.queryCode ? (
+                                      <div className="small text-body-secondary">
+                                        {row.queryCode}
+                                      </div>
+                                    ) : null}
+                                  </CTableDataCell>
+                                </CTableRow>
+                              ))}
+                            </CTableBody>
+                          </CTable>
+
+                          {historyTotalPages > 1 && (
+                            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-3 border-top">
+                              <div className="small text-body-secondary">
+                                Showing {historyStartItem}-{historyEndItem} of {historyTotal}
+                              </div>
+                              <CPagination className="mb-0">
+                                <CPaginationItem
+                                  disabled={historyLoading || historyPage <= 1}
+                                  onClick={() => setHistoryPage(1)}
+                                >
+                                  First
+                                </CPaginationItem>
+                                <CPaginationItem
+                                  disabled={historyLoading || historyPage <= 1}
+                                  onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                                >
+                                  Previous
+                                </CPaginationItem>
+                                <CPaginationItem active>
+                                  {historyPage} / {historyTotalPages}
+                                </CPaginationItem>
+                                <CPaginationItem
+                                  disabled={historyLoading || historyPage >= historyTotalPages}
+                                  onClick={() =>
+                                    setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
+                                  }
+                                >
+                                  Next
+                                </CPaginationItem>
+                                <CPaginationItem
+                                  disabled={historyLoading || historyPage >= historyTotalPages}
+                                  onClick={() => setHistoryPage(historyTotalPages)}
+                                >
+                                  Last
+                                </CPaginationItem>
+                              </CPagination>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
+                </CCardBody>
+              </CCard>
+            </CCol>
+          )}
         </CRow>
       </CCol>
     </CRow>

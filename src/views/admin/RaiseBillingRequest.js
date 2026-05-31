@@ -8,8 +8,6 @@ import {
   CCardBody,
   CCol,
   CFormInput,
-  CFormLabel,
-  CFormTextarea,
   CRow,
   CSpinner,
 } from "@coreui/react";
@@ -26,7 +24,6 @@ import {
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBucketService from "../../services/purchaseBucketService";
 import billingRequestService from "../../services/billingRequestService";
-import supplierService from "../../services/supplierService";
 import documentService from "../../services/documentService";
 import { toastError } from "../../utils/toast";
 
@@ -55,19 +52,6 @@ const docImageUrl = (doc) => {
   return null;
 };
 
-const supplierName = (s) => {
-  if (!s) return "—";
-  return s.name || s.shopname || s.shop_location || "—";
-};
-
-const supplierSub = (s) => {
-  if (!s) return "";
-  const p = [];
-  if (s.phone_1) p.push(s.phone_1);
-  if (s.address) p.push(String(s.address).slice(0, 60));
-  return p.join(" · ");
-};
-
 // ─── constants ───────────────────────────────────────────────────────────────
 
 const STEP = { SEARCH: 1, FILL: 2, PAYMENT: 3, REVIEW: 4 };
@@ -75,15 +59,7 @@ const STEP = { SEARCH: 1, FILL: 2, PAYMENT: 3, REVIEW: 4 };
 const blankForm = () => ({
   photos: [], // [{ docId, url }]
   uploadingPhoto: false,
-  // payment info
   amount: "",
-  billDocId: "",
-  billName: "",
-  supplierMode: "db", // "db" | "manual"
-  supplierFromDb: null,
-  manualName: "",
-  manualAddress: "",
-  uploadingBill: false,
   errors: {},
 });
 
@@ -167,32 +143,6 @@ const UploadBtn = ({ icon, label, color = "primary", onClick, disabled, loading 
   </CButton>
 );
 
-
-/** Supplier option card (radio-style) */
-const SupplierOption = ({ selected, onClick, icon, title, subtitle }) => (
-  <div
-    role="button"
-    tabIndex={0}
-    onClick={onClick}
-    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onClick()}
-    style={{
-      border: `2px solid ${selected ? "#0d6efd" : "#dee2e6"}`,
-      borderRadius: 10,
-      padding: "14px 12px",
-      cursor: "pointer",
-      textAlign: "center",
-      background: selected ? "#edf2ff" : "#fff",
-      transition: "border-color 0.2s, background 0.2s",
-      userSelect: "none",
-    }}
-  >
-    <div style={{ fontSize: 22 }}>{icon}</div>
-    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4, color: selected ? "#0d6efd" : "#212529" }}>
-      {title}
-    </div>
-    <div style={{ fontSize: 11, color: "#6c757d", marginTop: 2 }}>{subtitle}</div>
-  </div>
-);
 
 /** Inline field error */
 const FieldError = ({ msg }) =>
@@ -297,15 +247,6 @@ const CartCard = ({ item, idx, onRemove }) => (
             <span style={{ color: "#6c757d" }}>Amount: </span>
             <strong>₹{Number(item.amount).toLocaleString("en-IN")}</strong>
           </span>
-          {item.supplier && (
-            <span>
-              <span style={{ color: "#6c757d" }}>Supplier: </span>
-              <strong>{item.supplier.name || item.supplier.shopname || "—"}</strong>
-            </span>
-          )}
-          {item.billName && (
-            <span style={{ color: "#6c757d", fontSize: 12 }}>Bill: {item.billName}</span>
-          )}
         </div>
       </div>
       <CButton
@@ -339,10 +280,6 @@ const RaiseBillingRequest = () => {
   // step 2 – fill
   const [product, setProduct] = useState(null);
   const [form, setForm] = useState(blankForm());
-  const [supplierSearch, setSupplierSearch] = useState("");
-  const [supplierDebounced, setSupplierDebounced] = useState("");
-  const [supplierResults, setSupplierResults] = useState([]);
-  const [searchingSuppliers, setSearchingSuppliers] = useState(false);
 
   // step 3 – review
   const [cart, setCart] = useState([]);
@@ -354,8 +291,6 @@ const RaiseBillingRequest = () => {
   // file refs
   const photoGalleryRef = useRef(null);
   const photoCameraRef = useRef(null);
-  const billGalleryRef = useRef(null);
-  const billCameraRef = useRef(null);
 
   const scrollTop = () =>
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -371,12 +306,6 @@ const RaiseBillingRequest = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  // debounce supplier search
-  useEffect(() => {
-    const t = setTimeout(() => setSupplierDebounced(supplierSearch), 400);
-    return () => clearTimeout(t);
-  }, [supplierSearch]);
-
   // fetch product search
   useEffect(() => {
     const q = searchDebounced.trim();
@@ -391,24 +320,6 @@ const RaiseBillingRequest = () => {
     return () => { dead = true; };
   }, [searchDebounced]);
 
-  // fetch supplier search
-  useEffect(() => {
-    const q = supplierDebounced.trim();
-    if (!q) { setSupplierResults([]); return; }
-    let dead = false;
-    setSearchingSuppliers(true);
-    supplierService
-      .search({ search: q, limit: 10 })
-      .then((res) => {
-        if (dead) return;
-        const list = res?.data?.data ?? res?.data?.suppliers ?? (Array.isArray(res?.data) ? res.data : []);
-        setSupplierResults(Array.isArray(list) ? list : []);
-      })
-      .catch(() => { if (!dead) setSupplierResults([]); })
-      .finally(() => { if (!dead) setSearchingSuppliers(false); });
-    return () => { dead = true; };
-  }, [supplierDebounced]);
-
   const patchForm = (patch) => setForm((f) => ({ ...f, ...patch }));
 
   // ── step 1: select product
@@ -419,8 +330,6 @@ const RaiseBillingRequest = () => {
     }
     setProduct(row);
     setForm(blankForm());
-    setSupplierSearch("");
-    setSupplierResults([]);
     goTo(STEP.FILL);
   };
 
@@ -449,19 +358,6 @@ const RaiseBillingRequest = () => {
 
   const removePhoto = (idx) => {
     setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== idx) }));
-  };
-
-  const uploadBill = async (file) => {
-    patchForm({ uploadingBill: true });
-    try {
-      const up = await documentService.uploadAttachments([file]);
-      const doc = (up?.data?.documents ?? up?.documents ?? [])[0];
-      if (!doc?._id) throw new Error("Upload did not return a document.");
-      patchForm({ billDocId: String(doc._id), billName: file.name || "Document", uploadingBill: false, errors: { ...form.errors, bill: undefined } });
-    } catch (e) {
-      toastError(e?.message || "Bill upload failed.");
-      patchForm({ uploadingBill: false });
-    }
   };
 
   const onFileChange = (ref, handler) => (e) => {
@@ -493,13 +389,6 @@ const RaiseBillingRequest = () => {
     const amt = Number(form.amount);
     if (!form.amount || Number.isNaN(amt) || amt <= 0)
       errs.amount = "Enter a valid amount greater than zero.";
-    const supplier =
-      form.supplierMode === "db"
-        ? form.supplierFromDb
-        : form.manualName.trim()
-        ? { name: form.manualName.trim(), address: form.manualAddress.trim() }
-        : null;
-    if (!supplier) errs.supplier = "Supplier is required.";
 
     if (Object.keys(errs).length) {
       patchForm({ errors: errs });
@@ -516,15 +405,10 @@ const RaiseBillingRequest = () => {
         product,
         photos: form.photos,
         amount: amt,
-        billDocId: form.billDocId,
-        billName: form.billName,
-        supplier,
       },
     ]);
     setProduct(null);
     setForm(blankForm());
-    setSupplierSearch("");
-    setSupplierResults([]);
     setSubmitErrors([]);
     goTo(STEP.REVIEW);
   };
@@ -538,8 +422,6 @@ const RaiseBillingRequest = () => {
         poProductId: item.product._id,
         productImageDocIds: item.photos.map((p) => p.docId),
         amount: item.amount,
-        billDocId: item.billDocId || undefined,
-        supplierSnapshot: item.supplier || undefined,
       }));
       const res = await billingRequestService.create(payload);
       const code = res?.data?.data?.billingRequestCode || "";
@@ -956,201 +838,6 @@ const RaiseBillingRequest = () => {
                 </CCardBody>
               </CCard>
 
-              {/* Supplier */}
-              <CCard className="mb-3" id="rbr-payment-supplier">
-                <CCardBody>
-                  <div className="d-flex align-items-center gap-2 mb-3">
-                    <div
-                      style={{
-                        width: 24, height: 24, borderRadius: "50%",
-                        background: (() => {
-                          const ok = form.supplierMode === "db" ? !!form.supplierFromDb : !!form.manualName.trim();
-                          return ok ? "#198754" : "#0d6efd";
-                        })(),
-                        color: "#fff", fontSize: 12, fontWeight: 700,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {(() => {
-                        const ok = form.supplierMode === "db" ? !!form.supplierFromDb : !!form.manualName.trim();
-                        return ok ? "✓" : "2";
-                      })()}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>
-                        Supplier <span style={{ color: "#dc3545" }}>*</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "#6c757d" }}>Who supplied this product?</div>
-                    </div>
-                  </div>
-
-                  <CRow className="g-2 mb-3">
-                    <CCol xs={6}>
-                      <SupplierOption
-                        selected={form.supplierMode === "db"}
-                        onClick={() => patchForm({ supplierMode: "db", errors: { ...form.errors, supplier: undefined } })}
-                        icon="🏢"
-                        title="Find in Database"
-                        subtitle="Search existing suppliers"
-                      />
-                    </CCol>
-                    <CCol xs={6}>
-                      <SupplierOption
-                        selected={form.supplierMode === "manual"}
-                        onClick={() => patchForm({ supplierMode: "manual", errors: { ...form.errors, supplier: undefined } })}
-                        icon="✏️"
-                        title="Enter Manually"
-                        subtitle="Type name & address"
-                      />
-                    </CCol>
-                  </CRow>
-
-                  {form.supplierMode === "db" ? (
-                    form.supplierFromDb ? (
-                      <div
-                        className="d-flex align-items-start gap-3 p-3 rounded"
-                        style={{ background: "#f0faf4", border: "1px solid #198754" }}
-                      >
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{supplierName(form.supplierFromDb)}</div>
-                          {supplierSub(form.supplierFromDb) && (
-                            <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>{supplierSub(form.supplierFromDb)}</div>
-                          )}
-                        </div>
-                        <CButton color="secondary" variant="ghost" size="sm" onClick={() => patchForm({ supplierFromDb: null })}>
-                          Change
-                        </CButton>
-                      </div>
-                    ) : (
-                      <>
-                        <CFormInput
-                          placeholder="Type supplier name to search…"
-                          value={supplierSearch}
-                          onChange={(e) => setSupplierSearch(e.target.value)}
-                        />
-                        {searchingSuppliers && (
-                          <div className="d-flex align-items-center gap-2 text-body-secondary small mt-2">
-                            <CSpinner size="sm" /> Searching…
-                          </div>
-                        )}
-                        {supplierResults.length > 0 && (
-                          <div className="mt-2 rounded overflow-auto" style={{ border: "1.5px solid #dee2e6", maxHeight: 200 }}>
-                            {supplierResults.map((s, i) => (
-                              <div
-                                key={s._id || i}
-                                className="px-3 py-2"
-                                style={{ borderBottom: i < supplierResults.length - 1 ? "1px solid #f0f0f0" : "none", cursor: "pointer" }}
-                                role="button"
-                                onClick={() => {
-                                  patchForm({ supplierFromDb: s, errors: { ...form.errors, supplier: undefined } });
-                                  setSupplierSearch("");
-                                  setSupplierResults([]);
-                                }}
-                              >
-                                <div style={{ fontWeight: 600, fontSize: 13 }}>{supplierName(s)}</div>
-                                {supplierSub(s) && <div style={{ fontSize: 12, color: "#6c757d" }}>{supplierSub(s)}</div>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {!searchingSuppliers && supplierSearch.trim() && supplierResults.length === 0 && (
-                          <div className="text-body-secondary small mt-2">No suppliers found.</div>
-                        )}
-                      </>
-                    )
-                  ) : (
-                    <CRow className="g-2">
-                      <CCol xs={12}>
-                        <CFormLabel className="small mb-1">
-                          Supplier name <span style={{ color: "#dc3545" }}>*</span>
-                        </CFormLabel>
-                        <CFormInput
-                          placeholder="e.g. ABC Traders"
-                          value={form.manualName}
-                          onChange={(e) => patchForm({ manualName: e.target.value, errors: { ...form.errors, supplier: undefined } })}
-                        />
-                      </CCol>
-                      <CCol xs={12}>
-                        <CFormLabel className="small mb-1">Address</CFormLabel>
-                        <CFormTextarea
-                          rows={2}
-                          placeholder="Street, City, State"
-                          value={form.manualAddress}
-                          onChange={(e) => patchForm({ manualAddress: e.target.value })}
-                        />
-                      </CCol>
-                    </CRow>
-                  )}
-                  <FieldError msg={form.errors.supplier} />
-                </CCardBody>
-              </CCard>
-
-              {/* Bill (optional) */}
-              <CCard className="mb-3">
-                <CCardBody>
-                  <div className="d-flex align-items-center gap-2 mb-3">
-                    <div
-                      style={{
-                        width: 24, height: 24, borderRadius: "50%",
-                        background: form.billDocId ? "#198754" : "#e9ecef",
-                        color: form.billDocId ? "#fff" : "#6c757d", fontSize: 12, fontWeight: 700,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {form.billDocId ? "✓" : "3"}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>
-                        Bill / Invoice{" "}
-                        <span style={{ fontWeight: 400, color: "#6c757d", fontSize: 12 }}>(optional)</span>
-                      </div>
-                      <div style={{ fontSize: 12, color: "#6c757d" }}>Upload or photograph the supplier bill</div>
-                    </div>
-                  </div>
-
-                  {form.billDocId && !form.uploadingBill && (
-                    <div
-                      className="d-flex align-items-center gap-2 p-2 mb-3 rounded"
-                      style={{ background: "#f0faf4", border: "1px solid #198754" }}
-                    >
-                      <CIcon icon={cilCheckCircle} style={{ color: "#198754", fontSize: 16 }} />
-                      <span style={{ fontSize: 13, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {form.billName || "Bill ready"}
-                      </span>
-                      <span style={{ fontSize: 11, color: "#6c757d", flexShrink: 0 }}>tap below to replace</span>
-                    </div>
-                  )}
-
-                  <input type="file" accept="image/*,.pdf,.doc,.docx,application/pdf" ref={billGalleryRef} className="d-none"
-                    onChange={onFileChange(billGalleryRef, uploadBill)} />
-                  <input type="file" accept="image/*" capture="environment" ref={billCameraRef} className="d-none"
-                    onChange={onFileChange(billCameraRef, uploadBill)} />
-
-                  <CRow className="g-2">
-                    <CCol xs={6}>
-                      <UploadBtn
-                        icon={cilCamera}
-                        label="Capture Bill"
-                        color="info"
-                        loading={form.uploadingBill}
-                        onClick={() => billCameraRef.current?.click()}
-                      />
-                    </CCol>
-                    <CCol xs={6}>
-                      <UploadBtn
-                        icon={cilCloudUpload}
-                        label="Upload Bill"
-                        color="primary"
-                        loading={form.uploadingBill}
-                        onClick={() => billGalleryRef.current?.click()}
-                      />
-                    </CCol>
-                  </CRow>
-                </CCardBody>
-              </CCard>
-
               {/* sticky add-to-list bar */}
               <div
                 style={{
@@ -1175,19 +862,8 @@ const RaiseBillingRequest = () => {
                     </CButton>
                   </CCol>
                   <CCol xs={6}>
-                    <CButton
-                      color="success"
-                      className="w-100"
-                      disabled={form.uploadingBill}
-                      onClick={addToCart}
-                    >
-                      {form.uploadingBill ? (
-                        <span className="d-inline-flex align-items-center gap-2">
-                          <CSpinner size="sm" /> Uploading…
-                        </span>
-                      ) : (
-                        "Add to List →"
-                      )}
+                    <CButton color="success" className="w-100" onClick={addToCart}>
+                      Add to List →
                     </CButton>
                   </CCol>
                 </CRow>

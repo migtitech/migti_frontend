@@ -12,8 +12,12 @@ import {
 } from "@coreui/react";
 
 import { AppSidebarNav } from "./AppSidebarNav";
-import usePermissions, { normalizeRole } from "../hooks/usePermissions";
+import usePermissions from "../hooks/usePermissions";
 import { useAuth } from "../context/AuthContext";
+import {
+  getFilteredSidebarNav,
+  navContainsTo,
+} from "../utils/sidebarNav";
 import queryService from "../services/queryService";
 import quotationService from "../services/quotationService";
 import deliveryApprovalService from "../services/deliveryApprovalService";
@@ -31,47 +35,13 @@ const SIDEBAR_COUNT_BADGE_STYLE = {
   color: "#FFFFFF",
 };
 
-/**
- * Modules where HOD must have explicit permission to see the sidebar item.
- * The full-access bypass is skipped for these modules when the user is HOD.
- */
-const HOD_PERMISSION_REQUIRED_MODULES = new Set(["po_payment_backlog"]);
-
-/** Nav routes hidden for head_of_department / hod only (full-access otherwise sees all modules). */
-const HOD_HIDDEN_PATHS = new Set([
-  "/companies",
-  "/branches",
-  "/employee-locations",
-  "/billing-requests",
-  "/batch-billing-requests",
-  "/my-visits",
-  "/dispatchment",
-  "/inventory-bucket",
-  "/pro-bucket",
-  "/pro-dashboard",
-  "/pending-payment",
-  "/task-dashboard",
-  "/task-bucket",
-  "/rate-cards",
-  "/purchase-bucket",
-]);
-
-const navContainsTo = (items, path) => {
-  for (const item of items || []) {
-    if (item.to === path) return true;
-    if (item.items?.length && navContainsTo(item.items, path)) return true;
-  }
-  return false;
-};
-
 const AppSidebar = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const unfoldable = useSelector((state) => state.sidebarUnfoldable);
   const sidebarShow = useSelector((state) => state.sidebarShow);
   const { user } = useAuth();
-  const { hasAnyPermission, isFullAccess, financeNavShowsModule } =
-    usePermissions();
+  const { hasAnyPermission, isFullAccess } = usePermissions();
   const [draftQueryCount, setDraftQueryCount] = useState(null);
   const [draftQuotationCount, setDraftQuotationCount] = useState(null);
   const [deliveryApprovalPendingCount, setDeliveryApprovalPendingCount] =
@@ -90,177 +60,16 @@ const AppSidebar = () => {
   const [purchaseRequestPendingCount, setPurchaseRequestPendingCount] =
     useState(null);
 
-  // Filter navigation items based on permissions (or use purchase-only nav for PM/PE)
-  const filteredNavigation = useMemo(() => {
-    const role = String(user?.role || "").toLowerCase();
-    const isHod = role === "head_of_department" || role === "hod";
-    const isPurchaseManager = role === "purchase_manager";
-
-    /** Purchase manager: only Dashboard + nav entries for assigned module permissions. */
-    if (isPurchaseManager) {
-      const pmFilter = (item) => {
-        if (item.roles?.length) {
-          const allowed = item.roles.map((r) => String(r).toLowerCase());
-          if (!allowed.includes(role)) return false;
-        }
-        if (
-          item.rolePrefix &&
-          !role.startsWith(String(item.rolePrefix).toLowerCase())
-        ) {
-          return false;
-        }
-        if (!item.module) {
-          if (item.to === "/dashboard") return true;
-          return Boolean(
-            item.rolePrefix &&
-              role.startsWith(String(item.rolePrefix).toLowerCase()),
-          );
-        }
-        return hasAnyPermission(item.module);
-      };
-      return navigation
-        .filter(pmFilter)
-        .map((item) => {
-          if (item.items) {
-            const filteredItems = item.items.filter(pmFilter);
-            if (filteredItems.length === 0) return null;
-            return { ...item, items: filteredItems };
-          }
-          return item;
-        })
-        .filter(Boolean);
-    }
-
-    /** Finance: sidebar shows only entries whose nav `module` is granted by `user.permissions` (see `financeNavShowsModule`). */
-    if (normalizeRole(user?.role) === "finance") {
-      const financeRoleKey = normalizeRole(user?.role);
-      const financeFilter = (item) => {
-        if (item.roles?.length) {
-          const allowed = item.roles.map((r) => normalizeRole(r));
-          if (!allowed.includes(financeRoleKey)) return false;
-        }
-        if (
-          item.rolePrefix &&
-          !financeRoleKey.startsWith(String(item.rolePrefix).toLowerCase())
-        ) {
-          return false;
-        }
-        if (!item.module) return false;
-        return hasAnyPermission(item.module);
-      };
-      return navigation
-        .map((item) => {
-          if (item.items) {
-            const filteredItems = item.items.filter(financeFilter);
-            if (filteredItems.length === 0) return null;
-            return { ...item, items: filteredItems };
-          }
-          return financeFilter(item) ? item : null;
-        })
-        .filter(Boolean);
-    }
-
-    // Fixed sidebar for admin role only.
-    if (role === "admin") {
-      const allowedPaths = new Set([
-        "/dashboard",
-        "/companies",
-        "/branches",
-        "/zones",
-        "/industries",
-        "/branch-analytics",
-        "/target-analytics",
-        "/visit-management-sidebar",
-        "/inventory-bucket",
-        "/dispatchment",
-        "/delivery-approval",
-        "/billing-requests",
-        "/po-payment-backlog",
-      ]);
-      return navigation.filter((item) => item?.to && allowedPaths.has(item.to));
-    }
-
-    const filterItem = (item) => {
-      if (item.roles?.length) {
-        const allowed = item.roles.map((r) => String(r).toLowerCase());
-        if (!allowed.includes(role)) return false;
-      }
-      if (
-        item.rolePrefix &&
-        !role.startsWith(String(item.rolePrefix).toLowerCase())
-      ) {
-        return false;
-      }
-      if (isHod && item.to && HOD_HIDDEN_PATHS.has(item.to)) return false;
-      // No module: show most global links; hide main Dashboard for granular-RBAC users
-      if (!item.module) {
-        if (
-          item.to === "/dashboard" &&
-          !isFullAccess &&
-          Array.isArray(user?.permissions) &&
-          user.permissions.length > 0
-        ) {
-          return false;
-        }
-        return true;
-      }
-      // Show Sub-zones by default only to HOD; other roles need explicit permission.
-      if (item.module === "sub_zones")
-        return isHod || hasAnyPermission("sub_zones");
-      // HOD must have an explicit permission entry for these modules (no full-access bypass).
-      if (isHod && HOD_PERMISSION_REQUIRED_MODULES.has(item.module)) {
-        return (
-          Array.isArray(user?.permissions) &&
-          user.permissions.some((p) =>
-            String(p).startsWith(`${item.module}:`),
-          )
-        );
-      }
-      // Full-access roles see everything
-      if (isFullAccess) return true;
-      // Check if user has any permission for this module
-      return hasAnyPermission(item.module);
-    };
-
-    return navigation
-      .filter(filterItem)
-      .map((item) => {
-        // For groups with sub-items, filter sub-items too
-        if (item.items) {
-          const filteredItems = item.items.filter((subItem) => {
-            if (subItem.roles?.length) {
-              const allowed = subItem.roles.map((r) => String(r).toLowerCase());
-              if (!allowed.includes(role)) return false;
-            }
-            if (
-              subItem.rolePrefix &&
-              !role.startsWith(String(subItem.rolePrefix).toLowerCase())
-            ) {
-              return false;
-            }
-            if (isHod && subItem.to && HOD_HIDDEN_PATHS.has(subItem.to))
-              return false;
-            if (!subItem.module) return true;
-            if (subItem.module === "sub_zones")
-              return isHod || hasAnyPermission("sub_zones");
-            if (isHod && HOD_PERMISSION_REQUIRED_MODULES.has(subItem.module)) {
-              return (
-                Array.isArray(user?.permissions) &&
-                user.permissions.some((p) =>
-                  String(p).startsWith(`${subItem.module}:`),
-                )
-              );
-            }
-            if (isFullAccess) return true;
-            return hasAnyPermission(subItem.module);
-          });
-          if (filteredItems.length === 0) return null;
-          return { ...item, items: filteredItems };
-        }
-        return item;
-      })
-      .filter(Boolean);
-  }, [hasAnyPermission, financeNavShowsModule, isFullAccess, user]);
+  const filteredNavigation = useMemo(
+    () =>
+      getFilteredSidebarNav(navigation, {
+        user,
+        hasAnyPermission,
+        isFullAccess,
+        pathname: location.pathname,
+      }),
+    [hasAnyPermission, isFullAccess, user, location.pathname],
+  );
 
   const queriesNavVisible = useMemo(
     () => navContainsTo(filteredNavigation, "/queries"),

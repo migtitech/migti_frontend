@@ -29,6 +29,8 @@ const targetAnalyticsService = {
   upsertEmployeeTarget: async (payload) =>
     api.post(QUERIES.TARGET_ANALYTICS_EMPLOYEE, payload),
   getHodDashboardCards: async () => api.get(QUERIES.HOD_DASHBOARD_CARDS),
+  getMyZoneTargets: async () =>
+    api.get(QUERIES.TARGET_ANALYTICS_ZONE_MY_TARGETS),
 };
 
 export default targetAnalyticsService;

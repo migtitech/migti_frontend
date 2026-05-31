@@ -17,7 +17,6 @@ export const ROLES = {
   HEAD_OF_DEPARTMENT: "head_of_department",
   SALES_MANAGER: "sales_manager",
   SALES_EXICUTIVE: "sales_exicutive",
-  PURCHASE_MANAGER: "purchase_manager",
   PURCHASE_EXICUTIVE: "purchase_exicutive",
   PROCUREMENT: "procurement",
   BACK_OFFICE_EXICUTIVE: "back_office_exicutive",
@@ -25,6 +24,8 @@ export const ROLES = {
   FINANCE: "finance",
   INVENTRY_MANAGER: "inventry_manager",
   DISPATCH_MANAGER: "dispatch_manager",
+  LOCAL_PROCUREMENT: "localprocurement",
+  LOCAL_PURCHASE: "localpurchase",
 };
 
 export const ROLE_LABELS = {
@@ -33,7 +34,6 @@ export const ROLE_LABELS = {
   [ROLES.HEAD_OF_DEPARTMENT]: "Head Of Department",
   [ROLES.SALES_MANAGER]: "Sales Manager",
   [ROLES.SALES_EXICUTIVE]: "Sales Exicutive",
-  [ROLES.PURCHASE_MANAGER]: "Purchase Manager",
   [ROLES.PURCHASE_EXICUTIVE]: "Purchase Exicutive",
   [ROLES.PROCUREMENT]: "Procurement",
   [ROLES.BACK_OFFICE_EXICUTIVE]: "Back Office Exicutive",
@@ -41,6 +41,8 @@ export const ROLE_LABELS = {
   [ROLES.FINANCE]: "Finance",
   [ROLES.INVENTRY_MANAGER]: "Inventry Manager",
   [ROLES.DISPATCH_MANAGER]: "Dispatch Manager",
+  [ROLES.LOCAL_PROCUREMENT]: "Local Procurement",
+  [ROLES.LOCAL_PURCHASE]: "Local Purchase",
 };
 
 // Roles that get full access to everything (no permission checks needed)
@@ -123,7 +125,6 @@ export const AuthProvider = ({ children }) => {
         ROLES.HEAD_OF_DEPARTMENT,
         ROLES.SALES_MANAGER,
         ROLES.SALES_EXICUTIVE,
-        ROLES.PURCHASE_MANAGER,
         ROLES.PURCHASE_EXICUTIVE,
         ROLES.PROCUREMENT,
         ROLES.BACK_OFFICE_EXICUTIVE,
@@ -131,6 +132,8 @@ export const AuthProvider = ({ children }) => {
         ROLES.FINANCE,
         ROLES.INVENTRY_MANAGER,
         ROLES.DISPATCH_MANAGER,
+        ROLES.LOCAL_PROCUREMENT,
+        ROLES.LOCAL_PURCHASE,
       ].includes(role)
     ) {
       try {

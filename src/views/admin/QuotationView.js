@@ -39,32 +39,34 @@ import CIcon from "@coreui/icons-react";
 import {
   cilArrowLeft,
   cilArrowRight,
-  cilActionUndo,
   cilCloudDownload,
-  cilEnvelopeClosed,
-  cilHistory,
-  cilX,
   cilList,
 } from "@coreui/icons";
 import quotationService from "../../services/quotationService";
 import purchaseOrderService from "../../services/purchaseOrderService";
-import usePermissions from "../../hooks/usePermissions";
+import usePermissions, {
+  canConvertQuotationToPo,
+  normalizeRole as normalizeUserRole,
+} from "../../hooks/usePermissions";
+import { useAuth } from "../../context/AuthContext";
 import employeeService from "../../services/employeeService";
 import purchaseTaskService from "../../services/purchaseTaskService";
 import areaService from "../../services/areaService";
 import documentService from "../../services/documentService";
 import queryNewProductService from "../../services/queryNewProductService";
+import groupService from "../../services/groupService";
+import categoryService from "../../services/categoryService";
+import queryService from "../../services/queryService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { formatIstDisplayDate } from "../../utils/istDate";
+import { formatIstDisplayDate, formatIstDateKey } from "../../utils/istDate";
 import { ROLES, ROLE_LABELS } from "../../context/AuthContext";
 import QuoteLogsSidebar from "./QuoteLogsSidebar";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 const PURCHASE_ROLES = [
-  ROLES.PURCHASE_MANAGER,
   ROLES.PURCHASE_EXICUTIVE,
   ROLES.PROCUREMENT,
   "purchase_executive",
@@ -89,19 +91,6 @@ const normalizeRole = (role) =>
     .trim()
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
-
-/** Pro-bucket rate status (Product List tab): only HOD and back-office executive */
-const canViewQuotationProductListRateStatus = (roleRaw) => {
-  const n = normalizeRole(roleRaw);
-  if (n === "head_of_department" || n === "hod") return true;
-  if (
-    n === "back_office_exicutive" ||
-    n === "back_office_executive" ||
-    n === "boe"
-  )
-    return true;
-  return n.replace(/_/g, "").includes("backoffice");
-};
 
 const getImageUrl = (img) => {
   if (!img) return "";
@@ -135,8 +124,16 @@ const proBucketStatusBadge = (status) => {
       return <CBadge color="info">Rate submitted</CBadge>;
     case "fulfilled":
       return <CBadge color="success">Fulfilled</CBadge>;
+    case "approval_pending":
+      return <CBadge color="secondary">Approval Pending</CBadge>;
     default:
-      return <span className="text-muted small">—</span>;
+      return status ? (
+        <CBadge color="light" textColor="dark">
+          {status}
+        </CBadge>
+      ) : (
+        <span className="text-muted">—</span>
+      );
   }
 };
 
@@ -205,6 +202,95 @@ const mergeQuotationUpdateIntoPrev = (prev, data, patch = {}) => {
   return next;
 };
 
+const normalizeDeliveryDateForApi = (value) => {
+  if (value == null || value === "") return null;
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return new Date(`${value}T00:00:00.000Z`).toISOString();
+  }
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+};
+
+const toDeliveryDateInputValue = (value) =>
+  value ? formatIstDateKey(value) || "" : "";
+
+const buildQuotationProductPayload = (prod, override = {}) => {
+  const toImgIds = (imgs) =>
+    (imgs || [])
+      .map((img) => (typeof img === "object" && img?._id ? img._id : img))
+      .filter(Boolean);
+  const merged = {
+    productName: prod.productName || "",
+    description: prod.description || "",
+    quantity: Number(prod.quantity) ?? 1,
+    unit: prod.unit || "",
+    hsnNumber: prod.hsnNumber || "",
+    modelNumber: prod.modelNumber || "",
+    rawProductCode:
+      (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
+    gstPercentage: prod.gstPercentage ?? null,
+    remark: prod.remark || "",
+    product_id:
+      typeof prod.product_id === "object" && prod.product_id?._id
+        ? prod.product_id._id
+        : prod.product_id || null,
+    rate: prod.rate ?? null,
+    variants: prod.variants || [],
+    images: toImgIds(prod.images),
+    applyDiscount: prod.applyDiscount ?? false,
+    discountPercentage: prod.discountPercentage ?? null,
+    discountAmount: prod.discountAmount ?? null,
+    notAvailable: prod.notAvailable ?? false,
+    notAvailableRemark: prod.notAvailableRemark || "",
+    deliveryDate: prod.deliveryDate ?? null,
+    ...override,
+  };
+  if (Object.prototype.hasOwnProperty.call(override, "deliveryDate")) {
+    merged.deliveryDate = normalizeDeliveryDateForApi(override.deliveryDate);
+  } else {
+    merged.deliveryDate = normalizeDeliveryDateForApi(merged.deliveryDate);
+  }
+  return merged;
+};
+
+const toRefIdString = (value) => {
+  if (value == null || value === "") return null;
+  if (typeof value === "object" && value._id) return String(value._id);
+  return String(value);
+};
+
+const mapQueryProductLineForApi = (p) => {
+  const idFromImg = (img) => {
+    if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img)) return img;
+    if (img && typeof img === "object" && img._id) return img._id;
+    return null;
+  };
+  return {
+    productName: p.productName || "",
+    quantity: p.quantity ?? 1,
+    unit: p.unit || "",
+    hsnNumber: p.hsnNumber || "",
+    modelNumber: p.modelNumber || "",
+    gstPercentage:
+      typeof p.gstPercentage === "number" ? p.gstPercentage : null,
+    variants: (p.variants || []).map((v) => ({
+      variantName: v?.variantName || "",
+    })),
+    remark: p.remark || "",
+    description: p.description || "",
+    product_id: toRefIdString(p.product_id),
+    groupId: toRefIdString(p.groupId),
+    categoryId: toRefIdString(p.categoryId),
+    rawProductCode:
+      (p.rawProductCode && String(p.rawProductCode).trim()) || "",
+    query_tracking_code:
+      (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
+    images: (Array.isArray(p.images) ? p.images : [])
+      .map(idFromImg)
+      .filter(Boolean),
+  };
+};
+
 /** Draft reason for "Not available" modal (per quotation line); survives navigation until saved or revoked. */
 const notAvailableReasonDraftKey = (quotationId, productIndex) =>
   quotationId != null && productIndex != null
@@ -244,6 +330,7 @@ const clearNotAvailableReasonDraft = (quotationId, productIndex) => {
 const QuotationView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const [quotation, setQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -266,6 +353,8 @@ const QuotationView = () => {
   const [productListGstEdits, setProductListGstEdits] = useState({});
   const [productListApplyDiscount, setProductListApplyDiscount] = useState({});
   const [productListDiscountPct, setProductListDiscountPct] = useState({});
+  const [productListDeliveryDateEdits, setProductListDeliveryDateEdits] =
+    useState({});
   const [notAvailableModalVisible, setNotAvailableModalVisible] =
     useState(false);
   const [notAvailableModalIndex, setNotAvailableModalIndex] = useState(null);
@@ -285,10 +374,13 @@ const QuotationView = () => {
     modelNumber: "",
     gstPercentage: "",
     remark: "",
-    rate: "",
+    groupId: "",
+    categoryId: "",
   });
   const [newProductImageFiles, setNewProductImageFiles] = useState([]);
   const [newProductImagePreviews, setNewProductImagePreviews] = useState([]);
+  const [newProductGroups, setNewProductGroups] = useState([]);
+  const [newProductCategories, setNewProductCategories] = useState([]);
   const [createNewQueryProduct, setCreateNewQueryProduct] = useState(true);
   const [addingNewProduct, setAddingNewProduct] = useState(false);
   const [productListSelected, setProductListSelected] = useState({});
@@ -314,26 +406,19 @@ const QuotationView = () => {
   });
   const [savingCompany, setSavingCompany] = useState(false);
   const [zoneNameDisplay, setZoneNameDisplay] = useState(null);
-  const [packingDeliveryForm, setPackingDeliveryForm] = useState({
-    freightCharge: "",
-    packingCharge: 0,
-    expectedDeliveryWithinDays: "",
-  });
-  const [savingPackingDelivery, setSavingPackingDelivery] = useState(false);
   const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0);
   const [quoteLogsOpen, setQuoteLogsOpen] = useState(false);
   const [snapshotPreview, setSnapshotPreview] = useState(null);
-  const [quotationSnapshots, setQuotationSnapshots] = useState([]);
-  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
-  const [snapshotsError, setSnapshotsError] = useState(null);
-  /** Pro Bucket (query_products) per line: status + supplier rates */
-  const [proBucketLines, setProBucketLines] = useState([]);
-  const [proBucketLoading, setProBucketLoading] = useState(false);
-  const [proBucketModal, setProBucketModal] = useState({
+  const [procurementRatesModal, setProcurementRatesModal] = useState({
     visible: false,
-    productName: "",
+    loading: false,
+    error: "",
+    productLabel: "",
+    rawProductCode: "",
+    lineIndex: null,
+    status: null,
     rates: [],
-    status: "",
+    imageUrls: [],
   });
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 
@@ -402,6 +487,45 @@ const QuotationView = () => {
       ? String(quotation.queryId.queryCode).trim()
       : "";
   const relatedQueryLinkLabel = relatedQueryCode || "View Query";
+  const minProductListDeliveryDate = formatIstDateKey(new Date()) || "";
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await groupService.getAll({ pageNumber: 1, pageSize: 100 });
+        const data = res?.data || res;
+        if (!cancelled) setNewProductGroups(data?.groups || []);
+      } catch {
+        if (!cancelled) setNewProductGroups([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const gid = newProductForm.groupId;
+      const params = { pageNumber: 1, pageSize: 100, parent: "null" };
+      if (gid) params.group = gid;
+      try {
+        const res = await categoryService.getAll(params);
+        const data = res?.data || res;
+        if (!cancelled) setNewProductCategories(data?.categories || []);
+      } catch {
+        if (!cancelled) setNewProductCategories([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [newProductForm.groupId]);
+
   const hasRate = (p) =>
     !p.notAvailable &&
     p.rate != null &&
@@ -409,53 +533,6 @@ const QuotationView = () => {
     Number(p.rate) >= 0;
   const productsWithRate = products.filter(hasRate);
   const productsWithoutRate = products.filter((p) => !hasRate(p));
-
-  const liveProductCount = Array.isArray(quotation?.products)
-    ? quotation.products.length
-    : 0;
-
-  const showProductListRateStatus =
-    canViewQuotationProductListRateStatus(getCurrentUserRole());
-
-  useEffect(() => {
-    if (!quotation?.id) {
-      setProBucketLines([]);
-      return;
-    }
-    if (!showProductListRateStatus) {
-      setProBucketLines([]);
-      setProBucketLoading(false);
-      return;
-    }
-    if (activeTab !== "productList") {
-      return;
-    }
-    let cancelled = false;
-    setProBucketLoading(true);
-    quotationService
-      .getProBucketLines(quotation.id)
-      .then((res) => {
-        if (cancelled) return;
-        const data = res?.data?.data ?? res?.data ?? res;
-        setProBucketLines(Array.isArray(data?.lines) ? data.lines : []);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setProBucketLines([]);
-      })
-      .finally(() => {
-        if (!cancelled) setProBucketLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    quotation?.id,
-    liveProductCount,
-    activeTab,
-    quoteLogsRefreshKey,
-    showProductListRateStatus,
-  ]);
 
   useEffect(() => {
     const ci = displayQuotation?.companyInfo;
@@ -485,54 +562,6 @@ const QuotationView = () => {
       });
     }
   }, [displayQuotation]);
-
-  useEffect(() => {
-    if (displayQuotation) {
-      const freight = displayQuotation.freightCharge;
-      const packing = displayQuotation.packingCharge;
-      const expWithinDays = displayQuotation.expectedDeliveryWithinDays;
-      setPackingDeliveryForm({
-        freightCharge: freight != null && freight !== "" ? String(freight) : "",
-        packingCharge:
-          typeof packing === "number" ? packing : Number(packing) || 0,
-        expectedDeliveryWithinDays:
-          expWithinDays != null && !Number.isNaN(Number(expWithinDays))
-            ? Number(expWithinDays)
-            : "",
-      });
-    }
-  }, [displayQuotation]);
-
-  useEffect(() => {
-    if (!id || !OBJECT_ID_REGEX.test(id) || activeTab !== "history") return;
-    let cancelled = false;
-    setSnapshotsLoading(true);
-    setSnapshotsError(null);
-    quotationService
-      .listSnapshots(id)
-      .then((res) => {
-        if (cancelled) return;
-        const data = res?.data?.data ?? res?.data ?? res;
-        const list = Array.isArray(data?.snapshots) ? data.snapshots : [];
-        setQuotationSnapshots(list);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        const msg =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to load history";
-        setSnapshotsError(msg);
-        setQuotationSnapshots([]);
-        toastError(msg);
-      })
-      .finally(() => {
-        if (!cancelled) setSnapshotsLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [id, activeTab]);
 
   // Resolve zone ID to name for display in Company Information
   useEffect(() => {
@@ -565,51 +594,6 @@ const QuotationView = () => {
   const updateCompanyForm = (field, value) => {
     if (field === "area") setZoneNameDisplay(null);
     setCompanyForm((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSavePackingDelivery = async () => {
-    if (!quotation?.id) return;
-    setSavingPackingDelivery(true);
-    try {
-      const res = await quotationService.update(quotation.id, {
-        freightCharge: String(packingDeliveryForm.freightCharge ?? "").trim(),
-        packingCharge:
-          Number(packingDeliveryForm.packingCharge) >= 0
-            ? Number(packingDeliveryForm.packingCharge)
-            : 0,
-        expectedDeliveryWithinDays:
-          packingDeliveryForm.expectedDeliveryWithinDays === ""
-            ? null
-            : Number(packingDeliveryForm.expectedDeliveryWithinDays) >= 0
-              ? Number(packingDeliveryForm.expectedDeliveryWithinDays)
-              : null,
-      });
-      const data = res?.data?.data ?? res?.data ?? res;
-      if (data) {
-        setQuotation((prev) =>
-          mergeQuotationUpdateIntoPrev(prev, data, {
-            freightCharge:
-              data.freightCharge ?? packingDeliveryForm.freightCharge,
-            packingCharge:
-              data.packingCharge ?? packingDeliveryForm.packingCharge,
-            expectedDeliveryWithinDays:
-              data.expectedDeliveryWithinDays ??
-              (packingDeliveryForm.expectedDeliveryWithinDays === ""
-                ? null
-                : Number(packingDeliveryForm.expectedDeliveryWithinDays)),
-          }),
-        );
-      }
-      toastSuccess("Packing & delivery updated");
-    } catch (err) {
-      toastError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Failed to update packing & delivery",
-      );
-    } finally {
-      setSavingPackingDelivery(false);
-    }
   };
 
   const handleSaveCompanyInfo = async () => {
@@ -690,6 +674,7 @@ const QuotationView = () => {
         gstPercentage: p.gstPercentage != null ? p.gstPercentage : "",
         remark: p.remark || "",
         rate: p.rate != null ? p.rate : "",
+        deliveryDate: toDeliveryDateInputValue(p.deliveryDate),
         variants: p.variants || [],
         product_id: p.product_id,
         images:
@@ -844,17 +829,6 @@ const QuotationView = () => {
     return Array.isArray(productRef?.images) ? productRef.images : [];
   };
 
-  const removeEditingProductImage = (imgIndex) => {
-    setEditingProduct((prev) => {
-      if (!prev) return prev;
-      const images = Array.isArray(prev.images) ? prev.images : [];
-      return {
-        ...prev,
-        images: images.filter((_, index) => index !== imgIndex),
-      };
-    });
-  };
-
   const uploadEditingProductImages = async (files) => {
     if (!files?.length) return;
     setUploadingProductImages(true);
@@ -899,33 +873,9 @@ const QuotationView = () => {
       typeof productId === "object" && productId?._id
         ? productId._id
         : productId;
-    const toImgIds = (imgs) =>
-      (imgs || [])
-        .map((img) => (typeof img === "object" && img?._id ? img._id : img))
-        .filter(Boolean);
-    const toProductPayload = (p) => ({
-      productName: p.productName || "",
-      description: p.description || "",
-      quantity: Number(p.quantity) ?? 1,
-      unit: p.unit || "",
-      hsnNumber: p.hsnNumber || "",
-      modelNumber: p.modelNumber || "",
-      rawProductCode:
-        (p.rawProductCode && String(p.rawProductCode).trim()) || "",
-      gstPercentage: p.gstPercentage ?? null,
-      remark: p.remark || "",
-      product_id:
-        typeof p.product_id === "object" && p.product_id?._id
-          ? p.product_id._id
-          : p.product_id || null,
-      rate: p.rate ?? null,
-      variants: p.variants || [],
-      images: toImgIds(p.images),
-    });
     const updatedProducts = products.map((p, i) => {
-      if (i !== idx) return toProductPayload(p);
-      return toProductPayload({
-        ...p,
+      if (i !== idx) return buildQuotationProductPayload(p);
+      return buildQuotationProductPayload(p, {
         productName: editingProduct.productName || p.productName,
         description: editingProduct.description ?? p.description ?? "",
         quantity: !Number.isNaN(qty) && qty >= 0 ? qty : p.quantity,
@@ -944,6 +894,7 @@ const QuotationView = () => {
         images: Array.isArray(editingProduct.images)
           ? editingProduct.images
           : getProductImagesForEdit(p),
+        deliveryDate: editingProduct.deliveryDate ?? "",
       });
     });
     setUpdating(true);
@@ -1013,6 +964,20 @@ const QuotationView = () => {
     setProductListApplyDiscount((prev) => ({ ...prev, [idx]: !!val }));
   const setListDiscountPct = (idx, val) =>
     setProductListDiscountPct((prev) => ({ ...prev, [idx]: val }));
+  const getListDeliveryDate = (idx) =>
+    productListDeliveryDateEdits[idx] !== undefined
+      ? productListDeliveryDateEdits[idx]
+      : toDeliveryDateInputValue(products[idx]?.deliveryDate);
+  const setListDeliveryDate = (idx, val) => {
+    if (
+      val &&
+      minProductListDeliveryDate &&
+      val < minProductListDeliveryDate
+    ) {
+      return;
+    }
+    setProductListDeliveryDateEdits((prev) => ({ ...prev, [idx]: val }));
+  };
   const getListTotalBeforeDiscount = (idx) => {
     const p = products[idx];
     const qty = Number(p?.quantity) ?? 0;
@@ -1115,38 +1080,9 @@ const QuotationView = () => {
       applyDiscount && discountPct != null && beforeDiscount > 0
         ? beforeDiscount * (discountPct / 100)
         : 0;
-    const toImgIds = (imgs) =>
-      (imgs || [])
-        .map((img) => (typeof img === "object" && img?._id ? img._id : img))
-        .filter(Boolean);
-    const toProductPayload = (prod, override = {}) => ({
-      productName: prod.productName || "",
-      description: prod.description || "",
-      quantity: Number(prod.quantity) ?? 1,
-      unit: prod.unit || "",
-      hsnNumber: prod.hsnNumber || "",
-      modelNumber: prod.modelNumber || "",
-      rawProductCode:
-        (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
-      gstPercentage: prod.gstPercentage ?? null,
-      remark: prod.remark || "",
-      product_id:
-        typeof prod.product_id === "object" && prod.product_id?._id
-          ? prod.product_id._id
-          : prod.product_id || null,
-      rate: prod.rate ?? null,
-      variants: prod.variants || [],
-      images: toImgIds(prod.images),
-      applyDiscount: prod.applyDiscount ?? false,
-      discountPercentage: prod.discountPercentage ?? null,
-      discountAmount: prod.discountAmount ?? null,
-      notAvailable: prod.notAvailable ?? false,
-      notAvailableRemark: prod.notAvailableRemark || "",
-      ...override,
-    });
     const updatedProducts = products.map((prod, i) =>
       i === idx
-        ? toProductPayload(prod, {
+        ? buildQuotationProductPayload(prod, {
             rate: r,
             gstPercentage: isNotAvailable
               ? (prod.gstPercentage ?? null)
@@ -1156,8 +1092,9 @@ const QuotationView = () => {
             discountAmount: applyDiscount ? discountAmount : null,
             notAvailable: !!prod.notAvailable,
             notAvailableRemark: prod.notAvailableRemark || "",
+            deliveryDate: getListDeliveryDate(idx),
           })
-        : toProductPayload(prod),
+        : buildQuotationProductPayload(prod),
     );
     setUpdating(true);
     try {
@@ -1189,6 +1126,11 @@ const QuotationView = () => {
           delete next[idx];
           return next;
         });
+        setProductListDeliveryDateEdits((prev) => {
+          const next = { ...prev };
+          delete next[idx];
+          return next;
+        });
       } else {
         setQuotation((prev) =>
           mergeQuotationUpdateIntoPrev(prev, data, {
@@ -1215,37 +1157,9 @@ const QuotationView = () => {
     if (!quotation?.id || deleteProductIndex == null) return;
     const idx = deleteProductIndex;
     if (!products[idx]) return;
-    const toImgIds = (imgs) =>
-      (imgs || [])
-        .map((img) => (typeof img === "object" && img?._id ? img._id : img))
-        .filter(Boolean);
-    const toProductPayload = (prod) => ({
-      productName: prod.productName || "",
-      description: prod.description || "",
-      quantity: Number(prod.quantity) ?? 1,
-      unit: prod.unit || "",
-      hsnNumber: prod.hsnNumber || "",
-      modelNumber: prod.modelNumber || "",
-      rawProductCode:
-        (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
-      gstPercentage: prod.gstPercentage ?? null,
-      remark: prod.remark || "",
-      product_id:
-        typeof prod.product_id === "object" && prod.product_id?._id
-          ? prod.product_id._id
-          : prod.product_id || null,
-      rate: prod.rate ?? null,
-      variants: prod.variants || [],
-      images: toImgIds(prod.images),
-      applyDiscount: prod.applyDiscount ?? false,
-      discountPercentage: prod.discountPercentage ?? null,
-      discountAmount: prod.discountAmount ?? null,
-      notAvailable: prod.notAvailable ?? false,
-      notAvailableRemark: prod.notAvailableRemark || "",
-    });
     const updatedProducts = products
       .filter((_, i) => i !== idx)
-      .map(toProductPayload);
+      .map((prod) => buildQuotationProductPayload(prod));
 
     setUpdating(true);
     try {
@@ -1277,43 +1191,14 @@ const QuotationView = () => {
   const handleSaveNotAvailable = async () => {
     const idx = notAvailableModalIndex;
     if (idx == null || !quotation?.id || !products[idx]) return;
-    const toImgIds = (imgs) =>
-      (imgs || [])
-        .map((img) => (typeof img === "object" && img?._id ? img._id : img))
-        .filter(Boolean);
-    const toProductPayload = (p, override = {}) => ({
-      productName: p.productName || "",
-      description: p.description || "",
-      quantity: Number(p.quantity) ?? 1,
-      unit: p.unit || "",
-      hsnNumber: p.hsnNumber || "",
-      modelNumber: p.modelNumber || "",
-      rawProductCode:
-        (p.rawProductCode && String(p.rawProductCode).trim()) || "",
-      gstPercentage: p.gstPercentage ?? null,
-      remark: p.remark || "",
-      product_id:
-        typeof p.product_id === "object" && p.product_id?._id
-          ? p.product_id._id
-          : p.product_id || null,
-      rate: p.rate ?? null,
-      variants: p.variants || [],
-      images: toImgIds(p.images),
-      applyDiscount: p.applyDiscount ?? false,
-      discountPercentage: p.discountPercentage ?? null,
-      discountAmount: p.discountAmount ?? null,
-      notAvailable: p.notAvailable ?? false,
-      notAvailableRemark: p.notAvailableRemark || "",
-      ...override,
-    });
     const updatedProducts = products.map((p, i) =>
       i === idx
-        ? toProductPayload(p, {
+        ? buildQuotationProductPayload(p, {
             notAvailable: true,
             notAvailableRemark: notAvailableRemark.trim() || "",
             rate: null,
           })
-        : toProductPayload(p),
+        : buildQuotationProductPayload(p),
     );
     setUpdating(true);
     try {
@@ -1353,42 +1238,13 @@ const QuotationView = () => {
     if (idx == null || !quotation?.id || !products[idx]) return;
     const p = products[idx];
     if (!p.notAvailable) return;
-    const toImgIds = (imgs) =>
-      (imgs || [])
-        .map((img) => (typeof img === "object" && img?._id ? img._id : img))
-        .filter(Boolean);
-    const toProductPayload = (prod, override = {}) => ({
-      productName: prod.productName || "",
-      description: prod.description || "",
-      quantity: Number(prod.quantity) ?? 1,
-      unit: prod.unit || "",
-      hsnNumber: prod.hsnNumber || "",
-      modelNumber: prod.modelNumber || "",
-      rawProductCode:
-        (prod.rawProductCode && String(prod.rawProductCode).trim()) || "",
-      gstPercentage: prod.gstPercentage ?? null,
-      remark: prod.remark || "",
-      product_id:
-        typeof prod.product_id === "object" && prod.product_id?._id
-          ? prod.product_id._id
-          : prod.product_id || null,
-      rate: prod.rate ?? null,
-      variants: prod.variants || [],
-      images: toImgIds(prod.images),
-      applyDiscount: prod.applyDiscount ?? false,
-      discountPercentage: prod.discountPercentage ?? null,
-      discountAmount: prod.discountAmount ?? null,
-      notAvailable: prod.notAvailable ?? false,
-      notAvailableRemark: prod.notAvailableRemark || "",
-      ...override,
-    });
     const updatedProducts = products.map((prod, i) =>
       i === idx
-        ? toProductPayload(prod, {
+        ? buildQuotationProductPayload(prod, {
             notAvailable: false,
             notAvailableRemark: "",
           })
-        : toProductPayload(prod),
+        : buildQuotationProductPayload(prod),
     );
     setUpdating(true);
     try {
@@ -1540,7 +1396,8 @@ const QuotationView = () => {
       modelNumber: "",
       gstPercentage: "",
       remark: "",
-      rate: "",
+      groupId: "",
+      categoryId: "",
     });
     setNewProductImageFiles([]);
     setNewProductImagePreviews([]);
@@ -1557,6 +1414,17 @@ const QuotationView = () => {
       toastError("Quantity must be greater than 0");
       return;
     }
+    const needsGroupCategory = !!createNewQueryProduct || !!queryId;
+    if (needsGroupCategory) {
+      if (!String(newProductForm.groupId || "").trim()) {
+        toastError("Group is required");
+        return;
+      }
+      if (!String(newProductForm.categoryId || "").trim()) {
+        toastError("Category is required");
+        return;
+      }
+    }
     setAddingNewProduct(true);
     try {
       let uploadedDocs = [];
@@ -1570,50 +1438,36 @@ const QuotationView = () => {
         }));
       }
 
-      let productId = null;
+      let createdQueryNewProduct = null;
 
       if (createNewQueryProduct) {
         const newPayload = {
           name: (newProductForm.productName || "").trim(),
+          description: (newProductForm.description || "").trim(),
           unit: (newProductForm.unit || "").trim(),
           hsnNumber: (newProductForm.hsnNumber || "").trim(),
           modelNumber: (newProductForm.modelNumber || "").trim(),
+          groupId: newProductForm.groupId || null,
+          categoryId: newProductForm.categoryId || null,
+          qty,
           variants: [],
           images: uploadedDocs.map((d) => d._id),
         };
         if (newPayload.name) {
-          await queryNewProductService.create(newPayload);
+          const res = await queryNewProductService.create(newPayload);
+          createdQueryNewProduct =
+            res?.data?.data ?? res?.data ?? res ?? null;
         }
       }
 
-      const toImgIds = (imgs) =>
-        (imgs || [])
-          .map((img) => (typeof img === "object" && img?._id ? img._id : img))
-          .filter(Boolean);
-      const toProductPayload = (p) => ({
-        productName: p.productName || "",
-        description: p.description || "",
-        quantity: Number(p.quantity) ?? 1,
-        unit: p.unit || "",
-        hsnNumber: p.hsnNumber || "",
-        modelNumber: p.modelNumber || "",
-        rawProductCode:
-          (p.rawProductCode && String(p.rawProductCode).trim()) || "",
-        gstPercentage: p.gstPercentage ?? null,
-        remark: p.remark || "",
-        product_id:
-          typeof p.product_id === "object" && p.product_id?._id
-            ? p.product_id._id
-            : p.product_id || null,
-        rate: p.rate ?? null,
-        variants: p.variants || [],
-        images: toImgIds(p.images),
-      });
-
-      const rateVal =
-        newProductForm.rate !== "" && !Number.isNaN(Number(newProductForm.rate))
-          ? Number(newProductForm.rate)
-          : null;
+      const codeFromNew =
+        createdQueryNewProduct && createdQueryNewProduct._id
+          ? {
+              rawProductCode: createdQueryNewProduct.rawProductCode || "",
+              query_tracking_code:
+                createdQueryNewProduct.query_tracking_code || "",
+            }
+          : {};
       const newProd = {
         productName: newProductForm.productName.trim(),
         description: newProductForm.description || "",
@@ -1627,16 +1481,35 @@ const QuotationView = () => {
             ? Number(newProductForm.gstPercentage)
             : null,
         remark: newProductForm.remark || "",
-        product_id: productId,
-        rate: rateVal,
+        product_id: null,
+        groupId: newProductForm.groupId || "",
+        categoryId: newProductForm.categoryId || "",
+        ...codeFromNew,
+        rate: null,
         variants: [],
         images: uploadedDocs.length ? uploadedDocs : [],
       };
 
       const updatedProducts = [
-        ...products.map(toProductPayload),
-        toProductPayload(newProd),
+        ...products.map((p) => buildQuotationProductPayload(p)),
+        buildQuotationProductPayload(newProd),
       ];
+
+      if (queryId) {
+        const queryRes = await queryService.getById(queryId);
+        const queryData = queryRes?.data?.data ?? queryRes?.data ?? queryRes;
+        const existingQueryProducts = Array.isArray(queryData?.products)
+          ? queryData.products
+          : [];
+        const queryLine = mapQueryProductLineForApi(newProd);
+        await queryService.update(queryId, {
+          products: [
+            ...existingQueryProducts.map(mapQueryProductLineForApi),
+            queryLine,
+          ],
+        });
+      }
+
       const res = await quotationService.update(quotation.id, {
         products: updatedProducts,
       });
@@ -1652,8 +1525,13 @@ const QuotationView = () => {
           }),
         );
       }
+
       clearNewProductForm();
-      toastSuccess("Product added to quotation");
+      toastSuccess(
+        queryId
+          ? "Product added to quotation and linked query"
+          : "Product added to quotation",
+      );
       setActiveTab("products");
       setProductIndex(products.length);
     } catch (err) {
@@ -1663,10 +1541,84 @@ const QuotationView = () => {
     }
   };
 
+  const currentUserRoleForPdf = normalizeRole(user?.role || getCurrentUserRole());
+  const isSalesRole = currentUserRoleForPdf.startsWith("sales");
+  const canDownloadPdf =
+    isSalesRole ||
+    displayQuotation?.status === "hod_approved" ||
+    !!displayQuotation?.allProductsHodRatesApproved;
+  const pdfDownloadBlockedMessage =
+    "PDF export requires HOD quotation approval or all product HOD rates approved";
+  const pdfDownloadDisabledTitle =
+    "Download disabled until HOD approval or all product rates are HOD approved";
+
+  const openProcurementRatesModal = async (productRow, lineIndex, imageUrls = []) => {
+    if (!quotation?.id) return;
+    const rawCode = String(productRow?.rawProductCode ?? "").trim();
+    if (!rawCode) {
+      toastError(
+        "This line has no product code; procurement rates are unavailable.",
+      );
+      return;
+    }
+    const productLabel =
+      productRow?.productName?.trim() || rawCode || `Line ${lineIndex + 1}`;
+    setProcurementRatesModal({
+      visible: true,
+      loading: true,
+      error: "",
+      productLabel,
+      rawProductCode: rawCode,
+      lineIndex,
+      status: null,
+      rates: [],
+      imageUrls: Array.isArray(imageUrls) ? imageUrls : [],
+    });
+    try {
+      const res = await quotationService.getLineProcurementRates(quotation.id, {
+        rawProductCode: rawCode,
+        lineIndex,
+      });
+      const block = res?.data?.data ?? res?.data ?? res;
+      const rates = Array.isArray(block?.rates) ? block.rates : [];
+      setProcurementRatesModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: "",
+        status: block?.status ?? null,
+        rates,
+        productLabel: block?.productName?.trim() || productLabel,
+      }));
+    } catch (err) {
+      const msg = err?.message || "Failed to load procurement rates";
+      toastError(msg);
+      setProcurementRatesModal((prev) => ({
+        ...prev,
+        loading: false,
+        error: msg,
+        rates: [],
+      }));
+    }
+  };
+
+  const closeProcurementRatesModal = () => {
+    setProcurementRatesModal({
+      visible: false,
+      loading: false,
+      error: "",
+      productLabel: "",
+      rawProductCode: "",
+      lineIndex: null,
+      status: null,
+      rates: [],
+      imageUrls: [],
+    });
+  };
+
   const handleDownloadProductsPdf = async () => {
     if (!quotation?.id) return;
-    if (displayQuotation?.status !== "hod_approved") {
-      toastError("PDF export is available only after HOD approval");
+    if (!canDownloadPdf) {
+      toastError(pdfDownloadBlockedMessage);
       return;
     }
     setExportingPdf(true);
@@ -1711,16 +1663,26 @@ const QuotationView = () => {
     }
   };
 
-  const canCreateQuotation = hasPermission("quotations", "create");
-  const canUpdateQuotation = hasPermission("quotations", "update");
-  const canDeleteQuotation = hasPermission("quotations", "delete");
-  const canCreatePurchaseOrder = hasPermission("purchase_orders", "create");
-  const currentUserRole = normalizeRole(getCurrentUserRole());
+  const userRole = user?.role || getCurrentUserRole();
+  const currentUserRole = normalizeUserRole(userRole);
   const isHodUser =
     currentUserRole === normalizeRole(ROLES.HEAD_OF_DEPARTMENT) ||
     currentUserRole === "hod";
-  const canApproveAsHod = isHodUser && canUpdateQuotation;
+  const canCreateQuotation =
+    hasPermission("quotations", "create") || isSalesRole;
+  const canUpdateQuotation =
+    hasPermission("quotations", "update") || isSalesRole;
+  const canDeleteQuotation =
+    hasPermission("quotations", "delete") || isSalesRole;
+  const canDeleteQuotationProduct = canDeleteQuotation;
+  const canApproveAsHod =
+    isHodUser && hasPermission("quotations", "update");
+  const canCreatePurchaseOrder =
+    hasPermission("purchase_orders", "create") ||
+    canConvertQuotationToPo(userRole);
   const isHodApprovedStatus = displayQuotation?.status === "hod_approved";
+  const canBypassPoHodApproval = isSalesRole || isHodUser;
+  const canConvertToPo = isHodApprovedStatus || canBypassPoHodApproval;
   const currentProduct =
     products.length > 0
       ? products[Math.min(productIndex, products.length - 1)]
@@ -1781,9 +1743,9 @@ const QuotationView = () => {
       !quotation?.id ||
       !canCreatePurchaseOrder ||
       isSnapshotPreview ||
-      !isHodApprovedStatus
+      !canConvertToPo
     ) {
-      if (quotation?.id && canCreatePurchaseOrder && !isHodApprovedStatus) {
+      if (quotation?.id && canCreatePurchaseOrder && !canConvertToPo) {
         toastError("Convert to PO is available only after HOD approval");
       }
       return;
@@ -2043,14 +2005,12 @@ const QuotationView = () => {
                 variant="outline"
                 onClick={handleDownloadProductsPdf}
                 disabled={
-                  exportingPdf ||
-                  isSnapshotPreview ||
-                  displayQuotation?.status !== "hod_approved"
+                  exportingPdf || isSnapshotPreview || !canDownloadPdf
                 }
                 title={
-                  displayQuotation?.status === "hod_approved"
+                  canDownloadPdf
                     ? "Download PDF"
-                    : "Download disabled until HOD approval"
+                    : pdfDownloadDisabledTitle
                 }
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
@@ -2068,13 +2028,13 @@ const QuotationView = () => {
                   disabled={
                     convertingPo ||
                     isSnapshotPreview ||
-                    !isHodApprovedStatus
+                    !canConvertToPo
                   }
                   onClick={handleConvertToPoClick}
                   className="d-inline-flex align-items-center px-3"
                   style={{ height: 40 }}
                   title={
-                    isHodApprovedStatus
+                    canConvertToPo
                       ? "Convert quotation to purchase order"
                       : "Convert to PO is available after HOD approval"
                   }
@@ -2106,16 +2066,6 @@ const QuotationView = () => {
                       : "Approve (HOD)"}
                 </CButton>
               ) : null}
-              <CButton
-                color="primary"
-                variant="outline"
-                disabled={isSnapshotPreview}
-                className="d-inline-flex align-items-center px-3"
-                style={{ height: 40 }}
-              >
-                <CIcon icon={cilEnvelopeClosed} className="me-2" />
-                Send to Customer
-              </CButton>
             </div>
           </div>
         </CCardBody>
@@ -2194,26 +2144,6 @@ const QuotationView = () => {
             </CNavItem>
             <CNavItem>
               <CNavLink
-                active={activeTab === "packingDelivery"}
-                onClick={() => setActiveTab("packingDelivery")}
-                style={{
-                  cursor: "pointer",
-                  border: "none",
-                  borderBottom:
-                    activeTab === "packingDelivery"
-                      ? "2px solid #321fdb"
-                      : "2px solid transparent",
-                  color:
-                    activeTab === "packingDelivery" ? "#321fdb" : "#6c757d",
-                  fontWeight: 600,
-                  paddingInline: 10,
-                }}
-              >
-                Packing &amp; Delivery
-              </CNavLink>
-            </CNavItem>
-            <CNavItem>
-              <CNavLink
                 active={activeTab === "products"}
                 onClick={() => setActiveTab("products")}
                 style={{
@@ -2267,26 +2197,6 @@ const QuotationView = () => {
                 }}
               >
                 Product List ({products.length})
-              </CNavLink>
-            </CNavItem>
-            <CNavItem>
-              <CNavLink
-                active={activeTab === "history"}
-                onClick={() => setActiveTab("history")}
-                style={{
-                  cursor: "pointer",
-                  border: "none",
-                  borderBottom:
-                    activeTab === "history"
-                      ? "2px solid #321fdb"
-                      : "2px solid transparent",
-                  color: activeTab === "history" ? "#321fdb" : "#6c757d",
-                  fontWeight: 600,
-                  paddingInline: 10,
-                }}
-              >
-                <CIcon icon={cilHistory} className="me-1" />
-                Quotation History
               </CNavLink>
             </CNavItem>
           </CNav>
@@ -2447,22 +2357,6 @@ const QuotationView = () => {
                               <CTableHeaderCell
                                 scope="row"
                                 className="bg-light"
-                                style={{ width: "40%" }}
-                              >
-                                Shipping Address
-                              </CTableHeaderCell>
-                              <CTableDataCell
-                                style={{ whiteSpace: "pre-wrap" }}
-                              >
-                                {companyForm.address ||
-                                  displayQuotation?.companyInfo?.address ||
-                                  "–"}
-                              </CTableDataCell>
-                            </CTableRow>
-                            <CTableRow>
-                              <CTableHeaderCell
-                                scope="row"
-                                className="bg-light"
                               >
                                 Contact Person
                               </CTableHeaderCell>
@@ -2550,6 +2444,9 @@ const QuotationView = () => {
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-center">
                               Unit
+                            </CTableHeaderCell>
+                            <CTableHeaderCell className="text-center">
+                              Delivery Date
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-center">
                               GST %
@@ -2690,6 +2587,11 @@ const QuotationView = () => {
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center align-middle">
                                   {p.unit || ""}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center align-middle">
+                                  {p.deliveryDate
+                                    ? formatIstDisplayDate(p.deliveryDate)
+                                    : "–"}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center align-middle">
                                   {gstPercent
@@ -2942,33 +2844,27 @@ const QuotationView = () => {
                       <div className="mb-3">
                         <CFormLabel>Company name</CFormLabel>
                         <CFormInput
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           value={companyForm.name}
-                          onChange={(e) =>
-                            updateCompanyForm("name", e.target.value)
-                          }
                           placeholder="Company name"
                         />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Location</CFormLabel>
                         <CFormInput
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           value={companyForm.location}
-                          onChange={(e) =>
-                            updateCompanyForm("location", e.target.value)
-                          }
                           placeholder="Location"
                         />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Zone</CFormLabel>
                         <CFormInput
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           value={zoneNameDisplay ?? companyForm.area}
-                          onChange={(e) =>
-                            updateCompanyForm("area", e.target.value)
-                          }
                           placeholder="Zone"
                         />
                       </div>
@@ -2977,73 +2873,40 @@ const QuotationView = () => {
                       <div className="mb-3">
                         <CFormLabel>Address</CFormLabel>
                         <CFormTextarea
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           rows={3}
                           value={companyForm.address}
-                          onChange={(e) =>
-                            updateCompanyForm("address", e.target.value)
-                          }
                           placeholder="Address"
                         />
                       </div>
-                      {canUpdateQuotation ? (
-                        <CButton
-                          color="primary"
-                          onClick={handleSaveCompanyInfo}
-                          disabled={savingCompany || isSnapshotPreview}
-                        >
-                          {savingCompany ? (
-                            <>
-                              <CSpinner size="sm" className="me-2" />
-                              Saving...
-                            </>
-                          ) : (
-                            "Save"
-                          )}
-                        </CButton>
-                      ) : null}
                     </CCol>
                     <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>Purchase manager name</CFormLabel>
                         <CFormInput
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           value={companyForm.purchaseManagerName}
-                          onChange={(e) =>
-                            updateCompanyForm(
-                              "purchaseManagerName",
-                              e.target.value,
-                            )
-                          }
                           placeholder="Name"
                         />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Purchase manager phone</CFormLabel>
                         <CFormInput
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           value={companyForm.purchaseManagerPhone}
-                          onChange={(e) =>
-                            updateCompanyForm(
-                              "purchaseManagerPhone",
-                              e.target.value,
-                            )
-                          }
                           placeholder="Phone"
                         />
                       </div>
                       <div className="mb-3">
                         <CFormLabel>Purchase manager email</CFormLabel>
                         <CFormInput
-                          readOnly={isSnapshotPreview}
+                          disabled
+                          className="bg-light"
                           type="email"
                           value={companyForm.purchaseManagerEmail}
-                          onChange={(e) =>
-                            updateCompanyForm(
-                              "purchaseManagerEmail",
-                              e.target.value,
-                            )
-                          }
                           placeholder="Email"
                         />
                       </div>
@@ -3085,97 +2948,6 @@ const QuotationView = () => {
               </CCard>
             </CTabPane>
 
-            {/* Tab: Packing & Delivery */}
-            <CTabPane visible={activeTab === "packingDelivery"}>
-              <CCard className="mb-4">
-                <CCardHeader>
-                  <strong>Packing &amp; Delivery</strong>
-                </CCardHeader>
-                <CCardBody>
-                  <CRow>
-                    <CCol md={4}>
-                      <div className="mb-3">
-                        <CFormLabel>Freight charge</CFormLabel>
-                        <CFormInput
-                          readOnly={isSnapshotPreview}
-                          type="text"
-                          value={packingDeliveryForm.freightCharge}
-                          onChange={(e) =>
-                            setPackingDeliveryForm((prev) => ({
-                              ...prev,
-                              freightCharge: e.target.value,
-                            }))
-                          }
-                          placeholder="e.g. 1500 or As per actual"
-                        />
-                        <div className="small text-muted mt-1">
-                          Amount or free text; numeric values are included in
-                          totals.
-                        </div>
-                      </div>
-                    </CCol>
-                    <CCol md={4}>
-                      <div className="mb-3">
-                        <CFormLabel>Packing Charge (₹)</CFormLabel>
-                        <CFormInput
-                          readOnly={isSnapshotPreview}
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={packingDeliveryForm.packingCharge}
-                          onChange={(e) =>
-                            setPackingDeliveryForm((prev) => ({
-                              ...prev,
-                              packingCharge:
-                                e.target.value === "" ? 0 : e.target.value,
-                            }))
-                          }
-                          placeholder="0"
-                        />
-                      </div>
-                    </CCol>
-                    <CCol md={4}>
-                      <div className="mb-3">
-                        <CFormLabel>Expected Delivery Within (Days)</CFormLabel>
-                        <CFormInput
-                          readOnly={isSnapshotPreview}
-                          type="number"
-                          min={0}
-                          step="1"
-                          value={packingDeliveryForm.expectedDeliveryWithinDays}
-                          onChange={(e) =>
-                            setPackingDeliveryForm((prev) => ({
-                              ...prev,
-                              expectedDeliveryWithinDays: e.target.value,
-                            }))
-                          }
-                          placeholder="Enter number of days"
-                        />
-                        <div className="small text-muted mt-1">
-                          Leave empty to show NA in PDF
-                        </div>
-                      </div>
-                    </CCol>
-                  </CRow>
-                  {canUpdateQuotation ? (
-                    <CButton
-                      color="primary"
-                      onClick={handleSavePackingDelivery}
-                      disabled={savingPackingDelivery || isSnapshotPreview}
-                    >
-                      {savingPackingDelivery ? (
-                        <>
-                          <CSpinner size="sm" className="me-2" />
-                          Saving...
-                        </>
-                      ) : (
-                        "Save"
-                      )}
-                    </CButton>
-                  ) : null}
-                </CCardBody>
-              </CCard>
-            </CTabPane>
 
             {/* Tab: Single Product Edit */}
             <CTabPane visible={activeTab === "products"}>
@@ -3202,20 +2974,15 @@ const QuotationView = () => {
                           List. Revoke it there to edit this product again.
                         </div>
                       )}
-                      <CRow>
+                      <CRow className="g-3 align-items-start">
                         <CCol md={4}>
                           <div className="mb-3">
                             <CFormLabel>Product Name</CFormLabel>
                             <CFormInput
+                              disabled
+                              className="bg-light"
                               value={editingProduct.productName || ""}
-                              onChange={(e) =>
-                                updateFormField("productName", e.target.value)
-                              }
                               placeholder="Product name"
-                              disabled={
-                                isSnapshotPreview ||
-                                isCurrentProductNotAvailable
-                              }
                             />
                           </div>
                           <div className="mb-3">
@@ -3227,20 +2994,6 @@ const QuotationView = () => {
                                 updateFormField("description", e.target.value)
                               }
                               placeholder="Description"
-                              disabled={
-                                isSnapshotPreview ||
-                                isCurrentProductNotAvailable
-                              }
-                            />
-                          </div>
-                          <div className="mb-3">
-                            <CFormLabel>Remark</CFormLabel>
-                            <CFormInput
-                              value={editingProduct.remark || ""}
-                              onChange={(e) =>
-                                updateFormField("remark", e.target.value)
-                              }
-                              placeholder="Remark"
                               disabled={
                                 isSnapshotPreview ||
                                 isCurrentProductNotAvailable
@@ -3268,61 +3021,9 @@ const QuotationView = () => {
                           <div className="mb-3">
                             <CFormLabel>Unit</CFormLabel>
                             <ProductUnitSelect
+                              disabled
+                              className="bg-light"
                               value={editingProduct.unit || ""}
-                              onChange={(e) =>
-                                updateFormField("unit", e.target.value)
-                              }
-                              disabled={
-                                isSnapshotPreview ||
-                                isCurrentProductNotAvailable
-                              }
-                            />
-                          </div>
-                          <div className="mb-3">
-                            <CFormLabel>Rate (Rs)</CFormLabel>
-                            <CFormInput
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={editingProduct.rate ?? ""}
-                              onChange={(e) =>
-                                updateFormField("rate", e.target.value)
-                              }
-                              placeholder="Rate"
-                              disabled={
-                                isSnapshotPreview ||
-                                isCurrentProductNotAvailable
-                              }
-                            />
-                          </div>
-                        </CCol>
-                        <CCol md={4}>
-                          <div className="mb-3">
-                            <CFormLabel>HSN Number</CFormLabel>
-                            <CFormInput
-                              value={editingProduct.hsnNumber || ""}
-                              onChange={(e) =>
-                                updateFormField("hsnNumber", e.target.value)
-                              }
-                              placeholder="HSN Number"
-                              disabled={
-                                isSnapshotPreview ||
-                                isCurrentProductNotAvailable
-                              }
-                            />
-                          </div>
-                          <div className="mb-3">
-                            <CFormLabel>Model Number</CFormLabel>
-                            <CFormInput
-                              value={editingProduct.modelNumber || ""}
-                              onChange={(e) =>
-                                updateFormField("modelNumber", e.target.value)
-                              }
-                              placeholder="Model Number"
-                              disabled={
-                                isSnapshotPreview ||
-                                isCurrentProductNotAvailable
-                              }
                             />
                           </div>
                           <div className="mb-3">
@@ -3344,6 +3045,40 @@ const QuotationView = () => {
                             />
                           </div>
                         </CCol>
+                        <CCol md={4}>
+                          <div className="mb-3">
+                            <CFormLabel>HSN Number</CFormLabel>
+                            <CFormInput
+                              disabled
+                              className="bg-light"
+                              value={editingProduct.hsnNumber || ""}
+                              placeholder="HSN Number"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Model Number</CFormLabel>
+                            <CFormInput
+                              disabled
+                              className="bg-light"
+                              value={editingProduct.modelNumber || ""}
+                              placeholder="Model Number"
+                            />
+                          </div>
+                          <div className="mb-3">
+                            <CFormLabel>Remark</CFormLabel>
+                            <CFormInput
+                              value={editingProduct.remark || ""}
+                              onChange={(e) =>
+                                updateFormField("remark", e.target.value)
+                              }
+                              placeholder="Remark"
+                              disabled={
+                                isSnapshotPreview ||
+                                isCurrentProductNotAvailable
+                              }
+                            />
+                          </div>
+                        </CCol>
                       </CRow>
                       <CRow className="mt-1">
                         <CCol md={12}>
@@ -3354,7 +3089,7 @@ const QuotationView = () => {
                               {editingProduct.images.map((img, index) => (
                                 <div
                                   key={`edit-img-${index}`}
-                                  className="position-relative border rounded overflow-hidden"
+                                  className="border rounded overflow-hidden"
                                   style={{ width: 72, height: 72 }}
                                 >
                                   {getDocumentId(img) ? (
@@ -3373,29 +3108,6 @@ const QuotationView = () => {
                                       style={{ objectFit: "cover" }}
                                     />
                                   )}
-                                  <CButton
-                                    color="danger"
-                                    size="sm"
-                                    shape="rounded-pill"
-                                    className="position-absolute d-flex align-items-center justify-content-center p-0"
-                                    style={{
-                                      top: 4,
-                                      right: 4,
-                                      width: 20,
-                                      height: 20,
-                                      minWidth: 20,
-                                    }}
-                                    onClick={() =>
-                                      removeEditingProductImage(index)
-                                    }
-                                    title="Remove image"
-                                    disabled={
-                                      isSnapshotPreview ||
-                                      isCurrentProductNotAvailable
-                                    }
-                                  >
-                                    <CIcon icon={cilX} size="sm" />
-                                  </CButton>
                                 </div>
                               ))}
                             </div>
@@ -3421,8 +3133,8 @@ const QuotationView = () => {
                             }}
                           />
                           <div className="small text-muted mt-1">
-                            Remove old images with the cross icon, then upload
-                            new image(s).
+                            Upload additional image(s). Existing images cannot be
+                            removed.
                           </div>
                         </CCol>
                       </CRow>
@@ -3491,31 +3203,118 @@ const QuotationView = () => {
                   <strong>Add New Product</strong>
                 </CCardHeader>
                 <CCardBody>
-                  <CRow>
-                    <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel className="fw-semibold">
+                      Product name{" "}
+                      <span className="text-danger" aria-hidden="true">
+                        *
+                      </span>
+                    </CFormLabel>
+                    <CFormInput
+                      value={newProductForm.productName}
+                      onChange={(e) =>
+                        updateNewProductForm("productName", e.target.value)
+                      }
+                      placeholder="Product name"
+                    />
+                  </div>
+
+                  <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
+                    Classification
+                  </h6>
+                  <CRow className="g-3 align-items-end">
+                    <CCol md={6}>
                       <div className="mb-3">
-                        <CFormLabel>Product name *</CFormLabel>
-                        <CFormInput
-                          value={newProductForm.productName}
+                        <CFormLabel>
+                          Group
+                          {createNewQueryProduct || queryId ? (
+                            <span className="text-danger"> *</span>
+                          ) : null}
+                        </CFormLabel>
+                        <CFormSelect
+                          value={newProductForm.groupId || ""}
                           onChange={(e) =>
-                            updateNewProductForm("productName", e.target.value)
+                            setNewProductForm((prev) => ({
+                              ...prev,
+                              groupId: e.target.value,
+                              categoryId: "",
+                            }))
                           }
-                          placeholder="Product name"
-                        />
+                        >
+                          <option value="">Choose group…</option>
+                          {newProductGroups.map((g) => (
+                            <option key={g._id} value={g._id}>
+                              {g.name}
+                            </option>
+                          ))}
+                        </CFormSelect>
                       </div>
+                    </CCol>
+                    <CCol md={6}>
                       <div className="mb-3">
-                        <CFormLabel>Description</CFormLabel>
-                        <CFormTextarea
-                          rows={3}
-                          value={newProductForm.description}
+                        <CFormLabel>
+                          Category
+                          {createNewQueryProduct || queryId ? (
+                            <span className="text-danger"> *</span>
+                          ) : null}
+                        </CFormLabel>
+                        <CFormSelect
+                          value={newProductForm.categoryId || ""}
                           onChange={(e) =>
-                            updateNewProductForm("description", e.target.value)
+                            updateNewProductForm("categoryId", e.target.value)
                           }
-                          placeholder="Description"
-                        />
+                          disabled={
+                            (createNewQueryProduct || queryId) &&
+                            !newProductForm.groupId
+                          }
+                        >
+                          <option value="">
+                            {(createNewQueryProduct || queryId) &&
+                            !newProductForm.groupId
+                              ? "Pick a group first"
+                              : "Choose category…"}
+                          </option>
+                          {newProductCategories.map((c) => (
+                            <option key={c._id} value={c._id}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </CFormSelect>
                       </div>
+                    </CCol>
+                  </CRow>
+
+                  {queryId ? (
+                    <div className="small text-muted mb-3">
+                      Product will also be added to query{" "}
+                      {relatedQueryCode || "products"} in the Pro Bucket.
+                    </div>
+                  ) : null}
+
+                  <div className="mb-3">
+                    <CFormLabel>Description</CFormLabel>
+                    <CFormTextarea
+                      rows={3}
+                      value={newProductForm.description}
+                      onChange={(e) =>
+                        updateNewProductForm("description", e.target.value)
+                      }
+                      placeholder="Description"
+                    />
+                  </div>
+
+                  <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
+                    Quantity
+                  </h6>
+                  <CRow className="g-3 align-items-end">
+                    <CCol sm={6} md={4}>
                       <div className="mb-3">
-                        <CFormLabel>Quantity *</CFormLabel>
+                        <CFormLabel>
+                          Qty{" "}
+                          <span className="text-danger" aria-hidden="true">
+                            *
+                          </span>
+                        </CFormLabel>
                         <CFormInput
                           type="number"
                           min={1}
@@ -3526,6 +3325,8 @@ const QuotationView = () => {
                           placeholder="Quantity"
                         />
                       </div>
+                    </CCol>
+                    <CCol sm={6} md={4}>
                       <div className="mb-3">
                         <CFormLabel>Unit</CFormLabel>
                         <ProductUnitSelect
@@ -3536,6 +3337,12 @@ const QuotationView = () => {
                         />
                       </div>
                     </CCol>
+                  </CRow>
+
+                  <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
+                    Product details
+                  </h6>
+                  <CRow className="g-3 align-items-end">
                     <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>HSN Number</CFormLabel>
@@ -3547,6 +3354,8 @@ const QuotationView = () => {
                           placeholder="HSN"
                         />
                       </div>
+                    </CCol>
+                    <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>Model Number</CFormLabel>
                         <CFormInput
@@ -3557,6 +3366,8 @@ const QuotationView = () => {
                           placeholder="Model"
                         />
                       </div>
+                    </CCol>
+                    <CCol md={4}>
                       <div className="mb-3">
                         <CFormLabel>GST %</CFormLabel>
                         <CFormInput
@@ -3573,50 +3384,25 @@ const QuotationView = () => {
                           placeholder="GST %"
                         />
                       </div>
-                      <div className="mb-3">
-                        <CFormLabel>Remark</CFormLabel>
-                        <CFormInput
-                          value={newProductForm.remark}
-                          onChange={(e) =>
-                            updateNewProductForm("remark", e.target.value)
-                          }
-                          placeholder="Remark"
-                        />
-                      </div>
                     </CCol>
-                    <CCol md={4}>
-                      <div className="mb-3">
-                        <CFormLabel>Rate (₹)</CFormLabel>
-                        <CFormInput
-                          type="number"
-                          min={0}
-                          step="0.01"
-                          value={newProductForm.rate}
-                          onChange={(e) =>
-                            updateNewProductForm("rate", e.target.value)
-                          }
-                          placeholder="Rate"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <CFormLabel>Total (₹)</CFormLabel>
-                        <CFormInput
-                          type="text"
-                          readOnly
-                          value={
-                            newProductForm.quantity !== "" &&
-                            newProductForm.rate !== "" &&
-                            !Number.isNaN(Number(newProductForm.quantity)) &&
-                            !Number.isNaN(Number(newProductForm.rate))
-                              ? (
-                                  Number(newProductForm.quantity) *
-                                  Number(newProductForm.rate)
-                                ).toFixed(2)
-                              : ""
-                          }
-                          placeholder="Qty × Rate"
-                        />
-                      </div>
+                  </CRow>
+
+                  <div className="mb-3">
+                    <CFormLabel>Remark</CFormLabel>
+                    <CFormInput
+                      value={newProductForm.remark}
+                      onChange={(e) =>
+                        updateNewProductForm("remark", e.target.value)
+                      }
+                      placeholder="Remark"
+                    />
+                  </div>
+
+                  <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
+                    Images
+                  </h6>
+                  <CRow className="g-3 align-items-start">
+                    <CCol md={6}>
                       <div className="mb-3">
                         <CFormLabel>Upload Images</CFormLabel>
                         <CFormInput
@@ -3652,6 +3438,8 @@ const QuotationView = () => {
                           </div>
                         )}
                       </div>
+                    </CCol>
+                    <CCol md={6} className="d-flex align-items-end">
                       <div className="mb-3">
                         <CFormCheck
                           id="create-new-query-product"
@@ -3719,6 +3507,12 @@ const QuotationView = () => {
                           </CTableHeaderCell>
                           <CTableHeaderCell
                             className="text-center"
+                            style={{ width: 120 }}
+                          >
+                            Delivery date
+                          </CTableHeaderCell>
+                          <CTableHeaderCell
+                            className="text-center"
                             style={{ width: 72 }}
                           >
                             HSN
@@ -3729,20 +3523,20 @@ const QuotationView = () => {
                           >
                             Model
                           </CTableHeaderCell>
-                          {showProductListRateStatus ? (
-                            <CTableHeaderCell
-                              className="text-center"
-                              style={{ width: 120 }}
-                            >
-                              Rate status
-                            </CTableHeaderCell>
-                          ) : null}
                           <CTableHeaderCell
                             className="text-center"
                             style={{ width: 82 }}
                           >
                             GST %
                           </CTableHeaderCell>
+                          {queryId ? (
+                            <CTableHeaderCell
+                              className="text-center"
+                              style={{ width: 140 }}
+                            >
+                              Procurement rate
+                            </CTableHeaderCell>
+                          ) : null}
                           <CTableHeaderCell
                             className="text-center"
                             style={{ width: 160 }}
@@ -3781,7 +3575,6 @@ const QuotationView = () => {
                             typeof p.product_id === "object"
                               ? p.product_id
                               : null;
-                          const pb = proBucketLines[idx] ?? null;
                           const allImages = Array.isArray(p.images)
                             ? p.images
                             : productRef?.images || [];
@@ -3873,6 +3666,26 @@ const QuotationView = () => {
                               >
                                 {p.unit || "–"}
                               </CTableDataCell>
+                              <CTableDataCell className="text-center py-1">
+                                <CFormInput
+                                  type="date"
+                                  size="sm"
+                                  className="form-control-sm"
+                                  style={{
+                                    width: 130,
+                                    minHeight: 28,
+                                    fontSize: "0.75rem",
+                                  }}
+                                  value={getListDeliveryDate(idx)}
+                                  min={minProductListDeliveryDate}
+                                  onChange={(e) =>
+                                    setListDeliveryDate(idx, e.target.value)
+                                  }
+                                  disabled={
+                                    !!p.notAvailable || isSnapshotPreview
+                                  }
+                                />
+                              </CTableDataCell>
                               <CTableDataCell className="small text-center py-1">
                                 {productRef?.hsnNumber || p.hsnNumber || "–"}
                               </CTableDataCell>
@@ -3882,48 +3695,6 @@ const QuotationView = () => {
                                   p.modelNumber ||
                                   "–"}
                               </CTableDataCell>
-                              {showProductListRateStatus ? (
-                                <CTableDataCell className="text-center py-1 align-middle">
-                                  {proBucketLoading ? (
-                                    <CSpinner size="sm" />
-                                  ) : pb?.status ? (
-                                    <div className="d-flex flex-column align-items-center gap-1">
-                                      {proBucketStatusBadge(pb.status)}
-                                      {(pb.status === "rate_submitted" ||
-                                        pb.status === "fulfilled") &&
-                                      Array.isArray(pb.rates) &&
-                                      pb.rates.length > 0 ? (
-                                        <CButton
-                                          color="link"
-                                          className="p-0 d-inline-flex align-items-center"
-                                          onClick={() =>
-                                            setProBucketModal({
-                                              visible: true,
-                                              productName:
-                                                p.productName || "Product",
-                                              rates: pb.rates,
-                                              status: pb.status,
-                                            })
-                                          }
-                                          title="View supplier rates"
-                                        >
-                                          <CIcon
-                                            icon={cilList}
-                                            size="lg"
-                                            className={
-                                              pb.status === "fulfilled"
-                                                ? "text-success"
-                                                : "text-info"
-                                            }
-                                          />
-                                        </CButton>
-                                      ) : null}
-                                    </div>
-                                  ) : (
-                                    <span className="text-muted small">—</span>
-                                  )}
-                                </CTableDataCell>
-                              ) : null}
                               <CTableDataCell className="text-center py-1">
                                 <CFormInput
                                   type="number"
@@ -3948,6 +3719,32 @@ const QuotationView = () => {
                                   }
                                 />
                               </CTableDataCell>
+                              {queryId ? (
+                                <CTableDataCell className="text-center align-middle py-1">
+                                  {String(p.rawProductCode ?? "").trim() ? (
+                                    <CButton
+                                      type="button"
+                                      color="secondary"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="p-1"
+                                      title="View procurement rates"
+                                      aria-label="View procurement rates"
+                                      onClick={() =>
+                                        openProcurementRatesModal(
+                                          p,
+                                          idx,
+                                          imageUrls,
+                                        )
+                                      }
+                                    >
+                                      <CIcon icon={cilList} size="lg" />
+                                    </CButton>
+                                  ) : (
+                                    <span className="text-muted small">—</span>
+                                  )}
+                                </CTableDataCell>
+                              ) : null}
                               <CTableDataCell className="text-center py-1">
                                 {allImages.length > 0 ? (
                                   <div className="d-flex flex-wrap gap-1 justify-content-center align-items-center">
@@ -4166,7 +3963,7 @@ const QuotationView = () => {
                                           Update
                                         </CButton>
                                       ) : null}
-                                      {canDeleteQuotation ? (
+                                      {canDeleteQuotationProduct ? (
                                         <CButton
                                           color="danger"
                                           size="sm"
@@ -4226,7 +4023,7 @@ const QuotationView = () => {
                                           Update
                                         </CButton>
                                       ) : null}
-                                      {canDeleteQuotation ? (
+                                      {canDeleteQuotationProduct ? (
                                         <CButton
                                           color="danger"
                                           size="sm"
@@ -4286,82 +4083,6 @@ const QuotationView = () => {
                   </p>
                 )}
               </div>
-            </CTabPane>
-
-            <CTabPane visible={activeTab === "history"}>
-              <CCard className="mb-0 border-0">
-                <CCardBody>
-                  <p className="text-muted small mb-3">
-                    Saved versions of this quotation. Restore loads a snapshot
-                    into Preview, Company, Packing &amp; Delivery, Product, and
-                    Product List (read-only).
-                  </p>
-                  {snapshotsLoading ? (
-                    <div className="text-center py-4">
-                      <CSpinner />
-                    </div>
-                  ) : snapshotsError ? (
-                    <p className="text-danger mb-0">{snapshotsError}</p>
-                  ) : quotationSnapshots.length === 0 ? (
-                    <p className="text-muted mb-0">No snapshots yet.</p>
-                  ) : (
-                    <CTable hover responsive bordered className="align-middle">
-                      <CTableHead>
-                        <CTableRow>
-                          <CTableHeaderCell scope="col">
-                            Snapshot code
-                          </CTableHeaderCell>
-                          <CTableHeaderCell scope="col">
-                            Captured
-                          </CTableHeaderCell>
-                          <CTableHeaderCell
-                            scope="col"
-                            className="text-center"
-                            style={{ width: 96 }}
-                          >
-                            Restore
-                          </CTableHeaderCell>
-                        </CTableRow>
-                      </CTableHead>
-                      <CTableBody>
-                        {quotationSnapshots.map((row) => (
-                          <CTableRow key={row._id}>
-                            <CTableDataCell className="fw-semibold text-break">
-                              {row.snapshotCode}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              {row.createdAt
-                                ? formatIstDisplayDate(row.createdAt)
-                                : "–"}
-                            </CTableDataCell>
-                            <CTableDataCell className="text-center">
-                              <CButton
-                                color="primary"
-                                variant="ghost"
-                                size="sm"
-                                className="p-1"
-                                title="Show this snapshot in all tabs"
-                                onClick={() => {
-                                  setSnapshotPreview({
-                                    _id: row._id,
-                                    snapshotCode: row.snapshotCode,
-                                    payload: row.payload,
-                                    capturedAt: row.createdAt,
-                                  });
-                                  setActiveTab("preview");
-                                  toastSuccess(`Showing ${row.snapshotCode}`);
-                                }}
-                              >
-                                <CIcon icon={cilActionUndo} size="lg" />
-                              </CButton>
-                            </CTableDataCell>
-                          </CTableRow>
-                        ))}
-                      </CTableBody>
-                    </CTable>
-                  )}
-                </CCardBody>
-              </CCard>
             </CTabPane>
           </CTabContent>
         </CCardBody>
@@ -4674,7 +4395,7 @@ const QuotationView = () => {
           <CButton
             color="danger"
             onClick={handleConfirmDeleteProduct}
-            disabled={updating || isSnapshotPreview || !canDeleteQuotation}
+            disabled={updating || isSnapshotPreview || !canDeleteQuotationProduct}
           >
             {updating ? (
               <>
@@ -4689,64 +4410,137 @@ const QuotationView = () => {
       </CModal>
 
       <CModal
-        visible={
-          showProductListRateStatus && Boolean(proBucketModal.visible)
-        }
+        visible={procurementRatesModal.visible}
         onClose={() =>
-          setProBucketModal({
-            visible: false,
-            productName: "",
-            rates: [],
-            status: "",
-          })
+          !procurementRatesModal.loading && closeProcurementRatesModal()
         }
-        size="lg"
         alignment="center"
+        size="lg"
         scrollable
       >
         <CModalHeader closeButton>
-          <CModalTitle>
-            Supplier rates (Pro Bucket) — {proBucketModal.productName}
-          </CModalTitle>
+          <CModalTitle>Procurement rates</CModalTitle>
         </CModalHeader>
         <CModalBody>
-          {proBucketModal.rates?.length ? (
-            <CTable responsive bordered size="sm" className="mb-0">
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>Supplier</CTableHeaderCell>
-                  <CTableHeaderCell className="text-end">Rate</CTableHeaderCell>
-                  <CTableHeaderCell>Unit</CTableHeaderCell>
-                  <CTableHeaderCell>Remark</CTableHeaderCell>
-                  <CTableHeaderCell>Submitted</CTableHeaderCell>
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {proBucketModal.rates.map((r, i) => (
-                  <CTableRow key={i}>
-                    <CTableDataCell>{r.supplierName || "—"}</CTableDataCell>
-                    <CTableDataCell className="text-end">
-                      {r.rate != null && !Number.isNaN(Number(r.rate))
-                        ? Number(r.rate).toLocaleString()
-                        : "—"}
-                    </CTableDataCell>
-                    <CTableDataCell>{r.unit || "—"}</CTableDataCell>
-                    <CTableDataCell className="small text-break">
-                      {r.remark || "—"}
-                    </CTableDataCell>
-                    <CTableDataCell className="small text-nowrap">
-                      {r.submittedAt
-                        ? formatIstDisplayDate(r.submittedAt)
-                        : "—"}
-                    </CTableDataCell>
-                  </CTableRow>
-                ))}
-              </CTableBody>
-            </CTable>
+          {procurementRatesModal.loading ? (
+            <div className="text-center py-4">
+              <CSpinner />
+              <div className="small text-muted mt-2">Loading rates…</div>
+            </div>
+          ) : procurementRatesModal.error ? (
+            <CAlert color="danger" className="mb-0">
+              {procurementRatesModal.error}
+            </CAlert>
           ) : (
-            <p className="text-muted mb-0">No rates recorded.</p>
+            <>
+              <div className="small text-muted mb-3">
+                <strong>{procurementRatesModal.productLabel}</strong>
+                {procurementRatesModal.rawProductCode ? (
+                  <>
+                    {" "}
+                    · Code{" "}
+                    <span className="text-body">
+                      {procurementRatesModal.rawProductCode}
+                    </span>
+                  </>
+                ) : null}
+                {" "}
+                · Line status {proBucketStatusBadge(procurementRatesModal.status)}
+              </div>
+              {procurementRatesModal.imageUrls?.length > 0 ? (
+                <div className="mb-3">
+                  <div className="small fw-semibold mb-2">Product images</div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {procurementRatesModal.imageUrls.map((src, i) => (
+                      <div
+                        key={src || i}
+                        role="button"
+                        tabIndex={0}
+                        className="rounded border overflow-hidden flex-shrink-0"
+                        style={{ width: 72, height: 72, cursor: "pointer" }}
+                        onClick={() =>
+                          openImageGallery(
+                            procurementRatesModal.imageUrls,
+                            i,
+                          )
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            openImageGallery(
+                              procurementRatesModal.imageUrls,
+                              i,
+                            );
+                          }
+                        }}
+                      >
+                        <CImage
+                          src={src}
+                          width={72}
+                          height={72}
+                          className="object-fit-cover w-100 h-100"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              {procurementRatesModal.rates.length === 0 ? (
+                <p className="text-muted mb-0">
+                  No Rates Available For This Product
+                </p>
+              ) : (
+                <CTable responsive bordered hover className="mb-0 small">
+                  <CTableHead>
+                    <CTableRow>
+                      <CTableHeaderCell scope="col">#</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Min rate</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Max rate</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">
+                        Discount (%)
+                      </CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Unit</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {procurementRatesModal.rates.map((r, i) => (
+                      <CTableRow key={r._id || i}>
+                        <CTableDataCell>{i + 1}</CTableDataCell>
+                        <CTableDataCell>
+                          {r.minRate != null && !Number.isNaN(Number(r.minRate))
+                            ? Number(r.minRate)
+                            : "—"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {r.maxRate != null && !Number.isNaN(Number(r.maxRate))
+                            ? Number(r.maxRate)
+                            : "—"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {r.discount != null &&
+                          !Number.isNaN(Number(r.discount))
+                            ? Number(r.discount)
+                            : "—"}
+                        </CTableDataCell>
+                        <CTableDataCell>{r.unit || "—"}</CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              )}
+            </>
           )}
         </CModalBody>
+        <CModalFooter>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={closeProcurementRatesModal}
+            disabled={procurementRatesModal.loading}
+          >
+            Close
+          </CButton>
+        </CModalFooter>
       </CModal>
 
       <CModal

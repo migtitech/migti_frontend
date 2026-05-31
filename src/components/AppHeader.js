@@ -14,12 +14,8 @@ import { cilMenu } from "@coreui/icons";
 
 import { AppBreadcrumb } from "./index";
 import { AppHeaderDropdown, AppHeaderNotifications } from "./header/index";
-import { useAuth } from "../context/AuthContext";
 
 const AppHeader = () => {
-  const { user } = useAuth();
-  const isPurchaseManager =
-    String(user?.role || "").toLowerCase() === "purchase_manager";
   const headerRef = useRef();
 
   const dispatch = useDispatch();
@@ -41,7 +37,7 @@ const AppHeader = () => {
   return (
     <CHeader position="sticky" className="mb-4 p-0" ref={headerRef}>
       <CContainer
-        className={`border-bottom px-4${isPurchaseManager ? " py-2" : ""}`}
+        className="border-bottom px-4"
         fluid
       >
         <CHeaderToggler
@@ -50,15 +46,13 @@ const AppHeader = () => {
         >
           <CIcon icon={cilMenu} size="lg" />
         </CHeaderToggler>
-        {!isPurchaseManager && (
-          <CHeaderNav className="d-none d-md-flex">
-            <CNavItem>
-              <CNavLink to="/dashboard" as={NavLink}>
-                Dashboard
-              </CNavLink>
-            </CNavItem>
-          </CHeaderNav>
-        )}
+        <CHeaderNav className="d-none d-md-flex">
+          <CNavItem>
+            <CNavLink to="/dashboard" as={NavLink}>
+              Dashboard
+            </CNavLink>
+          </CNavItem>
+        </CHeaderNav>
         <CHeaderNav className="ms-auto">
           <AppHeaderNotifications />
           <li className="nav-item py-1">

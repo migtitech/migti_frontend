@@ -45,10 +45,31 @@ import queryService from "../../services/queryService";
 import employeeService from "../../services/employeeService";
 import userService from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
-import usePermissions from "../../hooks/usePermissions";
+import usePermissions, { normalizeRole } from "../../hooks/usePermissions";
 import { Loader, ConfirmDialog } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+
+const proBucketStatusBadge = (status) => {
+  switch (status) {
+    case "pending":
+      return <CBadge color="warning">Pending</CBadge>;
+    case "rate_submitted":
+      return <CBadge color="info">Rate Submitted</CBadge>;
+    case "fulfilled":
+      return <CBadge color="success">Fulfilled</CBadge>;
+    case "approval_pending":
+      return <CBadge color="secondary">Approval Pending</CBadge>;
+    default:
+      return status ? (
+        <CBadge color="light" textColor="dark">
+          {status}
+        </CBadge>
+      ) : (
+        <span className="text-muted">—</span>
+      );
+  }
+};
 
 const getStoredUser = () => {
   try {
@@ -119,6 +140,8 @@ const QueryView = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { canUpdate, canDelete } = usePermissions();
+  const isSalesRole = normalizeRole(user?.role).startsWith("sales");
+  const canConvertToQuotation = canUpdate("quotations") || isSalesRole;
   const [query, setQuery] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -335,26 +358,6 @@ const QueryView = () => {
     if (ref == null) return "—";
     if (typeof ref === "object" && ref != null) return ref.name || "—";
     return "—";
-  };
-
-  const formatProcurementSupplier = (supplier) => {
-    if (supplier == null) return "—";
-    if (typeof supplier === "object") {
-      const name =
-        supplier.name ||
-        supplier.shopname ||
-        supplier.shopName ||
-        "";
-      const extra = [supplier.phone_1, supplier.email]
-        .filter(Boolean)
-        .join(" • ");
-      if (name && extra) return `${name} (${extra})`;
-      if (name) return name;
-      if (extra) return extra;
-      if (supplier._id) return `ID: ${supplier._id}`;
-      return "—";
-    }
-    return String(supplier);
   };
 
   const openProcurementRatesModal = async (productRow, lineIndex) => {
@@ -653,7 +656,7 @@ const QueryView = () => {
               </div>
 
               <div className="d-flex flex-wrap justify-content-lg-end align-items-center gap-2">
-                {canUpdate("quotations") &&
+                {canConvertToQuotation &&
                   query.status !== "closed" &&
                   query.status !== "convertedToQuotation" && (
                     <CButton
@@ -667,7 +670,7 @@ const QueryView = () => {
                       Convert to Quotation
                     </CButton>
                   )}
-                {canUpdate("quotations") &&
+                {canConvertToQuotation &&
                   query.status !== "closed" &&
                   query.status === "convertedToQuotation" && (
                     <CButton
@@ -1028,53 +1031,44 @@ const QueryView = () => {
                     </span>
                   </>
                 ) : null}
-                {procurementRatesModal.status ? (
-                  <>
-                    {" "}
-                    · Status{" "}
-                    <CBadge color="info" className="text-uppercase">
-                      {procurementRatesModal.status}
-                    </CBadge>
-                  </>
-                ) : null}
+                {" "}
+                · Line status {proBucketStatusBadge(procurementRatesModal.status)}
               </div>
               {procurementRatesModal.rates.length === 0 ? (
                 <p className="text-muted mb-0">
-                  No procurement rates submitted for this line yet.
+                  No Rates Available For This Product
                 </p>
               ) : (
                 <CTable responsive bordered hover className="mb-0 small">
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell scope="col">#</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Supplier</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Rate</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Min rate</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Max rate</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Discount (%)</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Unit</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Remark</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Submitted</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {procurementRatesModal.rates.map((r, i) => (
                       <CTableRow key={r._id || i}>
                         <CTableDataCell>{i + 1}</CTableDataCell>
-                        <CTableDataCell className="text-break">
-                          {formatProcurementSupplier(r.supplier)}
+                        <CTableDataCell>
+                          {r.minRate != null && !Number.isNaN(Number(r.minRate))
+                            ? Number(r.minRate)
+                            : "—"}
                         </CTableDataCell>
                         <CTableDataCell>
-                          {r.rate != null && !Number.isNaN(Number(r.rate))
-                            ? Number(r.rate)
+                          {r.maxRate != null && !Number.isNaN(Number(r.maxRate))
+                            ? Number(r.maxRate)
+                            : "—"}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {r.discount != null && !Number.isNaN(Number(r.discount))
+                            ? Number(r.discount)
                             : "—"}
                         </CTableDataCell>
                         <CTableDataCell>{r.unit || "—"}</CTableDataCell>
-                        <CTableDataCell className="text-break">
-                          {r.remark || "—"}
-                        </CTableDataCell>
-                        <CTableDataCell className="text-nowrap">
-                          {r.submittedAt
-                            ? new Date(r.submittedAt).toLocaleString()
-                            : "—"}
-                        </CTableDataCell>
                       </CTableRow>
                     ))}
                   </CTableBody>

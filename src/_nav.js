@@ -30,7 +30,7 @@ import {
 } from "@coreui/icons";
 import { CNavItem, CNavGroup } from "@coreui/react";
 
-// Purchase Manager / Purchase Executive – reference nav (permission-filter if wired to sidebar)
+// Purchase Executive – reference nav (permission-filter if wired to sidebar)
 export const PURCHASE_ROLE_NAV = [
   {
     component: CNavItem,
@@ -38,7 +38,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/pro-dashboard",
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
     module: "pro_bucket",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -46,7 +46,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/purchase-tasks",
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
     module: "purchase_tasks",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -54,7 +54,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/follow-up",
     icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
     module: "follow_up",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -62,7 +62,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/dmg",
     icon: <CIcon icon={cilFolder} customClassName="nav-icon" />,
     module: "dmg",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -70,7 +70,36 @@ export const PURCHASE_ROLE_NAV = [
     to: "/pro-bucket",
     icon: <CIcon icon={cilBasket} customClassName="nav-icon" />,
     module: "pro_bucket",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "Local Pro",
+    to: "/local-pro",
+    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
+    roles: ["procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "My Pro Bucket",
+    to: "/local-pro",
+    icon: <CIcon icon={cilBasket} customClassName="nav-icon" />,
+    roles: ["localprocurement"],
+  },
+  {
+    component: CNavItem,
+    name: "Local Purchase",
+    to: "/local-purchase",
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
+    module: "purchase_bucket",
+    roles: ["purchase_exicutive", "procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "My Purchase",
+    to: "/my-purchase",
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
+    roles: ["localpurchase"],
   },
   {
     component: CNavItem,
@@ -78,7 +107,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/po-bucket",
     icon: <CIcon icon={cilBasket} customClassName="nav-icon" />,
     module: "po_bucket",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -86,7 +115,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/po-payment",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
     module: "po_payment",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -94,7 +123,7 @@ export const PURCHASE_ROLE_NAV = [
     to: "/inventory-bucket",
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
     module: "inventory_bucket",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
@@ -102,7 +131,31 @@ export const PURCHASE_ROLE_NAV = [
     to: "/dispatchment",
     icon: <CIcon icon={cilTruck} customClassName="nav-icon" />,
     module: "dispatchment",
-    roles: ["purchase_manager", "purchase_exicutive", "procurement"],
+    roles: ["purchase_exicutive", "procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "Suppliers",
+    to: "/suppliers",
+    icon: <CIcon icon={cilFactory} customClassName="nav-icon" />,
+    module: "suppliers",
+    roles: ["purchase_exicutive", "procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "Purchase Bucket",
+    to: "/purchase-bucket",
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
+    module: "purchase_bucket",
+    roles: ["purchase_exicutive", "procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "Batch Billing Requests",
+    to: "/batch-billing-requests",
+    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
+    rolePrefix: "purchase",
+    roles: ["purchase_exicutive", "procurement"],
   },
 ];
 
@@ -147,18 +200,34 @@ const _nav = [
     module: "branches",
   },
   {
-    component: CNavItem,
-    name: "Zones",
+    component: CNavGroup,
+    name: "Branch Settings",
     to: "/zones",
     icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
-    module: "zones",
-  },
-  {
-    component: CNavItem,
-    name: "SubZone",
-    to: "/sub-zones",
-    icon: <CIcon icon={cilLayers} customClassName="nav-icon" />,
-    module: "sub_zones",
+    module: null,
+    items: [
+      {
+        component: CNavItem,
+        name: "Zones",
+        to: "/zones",
+        icon: <CIcon icon={cilMap} customClassName="nav-icon" />,
+        module: "zones",
+      },
+      {
+        component: CNavItem,
+        name: "SubZone",
+        to: "/sub-zones",
+        icon: <CIcon icon={cilLayers} customClassName="nav-icon" />,
+        module: "sub_zones",
+      },
+      {
+        component: CNavItem,
+        name: "Employees",
+        to: "/employees",
+        icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
+        module: "employees",
+      },
+    ],
   },
   {
     component: CNavItem,
@@ -210,6 +279,7 @@ const _nav = [
     to: "/query-products",
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
     module: "queries",
+    excludeRolePrefix: "sales",
   },
   {
     component: CNavItem,
@@ -234,6 +304,21 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "Quotation Follow-up",
+    to: "/quotation-followup",
+    icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
+    module: "quotations",
+    rolePrefix: "sales",
+  },
+  {
+    component: CNavItem,
+    name: "Follow-up Dashboard",
+    to: "/followup-dashboard",
+    icon: <CIcon icon={cilBell} customClassName="nav-icon" />,
+    roles: ["head_of_department", "hod"],
+  },
+  {
+    component: CNavItem,
     name: "Suppliers",
     to: "/suppliers",
     icon: <CIcon icon={cilFactory} customClassName="nav-icon" />,
@@ -244,6 +329,13 @@ const _nav = [
     name: "Rate Card",
     to: "/rate-cards",
     icon: <CIcon icon={cilList} customClassName="nav-icon" />,
+    module: "rate_cards",
+  },
+  {
+    component: CNavItem,
+    name: "Rate Master",
+    to: "/rate-master",
+    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
     module: "rate_cards",
   },
   {
@@ -269,6 +361,42 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "Local Pro",
+    to: "/local-pro",
+    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
+    roles: ["procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "My Pro Bucket",
+    to: "/local-pro",
+    icon: <CIcon icon={cilBasket} customClassName="nav-icon" />,
+    roles: ["localprocurement"],
+  },
+  {
+    component: CNavItem,
+    name: "Local Purchase",
+    to: "/local-purchase",
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
+    roles: ["procurement"],
+  },
+  {
+    component: CNavItem,
+    name: "My Purchase",
+    to: "/my-purchase",
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
+    roles: ["localpurchase"],
+  },
+  {
+    component: CNavItem,
+    name: "Local Purchase",
+    to: "/local-purchase",
+    icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
+    module: "purchase_bucket",
+    roles: ["purchase_exicutive"],
+  },
+  {
+    component: CNavItem,
     name: "Purchase Bucket",
     to: "/purchase-bucket",
     icon: <CIcon icon={cilCart} customClassName="nav-icon" />,
@@ -287,6 +415,7 @@ const _nav = [
     to: "/inventory-bucket",
     icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
     module: "inventory_bucket",
+    excludeRolePrefix: "sales",
   },
   {
     component: CNavItem,
@@ -294,6 +423,7 @@ const _nav = [
     to: "/dispatchment",
     icon: <CIcon icon={cilTruck} customClassName="nav-icon" />,
     module: "dispatchment",
+    excludeRolePrefix: "sales",
   },
   {
     component: CNavItem,
@@ -332,6 +462,20 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "Target Dashboard",
+    to: "/target-dashboard",
+    icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
+    roles: ["head_of_department", "hod"],
+  },
+  {
+    component: CNavItem,
+    name: "My Targets",
+    to: "/my-targets",
+    icon: <CIcon icon={cilTask} customClassName="nav-icon" />,
+    rolePrefix: "sales",
+  },
+  {
+    component: CNavItem,
     name: "Purchase Order",
     to: "/purchase-order-sidebar",
     icon: <CIcon icon={cilClipboard} customClassName="nav-icon" />,
@@ -343,14 +487,14 @@ const _nav = [
     to: "/po-payment",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
     module: "po_payment",
+    excludeRolePrefix: "sales",
   },
   {
     component: CNavItem,
     name: "Pending payment",
     to: "/pending-payment",
     icon: <CIcon icon={cilClock} customClassName="nav-icon" />,
-    module: "po_payment",
-    /** Only roles whose normalized name starts with `sales` (e.g. sales_manager). */
+    /** Sales roles only; no po_payment permission required (read-only assigned POs). */
     rolePrefix: "sales",
   },
   {
@@ -366,6 +510,7 @@ const _nav = [
     to: "/billing-requests",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
     module: "billing_request",
+    excludeRolePrefix: "sales",
   },
   {
     component: CNavItem,
@@ -380,13 +525,6 @@ const _nav = [
     to: "/batch-billing-requests",
     icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
     rolePrefix: "purchase",
-  },
-  {
-    component: CNavItem,
-    name: "Employees",
-    to: "/employees",
-    icon: <CIcon icon={cilUser} customClassName="nav-icon" />,
-    module: "employees",
   },
   {
     component: CNavItem,

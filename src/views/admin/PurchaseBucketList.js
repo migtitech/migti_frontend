@@ -31,6 +31,12 @@ const fmtDate = (iso) => {
 
 const fmt = (v) => (v == null || v === "" ? "—" : String(v));
 
+const queryCodeLast4 = (code) => {
+  const s = code != null ? String(code).trim() : "";
+  if (!s) return null;
+  return s.length <= 4 ? s : s.slice(-4);
+};
+
 const STATUS_CONFIG = {
   open:                     { label: "Open",                  color: "#2563eb", bg: "#eff6ff", dot: "#2563eb" },
   pending:                  { label: "Open",                  color: "#2563eb", bg: "#eff6ff", dot: "#2563eb" },
@@ -45,9 +51,57 @@ const STATUS_CONFIG = {
   po_closed:                { label: "PO Closed",             color: "#64748b", bg: "#f1f5f9", dot: "#94a3b8" },
 };
 
+const PRIORITY_CONFIG = {
+  high:   { label: "High",   color: "#dc2626", bg: "#fef2f2", dot: "#ef4444" },
+  medium: { label: "Medium", color: "#d97706", bg: "#fffbeb", dot: "#f59e0b" },
+  low:    { label: "Low",    color: "#16a34a", bg: "#f0fdf4", dot: "#22c55e" },
+};
+
 const StatusPill = ({ status }) => {
   const raw = status != null && String(status).trim() !== "" ? String(status).trim() : "pending";
   const cfg = STATUS_CONFIG[raw] || { label: raw, color: "#64748b", bg: "#f1f5f9", dot: "#94a3b8" };
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "3px 10px",
+        borderRadius: 20,
+        fontSize: 11,
+        fontWeight: 600,
+        color: cfg.color,
+        background: cfg.bg,
+        border: `1.5px solid ${cfg.color}25`,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: "50%",
+          background: cfg.dot,
+          flexShrink: 0,
+        }}
+      />
+      {cfg.label}
+    </span>
+  );
+};
+
+const PriorityPill = ({ priority }) => {
+  const raw =
+    priority != null && String(priority).trim() !== ""
+      ? String(priority).trim().toLowerCase()
+      : "medium";
+  const cfg =
+    PRIORITY_CONFIG[raw] || {
+      label: raw.charAt(0).toUpperCase() + raw.slice(1),
+      color: "#64748b",
+      bg: "#f1f5f9",
+      dot: "#94a3b8",
+    };
   return (
     <span
       style={{
@@ -256,6 +310,7 @@ const PurchaseBucketList = () => {
           <CRow className="g-2">
             {rows.map((row, idx) => {
               const dispDate = fmtDate(row.dispatchmentDate);
+              const queryCodeDisplay = queryCodeLast4(row.queryCode);
               return (
                 <CCol key={row._id || idx} xs={12} sm={6} lg={4}>
                   <div
@@ -292,8 +347,8 @@ const PurchaseBucketList = () => {
                       <CIcon icon={cilArrowRight} style={{ color: "#cbd5e1", fontSize: 14, flexShrink: 0, marginTop: 2 }} />
                     </div>
 
-                    {/* PO code */}
-                    {row.poCode && (
+                    {/* Query code (last 4 digits) */}
+                    {queryCodeDisplay && (
                       <div
                         style={{
                           display: "inline-block",
@@ -305,8 +360,9 @@ const PurchaseBucketList = () => {
                           borderRadius: 5,
                           alignSelf: "flex-start",
                         }}
+                        title={row.queryCode || undefined}
                       >
-                        {row.poCode}
+                        {queryCodeDisplay}
                       </div>
                     )}
 
@@ -324,9 +380,10 @@ const PurchaseBucketList = () => {
                       )}
                     </div>
 
-                    {/* Status */}
-                    <div className="mt-auto">
+                    {/* Status & priority */}
+                    <div className="mt-auto d-flex flex-wrap gap-2 align-items-center">
                       <StatusPill status={row.status} />
+                      <PriorityPill priority={row.priority} />
                     </div>
                   </div>
                 </CCol>

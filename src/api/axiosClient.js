@@ -126,7 +126,10 @@ axiosClient.interceptors.response.use(
       status: error.response?.status,
       message:
         error.response?.data?.message || error.message || "An error occurred",
-      errors: error.response?.data?.errors || null,
+      errors:
+        error.response?.data?.errors ||
+        error.response?.data?.error ||
+        null,
       data: error.response?.data || null,
     };
 

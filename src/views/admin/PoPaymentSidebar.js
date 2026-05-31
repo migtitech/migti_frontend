@@ -53,6 +53,16 @@ const formatDateTime = (value) => {
   return `${dd}/${mm}/${yy} ${hh}:${min}`;
 };
 
+const formatDate = (value) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+};
+
 const getTodayInputDate = () => {
   const d = new Date();
   const yyyy = d.getFullYear();
@@ -435,36 +445,13 @@ const PoPaymentSidebar = () => {
                             </CCol>
                             <CCol md={6}>
                               <div className="text-body-secondary small">
-                                Status
-                              </div>
-                              <div>{String(detail.status || "—")}</div>
-                            </CCol>
-                            <CCol md={6}>
-                              <div className="text-body-secondary small">
-                                Location / area
+                                Date of PO received
                               </div>
                               <div>
-                                {detail.companyInfo?.location || "—"}{" "}
-                                {detail.companyInfo?.area
-                                  ? `· ${detail.companyInfo.area}`
-                                  : ""}
+                                {formatDate(
+                                  detail.poReceivedDate || detail.createdAt,
+                                )}
                               </div>
-                            </CCol>
-                            <CCol md={6}>
-                              <div className="text-body-secondary small">
-                                Expected delivery
-                              </div>
-                              <div>
-                                {detail.expectedDeliveryDate
-                                  ? formatDateTime(detail.expectedDeliveryDate)
-                                  : "—"}
-                              </div>
-                            </CCol>
-                            <CCol md={12}>
-                              <div className="text-body-secondary small">
-                                Remark
-                              </div>
-                              <div>{detail.remark || "—"}</div>
                             </CCol>
                           </CRow>
                           <h6>Products</h6>

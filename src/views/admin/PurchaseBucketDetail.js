@@ -1,15 +1,27 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CButton, CCol, CRow, CSpinner } from "@coreui/react";
+import {
+  CButton,
+  CCol,
+  CFormInput,
+  CFormLabel,
+  CFormSelect,
+  CFormTextarea,
+  CRow,
+  CSpinner,
+} from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
   cilArrowLeft,
   cilCheckCircle,
   cilWarning,
   cilFile,
+  cilUser,
+  cilX,
 } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBucketService from "../../services/purchaseBucketService";
+import localPurchaseService from "../../services/localPurchaseService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
@@ -83,54 +95,90 @@ const StatusPill = ({ status }) => {
   );
 };
 
+// Stat box for quick header metrics
+const StatBox = ({ label, children, valueStyle }) => (
+  <div
+    className="h-100"
+    style={{
+      padding: "8px 14px",
+      background: "#fff",
+      border: "1px solid #e2e8f0",
+      borderRadius: 8,
+      minWidth: 0,
+    }}
+  >
+    <span style={{ color: "#94a3b8", fontSize: 11, display: "block" }}>{label}</span>
+    <div style={{ fontWeight: 700, color: "#1e293b", fontSize: 13, wordBreak: "break-word", ...valueStyle }}>
+      {children}
+    </div>
+  </div>
+);
+
 // Custom Tab component
 const Tabs = ({ tabs, active, onChange }) => (
-  <div style={{ display: "flex", gap: 4, borderBottom: "2px solid #e2e8f0", marginBottom: 20 }}>
-    {tabs.map((t) => (
-      <button
-        key={t.key}
-        onClick={() => onChange(t.key)}
-        style={{
-          padding: "8px 18px",
-          fontSize: 13,
-          fontWeight: active === t.key ? 700 : 500,
-          color: active === t.key ? "#2563eb" : "#64748b",
-          background: "none",
-          border: "none",
-          borderBottom: active === t.key ? "2px solid #2563eb" : "2px solid transparent",
-          marginBottom: -2,
-          cursor: "pointer",
-          transition: "color 0.15s",
-        }}
-      >
-        {t.label}
-        {t.count != null && (
-          <span style={{
-            marginLeft: 6, fontSize: 11, fontWeight: 700,
-            padding: "1px 6px", borderRadius: 10,
-            background: active === t.key ? "#dbeafe" : "#f1f5f9",
-            color: active === t.key ? "#1d4ed8" : "#64748b",
-          }}>
-            {t.count}
-          </span>
-        )}
-      </button>
-    ))}
+  <div
+    style={{
+      overflowX: "auto",
+      WebkitOverflowScrolling: "touch",
+      marginBottom: 20,
+      borderBottom: "2px solid #e2e8f0",
+    }}
+  >
+    <div style={{ display: "flex", gap: 4, minWidth: "min-content" }}>
+      {tabs.map((t) => (
+        <button
+          key={t.key}
+          onClick={() => onChange(t.key)}
+          style={{
+            padding: "8px 18px",
+            fontSize: 13,
+            fontWeight: active === t.key ? 700 : 500,
+            color: active === t.key ? "#2563eb" : "#64748b",
+            background: "none",
+            border: "none",
+            borderBottom: active === t.key ? "2px solid #2563eb" : "2px solid transparent",
+            marginBottom: -2,
+            cursor: "pointer",
+            transition: "color 0.15s",
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          {t.label}
+          {t.count != null && (
+            <span style={{
+              marginLeft: 6, fontSize: 11, fontWeight: 700,
+              padding: "1px 6px", borderRadius: 10,
+              background: active === t.key ? "#dbeafe" : "#f1f5f9",
+              color: active === t.key ? "#1d4ed8" : "#64748b",
+            }}>
+              {t.count}
+            </span>
+          )}
+        </button>
+      ))}
+    </div>
   </div>
 );
 
 // Key-value detail row
 const DetailRow = ({ label, value, mono }) => (
-  <div style={{
-    display: "flex", gap: 12, padding: "10px 0",
-    borderBottom: "1px solid #f1f5f9", alignItems: "flex-start",
-  }}>
+  <div
+    className="d-flex flex-column flex-sm-row gap-1 gap-sm-3"
+    style={{
+      padding: "10px 0",
+      borderBottom: "1px solid #f1f5f9",
+      alignItems: "flex-start",
+    }}
+  >
     <div style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500, minWidth: 130, flexShrink: 0 }}>
       {label}
     </div>
     <div style={{
       fontSize: 13, color: "#1e293b", fontWeight: 500, wordBreak: "break-word",
       fontFamily: mono ? "monospace" : undefined,
+      flex: 1,
+      minWidth: 0,
     }}>
       {value || "—"}
     </div>
@@ -148,6 +196,21 @@ const resolveUrl = (path) => {
   return path.startsWith("http") ? path : getAssetsUrl(path);
 };
 
+const formatLocalPurchaseEmployee = (emp) =>
+  emp?.email?.trim() || emp?.companyEmail?.trim() || "—";
+
+const resolveLocalPurchaseEmployeeId = (row) => {
+  const emp = row?.employeeId;
+  if (!emp) return "";
+  if (typeof emp === "object") {
+    return String(emp._id || emp.employeeId || "");
+  }
+  return String(emp);
+};
+
+const getLatestLocalPurchaseAssignment = (rows) =>
+  Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+
 // ─── component ────────────────────────────────────────────────────────────────
 
 const PurchaseBucketDetail = () => {
@@ -155,11 +218,23 @@ const PurchaseBucketDetail = () => {
   const navigate = useNavigate();
   const { canUpdate } = usePermissions();
   const canRaise = canUpdate("purchase_bucket");
+  const canAssignPurchase = canUpdate("purchase_bucket");
 
   const [activeTab, setActiveTab] = useState("details");
   const [item, setItem] = useState(null);
   const [loading, setLoading] = useState(true);
   const [markingPurchased, setMarkingPurchased] = useState(false);
+  const [assignBarOpen, setAssignBarOpen] = useState(false);
+  const [localPurchaseEmployees, setLocalPurchaseEmployees] = useState([]);
+  const [localPurchaseEmployeesLoading, setLocalPurchaseEmployeesLoading] =
+    useState(false);
+  const [selectedLocalPurchaseEmployee, setSelectedLocalPurchaseEmployee] =
+    useState("");
+  const [assignRemark, setAssignRemark] = useState("");
+  const [assignLocationLink, setAssignLocationLink] = useState("");
+  const [assigningPurchase, setAssigningPurchase] = useState(false);
+  const [localPurchases, setLocalPurchases] = useState([]);
+  const [localPurchasesLoading, setLocalPurchasesLoading] = useState(false);
 
   const unwrapPayload = (res) => res?.data?.data ?? res?.data;
 
@@ -179,6 +254,109 @@ const PurchaseBucketDetail = () => {
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
+
+  const loadLocalPurchases = useCallback(async () => {
+    if (!id) return;
+    setLocalPurchasesLoading(true);
+    try {
+      const res = await localPurchaseService.list({
+        poProductId: id,
+        pageSize: 20,
+      });
+      const block = res?.data;
+      setLocalPurchases(Array.isArray(block?.data) ? block.data : []);
+    } catch {
+      setLocalPurchases([]);
+    } finally {
+      setLocalPurchasesLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    loadLocalPurchases();
+  }, [loadLocalPurchases]);
+
+  useEffect(() => {
+    if (!assignBarOpen) return;
+    let cancelled = false;
+    const run = async () => {
+      setLocalPurchaseEmployeesLoading(true);
+      try {
+        const res = await localPurchaseService.listEmployees();
+        const list = Array.isArray(res?.data) ? res.data : [];
+        if (!cancelled) setLocalPurchaseEmployees(list);
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e?.message || "Failed to load local purchase employees");
+          setLocalPurchaseEmployees([]);
+        }
+      } finally {
+        if (!cancelled) setLocalPurchaseEmployeesLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [assignBarOpen]);
+
+  const closeAssignBar = () => {
+    if (assigningPurchase) return;
+    setAssignBarOpen(false);
+  };
+
+  const openAssignBar = () => {
+    const latest = getLatestLocalPurchaseAssignment(localPurchases);
+    setSelectedLocalPurchaseEmployee(
+      latest ? resolveLocalPurchaseEmployeeId(latest) : "",
+    );
+    setAssignRemark(
+      latest ? String(latest.remark || latest.assignmentRemark || "").trim() : "",
+    );
+    setAssignLocationLink(latest ? String(latest.locationLink || "").trim() : "");
+    setAssignBarOpen(true);
+  };
+
+  const localPurchaseEmployeeOptions = useMemo(() => {
+    const list = [...localPurchaseEmployees];
+    const latest = getLatestLocalPurchaseAssignment(localPurchases);
+    const assigned =
+      latest?.employeeId && typeof latest.employeeId === "object"
+        ? latest.employeeId
+        : null;
+    if (!assigned?._id) return list;
+
+    const assignedId = String(assigned._id);
+    if (list.some((emp) => String(emp.employeeId || emp._id) === assignedId)) {
+      return list;
+    }
+
+    return [{ ...assigned, employeeId: assigned._id }, ...list];
+  }, [localPurchaseEmployees, localPurchases]);
+
+  const handleAssignPurchase = async () => {
+    if (!id) return;
+    if (!selectedLocalPurchaseEmployee) {
+      toastError("Select a local purchase employee.");
+      return;
+    }
+    setAssigningPurchase(true);
+    try {
+      await localPurchaseService.assign({
+        poProductId: id,
+        employeeId: selectedLocalPurchaseEmployee,
+        remark: assignRemark,
+        locationLink: assignLocationLink,
+      });
+      toastSuccess("Assigned to local purchase");
+      setAssignBarOpen(false);
+      await loadLocalPurchases();
+    } catch (e) {
+      toastError(e?.message || "Failed to assign local purchase");
+    } finally {
+      setAssigningPurchase(false);
+    }
+  };
 
   const markAsPurchased = async () => {
     if (!id) return;
@@ -227,35 +405,52 @@ const PurchaseBucketDetail = () => {
 
   const br = item.purchaseBillingRequestId && typeof item.purchaseBillingRequestId === "object"
     ? item.purchaseBillingRequestId : null;
+  const hasMedia = imagePreviews.length > 0 || lineUrl || nonImageDocs.length > 0 || lineNonImg;
+  const imageStyle = {
+    maxHeight: "clamp(160px, 28vh, 320px)",
+    maxWidth: "100%",
+    width: "auto",
+    objectFit: "contain",
+    borderRadius: 8,
+    border: "1px solid #e2e8f0",
+  };
 
   return (
-    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+    <div className="w-100 mx-auto" style={{ maxWidth: "min(100%, 1280px)" }}>
       {/* Breadcrumb */}
-      <CBreadcrumb className="mb-3" style={{ fontSize: 13 }}>
+      <CBreadcrumb className="mb-3 flex-nowrap overflow-auto" style={{ fontSize: 13 }}>
         <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
         <CBreadcrumbItem href="#/purchase-bucket">Purchase Bucket</CBreadcrumbItem>
-        <CBreadcrumbItem active>{item.productName || "Line item"}</CBreadcrumbItem>
+        <CBreadcrumbItem active className="text-truncate" style={{ maxWidth: "min(50vw, 420px)" }}>
+          {item.productName || "Line item"}
+        </CBreadcrumbItem>
       </CBreadcrumb>
 
       {/* Page header */}
       <div
-        className="mb-4 rounded-3 p-3"
+        className="mb-4 rounded-3 p-3 p-md-4"
         style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}
       >
-        <div className="d-flex align-items-start gap-3 flex-wrap">
+        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-start gap-3">
           <CButton
             color="secondary"
             variant="outline"
             size="sm"
             onClick={() => navigate("/purchase-bucket")}
-            style={{ flexShrink: 0 }}
+            className="align-self-start flex-shrink-0"
           >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back
           </CButton>
 
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 17, color: "#1e293b", lineHeight: 1.3 }}>
+          <div className="flex-grow-1 min-w-0">
+            <div style={{
+              fontWeight: 800,
+              fontSize: "clamp(1rem, 1.6vw, 1.35rem)",
+              color: "#1e293b",
+              lineHeight: 1.3,
+              wordBreak: "break-word",
+            }}>
               {item.productName || "Line item"}
             </div>
             {item.poCode && (
@@ -268,15 +463,27 @@ const PurchaseBucketDetail = () => {
             )}
           </div>
 
-          <div className="d-flex flex-column align-items-end gap-2">
+          <div className="d-flex flex-row flex-lg-column align-items-center align-items-lg-end justify-content-between justify-content-lg-start gap-2 ms-lg-auto flex-shrink-0 flex-wrap">
             <StatusPill status={lineStatus} />
+            {canAssignPurchase && (
+              <CButton
+                color="primary"
+                variant="outline"
+                size="sm"
+                onClick={openAssignBar}
+                style={{ borderRadius: 8, fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}
+              >
+                <CIcon icon={cilUser} className="me-1" />
+                Assign Purchase
+              </CButton>
+            )}
             {canRaise && lineStatus === "finance_approved" && (
               <CButton
                 color="success"
                 size="sm"
                 disabled={markingPurchased}
                 onClick={markAsPurchased}
-                style={{ borderRadius: 8, fontWeight: 600, fontSize: 12 }}
+                style={{ borderRadius: 8, fontWeight: 600, fontSize: 12, whiteSpace: "nowrap" }}
               >
                 {markingPurchased
                   ? <><CSpinner size="sm" className="me-1" />Updating…</>
@@ -287,41 +494,49 @@ const PurchaseBucketDetail = () => {
         </div>
 
         {/* Quick stats */}
-        <div className="d-flex flex-wrap gap-3 mt-3" style={{ fontSize: 13 }}>
+        <CRow className="g-2 g-md-3 mt-3">
           {item.quantity != null && (
-            <div style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-              <span style={{ color: "#94a3b8", fontSize: 11 }}>Qty</span>
-              <div style={{ fontWeight: 700, color: "#1e293b" }}>
+            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
+              <StatBox label="Qty">
                 {item.quantity}{item.unit ? ` ${item.unit}` : ""}
-              </div>
-            </div>
+              </StatBox>
+            </CCol>
           )}
           {item.dispatchmentDate && (
-            <div style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-              <span style={{ color: "#94a3b8", fontSize: 11 }}>Dispatch</span>
-              <div style={{ fontWeight: 700, color: "#1e293b" }}>{fmtDate(item.dispatchmentDate)}</div>
-            </div>
+            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
+              <StatBox label="Dispatch">{fmtDate(item.dispatchmentDate)}</StatBox>
+            </CCol>
           )}
           {item.priority && (
-            <div style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-              <span style={{ color: "#94a3b8", fontSize: 11 }}>Priority</span>
-              <div style={{
-                fontWeight: 700,
-                color: item.priority === "high" ? "#dc2626" : item.priority === "medium" ? "#d97706" : "#16a34a",
-              }}>
+            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
+              <StatBox
+                label="Priority"
+                valueStyle={{
+                  color: item.priority === "high" ? "#dc2626" : item.priority === "medium" ? "#d97706" : "#16a34a",
+                }}
+              >
                 {String(item.priority).charAt(0).toUpperCase() + String(item.priority).slice(1)}
-              </div>
-            </div>
+              </StatBox>
+            </CCol>
+          )}
+          {item.targetRate != null && (
+            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
+              <StatBox label="Target Rate">
+                ₹{Number(item.targetRate).toLocaleString("en-IN")}
+              </StatBox>
+            </CCol>
           )}
           {item.rawProductCode && (
-            <div style={{ padding: "6px 12px", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8 }}>
-              <span style={{ color: "#94a3b8", fontSize: 11 }}>Product code</span>
-              <div style={{ fontWeight: 700, color: "#2563eb", fontFamily: "monospace", fontSize: 12 }}>
+            <CCol xs={12} sm={8} md={6} lg={4} xl="auto">
+              <StatBox
+                label="Product code"
+                valueStyle={{ color: "#2563eb", fontFamily: "monospace", fontSize: 12 }}
+              >
                 {item.rawProductCode}
-              </div>
-            </div>
+              </StatBox>
+            </CCol>
           )}
-        </div>
+        </CRow>
       </div>
 
       {/* Tabs */}
@@ -336,23 +551,23 @@ const PurchaseBucketDetail = () => {
 
       {/* ── Details tab ── */}
       {activeTab === "details" && (
-        <CRow className="g-3">
+        <CRow className="g-3 g-lg-4">
           {/* Images */}
-          {(imagePreviews.length > 0 || lineUrl || nonImageDocs.length > 0 || lineNonImg) && (
-            <CCol xs={12} md={5}>
-              <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+          {hasMedia && (
+            <CCol xs={12} lg={5} xl={4}>
+              <div className="h-100" style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
                   Product Images
                 </div>
 
                 {imagePreviews.length > 0 && (
-                  <div className="d-flex flex-wrap gap-2 justify-content-center mb-2">
+                  <div className="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start mb-2">
                     {imagePreviews.map(({ doc, url }, i) => (
                       <a key={doc._id != null ? String(doc._id) : `img-${i}`} href={url} target="_blank" rel="noreferrer">
                         <img
                           src={url}
                           alt={doc.originalName || item.productName || "Product"}
-                          style={{ maxHeight: 180, maxWidth: "100%", objectFit: "contain", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                          style={imageStyle}
                         />
                       </a>
                     ))}
@@ -364,11 +579,11 @@ const PurchaseBucketDetail = () => {
                     {imagePreviews.length > 0 && (
                       <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>PO line photo</div>
                     )}
-                    <div className="text-center">
+                    <div className="text-center text-lg-start">
                       <img
                         src={lineUrl}
                         alt="Line attachment"
-                        style={{ maxHeight: 180, maxWidth: "100%", objectFit: "contain", borderRadius: 8, border: "1px solid #e2e8f0" }}
+                        style={imageStyle}
                       />
                     </div>
                   </div>
@@ -381,7 +596,7 @@ const PurchaseBucketDetail = () => {
                     target="_blank"
                     rel="noreferrer"
                     className="d-flex align-items-center gap-2 mt-2"
-                    style={{ fontSize: 13, color: "#2563eb", textDecoration: "none" }}
+                    style={{ fontSize: 13, color: "#2563eb", textDecoration: "none", wordBreak: "break-word" }}
                   >
                     <CIcon icon={cilFile} style={{ flexShrink: 0 }} />
                     {doc.originalName || "Open attachment"}
@@ -392,8 +607,8 @@ const PurchaseBucketDetail = () => {
           )}
 
           {/* Field details */}
-          <CCol xs={12} md={(imagePreviews.length > 0 || lineUrl || nonImageDocs.length > 0 || lineNonImg) ? 7 : 12}>
-            <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "4px 16px 8px" }}>
+          <CCol xs={12} lg={hasMedia ? 7 : 12} xl={hasMedia ? 8 : 12}>
+            <div className="h-100" style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: "4px 16px 8px" }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, padding: "12px 0 4px" }}>
                 Line Details
               </div>
@@ -457,21 +672,21 @@ const PurchaseBucketDetail = () => {
                   )}
                 </div>
 
-                <CRow className="g-2" style={{ fontSize: 13 }}>
+                <CRow className="g-2 g-md-3" style={{ fontSize: 13 }}>
                   {br.amount != null && (
-                    <CCol xs={6} sm={4}>
+                    <CCol xs={12} sm={6} md={4} lg={3}>
                       <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>Amount</div>
                       <div style={{ fontWeight: 700, color: "#1e293b" }}>₹{Number(br.amount).toLocaleString("en-IN")}</div>
                     </CCol>
                   )}
                   {(br.createdBySnapshot?.name || br.createdBy?.name) && (
-                    <CCol xs={6} sm={4}>
+                    <CCol xs={12} sm={6} md={4} lg={3}>
                       <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>Submitted by</div>
                       <div style={{ fontWeight: 600 }}>{br.createdBySnapshot?.name || br.createdBy?.name}</div>
                     </CCol>
                   )}
                   {(br.approvedBySnapshot?.name || br.approvedBy?.name) && (
-                    <CCol xs={6} sm={4}>
+                    <CCol xs={12} sm={6} md={4} lg={3}>
                       <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>Approved by</div>
                       <div style={{ fontWeight: 600 }}>{br.approvedBySnapshot?.name || br.approvedBy?.name}</div>
                       {br.approvedAt && <div style={{ fontSize: 11, color: "#94a3b8" }}>{fmtDateTime(br.approvedAt)}</div>}
@@ -522,6 +737,76 @@ const PurchaseBucketDetail = () => {
               </div>
             </CCol>
           )}
+
+          {/* Local purchase assignments */}
+          <CCol xs={12}>
+            <div style={{ background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 12 }}>
+                Local Purchase Assignments
+              </div>
+              {localPurchasesLoading ? (
+                <div className="text-body-secondary small py-2">
+                  <CSpinner size="sm" className="me-2" />
+                  Loading assignments…
+                </div>
+              ) : localPurchases.length === 0 ? (
+                <p className="text-body-secondary small mb-0">
+                  No local purchase assignments yet.
+                </p>
+              ) : (
+                <div className="d-flex flex-column gap-2">
+                  {localPurchases.map((row) => {
+                    const emp =
+                      row.employeeId && typeof row.employeeId === "object"
+                        ? row.employeeId
+                        : null;
+                    return (
+                      <div
+                        key={row._id}
+                        className="rounded-2 p-3"
+                        style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}
+                      >
+                        <div className="d-flex flex-wrap justify-content-between gap-2 mb-2">
+                          <div style={{ fontWeight: 600, fontSize: 13, color: "#1e293b" }}>
+                            {emp?.name || emp?.email || "Assigned employee"}
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>
+                            {String(row.status || "pending")}
+                          </span>
+                        </div>
+                        {(emp?.designation || emp?.role) && (
+                          <div className="small text-body-secondary mb-2">
+                            {[emp?.designation, emp?.role].filter(Boolean).join(" · ")}
+                          </div>
+                        )}
+                        {(row.remark || row.assignmentRemark) && (
+                          <div className="small mb-1">
+                            <span className="text-body-secondary">Remark: </span>
+                            {row.remark || row.assignmentRemark}
+                          </div>
+                        )}
+                        {row.locationLink && (
+                          <a
+                            href={row.locationLink}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="small d-inline-block"
+                            style={{ wordBreak: "break-all" }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {row.locationLink}
+                          </a>
+                        )}
+                        <div className="small text-body-secondary mt-2">
+                          {fmtDateTime(row.createdAt)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </CCol>
         </CRow>
       )}
 
@@ -567,52 +852,54 @@ const PurchaseBucketDetail = () => {
               <div style={{ fontSize: 14, fontWeight: 600 }}>No supplier rates yet</div>
             </div>
           ) : (
-            <div className="d-flex flex-column gap-2">
+            <CRow className="g-3">
               {ratesToShow.map((r, idx) => {
                 const extras = supplierExtra(r.supplier);
                 return (
-                  <div
-                    key={r._id != null ? String(r._id) : idx}
-                    style={{
-                      background: "#fff",
-                      border: "1.5px solid #e2e8f0",
-                      borderRadius: 12,
-                      padding: "14px 16px",
-                    }}
-                  >
-                    <div className="d-flex align-items-start justify-content-between gap-3 flex-wrap">
-                      <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b" }}>
-                          {supplierLabel(r.supplier)}
-                        </div>
-                        {extras.map((e, i) => (
-                          <div key={i} style={{ fontSize: 12, color: "#64748b", marginTop: 1 }}>{e}</div>
-                        ))}
-                      </div>
-                      {r.rate != null && (
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontWeight: 800, fontSize: 16, color: "#2563eb" }}>
-                            ₹{Number(r.rate).toLocaleString("en-IN")}
+                  <CCol key={r._id != null ? String(r._id) : idx} xs={12} lg={6} xl={4}>
+                    <div
+                      className="h-100"
+                      style={{
+                        background: "#fff",
+                        border: "1.5px solid #e2e8f0",
+                        borderRadius: 12,
+                        padding: "14px 16px",
+                      }}
+                    >
+                      <div className="d-flex align-items-start justify-content-between gap-3 flex-column flex-sm-row">
+                        <div className="min-w-0">
+                          <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", wordBreak: "break-word" }}>
+                            {supplierLabel(r.supplier)}
                           </div>
-                          {r.unit && <div style={{ fontSize: 12, color: "#94a3b8" }}>per {r.unit}</div>}
+                          {extras.map((e, i) => (
+                            <div key={i} style={{ fontSize: 12, color: "#64748b", marginTop: 1, wordBreak: "break-word" }}>{e}</div>
+                          ))}
+                        </div>
+                        {r.rate != null && (
+                          <div className="text-start text-sm-end flex-shrink-0">
+                            <div style={{ fontWeight: 800, fontSize: 16, color: "#2563eb" }}>
+                              ₹{Number(r.rate).toLocaleString("en-IN")}
+                            </div>
+                            {r.unit && <div style={{ fontSize: 12, color: "#94a3b8" }}>per {r.unit}</div>}
+                          </div>
+                        )}
+                      </div>
+
+                      {(r.remark || r.submittedAt || r.submittedBy?.name) && (
+                        <div
+                          className="d-flex flex-wrap gap-2 gap-md-3 mt-2 pt-2"
+                          style={{ borderTop: "1px solid #f1f5f9", fontSize: 12, color: "#64748b" }}
+                        >
+                          {r.remark && <span><strong style={{ color: "#475569" }}>Note:</strong> {r.remark}</span>}
+                          {r.submittedBy?.name && <span>By <strong style={{ color: "#475569" }}>{r.submittedBy.name}</strong></span>}
+                          {r.submittedAt && <span>{fmtDateTime(r.submittedAt)}</span>}
                         </div>
                       )}
                     </div>
-
-                    {(r.remark || r.submittedAt || r.submittedBy?.name) && (
-                      <div
-                        className="d-flex flex-wrap gap-3 mt-2 pt-2"
-                        style={{ borderTop: "1px solid #f1f5f9", fontSize: 12, color: "#64748b" }}
-                      >
-                        {r.remark && <span><strong style={{ color: "#475569" }}>Note:</strong> {r.remark}</span>}
-                        {r.submittedBy?.name && <span>By <strong style={{ color: "#475569" }}>{r.submittedBy.name}</strong></span>}
-                        {r.submittedAt && <span>{fmtDateTime(r.submittedAt)}</span>}
-                      </div>
-                    )}
-                  </div>
+                  </CCol>
                 );
               })}
-            </div>
+            </CRow>
           )}
 
           {/* Warning if rejected */}
@@ -627,6 +914,142 @@ const PurchaseBucketDetail = () => {
               </span>
             </div>
           )}
+        </div>
+      )}
+
+      {assignBarOpen && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100"
+          style={{
+            zIndex: 1040,
+            background: "rgba(15, 23, 42, 0.42)",
+            backdropFilter: "blur(3px)",
+            WebkitBackdropFilter: "blur(3px)",
+          }}
+          onClick={closeAssignBar}
+          role="button"
+          tabIndex={-1}
+          aria-label="Close"
+        />
+      )}
+
+      {assignBarOpen && (
+        <div
+          className="position-fixed top-0 end-0 d-flex flex-column border-start border-2 bg-body shadow-lg h-100"
+          style={{ zIndex: 1050, width: "min(28rem, 100%)" }}
+          onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Assign local purchase"
+        >
+          <div className="d-flex align-items-center justify-content-between gap-2 border-bottom px-3 py-2 flex-shrink-0">
+            <div style={{ minWidth: 0 }}>
+              <h2 className="h6 mb-0">Assign Purchase</h2>
+              {item?.productName && (
+                <div
+                  className="text-body-secondary text-truncate small"
+                  title={item.productName}
+                >
+                  {item.productName}
+                </div>
+              )}
+            </div>
+            <CButton
+              type="button"
+              color="secondary"
+              variant="ghost"
+              size="sm"
+              onClick={closeAssignBar}
+              disabled={assigningPurchase}
+              aria-label="Close"
+            >
+              <CIcon icon={cilX} size="lg" />
+            </CButton>
+          </div>
+
+          <div className="flex-grow-1 overflow-auto px-3 py-3">
+            {localPurchaseEmployeesLoading ? (
+              <Loader message="Loading employees…" />
+            ) : localPurchaseEmployeeOptions.length === 0 ? (
+              <p className="text-body-secondary mb-0">
+                No employees with the local purchase role were found.
+              </p>
+            ) : (
+              <>
+                <CFormLabel htmlFor="local-purchase-employee">
+                  Local purchase employee
+                </CFormLabel>
+                <CFormSelect
+                  id="local-purchase-employee"
+                  value={selectedLocalPurchaseEmployee}
+                  onChange={(e) => setSelectedLocalPurchaseEmployee(e.target.value)}
+                  className="mb-3"
+                >
+                  <option value="">— Select employee —</option>
+                  {localPurchaseEmployeeOptions.map((emp) => {
+                    const empId = emp.employeeId || emp._id;
+                    return (
+                      <option key={empId} value={String(empId)}>
+                        {formatLocalPurchaseEmployee(emp)}
+                      </option>
+                    );
+                  })}
+                </CFormSelect>
+
+                <CFormLabel htmlFor="local-purchase-remark">Remark</CFormLabel>
+                <CFormTextarea
+                  id="local-purchase-remark"
+                  rows={3}
+                  placeholder="Optional note for the assignee…"
+                  value={assignRemark}
+                  onChange={(e) => setAssignRemark(e.target.value)}
+                  className="mb-3"
+                />
+
+                <CFormLabel htmlFor="local-purchase-location">
+                  Location link
+                </CFormLabel>
+                <CFormInput
+                  id="local-purchase-location"
+                  type="url"
+                  value={assignLocationLink}
+                  onChange={(e) => setAssignLocationLink(e.target.value)}
+                  placeholder="https://maps.google.com/…"
+                />
+              </>
+            )}
+          </div>
+
+          <div className="d-flex gap-2 px-3 py-2 border-top flex-shrink-0 justify-content-end">
+            <CButton
+              type="button"
+              color="secondary"
+              variant="ghost"
+              onClick={closeAssignBar}
+              disabled={assigningPurchase}
+            >
+              Cancel
+            </CButton>
+            <CButton
+              type="button"
+              color="primary"
+              onClick={handleAssignPurchase}
+              disabled={
+                assigningPurchase ||
+                localPurchaseEmployeesLoading ||
+                localPurchaseEmployees.length === 0
+              }
+            >
+              {assigningPurchase ? (
+                <>
+                  <CSpinner size="sm" className="me-2" />
+                  Assigning…
+                </>
+              ) : (
+                "Assign Purchase"
+              )}
+            </CButton>
+          </div>
         </div>
       )}
     </div>

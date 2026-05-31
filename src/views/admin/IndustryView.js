@@ -469,6 +469,7 @@ const IndustryView = () => {
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
                         <CTableHeaderCell>Name</CTableHeaderCell>
+                        <CTableHeaderCell>Department</CTableHeaderCell>
                         <CTableHeaderCell>Phone</CTableHeaderCell>
                         <CTableHeaderCell>Email</CTableHeaderCell>
                       </CTableRow>
@@ -478,13 +479,14 @@ const IndustryView = () => {
                         <CTableRow key={pm._id || idx}>
                           <CTableDataCell>{idx + 1}</CTableDataCell>
                           <CTableDataCell>{pm.name || "-"}</CTableDataCell>
+                          <CTableDataCell>{pm.department || "-"}</CTableDataCell>
                           <CTableDataCell>{pm.phone || "-"}</CTableDataCell>
                           <CTableDataCell>{pm.email || "-"}</CTableDataCell>
                         </CTableRow>
                       ))}
                       {purchaseManagers.length === 0 && (
                         <CTableRow>
-                          <CTableDataCell colSpan={4} className="text-center">
+                          <CTableDataCell colSpan={5} className="text-center">
                             No purchase managers found.
                           </CTableDataCell>
                         </CTableRow>

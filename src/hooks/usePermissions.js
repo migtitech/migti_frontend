@@ -22,8 +22,9 @@ export const normalizeRole = (role) =>
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
 
-const hasPurchaseOrderBypass = (role) => {
+export const hasPurchaseOrderBypass = (role) => {
   const normalized = normalizeRole(role);
+  if (normalized.startsWith("sales")) return true;
   if (
     ["back_office_exicutive", "back_office_executive", "boe"].includes(
       normalized,
@@ -32,6 +33,25 @@ const hasPurchaseOrderBypass = (role) => {
     return true;
   return normalized.replace(/_/g, "").includes("backoffice");
 };
+
+/** Procurement always sees Suppliers in the sidebar (read access). */
+export const hasProcurementSuppliersBypass = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === "procurement";
+};
+
+/** Procurement role uses Purchase Bucket without explicit RBAC module grants. */
+export const hasProcurementPurchaseBucketBypass = (role) =>
+  normalizeRole(role) === "procurement";
+
+/** Matches purchase_exicutive and standalone procurement role. */
+export const isPurchaseFamilyRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === "procurement" || normalized.startsWith("purchase");
+};
+
+/** HOD-approved quotation → PO (quotation detail action). */
+export const canConvertQuotationToPo = (role) => hasPurchaseOrderBypass(role);
 
 const usePermissions = () => {
   const { user } = useAuth();
@@ -47,6 +67,19 @@ const usePermissions = () => {
     (module, action) => {
       if (!user) return false;
       if (isFullAccess) return true;
+      if (
+        module === "suppliers" &&
+        hasProcurementSuppliersBypass(user.role) &&
+        action === "read"
+      ) {
+        return true;
+      }
+      if (
+        module === "purchase_bucket" &&
+        hasProcurementPurchaseBucketBypass(user.role)
+      ) {
+        return true;
+      }
       if (module === "purchase_orders" && hasPurchaseOrderBypass(user.role))
         return true;
       const p = `${module}:${action}`;
@@ -84,6 +117,18 @@ const usePermissions = () => {
     (module) => {
       if (!user) return false;
       if (isFullAccess) return true;
+      if (
+        module === "suppliers" &&
+        hasProcurementSuppliersBypass(user.role)
+      ) {
+        return true;
+      }
+      if (
+        module === "purchase_bucket" &&
+        hasProcurementPurchaseBucketBypass(user.role)
+      ) {
+        return true;
+      }
       if (module === "purchase_orders" && hasPurchaseOrderBypass(user.role))
         return true;
       const anyFor = (m) => {

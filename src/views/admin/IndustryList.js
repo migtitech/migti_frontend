@@ -33,12 +33,16 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
 import useBranchContext from "../../hooks/useBranchContext";
+import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../hooks/usePermissions";
 
 const IndustryList = () => {
   const MOBILE_BREAKPOINT = 576;
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { user } = useAuth();
+  const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const [industries, setIndustries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -134,6 +138,15 @@ const IndustryList = () => {
         category: categoryFilter || undefined,
         areaIds: selectedAreaId || undefined,
       };
+      if (isSalesRole) {
+        const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+        const userZoneIds = storedUser?.zoneIds;
+        if (Array.isArray(userZoneIds) && userZoneIds.length) {
+          params.zoneIds = userZoneIds.join(",");
+        } else if (typeof userZoneIds === "string" && userZoneIds) {
+          params.zoneIds = userZoneIds;
+        }
+      }
       // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
       const effectiveBranchId = branchFilter || userBranchId;
       if (effectiveBranchId) params.branchId = effectiveBranchId;
@@ -153,6 +166,7 @@ const IndustryList = () => {
     selectedAreaId,
     branchFilter,
     userBranchId,
+    isSalesRole,
   ]);
 
   useEffect(() => {
@@ -274,41 +288,45 @@ const IndustryList = () => {
                   />
                 </CInputGroup>
               </CCol>
-              <CCol md={2}>
-                <CFormLabel className="small text-muted">Branch</CFormLabel>
-                <CFormSelect
-                  value={branchFilter}
-                  onChange={(e) => {
-                    setBranchFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  aria-label="Branch filter"
-                >
-                  <option value="">All branches</option>
-                  {branches.map((b) => (
-                    <option key={b.id || b._id} value={b.id || b._id}>
-                      {b.name || b.branchcode || b.id}
-                    </option>
-                  ))}
-                </CFormSelect>
-              </CCol>
-              <CCol md={2}>
-                <CFormSelect
-                  label="Category"
-                  value={categoryFilter}
-                  onChange={(e) => {
-                    setCategoryFilter(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All Categories</option>
-                  <option value="A">A</option>
-                  <option value="B">B</option>
-                  <option value="C">C</option>
-                  <option value="D">D</option>
-                </CFormSelect>
-              </CCol>
-              <CCol md={2}>
+              {!isSalesRole && (
+                <CCol md={2}>
+                  <CFormLabel className="small text-muted">Branch</CFormLabel>
+                  <CFormSelect
+                    value={branchFilter}
+                    onChange={(e) => {
+                      setBranchFilter(e.target.value);
+                      setPage(1);
+                    }}
+                    aria-label="Branch filter"
+                  >
+                    <option value="">All branches</option>
+                    {branches.map((b) => (
+                      <option key={b.id || b._id} value={b.id || b._id}>
+                        {b.name || b.branchcode || b.id}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </CCol>
+              )}
+              {!isSalesRole && (
+                <CCol md={2}>
+                  <CFormSelect
+                    label="Category"
+                    value={categoryFilter}
+                    onChange={(e) => {
+                      setCategoryFilter(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">All Categories</option>
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                  </CFormSelect>
+                </CCol>
+              )}
+              {!isSalesRole && <CCol md={2}>
                 <CFormLabel className="small text-muted">Zones</CFormLabel>
                 <CFormSelect
                   value={selectedAreaId}
@@ -328,7 +346,7 @@ const IndustryList = () => {
                     );
                   })}
                 </CFormSelect>
-              </CCol>
+              </CCol>}
             </CRow>
             {loading ? (
               <Loader message="Loading industries..." />

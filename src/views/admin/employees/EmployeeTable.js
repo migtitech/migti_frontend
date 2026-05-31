@@ -55,7 +55,6 @@ const EmployeeTable = ({
       head_of_department: "primary",
       sales_manager: "info",
       sales_exicutive: "info",
-      purchase_manager: "warning",
       purchase_exicutive: "warning",
       procurement: "warning",
       back_office_exicutive: "secondary",
