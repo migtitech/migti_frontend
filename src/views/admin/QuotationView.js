@@ -137,6 +137,14 @@ const proBucketStatusBadge = (status) => {
   }
 };
 
+const FREIGHT_AS_PER_ACTUAL_LABEL = "As per actual";
+
+const isNumericFreightValue = (v) => {
+  if (v == null || v === "") return false;
+  const compact = String(v).replace(/,/g, "").replace(/\s/g, "");
+  return /^\d*\.?\d+$/.test(compact);
+};
+
 const parseQuotationFreightNumeric = (v) => {
   if (v == null || v === "") return 0;
   if (typeof v === "number" && !Number.isNaN(v) && v >= 0) return v;
@@ -405,6 +413,12 @@ const QuotationView = () => {
     purchaseManagerEmail: "",
   });
   const [savingCompany, setSavingCompany] = useState(false);
+  const [freightForm, setFreightForm] = useState({
+    freightMode: "actual",
+    freightValue: "",
+    packingCharge: "",
+  });
+  const [savingFreight, setSavingFreight] = useState(false);
   const [zoneNameDisplay, setZoneNameDisplay] = useState(null);
   const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0);
   const [quoteLogsOpen, setQuoteLogsOpen] = useState(false);
@@ -563,6 +577,24 @@ const QuotationView = () => {
     }
   }, [displayQuotation]);
 
+  // Sync freight & packing form from quotation
+  useEffect(() => {
+    if (!displayQuotation) return;
+    const rawFreight = displayQuotation.freightCharge;
+    const isNumeric = isNumericFreightValue(rawFreight);
+    setFreightForm({
+      freightMode: isNumeric ? "other" : "actual",
+      freightValue: isNumeric
+        ? String(rawFreight).replace(/,/g, "").trim()
+        : "",
+      packingCharge:
+        displayQuotation.packingCharge != null &&
+        Number(displayQuotation.packingCharge) > 0
+          ? String(displayQuotation.packingCharge)
+          : "",
+    });
+  }, [displayQuotation]);
+
   // Resolve zone ID to name for display in Company Information
   useEffect(() => {
     const areaVal = companyForm.area?.trim?.() || "";
@@ -650,6 +682,51 @@ const QuotationView = () => {
       );
     } finally {
       setSavingCompany(false);
+    }
+  };
+
+  const handleSaveFreightPacking = async () => {
+    if (!quotation?.id) return;
+    if (
+      freightForm.freightMode === "other" &&
+      (freightForm.freightValue === "" ||
+        Number(freightForm.freightValue) < 0 ||
+        Number.isNaN(Number(freightForm.freightValue)))
+    ) {
+      toastError("Enter a valid freight amount");
+      return;
+    }
+    setSavingFreight(true);
+    try {
+      const freightCharge =
+        freightForm.freightMode === "other"
+          ? String(Number(freightForm.freightValue))
+          : FREIGHT_AS_PER_ACTUAL_LABEL;
+      const packingCharge =
+        freightForm.packingCharge === "" ||
+        Number.isNaN(Number(freightForm.packingCharge))
+          ? 0
+          : Math.max(0, Number(freightForm.packingCharge));
+      const res = await quotationService.update(quotation.id, {
+        freightCharge,
+        packingCharge,
+      });
+      const data = res?.data?.data ?? res?.data ?? res;
+      setQuotation((prev) =>
+        mergeQuotationUpdateIntoPrev(prev, data, {
+          freightCharge,
+          packingCharge,
+        }),
+      );
+      toastSuccess("Freight & packing charge updated");
+    } catch (err) {
+      toastError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update freight & packing charge",
+      );
+    } finally {
+      setSavingFreight(false);
     }
   };
 
@@ -2144,6 +2221,26 @@ const QuotationView = () => {
             </CNavItem>
             <CNavItem>
               <CNavLink
+                active={activeTab === "freightPacking"}
+                onClick={() => setActiveTab("freightPacking")}
+                style={{
+                  cursor: "pointer",
+                  border: "none",
+                  borderBottom:
+                    activeTab === "freightPacking"
+                      ? "2px solid #321fdb"
+                      : "2px solid transparent",
+                  color:
+                    activeTab === "freightPacking" ? "#321fdb" : "#6c757d",
+                  fontWeight: 600,
+                  paddingInline: 10,
+                }}
+              >
+                Freight &amp; Packing Charge
+              </CNavLink>
+            </CNavItem>
+            <CNavItem>
+              <CNavLink
                 active={activeTab === "products"}
                 onClick={() => setActiveTab("products")}
                 style={{
@@ -2944,6 +3041,86 @@ const QuotationView = () => {
                       <div className="mt-1">{displayQuotation.remark}</div>
                     </div>
                   ) : null}
+                </CCardBody>
+              </CCard>
+            </CTabPane>
+
+            {/* Tab: Freight & Packing Charge */}
+            <CTabPane visible={activeTab === "freightPacking"}>
+              <CCard className="mb-4">
+                <CCardHeader>
+                  <strong>Freight &amp; Packing Charge</strong>
+                </CCardHeader>
+                <CCardBody>
+                  <CRow>
+                    <CCol md={4}>
+                      <div className="mb-3">
+                        <CFormLabel>Freight</CFormLabel>
+                        <CFormSelect
+                          value={freightForm.freightMode}
+                          disabled={isSnapshotPreview}
+                          onChange={(e) =>
+                            setFreightForm((prev) => ({
+                              ...prev,
+                              freightMode: e.target.value,
+                              freightValue:
+                                e.target.value === "other"
+                                  ? prev.freightValue
+                                  : "",
+                            }))
+                          }
+                        >
+                          <option value="actual">As per actual</option>
+                          <option value="other">Other</option>
+                        </CFormSelect>
+                      </div>
+                      {freightForm.freightMode === "other" && (
+                        <div className="mb-3">
+                          <CFormLabel>Freight amount</CFormLabel>
+                          <CFormInput
+                            type="number"
+                            min={0}
+                            value={freightForm.freightValue}
+                            disabled={isSnapshotPreview}
+                            onChange={(e) =>
+                              setFreightForm((prev) => ({
+                                ...prev,
+                                freightValue: e.target.value,
+                              }))
+                            }
+                            placeholder="Enter freight amount"
+                          />
+                        </div>
+                      )}
+                    </CCol>
+                    <CCol md={4}>
+                      <div className="mb-3">
+                        <CFormLabel>Packing charge</CFormLabel>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          value={freightForm.packingCharge}
+                          disabled={isSnapshotPreview}
+                          onChange={(e) =>
+                            setFreightForm((prev) => ({
+                              ...prev,
+                              packingCharge: e.target.value,
+                            }))
+                          }
+                          placeholder="Enter packing charge"
+                        />
+                      </div>
+                    </CCol>
+                  </CRow>
+                  <div className="mt-2">
+                    <CButton
+                      color="primary"
+                      onClick={handleSaveFreightPacking}
+                      disabled={savingFreight || isSnapshotPreview}
+                    >
+                      {savingFreight ? "Saving..." : "Save"}
+                    </CButton>
+                  </div>
                 </CCardBody>
               </CCard>
             </CTabPane>
