@@ -1,6 +1,15 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { CCol, CRow, CFormSelect } from "@coreui/react";
+import {
+  CCol,
+  CRow,
+  CFormSelect,
+  CFormInput,
+  CInputGroup,
+  CInputGroupText,
+} from "@coreui/react";
+import CIcon from "@coreui/icons-react";
+import { cilSearch } from "@coreui/icons";
 import employeeService from "../../services/employeeService";
 import branchService from "../../services/branchService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -10,15 +19,32 @@ import EmployeeHeader from "./employees/EmployeeHeader";
 import EmployeeTable from "./employees/EmployeeTable";
 import usePermissions from "../../hooks/usePermissions";
 import useBranchContext from "../../hooks/useBranchContext";
+import { ROLE_LABELS } from "../../context/AuthContext";
+
+const EMPLOYEE_ROLE_OPTIONS = [
+  "head_of_department",
+  "sales_manager",
+  "sales_exicutive",
+  "purchase_exicutive",
+  "procurement",
+  "localprocurement",
+  "localpurchase",
+  "back_office_exicutive",
+  "administrator",
+  "finance",
+  "inventry_manager",
+  "dispatch_manager",
+];
 
 const EmployeeList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { branchId: userBranchId } = useBranchContext();
   const [employees, setEmployees] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [branchFilterId, setBranchFilterId] = useState("");
-  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchDebounced, setSearchDebounced] = useState("");
+  const [roleFilter, setRoleFilter] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [pagination, setPagination] = useState({});
@@ -35,6 +61,11 @@ const EmployeeList = () => {
     id: item?.id || item?._id,
   });
 
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchDebounced(searchTerm.trim()), 400);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -43,8 +74,10 @@ const EmployeeList = () => {
         pageNumber: page,
         pageSize,
       };
-      const effectiveBranchId = branchFilterId || userBranchId;
-      if (effectiveBranchId) params.branchId = effectiveBranchId;
+      if (userBranchId) params.branchId = userBranchId;
+      if (searchDebounced) params.search = searchDebounced;
+      if (roleFilter) params.role = roleFilter;
+
       const response = await withMinimumDelay(() =>
         employeeService.getAll(params),
       );
@@ -66,7 +99,7 @@ const EmployeeList = () => {
     } finally {
       setLoading(false);
     }
-  }, [branchFilterId, userBranchId, page, pageSize]);
+  }, [userBranchId, page, pageSize, searchDebounced, roleFilter]);
 
   const loadBranches = useCallback(async () => {
     try {
@@ -86,16 +119,10 @@ const EmployeeList = () => {
     loadBranches();
   }, [loadBranches]);
 
-  // Branch isolation: default to user's branch so list shows only that branch's data
-  useEffect(() => {
-    if (branchDefaultApplied || !userBranchId || branches.length === 0) return;
-    const id = String(userBranchId);
-    if (branches.some((b) => String(b.id || b._id) === id)) {
-      setBranchFilterId(id);
-      setBranchDefaultApplied(true);
-      setPage(1);
-    }
-  }, [userBranchId, branches, branchDefaultApplied]);
+  const hasActiveFilters = useMemo(
+    () => Boolean(searchDebounced || roleFilter),
+    [searchDebounced, roleFilter],
+  );
 
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id });
@@ -129,26 +156,48 @@ const EmployeeList = () => {
         onAdd={() => navigate("/employees/new")}
         canCreate={canCreate}
       />
-      {canSelectBranch && branches.length > 0 && (
-        <CRow className="mb-3">
-          <CCol md={4}>
-            <CFormSelect
-              value={branchFilterId}
+      <CRow className="mb-3 align-items-end">
+        <CCol md={6}>
+          <CInputGroup>
+            <CInputGroupText>
+              <CIcon icon={cilSearch} />
+            </CInputGroupText>
+            <CFormInput
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
               onChange={(e) => {
-                setBranchFilterId(e.target.value);
+                setSearchTerm(e.target.value);
                 setPage(1);
               }}
-            >
-              <option value="">All branches</option>
-              {branches.map((b) => (
-                <option key={b.id || b._id} value={b.id || b._id}>
-                  {b.name || b.branchcode || b.id}
-                </option>
-              ))}
-            </CFormSelect>
-          </CCol>
-        </CRow>
-      )}
+            />
+          </CInputGroup>
+        </CCol>
+        <CCol md={4}>
+          <CFormSelect
+            value={roleFilter}
+            onChange={(e) => {
+              setRoleFilter(e.target.value);
+              setPage(1);
+            }}
+            aria-label="Filter by role"
+          >
+            <option value="">All roles</option>
+            {EMPLOYEE_ROLE_OPTIONS.map((role) => (
+              <option key={role} value={role}>
+                {ROLE_LABELS[role] ||
+                  role
+                    .split("_")
+                    .map(
+                      (w) =>
+                        w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(),
+                    )
+                    .join(" ")}
+              </option>
+            ))}
+          </CFormSelect>
+        </CCol>
+      </CRow>
       <EmployeeTable
         employees={employees}
         branches={branches}
@@ -164,6 +213,7 @@ const EmployeeList = () => {
         pageSize={pageSize}
         pagination={pagination}
         onPageChange={setPage}
+        hasActiveFilters={hasActiveFilters}
       />
       <ConfirmDialog
         visible={confirmDelete.visible}

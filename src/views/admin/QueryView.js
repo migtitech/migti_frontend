@@ -819,6 +819,7 @@ const QueryView = () => {
                       <CTableHeaderCell>Product name</CTableHeaderCell>
                       <CTableHeaderCell>Group</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
+                      <CTableHeaderCell>Subcategory</CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 100 }}>
                         Quantity
@@ -871,6 +872,9 @@ const QueryView = () => {
                           </CTableDataCell>
                           <CTableDataCell className="small text-break">
                             {refDisplayName(p.categoryId)}
+                          </CTableDataCell>
+                          <CTableDataCell className="small text-break">
+                            {refDisplayName(p.subcategoryId)}
                           </CTableDataCell>
                           <CTableDataCell className="small">
                             {productRef?.shortDescription ||

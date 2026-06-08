@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import * as yup from "yup";
 import {
   CCard,
   CCardBody,
@@ -26,11 +25,17 @@ import productService from "../../services/productService";
 import categoryService from "../../services/categoryService";
 import brandService from "../../services/brandService";
 import groupService from "../../services/groupService";
+import industryService from "../../services/industryService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import {
+  productFormSchema,
+  validateCompanyProductCodeRows,
+  validateProductPayload,
+} from "../../validation/productSchema";
 
 const VARIANT_TYPE_OPTIONS = [
   { value: "Color", label: "Color" },
@@ -39,83 +44,6 @@ const VARIANT_TYPE_OPTIONS = [
   { value: "Dimension", label: "Dimension" },
   { value: "Build Material", label: "Build Material" },
 ];
-
-const numberField = (label, required = false) => {
-  let schema = yup
-    .number()
-    .typeError(`${label} must be a number`)
-    .min(0, `${label} must be 0 or more`)
-    .transform((value, original) => (original === "" ? undefined : value));
-  if (required) {
-    schema = schema.required(`${label} is required`);
-  } else {
-    schema = schema.notRequired();
-  }
-  return schema;
-};
-
-const productSchema = yup.object({
-  name: yup
-    .string()
-    .trim()
-    .required("Product name is required")
-    .min(2, "At least 2 characters")
-    .max(200, "At most 200 characters"),
-  sku: yup
-    .string()
-    .trim()
-    .required("SKU is required")
-    .min(1, "At least 1 character")
-    .max(50, "At most 50 characters"),
-  description: yup.string().trim().optional().default(""),
-  shortDescription: yup.string().trim().optional().default(""),
-  category: yup.string().required("Category is required"),
-  subcategory: yup
-    .string()
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v)),
-  brand: yup
-    .string()
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v)),
-  group: yup
-    .string()
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v)),
-  hsnNumber: yup.string().trim().optional().max(50).default(""),
-  gstPercentage: yup
-    .number()
-    .min(0, "GST % must be 0 or more")
-    .max(100, "GST % must be 100 or less")
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v)),
-  defaultModelNumber: yup.string().trim().optional().max(100).default(""),
-  hasVariants: yup.boolean().default(false),
-  weight: numberField("Weight"),
-  weightUnit: yup
-    .string()
-    .oneOf(["g", "kg", "lb", "oz"], "Invalid weight unit")
-    .default("g"),
-  dimensions: yup.object({
-    length: numberField("Length"),
-    width: numberField("Width"),
-    height: numberField("Height"),
-  }),
-  dimensionUnit: yup
-    .string()
-    .oneOf(["cm", "in", "m"], "Invalid dimension unit")
-    .default("cm"),
-  tags: yup.string().optional().default(""),
-  status: yup
-    .string()
-    .oneOf(["active", "inactive", "draft"], "Invalid status")
-    .default("draft"),
-  unit: yup.string().trim().max(50).optional().default("PCS"),
-});
 
 const defaultValues = {
   name: "",
@@ -140,6 +68,46 @@ const defaultValues = {
 
 const PRODUCT_FORM_DRAFT_KEY = "product_form_draft";
 
+const EMPTY_COMPANY_PRODUCT_CODE = {
+  industryId: "",
+  industryLabel: "",
+  code: "",
+  search: "",
+};
+
+const collectFormErrors = (errs) => {
+  const messages = [];
+  const walk = (obj) => {
+    if (!obj || typeof obj !== "object") return;
+    if (obj.message) {
+      messages.push(obj.message);
+      return;
+    }
+    Object.values(obj).forEach(walk);
+  };
+  walk(errs);
+  return messages;
+};
+
+const formatApiValidationErrors = (err) => {
+  const messages = [];
+  const raw = err?.errors;
+  if (Array.isArray(raw)) {
+    messages.push(...raw.map((item) => String(item)));
+  } else if (raw && typeof raw === "object") {
+    Object.values(raw).forEach((value) => {
+      if (Array.isArray(value)) messages.push(...value.map((item) => String(item)));
+      else if (value != null && String(value).trim()) messages.push(String(value));
+    });
+  } else if (typeof raw === "string" && raw.trim()) {
+    messages.push(raw);
+  }
+  if (messages.length === 0 && err?.message) {
+    messages.push(err.message);
+  }
+  return messages.length ? messages : ["Failed to save product"];
+};
+
 const ProductForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -147,8 +115,19 @@ const ProductForm = () => {
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [validationErrors, setValidationErrors] = useState([]);
   const [success, setSuccess] = useState("");
+
+  const showValidationAlert = (messages) => {
+    const list = (Array.isArray(messages) ? messages : [messages])
+      .flat()
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+    setValidationErrors(list.length ? list : ["Validation failed"]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const clearValidationAlert = () => setValidationErrors([]);
 
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -166,6 +145,10 @@ const ProductForm = () => {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [existingImages, setExistingImages] = useState([]);
   const [variantCombinations, setVariantCombinations] = useState([]);
+  const [companyProductCodes, setCompanyProductCodes] = useState([
+    { ...EMPTY_COMPANY_PRODUCT_CODE },
+  ]);
+  const [industryResultsByRow, setIndustryResultsByRow] = useState({});
   const comboFileInputRefs = useRef({});
 
   const {
@@ -178,7 +161,7 @@ const ProductForm = () => {
     formState: { errors },
   } = useForm({
     defaultValues,
-    resolver: yupResolver(productSchema),
+    resolver: yupResolver(productFormSchema),
     mode: "onBlur",
   });
 
@@ -201,7 +184,11 @@ const ProductForm = () => {
         const raw = localStorage.getItem(PRODUCT_FORM_DRAFT_KEY);
         if (raw) {
           const stored = JSON.parse(raw);
-          reset({ ...defaultValues, ...stored });
+          const { companyProductCodes: storedCodes, ...formValues } = stored;
+          reset({ ...defaultValues, ...formValues });
+          if (Array.isArray(storedCodes) && storedCodes.length > 0) {
+            setCompanyProductCodes(storedCodes);
+          }
         } else {
           reset(defaultValues);
         }
@@ -216,19 +203,48 @@ const ProductForm = () => {
     if (isEdit) return;
     const subscription = watch((values) => {
       try {
-        localStorage.setItem(PRODUCT_FORM_DRAFT_KEY, JSON.stringify(values));
+        localStorage.setItem(
+          PRODUCT_FORM_DRAFT_KEY,
+          JSON.stringify({ ...values, companyProductCodes }),
+        );
       } catch {
         // ignore storage errors
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, isEdit]);
+  }, [watch, isEdit, companyProductCodes]);
 
   useEffect(() => {
     if (!hasVariants) {
       setVariants([]);
     }
   }, [hasVariants]);
+
+  useEffect(() => {
+    const timers = {};
+    companyProductCodes.forEach((row, index) => {
+      if (!row.search?.trim() || row.industryLabel === row.search) {
+        setIndustryResultsByRow((prev) => ({ ...prev, [index]: [] }));
+        return;
+      }
+      timers[index] = setTimeout(async () => {
+        try {
+          const res = await industryService.getAll({
+            search: row.search.trim(),
+            pageSize: 10,
+          });
+          const data = res?.data || res;
+          setIndustryResultsByRow((prev) => ({
+            ...prev,
+            [index]: data?.industries || [],
+          }));
+        } catch {
+          setIndustryResultsByRow((prev) => ({ ...prev, [index]: [] }));
+        }
+      }, 300);
+    });
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, [companyProductCodes]);
 
   const fetchDropdownData = async () => {
     try {
@@ -252,7 +268,56 @@ const ProductForm = () => {
       // ignore
     }
     reset(defaultValues);
+    setCompanyProductCodes([{ ...EMPTY_COMPANY_PRODUCT_CODE }]);
+    setIndustryResultsByRow({});
     toastSuccess("Saved product form data cleared");
+  };
+
+  const updateCompanyProductCodeRow = (index, field, value) => {
+    setCompanyProductCodes((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+  };
+
+  const selectCompanyForRow = (index, industry) => {
+    const indId = industry._id || industry.id;
+    const label = industry.name || "";
+    setCompanyProductCodes((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              industryId: indId || "",
+              industryLabel: label,
+              search: label,
+            }
+          : row,
+      ),
+    );
+    setIndustryResultsByRow((prev) => ({ ...prev, [index]: [] }));
+  };
+
+  const addCompanyProductCodeRow = () => {
+    setCompanyProductCodes((prev) => [
+      ...prev,
+      { ...EMPTY_COMPANY_PRODUCT_CODE },
+    ]);
+  };
+
+  const removeCompanyProductCodeRow = (index) => {
+    setCompanyProductCodes((prev) => {
+      if (prev.length <= 1) return [{ ...EMPTY_COMPANY_PRODUCT_CODE }];
+      return prev.filter((_, i) => i !== index);
+    });
+    setIndustryResultsByRow((prev) => {
+      const next = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        const idx = Number(key);
+        if (idx < index) next[idx] = value;
+        else if (idx > index) next[idx - 1] = value;
+      });
+      return next;
+    });
   };
 
   const fetchSubcategories = async (parentId) => {
@@ -369,6 +434,26 @@ const ProductForm = () => {
           ),
         );
         setVariantCombinations(product.variantCombinations || []);
+        const loadedCompanyCodes = (product.companyProductCodes || []).map(
+          (item) => {
+            const industry = item.industry;
+            const indId =
+              (typeof industry === "object" ? industry?._id : industry) || "";
+            const label =
+              typeof industry === "object" ? industry?.name || "" : "";
+            return {
+              industryId: indId,
+              industryLabel: label,
+              code: item.code || "",
+              search: label,
+            };
+          },
+        );
+        setCompanyProductCodes(
+          loadedCompanyCodes.length > 0
+            ? loadedCompanyCodes
+            : [{ ...EMPTY_COMPANY_PRODUCT_CODE }],
+        );
         if (product.category?._id || product.category) {
           fetchSubcategories(product.category?._id || product.category);
         }
@@ -595,12 +680,25 @@ const ProductForm = () => {
     toastSuccess("Combination removed.");
   };
 
+  const onInvalid = (formErrors) => {
+    showValidationAlert(collectFormErrors(formErrors));
+  };
+
   const onSubmit = async (values) => {
     setSubmitting(true);
-    setError("");
+    clearValidationAlert();
     setSuccess("");
 
     try {
+      const companyCodeErrors = await validateCompanyProductCodeRows(
+        companyProductCodes,
+      );
+      if (companyCodeErrors.length > 0) {
+        showValidationAlert(companyCodeErrors);
+        setSubmitting(false);
+        return;
+      }
+
       let uploadedImages = [...existingImages];
 
       if (imageFiles.length > 0) {
@@ -655,6 +753,12 @@ const ProductForm = () => {
           : [],
         status: values.status,
         unit: values.unit,
+        companyProductCodes: companyProductCodes
+          .filter((row) => row.industryId && row.code?.trim())
+          .map((row) => ({
+            industry: row.industryId,
+            code: row.code.trim(),
+          })),
       };
       if (values.hasVariants && variantCombinations.length > 0) {
         payload.variantCombinations = variantCombinations.map((vc) => ({
@@ -669,6 +773,15 @@ const ProductForm = () => {
             typeof img === "object" && img?._id ? img._id : img,
           ),
         }));
+      } else {
+        payload.variantCombinations = [];
+      }
+
+      const payloadErrors = await validateProductPayload(payload);
+      if (payloadErrors.length > 0) {
+        showValidationAlert(payloadErrors);
+        setSubmitting(false);
+        return;
       }
 
       if (isEdit) {
@@ -698,7 +811,7 @@ const ProductForm = () => {
         );
       }
     } catch (err) {
-      toastError(err?.message || "Failed to save product");
+      showValidationAlert(formatApiValidationErrors(err));
     } finally {
       setSubmitting(false);
     }
@@ -713,7 +826,10 @@ const ProductForm = () => {
   }
 
   return (
-    <CForm onSubmit={handleSubmit(onSubmit)} style={{ fontSize: "1.1rem" }}>
+    <CForm
+      onSubmit={handleSubmit(onSubmit, onInvalid)}
+      style={{ fontSize: "1.1rem" }}
+    >
       <CRow className="mb-3">
         <CCol>
           <CButton
@@ -727,9 +843,17 @@ const ProductForm = () => {
         </CCol>
       </CRow>
 
-      {error && (
-        <CAlert color="danger" dismissible onClose={() => setError("")}>
-          {error}
+      {validationErrors.length > 0 && (
+        <CAlert color="danger" dismissible onClose={clearValidationAlert}>
+          {validationErrors.length === 1 ? (
+            validationErrors[0]
+          ) : (
+            <ul className="mb-0 ps-3">
+              {validationErrors.map((msg, index) => (
+                <li key={index}>{msg}</li>
+              ))}
+            </ul>
+          )}
         </CAlert>
       )}
       {success && (
@@ -1406,11 +1530,12 @@ const ProductForm = () => {
                               />
                             </div>
                           </div>
-                          <div className="d-flex flex-wrap gap-2 align-items-start">
+                          <div className="d-flex flex-wrap gap-3 align-items-start">
                             {(combo.images || []).map((img, iIdx) => (
                               <div
                                 key={img?._id || iIdx}
-                                className="position-relative"
+                                className="d-flex flex-column align-items-center"
+                                style={{ width: 80 }}
                               >
                                 <CImage
                                   src={
@@ -1425,17 +1550,28 @@ const ProductForm = () => {
                                 <CButton
                                   color="danger"
                                   size="sm"
-                                  className="position-absolute top-0 end-0"
-                                  style={{ transform: "translate(50%, -50%)" }}
+                                  variant="ghost"
+                                  className="mt-1 p-0 d-flex align-items-center justify-content-center"
+                                  style={{
+                                    width: 24,
+                                    height: 24,
+                                    minWidth: 24,
+                                    fontSize: "1.1rem",
+                                    lineHeight: 1,
+                                  }}
                                   onClick={() =>
                                     removeVariantComboImage(cIdx, iIdx)
                                   }
+                                  title="Remove image"
                                 >
                                   &times;
                                 </CButton>
                               </div>
                             ))}
-                            <div className="mb-0">
+                            <div
+                              className="d-flex flex-column align-items-center"
+                              style={{ width: 80 }}
+                            >
                               <input
                                 type="file"
                                 accept="image/*"
@@ -1451,19 +1587,28 @@ const ProductForm = () => {
                                   e.target.value = "";
                                 }}
                               />
-                              <CButton
-                                color="primary"
-                                size="sm"
+                              <button
                                 type="button"
-                                className="mb-0"
-                                variant="outline"
+                                className="d-flex flex-column align-items-center justify-content-center rounded border border-primary border-2 border-dashed bg-light text-primary"
+                                style={{
+                                  width: 80,
+                                  height: 80,
+                                  cursor: "pointer",
+                                  padding: 4,
+                                }}
                                 onClick={() =>
                                   comboFileInputRefs.current[cIdx]?.click()
                                 }
+                                title="Upload images"
                               >
-                                <CIcon icon={cilPlus} className="me-1" />
-                                Upload images
-                              </CButton>
+                                <CIcon icon={cilPlus} />
+                                <span
+                                  className="text-center mt-1"
+                                  style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+                                >
+                                  Upload
+                                </span>
+                              </button>
                             </div>
                           </div>
                         </CCardBody>
@@ -1695,6 +1840,95 @@ const ProductForm = () => {
               )}
             </CCol>
           </CRow>
+        </CCardBody>
+      </CCard>
+
+      <CCard className="mb-4">
+        <CCardHeader style={sectionHeaderStyle}>
+          <strong>Company Product Codes</strong>
+        </CCardHeader>
+        <CCardBody style={sectionBodyStyle}>
+          <p className="text-muted small mb-3">
+            Map this product to a company (client) using their internal product
+            code.
+          </p>
+          {companyProductCodes.map((row, index) => (
+            <CRow key={index} className="align-items-end mb-3">
+              <CCol md={5}>
+                <CFormLabel>Company (Client)</CFormLabel>
+                <CFormInput
+                  placeholder="Type to search company..."
+                  value={row.search}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCompanyProductCodes((prev) =>
+                      prev.map((item, i) =>
+                        i === index
+                          ? {
+                              ...item,
+                              search: value,
+                              ...(item.industryLabel &&
+                              value !== item.industryLabel
+                                ? { industryId: "", industryLabel: "" }
+                                : {}),
+                            }
+                          : item,
+                      ),
+                    );
+                  }}
+                />
+                {row.search &&
+                  row.search !== row.industryLabel &&
+                  (industryResultsByRow[index] || []).length > 0 && (
+                    <div
+                      className="border rounded mt-1 bg-white"
+                      style={{ maxHeight: "200px", overflowY: "auto" }}
+                    >
+                      {(industryResultsByRow[index] || []).map((industry) => {
+                        const indId = industry._id || industry.id;
+                        return (
+                          <div
+                            key={indId}
+                            className="px-2 py-1 small"
+                            style={{ cursor: "pointer" }}
+                            onClick={() =>
+                              selectCompanyForRow(index, industry)
+                            }
+                          >
+                            {industry.name}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+              </CCol>
+              <CCol md={5}>
+                <CFormLabel>Company Product Code</CFormLabel>
+                <CFormInput
+                  placeholder="Enter company product code"
+                  value={row.code}
+                  onChange={(e) =>
+                    updateCompanyProductCodeRow(index, "code", e.target.value)
+                  }
+                />
+              </CCol>
+              <CCol md={2}>
+                <CButton
+                  color="danger"
+                  variant="outline"
+                  className="w-100"
+                  onClick={() => removeCompanyProductCodeRow(index)}
+                  title="Remove row"
+                >
+                  <CIcon icon={cilTrash} />
+                </CButton>
+              </CCol>
+            </CRow>
+          ))}
+          <CButton color="light" onClick={addCompanyProductCodeRow}>
+            <CIcon icon={cilPlus} className="me-1" />
+            Add Company Product Code
+          </CButton>
         </CCardBody>
       </CCard>
 

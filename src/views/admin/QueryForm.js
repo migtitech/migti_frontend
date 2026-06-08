@@ -101,6 +101,7 @@ const INITIAL_PRODUCT = {
   query_tracking_code: "",
   groupId: "",
   categoryId: "",
+  subcategoryId: "",
   isNewProduct: true,
   images: [],
   /** Set when the row was prefilled from an existing `query_new_product` (skip re-create on save). */
@@ -159,6 +160,7 @@ const QueryForm = () => {
     useState(false);
   const [productGroups, setProductGroups] = useState([]);
   const [productCategories, setProductCategories] = useState([]);
+  const [productSubcategories, setProductSubcategories] = useState([]);
   /** For table labels: top-level (parent null) categories; loaded with pagination (API caps 100 per page) */
   const [allTableCategories, setAllTableCategories] = useState([]);
   /** categoryId (string) -> name for rows not in allTableCategories / productCategories (e.g. subcategories) */
@@ -292,6 +294,13 @@ const QueryForm = () => {
       if (!/^[a-f0-9]{24}$/i.test(sid)) continue;
       if (inLists(sid)) continue;
       ids.add(sid);
+      const sc = p?.subcategoryId;
+      if (sc == null || sc === "") continue;
+      if (typeof sc === "object" && sc?.name) continue;
+      const ssid = String(typeof sc === "object" && sc?._id ? sc._id : sc).trim();
+      if (!/^[a-f0-9]{24}$/i.test(ssid)) continue;
+      if (inLists(ssid)) continue;
+      ids.add(ssid);
     }
     if (ids.size === 0) return;
     let cancelled = false;
@@ -337,6 +346,32 @@ const QueryForm = () => {
       cancelled = true;
     };
   }, [formProduct.groupId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const cid = formProduct.categoryId;
+      if (!cid) {
+        if (!cancelled) setProductSubcategories([]);
+        return;
+      }
+      try {
+        const res = await categoryService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+          parent: cid,
+        });
+        const data = res?.data || res;
+        if (!cancelled) setProductSubcategories(data?.categories || []);
+      } catch {
+        if (!cancelled) setProductSubcategories([]);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [formProduct.categoryId]);
 
   // Auto-save draft to localStorage whenever relevant state changes (for new query only)
   useEffect(() => {
@@ -454,6 +489,8 @@ const QueryForm = () => {
       productCode: "",
       groupId: (q.groupId && (q.groupId._id || q.groupId)) || "",
       categoryId: (q.categoryId && (q.categoryId._id || q.categoryId)) || "",
+      subcategoryId:
+        (q.subcategoryId && (q.subcategoryId._id || q.subcategoryId)) || "",
       isNewProduct: true,
       images: imageDocs,
       sourceQueryNewProductId: q._id || null,
@@ -520,6 +557,10 @@ const QueryForm = () => {
         (product.group && (product.group._id || product.group)) || "",
       categoryId:
         (product.category && (product.category._id || product.category)) || "",
+      subcategoryId:
+        (product.subcategory &&
+          (product.subcategory._id || product.subcategory)) ||
+        "",
       isNewProduct: false,
       images: imageDocs,
       sourceQueryNewProductId: null,
@@ -620,6 +661,7 @@ const QueryForm = () => {
             modelNumber: (formProduct.modelNumber || "").trim(),
             groupId: formProduct.groupId || null,
             categoryId: formProduct.categoryId || null,
+            subcategoryId: formProduct.subcategoryId || null,
             qty: (() => {
               const n = Number(formProduct.quantity);
               if (Number.isFinite(n) && n >= 0)
@@ -650,6 +692,7 @@ const QueryForm = () => {
               sourceQueryNewProductId: createdQueryNewProduct._id,
               groupId: formProduct.groupId || "",
               categoryId: formProduct.categoryId || "",
+              subcategoryId: formProduct.subcategoryId || "",
             }
           : {};
 
@@ -770,6 +813,8 @@ const QueryForm = () => {
       query_tracking_code: p.query_tracking_code || "",
       groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
       categoryId: (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
+      subcategoryId:
+        (p.subcategoryId && (p.subcategoryId._id || p.subcategoryId)) || "",
       isNewProduct: p.isNewProduct ?? !p.productCode,
       images: p.images || [],
       sourceQueryNewProductId: p.sourceQueryNewProductId || null,
@@ -931,6 +976,10 @@ const QueryForm = () => {
               groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
               categoryId:
                 (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
+              subcategoryId:
+                (p.subcategoryId &&
+                  (p.subcategoryId._id || p.subcategoryId)) ||
+                "",
               isNewProduct: p.isNewProduct ?? !p.productCode,
               images: Array.isArray(p.images) ? p.images : [],
               sourceQueryNewProductId: p.sourceQueryNewProductId || null,
@@ -1087,6 +1136,16 @@ const QueryForm = () => {
     if (categoryNameById[sid]) return categoryNameById[sid];
     return "–";
   };
+  const resolveSubcategoryName = (id) => {
+    if (id != null && typeof id === "object" && id?.name) return id.name;
+    if (id == null || id === "") return "–";
+    const sid = String(typeof id === "object" && id?._id ? id._id : id);
+    if (!sid) return "–";
+    const s = productSubcategories.find((x) => String(x._id || x.id) === sid);
+    if (s?.name) return s.name;
+    if (categoryNameById[sid]) return categoryNameById[sid];
+    return "–";
+  };
 
   const getStepStatus = (stepId) => {
     if (stepId < currentStep) return "completed";
@@ -1212,6 +1271,7 @@ const QueryForm = () => {
             product_id: p.product_id || null,
             groupId: p.groupId || null,
             categoryId: p.categoryId || null,
+            subcategoryId: p.subcategoryId || null,
             rawProductCode:
               (p.rawProductCode && String(p.rawProductCode).trim()) || "",
             query_tracking_code:
@@ -1732,7 +1792,7 @@ const QueryForm = () => {
                       Classification
                     </h6>
                     <CRow>
-                      <CCol md={6}>
+                      <CCol md={4}>
                         <div className="mb-3">
                           <CFormLabel>
                             Group
@@ -1749,6 +1809,7 @@ const QueryForm = () => {
                                 ...prev,
                                 groupId: e.target.value,
                                 categoryId: "",
+                                subcategoryId: "",
                               }))
                             }
                             aria-label="Group"
@@ -1767,7 +1828,7 @@ const QueryForm = () => {
                           </CFormSelect>
                         </div>
                       </CCol>
-                      <CCol md={6}>
+                      <CCol md={4}>
                         <div className="mb-3">
                           <CFormLabel>
                             Category
@@ -1780,7 +1841,11 @@ const QueryForm = () => {
                           <CFormSelect
                             value={formProduct.categoryId || ""}
                             onChange={(e) =>
-                              updateFormProduct("categoryId", e.target.value)
+                              setFormProduct((prev) => ({
+                                ...prev,
+                                categoryId: e.target.value,
+                                subcategoryId: "",
+                              }))
                             }
                             aria-label="Category"
                             aria-required={requireGroupCategory}
@@ -1798,6 +1863,32 @@ const QueryForm = () => {
                             {productCategories.map((c) => (
                               <option key={c._id} value={c._id}>
                                 {c.name}
+                              </option>
+                            ))}
+                          </CFormSelect>
+                        </div>
+                      </CCol>
+                      <CCol md={4}>
+                        <div className="mb-3">
+                          <CFormLabel>Subcategory (optional)</CFormLabel>
+                          <CFormSelect
+                            value={formProduct.subcategoryId || ""}
+                            onChange={(e) =>
+                              updateFormProduct("subcategoryId", e.target.value)
+                            }
+                            aria-label="Subcategory"
+                            disabled={!formProduct.categoryId}
+                          >
+                            <option value="">
+                              {!formProduct.categoryId
+                                ? "Pick a category first"
+                                : productSubcategories.length === 0
+                                  ? "No subcategories"
+                                  : "Select subcategory"}
+                            </option>
+                            {productSubcategories.map((s) => (
+                              <option key={s._id} value={s._id}>
+                                {s.name}
                               </option>
                             ))}
                           </CFormSelect>
@@ -2233,6 +2324,7 @@ const QueryForm = () => {
                           <CTableHeaderCell>Product name</CTableHeaderCell>
                           <CTableHeaderCell>Group</CTableHeaderCell>
                           <CTableHeaderCell>Category</CTableHeaderCell>
+                          <CTableHeaderCell>Subcategory</CTableHeaderCell>
                           <CTableHeaderCell>Quantity</CTableHeaderCell>
                           <CTableHeaderCell>Unit</CTableHeaderCell>
                           <CTableHeaderCell>Variants</CTableHeaderCell>
@@ -2258,6 +2350,9 @@ const QueryForm = () => {
                             </CTableDataCell>
                             <CTableDataCell className="small text-break">
                               {resolveCategoryName(p.categoryId)}
+                            </CTableDataCell>
+                            <CTableDataCell className="small text-break">
+                              {resolveSubcategoryName(p.subcategoryId)}
                             </CTableDataCell>
                             <CTableDataCell>{p.quantity ?? "–"}</CTableDataCell>
                             <CTableDataCell>{p.unit || "–"}</CTableDataCell>
@@ -2489,6 +2584,7 @@ const QueryForm = () => {
                           <CTableHeaderCell>Product</CTableHeaderCell>
                           <CTableHeaderCell>Group</CTableHeaderCell>
                           <CTableHeaderCell>Category</CTableHeaderCell>
+                          <CTableHeaderCell>Subcategory</CTableHeaderCell>
                           <CTableHeaderCell className="text-end">
                             Qty
                           </CTableHeaderCell>
@@ -2521,6 +2617,9 @@ const QueryForm = () => {
                             </CTableDataCell>
                             <CTableDataCell className="small text-break">
                               {resolveCategoryName(p.categoryId)}
+                            </CTableDataCell>
+                            <CTableDataCell className="small text-break">
+                              {resolveSubcategoryName(p.subcategoryId)}
                             </CTableDataCell>
                             <CTableDataCell className="text-end text-nowrap">
                               {p.quantity ?? "—"}

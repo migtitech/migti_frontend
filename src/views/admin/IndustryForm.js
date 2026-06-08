@@ -21,11 +21,7 @@ import {
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilPlus, cilTrash } from "@coreui/icons";
-import {
-  phoneOptional,
-  gstinOptional,
-  MSG,
-} from "../../utils/validation";
+import { gstinOptional, MSG } from "../../utils/validation";
 import industryService from "../../services/industryService";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
@@ -35,6 +31,19 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import useBranchContext from "../../hooks/useBranchContext";
 
+const phoneOptional10 = () =>
+  yup
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v))
+    .test(
+      "phone",
+      "Phone must be exactly 10 digits",
+      (v) => !v || /^\d{10}$/.test(v),
+    );
+
 const purchaseManagerSchema = yup.object({
   name: yup
     .string()
@@ -42,18 +51,7 @@ const purchaseManagerSchema = yup.object({
     .required("Name is required")
     .min(1, MSG.minLength(1))
     .max(100, MSG.maxLength(100)),
-  phone: yup
-    .string()
-    .trim()
-    .optional()
-    .max(20)
-    .nullable()
-    .transform((v, o) => (o === "" ? "" : v))
-    .test(
-      "phone",
-      "Phone must be 5–20 digits",
-      (v) => !v || /^\d{5,20}$/.test(v),
-    ),
+  phone: phoneOptional10(),
   email: yup
     .string()
     .trim()
@@ -93,7 +91,7 @@ const industrySchema = yup.object({
     .max(100)
     .nullable()
     .transform((v, o) => (o === "" ? null : v)),
-  purchase_manager_phone: phoneOptional(),
+  purchase_manager_phone: phoneOptional10(),
   email: yup
     .string()
     .email("Enter a valid email")
@@ -598,7 +596,10 @@ const IndustryForm = () => {
                             <CFormLabel className="small">Phone</CFormLabel>
                             <CFormInput
                               {...register(`purchaseManagers.${index}.phone`)}
-                              placeholder="Phone"
+                              type="tel"
+                              inputMode="numeric"
+                              maxLength={10}
+                              placeholder="10 digits"
                             />
                             {errors.purchaseManagers?.[index]?.phone && (
                               <div className="text-danger small">

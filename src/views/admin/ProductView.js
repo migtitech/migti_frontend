@@ -177,7 +177,7 @@ const ProductView = () => {
           : "-",
       highlight: true,
     },
-    { key: "Unit", value: product.unit || "pcs" },
+    { key: "Unit", value: product.unit || "PCS" },
     ...(product.tags?.length > 0
       ? [
           {

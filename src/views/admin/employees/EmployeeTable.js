@@ -39,6 +39,7 @@ const EmployeeTable = ({
   pageSize = 10,
   pagination = {},
   onPageChange,
+  hasActiveFilters = false,
 }) => {
   const totalPages = pagination?.totalPages ?? 1;
   const totalItems = pagination?.totalItems ?? 0;
@@ -197,7 +198,9 @@ const EmployeeTable = ({
                   {employees.length === 0 && (
                     <CTableRow>
                       <CTableDataCell colSpan={9} className="text-center">
-                        No employees found. Click "Add Employee" to create one.
+                        {hasActiveFilters
+                          ? "No employees match your search or filters."
+                          : 'No employees found. Click "Add Employee" to create one.'}
                       </CTableDataCell>
                     </CTableRow>
                   )}

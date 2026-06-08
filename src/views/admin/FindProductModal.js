@@ -429,7 +429,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
       queryProducts.push({
         productName: p?.name || "",
         quantity: 1,
-        unit: (p?.unit && String(p.unit).trim()) || "pcs",
+        unit: (p?.unit && String(p.unit).trim()) || "PCS",
         hsnNumber: p?.hsnNumber || "",
         modelNumber: p?.defaultModelNumber || "",
         gstPercentage:
@@ -459,7 +459,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
       queryProducts.push({
         productName: p?.name || "",
         quantity: 1,
-        unit: (p?.unit && String(p.unit).trim()) || "pcs",
+        unit: (p?.unit && String(p.unit).trim()) || "PCS",
         hsnNumber: selectedCombos[0]?.hsnNumber || p?.hsnNumber || "",
         modelNumber:
           selectedCombos[0]?.modelNumber || p?.defaultModelNumber || "",
@@ -491,7 +491,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
       queryProducts.push({
         productName: p?.name || "",
         quantity: 1,
-        unit: (p?.unit && String(p.unit).trim()) || "pcs",
+        unit: (p?.unit && String(p.unit).trim()) || "PCS",
         hsnNumber: p?.hsnNumber || "",
         modelNumber: p?.defaultModelNumber || "",
         gstPercentage:
@@ -817,7 +817,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                       <CCardHeader className="py-2 d-flex justify-content-between align-items-center">
                         <strong>{p.name || "–"}</strong>
                         <span className="text-muted small">
-                          {p.sku && `SKU: ${p.sku}`} • {p.unit || "pcs"}
+                          {p.sku && `SKU: ${p.sku}`} • {p.unit || "PCS"}
                         </span>
                       </CCardHeader>
                       <CCardBody className="py-2">
@@ -900,7 +900,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                       <CCardHeader className="py-2 d-flex justify-content-between align-items-center">
                         <strong>{p.name || "–"}</strong>
                         <span className="text-muted small">
-                          {p.sku && `SKU: ${p.sku}`} • {p.unit || "pcs"}
+                          {p.sku && `SKU: ${p.sku}`} • {p.unit || "PCS"}
                         </span>
                       </CCardHeader>
                       <CCardBody className="py-2">
@@ -1015,7 +1015,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                             <CTableDataCell>
                               {p.category?.name || p.subcategory?.name || "–"}
                             </CTableDataCell>
-                            <CTableDataCell>{p.unit || "pcs"}</CTableDataCell>
+                            <CTableDataCell>{p.unit || "PCS"}</CTableDataCell>
                           </CTableRow>
                         );
                       })}
