@@ -1,4 +1,5 @@
 stages:
+  - pre-sync
   - deploy
   - sync
 
@@ -11,5 +12,6 @@ include:
   - local: ci/deploy-develop-noida.yml
   - local: ci/deploy-dev-indore.yml
   - local: ci/deploy-dev-noida.yml
+  - local: ci/sync-dev-from-prod.yml
   - local: ci/sync-from-prod.yml
   - local: ci/sync-from-develop.yml

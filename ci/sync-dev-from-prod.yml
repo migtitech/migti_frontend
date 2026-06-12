@@ -1,0 +1,12 @@
+sync-dev-from-prod:
+  stage: pre-sync
+  tags:
+    - migti-prod
+    - linux
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev_indore"
+    - if: $CI_COMMIT_BRANCH == "dev_noida"
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - bash /migti/ci-scripts/sync-branches.sh prod "${CI_COMMIT_BRANCH}"
