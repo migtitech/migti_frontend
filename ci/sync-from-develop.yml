@@ -1,0 +1,14 @@
+sync-from-develop:
+  stage: sync
+  tags:
+    - migti-prod
+    - linux
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  needs:
+    - develop-indore-deploy
+    - develop-noida-deploy
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - bash /migti/ci-scripts/sync-branches.sh develop dev_indore dev_noida
