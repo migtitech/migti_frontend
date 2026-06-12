@@ -14,7 +14,7 @@ cd "${DEPLOY_PATH}"
 
 git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
 git fetch origin "${DEPLOY_BRANCH}"
-git checkout "${DEPLOY_BRANCH}"
+git checkout -B "${DEPLOY_BRANCH}" "origin/${DEPLOY_BRANCH}" -f
 git reset --hard "origin/${DEPLOY_BRANCH}"
 git clean -fd
 
