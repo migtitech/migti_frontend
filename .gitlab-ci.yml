@@ -9,37 +9,35 @@ stages:
   variables:
     GIT_STRATEGY: none
   script:
-    - set -euo pipefail
     - |
+      set -euo pipefail
       for var_name in DEPLOY_PATH DEPLOY_BRANCH; do
         if [ -z "${!var_name:-}" ]; then
           echo "Missing required variable: $var_name"
           exit 1
         fi
       done
-    - export NVM_DIR="$HOME/.nvm"
-    - '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true'
-    - cd "$DEPLOY_PATH"
-    - |
+      export NVM_DIR="$HOME/.nvm"
+      [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true
+      cd "$DEPLOY_PATH"
       if [ -n "${ENV_FILE:-}" ] && [ -f "$ENV_FILE" ]; then
         cp "$ENV_FILE" .env
         chmod 600 .env
       else
         echo "Keeping existing .env in $DEPLOY_PATH"
       fi
-    - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-    - git fetch origin "$DEPLOY_BRANCH"
-    - git checkout "$DEPLOY_BRANCH"
-    - git reset --hard "origin/$DEPLOY_BRANCH"
-    - git clean -fd
-    - echo "Node $(node -v) | NPM $(npm -v)"
-    - echo "=== Installing dependencies ==="
-    - npm install -f
-    - echo "=== Building frontend ==="
-    - npm run build
-    - echo "=== Deploy completed: $DEPLOY_PATH ($DEPLOY_BRANCH) ==="
+      git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      git fetch origin "$DEPLOY_BRANCH"
+      git checkout "$DEPLOY_BRANCH"
+      git reset --hard "origin/$DEPLOY_BRANCH"
+      git clean -fd
+      echo "Node $(node -v) NPM $(npm -v)"
+      echo "=== Installing dependencies ==="
+      npm install -f
+      echo "=== Building frontend ==="
+      npm run build
+      echo "=== Deploy completed $DEPLOY_PATH $DEPLOY_BRANCH ==="
 
-# prod → deploy to both indore and noida
 prod-indore-deploy:
   extends: .deploy-frontend
   rules:
@@ -58,7 +56,6 @@ prod-noida-deploy:
     DEPLOY_BRANCH: prod
     ENV_FILE: /migti/noida/migti_frontend/.env
 
-# migti_indore → /migti/migti_frontend
 migti-indore-deploy:
   extends: .deploy-frontend
   rules:
@@ -68,7 +65,6 @@ migti-indore-deploy:
     DEPLOY_BRANCH: migti_indore
     ENV_FILE: /migti/migti_frontend/.env
 
-# migti_noida → /migti/noida/migti_frontend
 migti-noida-deploy:
   extends: .deploy-frontend
   rules:
@@ -78,7 +74,6 @@ migti-noida-deploy:
     DEPLOY_BRANCH: migti_noida
     ENV_FILE: /migti/noida/migti_frontend/.env
 
-# dev branch from migti_indore → /migti/dev/indore
 dev-indore-deploy:
   extends: .deploy-frontend
   rules:
@@ -88,7 +83,6 @@ dev-indore-deploy:
     DEPLOY_BRANCH: dev_indore
     ENV_FILE: /migti/dev/indore/migti_frontend/.env
 
-# dev branch from migti_noida → /migti/dev/noida
 dev-noida-deploy:
   extends: .deploy-frontend
   rules:
