@@ -1,0 +1,13 @@
+dev-noida-deploy:
+  stage: deploy
+  tags:
+    - migti-prod
+    - linux
+  rules:
+    - if: $CI_COMMIT_BRANCH == "dev_noida"
+  variables:
+    GIT_STRATEGY: none
+    DEPLOY_PATH: /migti/dev/noida/migti_frontend
+    DEPLOY_BRANCH: dev_noida
+  script:
+    - bash /migti/ci-scripts/deploy-frontend.sh
