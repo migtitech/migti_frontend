@@ -232,7 +232,7 @@ const HodPaymentBacklog = () => {
             <div>
               <h4 className="mb-1">Payment Backlog</h4>
               <p className="text-body-secondary small mb-0">
-                All HOD-approved PO payment obligations pending settlement.
+                All HOD-approved Sales Order payment obligations pending settlement.
               </p>
             </div>
             <CButton
@@ -252,10 +252,10 @@ const HodPaymentBacklog = () => {
             <CCardBody className="py-3">
               <CRow className="g-3 align-items-end">
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">PO Number</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">Sales Order Number</CFormLabel>
                   <CFormInput
                     size="sm"
-                    placeholder="Search PO number…"
+                    placeholder="Search Sales Order number…"
                     value={filters.poNumber}
                     onChange={(e) => onFilterChange("poNumber", e.target.value)}
                   />
@@ -353,7 +353,7 @@ const HodPaymentBacklog = () => {
           <CTable align="middle" className="mb-0" hover responsive>
             <CTableHead>
               <CTableRow>
-                <CTableHeaderCell>PO Number</CTableHeaderCell>
+                <CTableHeaderCell>Sales Order Number</CTableHeaderCell>
                 <CTableHeaderCell>Client</CTableHeaderCell>
                 <CTableHeaderCell>Sales Person</CTableHeaderCell>
                 <CTableHeaderCell className="text-end">Amount</CTableHeaderCell>

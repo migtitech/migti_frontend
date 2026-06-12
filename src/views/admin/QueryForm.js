@@ -442,7 +442,11 @@ const QueryForm = () => {
         area: getAreaId(industry?.area) || "",
         subZoneId: getSubZoneId(industry?.subZoneId) || "",
         location: industry?.location || "",
-        address: industry?.address || "",
+        address:
+          industry?.shippingAddress ||
+          industry?.billingAddress ||
+          industry?.address ||
+          "",
         purchaseManagers: mapPurchaseManagers(industry?.purchaseManagers),
       });
     }

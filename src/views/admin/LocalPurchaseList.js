@@ -266,7 +266,7 @@ const LocalPurchaseList = () => {
                             Query Code
                           </CTableHeaderCell>
                           <CTableHeaderCell style={{ minWidth: 110 }}>
-                            PO Code
+                            Sales Order Code
                           </CTableHeaderCell>
                           <CTableHeaderCell style={{ width: 90 }}>
                             Qty

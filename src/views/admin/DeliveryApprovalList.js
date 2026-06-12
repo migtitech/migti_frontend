@@ -300,7 +300,7 @@ const DeliveryApprovalList = () => {
                 <CFormInput
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Product name, PO number, or raw product code"
+                  placeholder="Product name, Sales Order number, or raw product code"
                 />
               </CCol>
               <CCol xs={6} md={2}>
@@ -329,7 +329,7 @@ const DeliveryApprovalList = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>Product</CTableHeaderCell>
-                      <CTableHeaderCell>PO number</CTableHeaderCell>
+                      <CTableHeaderCell>Sales Order number</CTableHeaderCell>
                       <CTableHeaderCell>Raw code</CTableHeaderCell>
                       <CTableHeaderCell>Company & address</CTableHeaderCell>
                       <CTableHeaderCell>Purchase manager</CTableHeaderCell>
@@ -444,7 +444,7 @@ const DeliveryApprovalList = () => {
         scroll
       >
         <COffcanvasHeader className="d-flex align-items-center justify-content-between">
-          <COffcanvasTitle>PO line — delivery approval</COffcanvasTitle>
+          <COffcanvasTitle>Sales Order line — delivery approval</COffcanvasTitle>
           <CCloseButton className="ms-2" onClick={closeDetail} />
         </COffcanvasHeader>
         <COffcanvasBody>
@@ -456,12 +456,12 @@ const DeliveryApprovalList = () => {
             <p className="text-body-secondary">No data.</p>
           ) : (
             <>
-              <h6 className="mb-3">Product &amp; PO</h6>
+              <h6 className="mb-3">Product &amp; Sales Order</h6>
               <p className="mb-1">
                 <strong>Product:</strong> {detail.productName || "—"}
               </p>
               <p className="mb-1">
-                <strong>PO number:</strong> {detail.poCode || "—"}
+                <strong>Sales Order number:</strong> {detail.poCode || "—"}
               </p>
               <p className="mb-1">
                 <strong>Raw product code:</strong>{" "}

@@ -303,7 +303,7 @@ const InventoryBucketList = () => {
                 <CFormInput
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Product name, PO number, or raw product code"
+                  placeholder="Product name, Sales Order number, or raw product code"
                 />
               </CCol>
               <CCol xs={6} md={2}>
@@ -345,7 +345,7 @@ const InventoryBucketList = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>Product</CTableHeaderCell>
-                      <CTableHeaderCell>PO number</CTableHeaderCell>
+                      <CTableHeaderCell>Sales Order number</CTableHeaderCell>
                       <CTableHeaderCell>Raw code</CTableHeaderCell>
                       <CTableHeaderCell>Dispatch</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
@@ -361,7 +361,7 @@ const InventoryBucketList = () => {
                           colSpan={6}
                           className="text-body-secondary"
                         >
-                          No PO lines in your groups.
+                          No Sales Order lines in your groups.
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
@@ -453,12 +453,12 @@ const InventoryBucketList = () => {
             <p className="text-body-secondary">No data.</p>
           ) : (
             <>
-              <h6 className="mb-3">Product & PO</h6>
+              <h6 className="mb-3">Product & Sales Order</h6>
               <p className="mb-1">
                 <strong>Product:</strong> {detail.productName || "—"}
               </p>
               <p className="mb-1">
-                <strong>PO number:</strong> {detail.poCode || "—"}
+                <strong>Sales Order number:</strong> {detail.poCode || "—"}
               </p>
               <p className="mb-1">
                 <strong>Raw product code:</strong>{" "}

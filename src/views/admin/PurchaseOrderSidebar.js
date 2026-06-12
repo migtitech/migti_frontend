@@ -172,7 +172,7 @@ const PurchaseOrderSidebar = () => {
   const companiesList = useMemo(() => companies, [companies]);
   const poVsBillingChart = useMemo(
     () => ({
-      labels: ["PO amount", "Billing amount"],
+      labels: ["Sales Order amount", "Billing amount"],
       datasets: [
         {
           label: "Amount (₹)",
@@ -194,7 +194,7 @@ const PurchaseOrderSidebar = () => {
 
   const poBillingCountDoughnut = useMemo(
     () => ({
-      labels: ["PO entries", "Billing entries"],
+      labels: ["Sales Order entries", "Billing entries"],
       datasets: [
         {
           backgroundColor: ["#0d6efd", "#198754"],
@@ -436,7 +436,7 @@ const PurchaseOrderSidebar = () => {
         branchId: branchId || undefined,
         attachmentDocumentId: poAttachment?.documentId || undefined,
       });
-      toastSuccess("PO added successfully");
+      toastSuccess("Sales Order added successfully");
       setPoModal(false);
       setPoAttachment(null);
       setPoForm({
@@ -448,7 +448,7 @@ const PurchaseOrderSidebar = () => {
       });
       loadAnalytics();
     } catch (err) {
-      toastError(err?.message || "Failed to add PO");
+      toastError(err?.message || "Failed to add Sales Order");
     }
   };
 
@@ -488,15 +488,15 @@ const PurchaseOrderSidebar = () => {
         <CCol xs={12}>
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Purchase Order</strong>
+              <strong>Sales Order</strong>
               {canCreatePurchaseOrders ? (
                 <div className="d-flex gap-2">
                   <CButton
                     color="primary"
                     disabled
-                    title="Add PO is not available from this page"
+                    title="Add Sales Order is not available from this page"
                   >
-                    Add PO
+                    Add Sales Order
                   </CButton>
                   <CButton
                     color="success"
@@ -583,7 +583,7 @@ const PurchaseOrderSidebar = () => {
                   <CRow className="g-3 mb-3">
                     {[
                       {
-                        label: "PO count",
+                        label: "Sales Order count",
                         value: metrics.totalPoCount || 0,
                         border: "primary",
                         hint: "Entries in range",
@@ -595,7 +595,7 @@ const PurchaseOrderSidebar = () => {
                         hint: "Entries in range",
                       },
                       {
-                        label: "PO amount",
+                        label: "Sales Order amount",
                         value: formatAmount(metrics.poAmount || 0),
                         border: "primary",
                         hint: "Sum for filters",
@@ -631,7 +631,7 @@ const PurchaseOrderSidebar = () => {
                         <CCardHeader className="py-2">
                           <strong className="small">Amount comparison</strong>
                           <span className="text-body-secondary small ms-2">
-                            PO vs billing (₹)
+                            Sales Order vs billing (₹)
                           </span>
                         </CCardHeader>
                         <CCardBody style={{ minHeight: 260 }}>
@@ -667,7 +667,7 @@ const PurchaseOrderSidebar = () => {
                         <CCardHeader className="py-2">
                           <strong className="small">Volume split</strong>
                           <span className="text-body-secondary small ms-2">
-                            PO vs billing rows
+                            Sales Order vs billing rows
                           </span>
                         </CCardHeader>
                         <CCardBody
@@ -696,7 +696,7 @@ const PurchaseOrderSidebar = () => {
                         active={activeTab === TAB_KEYS.po}
                         onClick={() => setActiveTab(TAB_KEYS.po)}
                       >
-                        PO
+                        Sales Order
                       </CNavLink>
                     </CNavItem>
                     <CNavItem>
@@ -939,7 +939,7 @@ const PurchaseOrderSidebar = () => {
         }}
       >
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h6 className="mb-0">Add PO</h6>
+          <h6 className="mb-0">Add Sales Order</h6>
           <CButton
             color="light"
             size="sm"

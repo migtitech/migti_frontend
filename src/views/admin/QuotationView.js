@@ -210,17 +210,60 @@ const mergeQuotationUpdateIntoPrev = (prev, data, patch = {}) => {
   return next;
 };
 
-const normalizeDeliveryDateForApi = (value) => {
+const DELIVERY_WITHIN_OPTIONS = [
+  "1-2 days",
+  "2-4 days",
+  "4-6 days",
+  "6-8 days",
+  "8-12 days",
+  "12-15 days",
+];
+const DELIVERY_WITHIN_OTHERS = "others";
+const DEFAULT_GST_PERCENTAGE = 18;
+
+const normalizeDeliveryWithinForApi = (value) => {
   if (value == null || value === "") return null;
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return new Date(`${value}T00:00:00.000Z`).toISOString();
-  }
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  const trimmed = String(value).trim();
+  return trimmed || null;
 };
 
-const toDeliveryDateInputValue = (value) =>
-  value ? formatIstDateKey(value) || "" : "";
+const parseDeliveryWithinValue = (value) => {
+  const str = value == null ? "" : String(value).trim();
+  if (!str) return { select: "", other: "" };
+  const match = DELIVERY_WITHIN_OPTIONS.find(
+    (opt) => opt.toLowerCase() === str.toLowerCase(),
+  );
+  if (match) return { select: match, other: "" };
+  return { select: DELIVERY_WITHIN_OTHERS, other: str };
+};
+
+const formatDeliveryWithinDisplay = (value) => {
+  const str = value == null ? "" : String(value).trim();
+  if (!str) return "–";
+  if (/^\d{4}-\d{2}-\d{2}/.test(str)) {
+    return formatIstDisplayDate(str) || str;
+  }
+  const d = new Date(str);
+  if (!Number.isNaN(d.getTime()) && str.includes("T")) {
+    return formatIstDisplayDate(str) || str;
+  }
+  return str;
+};
+
+const getDeliveryWithinApiValue = (deliveryWithin) => {
+  if (deliveryWithin == null || deliveryWithin === "") return null;
+  if (typeof deliveryWithin === "string") {
+    return normalizeDeliveryWithinForApi(deliveryWithin);
+  }
+  if (typeof deliveryWithin !== "object") return null;
+  const { select, other } = deliveryWithin;
+  if (!select) return null;
+  if (select === DELIVERY_WITHIN_OTHERS) {
+    const trimmed = String(other || "").trim();
+    return trimmed || null;
+  }
+  return select;
+};
 
 const buildQuotationProductPayload = (prod, override = {}) => {
   const toImgIds = (imgs) =>
@@ -254,9 +297,9 @@ const buildQuotationProductPayload = (prod, override = {}) => {
     ...override,
   };
   if (Object.prototype.hasOwnProperty.call(override, "deliveryDate")) {
-    merged.deliveryDate = normalizeDeliveryDateForApi(override.deliveryDate);
+    merged.deliveryDate = normalizeDeliveryWithinForApi(override.deliveryDate);
   } else {
-    merged.deliveryDate = normalizeDeliveryDateForApi(merged.deliveryDate);
+    merged.deliveryDate = normalizeDeliveryWithinForApi(merged.deliveryDate);
   }
   return merged;
 };
@@ -501,7 +544,6 @@ const QuotationView = () => {
       ? String(quotation.queryId.queryCode).trim()
       : "";
   const relatedQueryLinkLabel = relatedQueryCode || "View Query";
-  const minProductListDeliveryDate = formatIstDateKey(new Date()) || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -751,7 +793,7 @@ const QuotationView = () => {
         gstPercentage: p.gstPercentage != null ? p.gstPercentage : "",
         remark: p.remark || "",
         rate: p.rate != null ? p.rate : "",
-        deliveryDate: toDeliveryDateInputValue(p.deliveryDate),
+        deliveryDate: parseDeliveryWithinValue(p.deliveryDate),
         variants: p.variants || [],
         product_id: p.product_id,
         images:
@@ -971,7 +1013,7 @@ const QuotationView = () => {
         images: Array.isArray(editingProduct.images)
           ? editingProduct.images
           : getProductImagesForEdit(p),
-        deliveryDate: editingProduct.deliveryDate ?? "",
+        deliveryDate: getDeliveryWithinApiValue(editingProduct.deliveryDate),
       });
     });
     setUpdating(true);
@@ -1022,7 +1064,7 @@ const QuotationView = () => {
     const p = products[idx];
     const productRef = typeof p?.product_id === "object" ? p.product_id : null;
     const val = p?.gstPercentage ?? productRef?.gstPercentage;
-    return val != null ? String(val) : "";
+    return val != null ? String(val) : String(DEFAULT_GST_PERCENTAGE);
   };
   const setListGst = (idx, val) =>
     setProductListGstEdits((prev) => ({ ...prev, [idx]: val }));
@@ -1041,20 +1083,37 @@ const QuotationView = () => {
     setProductListApplyDiscount((prev) => ({ ...prev, [idx]: !!val }));
   const setListDiscountPct = (idx, val) =>
     setProductListDiscountPct((prev) => ({ ...prev, [idx]: val }));
-  const getListDeliveryDate = (idx) =>
+  const getListDeliveryWithin = (idx) =>
     productListDeliveryDateEdits[idx] !== undefined
       ? productListDeliveryDateEdits[idx]
-      : toDeliveryDateInputValue(products[idx]?.deliveryDate);
-  const setListDeliveryDate = (idx, val) => {
-    if (
-      val &&
-      minProductListDeliveryDate &&
-      val < minProductListDeliveryDate
-    ) {
-      return;
-    }
-    setProductListDeliveryDateEdits((prev) => ({ ...prev, [idx]: val }));
+      : parseDeliveryWithinValue(products[idx]?.deliveryDate);
+  const setListDeliveryWithinSelect = (idx, select) => {
+    setProductListDeliveryDateEdits((prev) => {
+      const current =
+        prev[idx] !== undefined
+          ? prev[idx]
+          : parseDeliveryWithinValue(products[idx]?.deliveryDate);
+      return {
+        ...prev,
+        [idx]: {
+          select,
+          other:
+            select === DELIVERY_WITHIN_OTHERS ? current.other || "" : "",
+        },
+      };
+    });
   };
+  const setListDeliveryWithinOther = (idx, other) => {
+    setProductListDeliveryDateEdits((prev) => ({
+      ...prev,
+      [idx]: {
+        select: DELIVERY_WITHIN_OTHERS,
+        other,
+      },
+    }));
+  };
+  const getListDeliveryWithinApiValue = (idx) =>
+    getDeliveryWithinApiValue(getListDeliveryWithin(idx));
   const getListTotalBeforeDiscount = (idx) => {
     const p = products[idx];
     const qty = Number(p?.quantity) ?? 0;
@@ -1097,7 +1156,7 @@ const QuotationView = () => {
           (typeof p.product_id === "object"
             ? p.product_id?.gstPercentage
             : null) ??
-          0);
+          DEFAULT_GST_PERCENTAGE);
     return sum + lineTotal * (gstPct / 100);
   }, 0);
   const calculatedTotalAmount = calculatedTotalTaxable + calculatedTotalGst;
@@ -1169,7 +1228,7 @@ const QuotationView = () => {
             discountAmount: applyDiscount ? discountAmount : null,
             notAvailable: !!prod.notAvailable,
             notAvailableRemark: prod.notAvailableRemark || "",
-            deliveryDate: getListDeliveryDate(idx),
+            deliveryDate: getListDeliveryWithinApiValue(idx),
           })
         : buildQuotationProductPayload(prod),
     );
@@ -1800,15 +1859,15 @@ const QuotationView = () => {
       const data = res?.data?.data ?? res?.data ?? res;
       const poId = data?._id || data?.id;
       if (!poId) {
-        throw new Error("Purchase order id not found in response");
+        throw new Error("Sales order id not found in response");
       }
-      toastSuccess("Purchase order ready");
+      toastSuccess("Sales order ready");
       navigate(`/po-bucket/${poId}`);
     } catch (err) {
       toastError(
         err?.response?.data?.message ||
           err?.message ||
-          "Failed to convert quotation to purchase order",
+          "Failed to convert quotation to sales order",
       );
     } finally {
       setConvertingPo(false);
@@ -1823,7 +1882,7 @@ const QuotationView = () => {
       !canConvertToPo
     ) {
       if (quotation?.id && canCreatePurchaseOrder && !canConvertToPo) {
-        toastError("Convert to PO is available only after HOD approval");
+        toastError("Convert to Sales Order is available only after HOD approval");
       }
       return;
     }
@@ -1847,7 +1906,7 @@ const QuotationView = () => {
     if (convertingPo) return;
     const entered = String(convertPoSecretInput ?? "").trim();
     if (entered !== PO_FROM_QUOTATION_SECRET_CODE) {
-      toastError("Invalid code. Purchase order was not created.");
+      toastError("Invalid code. Sales order was not created.");
       return;
     }
     closeConvertPoModals();
@@ -2112,11 +2171,11 @@ const QuotationView = () => {
                   style={{ height: 40 }}
                   title={
                     canConvertToPo
-                      ? "Convert quotation to purchase order"
-                      : "Convert to PO is available after HOD approval"
+                      ? "Convert quotation to sales order"
+                      : "Convert to Sales Order is available after HOD approval"
                   }
                 >
-                  {convertingPo ? "Converting..." : "Convert to PO"}
+                  {convertingPo ? "Converting..." : "Convert to Sales Order"}
                 </CButton>
               ) : null}
               {canApproveAsHod ? (
@@ -2543,7 +2602,7 @@ const QuotationView = () => {
                               Unit
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-center">
-                              Delivery Date
+                              Delivery Within
                             </CTableHeaderCell>
                             <CTableHeaderCell className="text-center">
                               GST %
@@ -2608,7 +2667,7 @@ const QuotationView = () => {
                                       "number" &&
                                     !Number.isNaN(productRef.gstPercentage)
                                   ? productRef.gstPercentage
-                                  : 0;
+                                  : DEFAULT_GST_PERCENTAGE;
                             const hsn =
                               p.hsnNumber || productRef?.hsnNumber || "–";
                             const variantsText = formatVariants(
@@ -2686,9 +2745,7 @@ const QuotationView = () => {
                                   {p.unit || ""}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center align-middle">
-                                  {p.deliveryDate
-                                    ? formatIstDisplayDate(p.deliveryDate)
-                                    : "–"}
+                                  {formatDeliveryWithinDisplay(p.deliveryDate)}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center align-middle">
                                   {gstPercent
@@ -2777,7 +2834,7 @@ const QuotationView = () => {
                         </li>
                         <li>Warranty as per company policy.</li>
                         <li>
-                          Payment terms – 100% advance with purchase order.
+                          Payment terms – 100% advance with sales order.
                         </li>
                         <li>Freight charges as actual.</li>
                         <li>Order once placed cannot be cancelled.</li>
@@ -3686,7 +3743,7 @@ const QuotationView = () => {
                             className="text-center"
                             style={{ width: 120 }}
                           >
-                            Delivery date
+                            Delivery within
                           </CTableHeaderCell>
                           <CTableHeaderCell
                             className="text-center"
@@ -3844,8 +3901,7 @@ const QuotationView = () => {
                                 {p.unit || "–"}
                               </CTableDataCell>
                               <CTableDataCell className="text-center py-1">
-                                <CFormInput
-                                  type="date"
+                                <CFormSelect
                                   size="sm"
                                   className="form-control-sm"
                                   style={{
@@ -3853,15 +3909,51 @@ const QuotationView = () => {
                                     minHeight: 28,
                                     fontSize: "0.75rem",
                                   }}
-                                  value={getListDeliveryDate(idx)}
-                                  min={minProductListDeliveryDate}
+                                  value={getListDeliveryWithin(idx).select}
                                   onChange={(e) =>
-                                    setListDeliveryDate(idx, e.target.value)
+                                    setListDeliveryWithinSelect(
+                                      idx,
+                                      e.target.value,
+                                    )
                                   }
                                   disabled={
                                     !!p.notAvailable || isSnapshotPreview
                                   }
-                                />
+                                >
+                                  <option value="">Select</option>
+                                  {DELIVERY_WITHIN_OPTIONS.map((opt) => (
+                                    <option key={opt} value={opt}>
+                                      {opt}
+                                    </option>
+                                  ))}
+                                  <option value={DELIVERY_WITHIN_OTHERS}>
+                                    Others
+                                  </option>
+                                </CFormSelect>
+                                {getListDeliveryWithin(idx).select ===
+                                  DELIVERY_WITHIN_OTHERS && (
+                                  <CFormInput
+                                    type="text"
+                                    size="sm"
+                                    className="form-control-sm mt-1"
+                                    style={{
+                                      width: 130,
+                                      minHeight: 28,
+                                      fontSize: "0.75rem",
+                                    }}
+                                    value={getListDeliveryWithin(idx).other}
+                                    onChange={(e) =>
+                                      setListDeliveryWithinOther(
+                                        idx,
+                                        e.target.value,
+                                      )
+                                    }
+                                    placeholder="Enter delivery time"
+                                    disabled={
+                                      !!p.notAvailable || isSnapshotPreview
+                                    }
+                                  />
+                                )}
                               </CTableDataCell>
                               <CTableDataCell className="small text-center py-1">
                                 {productRef?.hsnNumber || p.hsnNumber || "–"}
@@ -4280,14 +4372,14 @@ const QuotationView = () => {
         <CModalHeader>
           <CModalTitle>
             {convertPoModalStep === "confirm"
-              ? "Create purchase order?"
+              ? "Create sales order?"
               : "Authorization"}
           </CModalTitle>
         </CModalHeader>
         {convertPoModalStep === "confirm" ? (
           <>
             <CModalBody>
-              Do you want to create a purchase order from this quotation?
+              Do you want to create a sales order from this quotation?
             </CModalBody>
             <CModalFooter>
               <CButton
@@ -4310,7 +4402,7 @@ const QuotationView = () => {
           <>
             <CModalBody>
               <p className="text-muted small mb-2">
-                Enter the secret code to create the purchase order.
+                Enter the secret code to create the sales order.
               </p>
               <CFormLabel htmlFor="convert-po-secret">Secret code</CFormLabel>
               <CFormInput
@@ -4356,7 +4448,7 @@ const QuotationView = () => {
                     Creating...
                   </>
                 ) : (
-                  "Create PO"
+                  "Create Sales Order"
                 )}
               </CButton>
             </CModalFooter>

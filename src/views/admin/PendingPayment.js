@@ -149,7 +149,7 @@ const PendingPayment = () => {
           },
         );
       } catch (err) {
-        toastError(err?.message || "Failed to load assigned purchase orders");
+        toastError(err?.message || "Failed to load assigned sales orders");
         setRows([]);
       } finally {
         setLoadingList(false);
@@ -170,7 +170,7 @@ const PendingPayment = () => {
       const payload = unwrapResponse(res);
       setDetail(payload?.data || payload);
     } catch (err) {
-      toastError(err?.message || "Failed to load PO");
+      toastError(err?.message || "Failed to load Sales Order");
       setDetail(null);
     } finally {
       setLoadingDetail(false);
@@ -208,8 +208,8 @@ const PendingPayment = () => {
                 <div>
                   <h4 className="mb-1">Pending payment</h4>
                   <p className="text-body-secondary small mb-0">
-                    Purchase orders assigned to you, with received and pending
-                    amounts from the PO payment ledger.
+                    Sales orders assigned to you, with received and pending
+                    amounts from the Sales Order payment ledger.
                   </p>
                 </div>
               </div>
@@ -218,14 +218,14 @@ const PendingPayment = () => {
                 <>
                   <CFormInput
                     className="mb-3"
-                    placeholder="Search PO code, company, product…"
+                    placeholder="Search Sales Order code, company, product…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                   <CTable align="middle" className="mb-0" hover responsive>
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell>PO</CTableHeaderCell>
+                        <CTableHeaderCell>Sales Order</CTableHeaderCell>
                         <CTableHeaderCell>Company</CTableHeaderCell>
                         <CTableHeaderCell className="text-end">
                           Total (incl. GST)
@@ -250,7 +250,7 @@ const PendingPayment = () => {
                             colSpan={8}
                             className="text-center text-body-secondary"
                           >
-                            No purchase orders with pending payment
+                            No sales orders with pending payment
                           </CTableDataCell>
                         </CTableRow>
                       )}
@@ -307,7 +307,7 @@ const PendingPayment = () => {
                       <CPagination
                         align="end"
                         className="mb-0"
-                        aria-label="PO pages"
+                        aria-label="Sales Order pages"
                       >
                         <CPaginationItem
                           disabled={page <= 1}
@@ -344,7 +344,7 @@ const PendingPayment = () => {
                       }}
                     >
                       <CIcon icon={cilArrowLeft} className="me-1" />
-                      All POs
+                      All Sales Orders
                     </CButton>
                     {loadingDetail ? (
                       <CSpinner size="sm" />
@@ -457,7 +457,7 @@ const PendingPayment = () => {
                               ))}
                             </CTableBody>
                           </CTable>
-                          <h6 className="mt-4">Attachment (PO)</h6>
+                          <h6 className="mt-4">Attachment (Sales Order)</h6>
                           {detail.attachmentDocumentId &&
                           detail.attachmentDocumentId.path ? (
                             <CButton

@@ -114,18 +114,18 @@ const PoProductAdd = () => {
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back
           </CButton>
-          <h5 className="mb-0 fw-semibold">Add PO Product</h5>
+          <h5 className="mb-0 fw-semibold">Add Sales Order Product</h5>
         </div>
 
         <CCard className="mb-4">
-          <CCardHeader><strong>Search by PO Code</strong></CCardHeader>
+          <CCardHeader><strong>Search by Sales Order Code</strong></CCardHeader>
           <CCardBody>
             <CRow className="g-3 align-items-end">
               <CCol xs={12} md={5}>
-                <CFormLabel>PO Code</CFormLabel>
+                <CFormLabel>Sales Order Code</CFormLabel>
                 <div className="position-relative" ref={wrapperRef}>
                   <CFormInput
-                    placeholder="Type PO code…"
+                    placeholder="Type Sales Order code…"
                     value={poCode}
                     onChange={(e) => setPoCode(e.target.value)}
                     onKeyDown={handleKeyDown}

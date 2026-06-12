@@ -194,7 +194,7 @@ const FollowUpDashboard = () => {
         return (
           purchaseOrders?.map((o) => ({
             id: o.id,
-            label: `PO-${String(o.id).padStart(4, "0")}: ${o.supplierName}`,
+            label: `Sales Order-${String(o.id).padStart(4, "0")}: ${o.supplierName}`,
           })) || []
         );
       default:
@@ -466,7 +466,7 @@ const FollowUpDashboard = () => {
                   >
                     <option value="query">Query</option>
                     <option value="quotation">Quotation</option>
-                    <option value="purchase_order">Purchase Order</option>
+                    <option value="purchase_order">Sales Order</option>
                     <option value="general">General</option>
                   </CFormSelect>
                 </div>

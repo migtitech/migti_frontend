@@ -23,7 +23,6 @@ import {
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
-  cilPlus,
   cilPencil,
   cilCloudDownload,
   cilLockLocked,
@@ -179,7 +178,7 @@ const STATUS_OPTIONS = [
   { value: "fulfilled", label: "Fulfilled" },
   { value: "ready", label: "Ready" },
   { value: "sentToClient", label: "Sent to Client" },
-  { value: "poReceived", label: "PO Received" },
+  { value: "poReceived", label: "Sales Order Received" },
   { value: "followup01", label: "Follow-up 01" },
   { value: "followup02", label: "Follow-up 02" },
   { value: "closed", label: "Closed" },
@@ -467,17 +466,8 @@ const QuotationList = () => {
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
-          <CCardHeader className="d-flex justify-content-between align-items-center">
+          <CCardHeader>
             <strong>Quotations</strong>
-            <div className="d-flex gap-2">
-              <CButton
-                color="primary"
-                onClick={() => navigate("/quotations/new")}
-              >
-                <CIcon icon={cilPlus} className="me-2" />
-                Add Quotation
-              </CButton>
-            </div>
           </CCardHeader>
 
           <CCardBody>

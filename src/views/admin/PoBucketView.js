@@ -58,7 +58,7 @@ const lineInventoryStatusBadge = (inv) => {
     case "ready_for_dispatchment":
       return <CBadge color="primary">Ready dispatch</CBadge>;
     case "po_closed":
-      return <CBadge color="dark">PO closed</CBadge>;
+      return <CBadge color="dark">Sales Order closed</CBadge>;
     default:
       return <CBadge color="secondary">{s}</CBadge>;
   }
@@ -87,6 +87,12 @@ const isHeadOfDepartmentRole = (role) => {
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
   return r === "head_of_department";
+};
+
+/** Product list Actions + Add New Product: HOD only (head_of_department or legacy `hod`). */
+const isHodRole = (role) => {
+  const r = normalizeRole(role);
+  return r === "head_of_department" || r === "hod";
 };
 
 const normalizeDocId = (value) => {
@@ -310,6 +316,7 @@ const PoBucketView = () => {
   const poClosed =
     String(purchaseOrder?.status || "").toLowerCase() === "closed";
   const headOfDepartmentUser = isHeadOfDepartmentRole(user?.role);
+  const canManageProductList = isHodRole(user?.role);
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const companyInfoReadOnly = true;
   const poStatusNorm = String(purchaseOrder?.status || "").toLowerCase();
@@ -402,7 +409,7 @@ const PoBucketView = () => {
         setAssignSelectValue(aid);
       } catch (err) {
         if (!cancelled) {
-          toastError(err?.message || "Failed to load purchase order");
+          toastError(err?.message || "Failed to load sales order");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -477,7 +484,7 @@ const PoBucketView = () => {
     setHodApproving(true);
     try {
       await purchaseOrderService.hodApprove(poId);
-      toastSuccess("Purchase order marked HOD approved");
+      toastSuccess("Sales order marked HOD approved");
       await refreshAfterUpdate();
     } catch (err) {
       toastError(err?.message || "HOD approve failed");
@@ -551,11 +558,11 @@ const PoBucketView = () => {
 
   const saveAssignedEmployee = async () => {
     if (poClosed) {
-      toastError("This purchase order is closed and cannot be edited.");
+      toastError("This sales order is closed and cannot be edited.");
       return;
     }
     if (!poId) {
-      toastError("Purchase order id not found");
+      toastError("Sales order id not found");
       return;
     }
     if (assignSelectValue && !selectedAssignEmployeePayload) {
@@ -598,11 +605,11 @@ const PoBucketView = () => {
     successMessage = "Product list updated",
   ) => {
     if (poClosed) {
-      toastError("This purchase order is closed and cannot be edited.");
+      toastError("This sales order is closed and cannot be edited.");
       return;
     }
     if (!poId) {
-      toastError("Purchase order id not found");
+      toastError("Sales order id not found");
       return;
     }
     setSavingProducts(true);
@@ -710,7 +717,7 @@ const PoBucketView = () => {
           originalName: first?.originalName || file.name || "",
         },
       });
-      toastSuccess("File uploaded — save to store on this purchase order");
+      toastSuccess("File uploaded — save to store on this sales order");
     } catch (err) {
       toastError(err?.message || "Failed to upload attachment");
     } finally {
@@ -725,11 +732,11 @@ const PoBucketView = () => {
 
   const savePoAttachment = async () => {
     if (poClosed) {
-      toastError("This purchase order is closed and cannot be edited.");
+      toastError("This sales order is closed and cannot be edited.");
       return;
     }
     if (!poId) {
-      toastError("Purchase order id not found");
+      toastError("Sales order id not found");
       return;
     }
     setSavingPoAttachment(true);
@@ -750,7 +757,7 @@ const PoBucketView = () => {
 
   const addNewProduct = async () => {
     if (poClosed) {
-      toastError("This purchase order is closed and cannot be edited.");
+      toastError("This sales order is closed and cannot be edited.");
       return;
     }
     if (!String(newProductForm.productName || "").trim()) {
@@ -784,7 +791,7 @@ const PoBucketView = () => {
   if (!purchaseOrder) {
     return (
       <CCard>
-        <CCardBody>Purchase order not found.</CCardBody>
+        <CCardBody>Sales order not found.</CCardBody>
       </CCard>
     );
   }
@@ -795,7 +802,7 @@ const PoBucketView = () => {
         <CCard className="mb-3">
           <CCardBody className="d-flex justify-content-between align-items-center">
             <div>
-              <strong>{purchaseOrder.poCode || "Purchase Order"}</strong>
+              <strong>{purchaseOrder.poCode || "Sales Order"}</strong>
             </div>
             <CButton
               color="secondary"
@@ -810,7 +817,7 @@ const PoBucketView = () => {
 
         <CCard>
           <CCardHeader className="d-flex flex-wrap align-items-center justify-content-between gap-2">
-            <strong>Purchase Order Details</strong>
+            <strong>Sales Order Details</strong>
             <div className="d-flex flex-wrap align-items-center gap-2">
               {poHodApproved ? (
                 <CBadge color="success">HOD approved</CBadge>
@@ -830,7 +837,7 @@ const PoBucketView = () => {
           <CCardBody>
             {poClosed ? (
               <CAlert color="dark" className="mb-3">
-                This purchase order is <strong>closed</strong>. Editing is
+                This sales order is <strong>closed</strong>. Editing is
                 disabled.
               </CAlert>
             ) : null}
@@ -1037,16 +1044,18 @@ const PoBucketView = () => {
                           Set for all
                         </CButton>
                       </div>
-                      <CButton
-                        color="success"
-                        size="sm"
-                        className="d-inline-flex align-items-center"
-                        disabled={poClosed}
-                        onClick={() => setAddProductSidebarOpen(true)}
-                      >
-                        <CIcon icon={cilPlus} className="me-1" />
-                        Add New Product
-                      </CButton>
+                      {canManageProductList ? (
+                        <CButton
+                          color="success"
+                          size="sm"
+                          className="d-inline-flex align-items-center"
+                          disabled={poClosed}
+                          onClick={() => setAddProductSidebarOpen(true)}
+                        >
+                          <CIcon icon={cilPlus} className="me-1" />
+                          Add New Product
+                        </CButton>
+                      ) : null}
                     </div>
                   </CCardHeader>
                   <CCardBody className="pt-3">
@@ -1056,7 +1065,7 @@ const PoBucketView = () => {
                           <CTableHeaderCell>S No</CTableHeaderCell>
                           <CTableHeaderCell>Product</CTableHeaderCell>
                           <CTableHeaderCell>
-                            Line status (PO product)
+                            Line status (Sales Order product)
                           </CTableHeaderCell>
                           <CTableHeaderCell>Qty</CTableHeaderCell>
                           <CTableHeaderCell style={{ minWidth: 110 }}>
@@ -1066,7 +1075,9 @@ const PoBucketView = () => {
                           <CTableHeaderCell>Dispatchment Date</CTableHeaderCell>
                           <CTableHeaderCell>Total Amount</CTableHeaderCell>
                           <CTableHeaderCell>Remark</CTableHeaderCell>
-                          <CTableHeaderCell>Actions</CTableHeaderCell>
+                          {canManageProductList ? (
+                            <CTableHeaderCell>Actions</CTableHeaderCell>
+                          ) : null}
                         </CTableRow>
                       </CTableHead>
                       <CTableBody>
@@ -1183,26 +1194,28 @@ const PoBucketView = () => {
                                 }
                               />
                             </CTableDataCell>
-                            <CTableDataCell className="text-nowrap">
-                              <CButton
-                                color="primary"
-                                size="sm"
-                                className="me-2"
-                                onClick={() => updateSingleProduct(index)}
-                                disabled={savingProducts || poClosed}
-                              >
-                                Update
-                              </CButton>
-                              <CButton
-                                color="danger"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeProduct(index)}
-                                disabled={savingProducts || poClosed}
-                              >
-                                <CIcon icon={cilTrash} />
-                              </CButton>
-                            </CTableDataCell>
+                            {canManageProductList ? (
+                              <CTableDataCell className="text-nowrap">
+                                <CButton
+                                  color="primary"
+                                  size="sm"
+                                  className="me-2"
+                                  onClick={() => updateSingleProduct(index)}
+                                  disabled={savingProducts || poClosed}
+                                >
+                                  Update
+                                </CButton>
+                                <CButton
+                                  color="danger"
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => removeProduct(index)}
+                                  disabled={savingProducts || poClosed}
+                                >
+                                  <CIcon icon={cilTrash} />
+                                </CButton>
+                              </CTableDataCell>
+                            ) : null}
                           </CTableRow>
                         ))}
                       </CTableBody>
@@ -1232,7 +1245,7 @@ const PoBucketView = () => {
                     <CCardBody className="pt-3">
                       {productsForm.length === 0 ? (
                         <p className="text-body-secondary mb-0">
-                          No products on this purchase order.
+                          No products on this sales order.
                         </p>
                       ) : (
                         <CTable hover responsive bordered align="middle">
@@ -1292,10 +1305,10 @@ const PoBucketView = () => {
                 <CCard className="mb-4 border-0 shadow-sm">
                   <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
                     <div>
-                      <strong>PO product line status</strong>
+                      <strong>Sales Order product line status</strong>
                       {purchaseOrder?.poCode && (
                         <div className="text-body-secondary small mt-1">
-                          PO: {purchaseOrder.poCode}
+                          Sales Order: {purchaseOrder.poCode}
                         </div>
                       )}
                     </div>
@@ -1318,8 +1331,8 @@ const PoBucketView = () => {
                     ) : !poProductStatusBundle ||
                       poProductStatusBundle.lines.length === 0 ? (
                       <p className="text-body-secondary mb-0">
-                        No po_products rows for this purchase order. Save the
-                        product list or sync the PO to generate lines.
+                        No po_products rows for this sales order. Save the
+                        product list or sync the Sales Order to generate lines.
                       </p>
                     ) : (
                       <CTable hover responsive bordered align="middle">
@@ -1401,19 +1414,24 @@ const PoBucketView = () => {
                 <CCard className="mb-4 border-0 shadow-sm">
                   <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
                     <strong>Assign employee</strong>
-                    <CButton
-                      color="primary"
-                      size="sm"
-                      disabled={
-                        savingAssignedEmployee ||
-                        !assignEmployeeDirty ||
-                        (assignSelectValue && !selectedAssignEmployeePayload) ||
-                        poClosed
-                      }
-                      onClick={saveAssignedEmployee}
-                    >
-                      {savingAssignedEmployee ? "Saving..." : "Save assignment"}
-                    </CButton>
+                    {canManageProductList ? (
+                      <CButton
+                        color="primary"
+                        size="sm"
+                        disabled={
+                          savingAssignedEmployee ||
+                          !assignEmployeeDirty ||
+                          (assignSelectValue &&
+                            !selectedAssignEmployeePayload) ||
+                          poClosed
+                        }
+                        onClick={saveAssignedEmployee}
+                      >
+                        {savingAssignedEmployee
+                          ? "Saving..."
+                          : "Save assignment"}
+                      </CButton>
+                    ) : null}
                   </CCardHeader>
                   <CCardBody className="pt-3">
                     <CRow className="g-3">
@@ -1441,7 +1459,7 @@ const PoBucketView = () => {
                         </CFormSelect>
                         <div className="small text-body-secondary mt-2">
                           Stores a full snapshot of the selected employee on
-                          this purchase order.
+                          this sales order.
                         </div>
                       </CCol>
                       {purchaseOrder?.assigned_employee &&
@@ -1487,15 +1505,17 @@ const PoBucketView = () => {
               <CTabPane visible={activeTab === "attachment"}>
                 <CCard className="mb-4 border-0 shadow-sm">
                   <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
-                    <strong>Purchase order attachment</strong>
-                    <CButton
-                      color="primary"
-                      size="sm"
-                      disabled={!canSavePoAttachment}
-                      onClick={savePoAttachment}
-                    >
-                      {savingPoAttachment ? "Saving..." : "Save attachment"}
-                    </CButton>
+                    <strong>Sales order attachment</strong>
+                    {canManageProductList ? (
+                      <CButton
+                        color="primary"
+                        size="sm"
+                        disabled={!canSavePoAttachment}
+                        onClick={savePoAttachment}
+                      >
+                        {savingPoAttachment ? "Saving..." : "Save attachment"}
+                      </CButton>
+                    ) : null}
                   </CCardHeader>
                   <CCardBody className="pt-3">
                     <div
@@ -1564,7 +1584,7 @@ const PoBucketView = () => {
                         </div>
                       ) : (
                         <span className="text-body-secondary small">
-                          No file attached to this purchase order yet.
+                          No file attached to this sales order yet.
                         </span>
                       )}
                       <div className="d-flex align-items-center gap-2">

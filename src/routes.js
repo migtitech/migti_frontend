@@ -86,6 +86,7 @@ const PoPaymentBacklog = React.lazy(
 const HodPaymentBacklog = React.lazy(
   () => import("./views/hod/HodPaymentBacklog"),
 );
+const HodDashboard = React.lazy(() => import("./views/hod/HodDashboard"));
 const QuotationFollowupDashboard = React.lazy(
   () => import("./views/admin/QuotationFollowupDashboard"),
 );
@@ -211,6 +212,10 @@ const AreaForm = React.lazy(() => import("./views/admin/AreaForm"));
 const AreaView = React.lazy(() => import("./views/admin/AreaView"));
 const SubZoneList = React.lazy(() => import("./views/admin/SubZoneList"));
 const SubZoneForm = React.lazy(() => import("./views/admin/SubZoneForm"));
+const CompanyDocumentList = React.lazy(
+  () => import("./views/admin/CompanyDocumentList"),
+);
+const SidebarDocs = React.lazy(() => import("./views/admin/SidebarDocs"));
 
 // Industries
 const IndustryList = React.lazy(() => import("./views/admin/IndustryList"));
@@ -543,6 +548,12 @@ const routes = [
     action: "read",
   },
   {
+    path: "/hod-dashboard",
+    name: "HOD Dashboard",
+    element: HodDashboard,
+    allowedRoles: ["head_of_department", "hod", "super_admin", "admin"],
+  },
+  {
     path: "/target-dashboard",
     name: "Target Dashboard",
     element: TargetDashboard,
@@ -558,14 +569,14 @@ const routes = [
   },
   {
     path: "/purchase-order-sidebar",
-    name: "Purchase Order",
+    name: "Sales Order",
     element: PurchaseOrderSidebar,
     module: "po_payment",
     action: "read",
   },
   {
     path: "/po-payment",
-    name: "PO payment",
+    name: "Sales Order payment",
     element: PoPaymentSidebar,
     module: "po_payment",
     action: "read",
@@ -579,7 +590,7 @@ const routes = [
   },
   {
     path: "/po-payment-backlog",
-    name: "PO Payment Backlog",
+    name: "Sales Order Payment Backlog",
     element: PoPaymentBacklog,
     module: "po_payment_backlog",
     action: "read",
@@ -812,14 +823,14 @@ const routes = [
   },
   {
     path: "/po-bucket",
-    name: "PO Bucket",
+    name: "Sales Order Bucket",
     element: PoBucketDashboard,
     module: "po_bucket",
     action: "read",
   },
   {
     path: "/po-bucket/:id",
-    name: "PO Bucket item",
+    name: "Sales Order Bucket item",
     element: PoBucketView,
     module: "po_bucket",
     action: "read",
@@ -853,7 +864,7 @@ const routes = [
   },
   {
     path: "/po-products",
-    name: "PO Products",
+    name: "Sales Order Products",
     element: PoProductsList,
     module: null,
     action: "read",
@@ -861,7 +872,7 @@ const routes = [
   },
   {
     path: "/po-products/add",
-    name: "Add PO Product",
+    name: "Add Sales Order Product",
     element: PoProductAdd,
     module: null,
     action: "read",
@@ -869,7 +880,7 @@ const routes = [
   },
   {
     path: "/po-products/create",
-    name: "Create PO Product",
+    name: "Create Sales Order Product",
     element: PoProductCreate,
     module: null,
     action: "read",
@@ -877,7 +888,7 @@ const routes = [
   },
   {
     path: "/po-products/:id",
-    name: "PO Product Detail",
+    name: "Sales Order Product Detail",
     element: PoProductView,
     module: null,
     action: "read",
@@ -1023,6 +1034,21 @@ const routes = [
     element: SubZoneForm,
     module: "sub_zones",
     action: "create",
+  },
+  {
+    path: "/company-documents",
+    name: "Company documents",
+    element: CompanyDocumentList,
+    module: null,
+    action: "read",
+    allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/sidebar-docs",
+    name: "Docs",
+    element: SidebarDocs,
+    module: null,
+    action: "read",
   },
 
   // Industries

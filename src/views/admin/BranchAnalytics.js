@@ -191,12 +191,12 @@ const BranchAnalytics = () => {
         className: "bg-warning text-dark",
       },
       {
-        label: "Total PO",
+        label: "Total Sales Order",
         value: metrics.totalPo || 0,
         className: "bg-success text-white",
       },
       {
-        label: "PO Amount",
+        label: "Sales Order Amount",
         value: formatAmount(metrics.poAmount || 0),
         className: "bg-danger text-white",
       },
@@ -216,7 +216,7 @@ const BranchAnalytics = () => {
 
   const volumeChartData = useMemo(
     () => ({
-      labels: ["Queries", "Quotations", "PO", "Billing"],
+      labels: ["Queries", "Quotations", "Sales Order", "Billing"],
       datasets: [
         {
           label: "Count",
@@ -238,7 +238,7 @@ const BranchAnalytics = () => {
 
   const amountChartData = useMemo(
     () => ({
-      labels: ["Quoted", "PO", "Billing"],
+      labels: ["Quoted", "Sales Order", "Billing"],
       datasets: [
         {
           backgroundColor: ["#8a93ff", "#2eb85c", "#f9b115"],
@@ -471,7 +471,7 @@ const BranchAnalytics = () => {
                       active={activeTab === TAB_KEYS.po}
                       onClick={() => setActiveTab(TAB_KEYS.po)}
                     >
-                      PO
+                      Sales Order
                     </CNavLink>
                   </CNavItem>
                   <CNavItem>
@@ -609,7 +609,7 @@ const BranchAnalytics = () => {
                       ) : (
                         <CTableRow>
                           <CTableDataCell colSpan={5} className="text-center">
-                            No PO data found for selected filters.
+                            No Sales Order data found for selected filters.
                           </CTableDataCell>
                         </CTableRow>
                       )}

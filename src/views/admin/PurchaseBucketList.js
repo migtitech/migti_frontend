@@ -48,7 +48,7 @@ const STATUS_CONFIG = {
   inventory_received:       { label: "Inventory Received",    color: "#0369a1", bg: "#e0f2fe", dot: "#0ea5e9" },
   ready_for_dispatchment:   { label: "Ready to Dispatch",     color: "#15803d", bg: "#dcfce7", dot: "#22c55e" },
   delivered:                { label: "Delivered",             color: "#15803d", bg: "#f0fdf4", dot: "#22c55e" },
-  po_closed:                { label: "PO Closed",             color: "#64748b", bg: "#f1f5f9", dot: "#94a3b8" },
+  po_closed:                { label: "Sales Order Closed",             color: "#64748b", bg: "#f1f5f9", dot: "#94a3b8" },
 };
 
 const PRIORITY_CONFIG = {
@@ -259,7 +259,7 @@ const PurchaseBucketList = () => {
             size="sm"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search product or PO code…"
+            placeholder="Search product or Sales Order code…"
             style={{ paddingLeft: 32, borderRadius: 7, fontSize: 13 }}
           />
         </div>

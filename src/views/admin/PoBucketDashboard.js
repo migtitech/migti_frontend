@@ -148,7 +148,7 @@ const PoBucketDashboard = () => {
         setPagination(result?.pagination || null);
       } catch (err) {
         if (latestFetchIdRef.current !== fetchId) return;
-        toastError(err?.message || "Failed to load purchase orders");
+        toastError(err?.message || "Failed to load sales orders");
         setRows([]);
         setPagination(null);
       } finally {
@@ -187,7 +187,7 @@ const PoBucketDashboard = () => {
   const handleConfirmedCloseAfterPin = () => {
     const trimmed = String(closePinInput || "").trim();
     if (trimmed !== PO_CLOSE_SECRET_PIN) {
-      toastError("Incorrect PIN. Purchase order was not closed.");
+      toastError("Incorrect PIN. Sales order was not closed.");
       return;
     }
     const id = pendingClosePoIdRef.current;
@@ -197,7 +197,7 @@ const PoBucketDashboard = () => {
     void (async () => {
       try {
         await purchaseOrderService.hodClose(id);
-        toastSuccess("Purchase order closed");
+        toastSuccess("Sales order closed");
         const res = await purchaseOrderService.getAll({
           pageNumber,
           pageSize,
@@ -209,7 +209,7 @@ const PoBucketDashboard = () => {
         setRows(result?.purchaseOrders || []);
         setPagination(result?.pagination || null);
       } catch (err) {
-        toastError(err?.message || "Failed to close purchase order");
+        toastError(err?.message || "Failed to close sales order");
       } finally {
         setClosing(false);
       }
@@ -228,21 +228,21 @@ const PoBucketDashboard = () => {
           <CModalHeader>
             <CModalTitle>
               {poCloseStep === "confirm"
-                ? "Close purchase order?"
+                ? "Close sales order?"
                 : "Enter secret PIN"}
             </CModalTitle>
           </CModalHeader>
           <CModalBody>
             {poCloseStep === "confirm" ? (
               <p className="mb-0">
-                This purchase order will be marked closed and all product lines
-                will be set to PO closed. Click Continue, then enter the secret
+                This sales order will be marked closed and all product lines
+                will be set to Sales Order closed. Click Continue, then enter the secret
                 PIN to confirm.
               </p>
             ) : (
               <>
                 <CFormLabel htmlFor="po-close-pin" className="mb-2">
-                  PIN required to close this purchase order
+                  PIN required to close this sales order
                 </CFormLabel>
                 <CFormInput
                   id="po-close-pin"
@@ -309,7 +309,7 @@ const PoBucketDashboard = () => {
                   disabled={closing}
                   onClick={handleConfirmedCloseAfterPin}
                 >
-                  Close PO
+                  Close Sales Order
                 </CButton>
               </>
             )}
@@ -317,7 +317,7 @@ const PoBucketDashboard = () => {
         </CModal>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>PO Bucket</strong>
+            <strong>Sales Order Bucket</strong>
           </CCardHeader>
           <CCardBody>
             <CRow className="mb-3 g-2 align-items-end">
@@ -327,7 +327,7 @@ const PoBucketDashboard = () => {
                 </CFormLabel>
                 <CFormInput
                   value={searchTerm}
-                  placeholder="Search PO code, company, product"
+                  placeholder="Search Sales Order code, company, product"
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </CCol>
@@ -369,7 +369,7 @@ const PoBucketDashboard = () => {
               <CTableHead>
                 <CTableRow>
                   <CTableHeaderCell>S No</CTableHeaderCell>
-                  <CTableHeaderCell>PO Number</CTableHeaderCell>
+                  <CTableHeaderCell>Sales Order Number</CTableHeaderCell>
                   <CTableHeaderCell>Company</CTableHeaderCell>
                   <CTableHeaderCell>Products</CTableHeaderCell>
                   <CTableHeaderCell>Total Amount</CTableHeaderCell>
@@ -431,7 +431,7 @@ const PoBucketDashboard = () => {
                                 color="danger"
                                 variant="ghost"
                                 size="sm"
-                                title="Close PO"
+                                title="Close Sales Order"
                                 disabled={closing}
                                 onClick={(e) => openCloseConfirm(po, e)}
                               >
@@ -446,7 +446,7 @@ const PoBucketDashboard = () => {
                 ) : (
                   <CTableRow>
                     <CTableDataCell colSpan={8} className="text-center">
-                      {!loading && "No purchase orders found."}
+                      {!loading && "No sales orders found."}
                     </CTableDataCell>
                   </CTableRow>
                 )}

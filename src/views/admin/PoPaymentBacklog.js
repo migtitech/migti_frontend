@@ -136,7 +136,7 @@ const PoPaymentBacklog = () => {
             <div>
               <h4 className="mb-1 fw-semibold">Pending Payments</h4>
               <p className="text-body-secondary small mb-0">
-                Payment backlog created on HOD approval of purchase orders
+                Payment backlog created on HOD approval of sales orders
               </p>
             </div>
             {isAdmin && employees.length > 0 && (
@@ -173,7 +173,7 @@ const PoPaymentBacklog = () => {
                   </div>
                   <div>
                     <div className="text-body-secondary small">
-                      Total PO Payments Pending
+                      Total Sales Order Payments Pending
                     </div>
                     <div className="fs-4 fw-bold">
                       {loading ? (

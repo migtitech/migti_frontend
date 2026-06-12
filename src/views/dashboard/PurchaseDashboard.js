@@ -222,7 +222,7 @@ const PurchaseDashboard = () => {
             className="mb-4"
             color="warning"
             value={stats.pendingPOs.toString()}
-            title="Pending POs"
+            title="Pending Sales Orders"
             chart={
               <CIcon
                 icon={cilCart}
@@ -268,13 +268,13 @@ const PurchaseDashboard = () => {
         <CCol lg={8}>
           <CCard className="mb-4">
             <CCardHeader>
-              <strong>Recent Purchase Orders</strong>
+              <strong>Recent Sales Orders</strong>
             </CCardHeader>
             <CCardBody>
               <CTable hover responsive>
                 <CTableHead>
                   <CTableRow>
-                    <CTableHeaderCell>PO Number</CTableHeaderCell>
+                    <CTableHeaderCell>Sales Order Number</CTableHeaderCell>
                     <CTableHeaderCell>Vendor</CTableHeaderCell>
                     <CTableHeaderCell>Amount</CTableHeaderCell>
                     <CTableHeaderCell>Status</CTableHeaderCell>

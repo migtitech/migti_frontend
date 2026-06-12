@@ -76,7 +76,7 @@ const STATUS_CONFIG = {
   inventory_received:       { label: "Inventory Received", color: "#0369a1", bg: "#e0f2fe" },
   ready_for_dispatchment:   { label: "Ready to Dispatch",  color: "#15803d", bg: "#dcfce7" },
   delivered:                { label: "Delivered",          color: "#15803d", bg: "#f0fdf4" },
-  po_closed:                { label: "PO Closed",          color: "#64748b", bg: "#f1f5f9" },
+  po_closed:                { label: "Sales Order Closed",          color: "#64748b", bg: "#f1f5f9" },
 };
 
 const StatusPill = ({ status }) => {
@@ -577,7 +577,7 @@ const PurchaseBucketDetail = () => {
                 {lineUrl && (
                   <div className={imagePreviews.length > 0 ? "pt-2 border-top mt-2" : ""}>
                     {imagePreviews.length > 0 && (
-                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>PO line photo</div>
+                      <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 6 }}>Sales Order line photo</div>
                     )}
                     <div className="text-center text-lg-start">
                       <img
@@ -815,7 +815,7 @@ const PurchaseBucketDetail = () => {
         <div>
           {item.queryRatesMatchNote === "missing_rawProductCode" && (
             <div className="text-center py-4" style={{ color: "#94a3b8", fontSize: 13 }}>
-              This PO line has no raw product code — rates cannot be matched.
+              This Sales Order line has no raw product code — rates cannot be matched.
             </div>
           )}
           {item.queryRatesMatchNote === "no_query_product" && item.rawProductCode && (

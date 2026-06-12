@@ -187,7 +187,7 @@ const ProductCard = ({ row, inCart, onSelect }) => (
         {fmt(row.productName)}
       </div>
       <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
-        PO: <strong>{fmt(row.poCode)}</strong>
+        Sales Order: <strong>{fmt(row.poCode)}</strong>
         {row.quantity ? ` · Qty: ${row.quantity}${row.unit ? " " + row.unit : ""}` : ""}
       </div>
     </div>
@@ -225,7 +225,7 @@ const CartCard = ({ item, idx, onRemove }) => (
           {fmt(item.product.productName)}
         </div>
         <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
-          PO: {fmt(item.product.poCode)}
+          Sales Order: {fmt(item.product.poCode)}
           {item.product.quantity
             ? ` · Qty: ${item.product.quantity}${item.product.unit ? " " + item.product.unit : ""}`
             : ""}
@@ -536,7 +536,7 @@ const RaiseBillingRequest = () => {
                   <CFormInput
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    placeholder="PO number or product name…"
+                    placeholder="Sales Order number or product name…"
                     style={{ paddingLeft: 36 }}
                     autoFocus
                   />
@@ -613,7 +613,7 @@ const RaiseBillingRequest = () => {
                     {fmt(product.productName)}
                   </div>
                   <div style={{ fontSize: 12, color: "#0d6efd", marginTop: 2 }}>
-                    PO: {fmt(product.poCode)}
+                    Sales Order: {fmt(product.poCode)}
                     {product.quantity ? ` · Qty: ${product.quantity}${product.unit ? " " + product.unit : ""}` : ""}
                   </div>
                 </div>
@@ -781,7 +781,7 @@ const RaiseBillingRequest = () => {
                     {fmt(product.productName)}
                   </div>
                   <div style={{ fontSize: 12, color: "#0d6efd", marginTop: 2 }}>
-                    PO: {fmt(product.poCode)} · {form.photos.length} photo{form.photos.length !== 1 ? "s" : ""} attached
+                    Sales Order: {fmt(product.poCode)} · {form.photos.length} photo{form.photos.length !== 1 ? "s" : ""} attached
                   </div>
                 </div>
                 <CButton

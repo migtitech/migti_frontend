@@ -217,6 +217,12 @@ export const SUB_ZONES = {
   DELETE: "/sub-zones/delete",
 };
 
+export const COMPANY_DOCUMENTS = {
+  CREATE: "/company-documents/create",
+  LIST: "/company-documents/list",
+  DELETE: "/company-documents/delete",
+};
+
 export const INDUSTRIES = {
   CREATE: "/industries/create",
   LIST: "/industries/list",
@@ -259,6 +265,12 @@ export const QUERIES = {
   ACTIVITIES: "/queries/activities",
   RECORD_ACTIVITY: "/queries/record-activity",
   EXPORT_PDF: "/queries/export-pdf",
+};
+
+/** HOD analytics dashboard (collection-spanning aggregates + pending action queues) */
+export const HOD_DASHBOARD = {
+  OVERVIEW: "/hod-dashboard/overview",
+  PENDING_ITEMS: "/hod-dashboard/pending-items",
 };
 
 export const QUOTATIONS = {
@@ -469,6 +481,7 @@ export default {
   INDUSTRIES,
   INDUSTRY_BRANCHES,
   QUERIES,
+  HOD_DASHBOARD,
   QUOTATIONS,
   PURCHASE_ORDERS,
   PO_PAYMENTS,

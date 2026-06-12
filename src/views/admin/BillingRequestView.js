@@ -306,7 +306,7 @@ const BillingRequestView = ({
           <CCardBody>
             <CRow className="g-3">
               <CCol sm={6} md={3}>
-                <div className="text-body-secondary small mb-1">PO Code</div>
+                <div className="text-body-secondary small mb-1">Sales Order Code</div>
                 <div className="fw-medium">
                   <code>{detail.poCode || "—"}</code>
                 </div>

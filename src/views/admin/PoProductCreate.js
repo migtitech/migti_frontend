@@ -74,7 +74,7 @@ const PoProductCreate = () => {
         targetRate: form.targetRate !== "" ? Number(form.targetRate) : null,
         remark: form.remark,
       });
-      toastSuccess("PO product created with HOD Approval Pending status");
+      toastSuccess("Sales Order product created with HOD Approval Pending status");
       navigate("/po-products");
     } catch (e) {
       toastError(e?.message || "Failed to create product");
@@ -98,7 +98,7 @@ const PoProductCreate = () => {
             Back
           </CButton>
           <h5 className="mb-0 fw-semibold flex-grow-1 text-truncate">
-            New PO Product
+            New Sales Order Product
           </h5>
           <CBadge color="danger" className="px-2 py-1">
             HOD Approval Pending
@@ -122,7 +122,7 @@ const PoProductCreate = () => {
               </CCol>
 
               <CCol xs={6} md={3}>
-                <CFormLabel className="text-body-secondary">PO Code</CFormLabel>
+                <CFormLabel className="text-body-secondary">Sales Order Code</CFormLabel>
                 <CFormInput value={product.poCode || "—"} disabled className="bg-light font-monospace" />
               </CCol>
 
@@ -147,7 +147,7 @@ const PoProductCreate = () => {
               </CCol>
 
               <CCol xs={6} md={3}>
-                <CFormLabel className="text-body-secondary">PO Rate (₹)</CFormLabel>
+                <CFormLabel className="text-body-secondary">Sales Order Rate (₹)</CFormLabel>
                 <CFormInput value={product.poRate != null ? product.poRate : "—"} disabled className="bg-light" />
               </CCol>
 

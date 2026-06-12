@@ -30,11 +30,12 @@ const MODULE_LABEL_DISPLAY = {
   Industries: "Clients",
   "Industry Branches": "Client branches",
   "Sub Zones": "Sub-zones",
-  "Purchase Orders": "Purchase Order",
+  "Purchase Orders": "Sales Order",
   "Visit Management": "Visit Management",
   "My Visits": "My Visits",
-  "Po Payment": "PO payment",
+  "Po Payment": "Sales Order payment",
   "Po Payment Backlog": "Pending Payments",
+  "Po Bucket": "Sales Order Bucket",
 };
 
 const ALLOWED_MODULE_LABELS = new Set([

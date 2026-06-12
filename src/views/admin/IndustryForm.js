@@ -78,10 +78,15 @@ const industrySchema = yup.object({
   area: yup.string().trim().required("Zone selection is required"),
   subZoneId: yup.string().optional().nullable(),
   location: yup.string().optional().max(200),
-  address: yup
+  shippingAddress: yup
     .string()
     .trim()
-    .required("Address is required")
+    .required("Shipping address is required")
+    .max(500),
+  billingAddress: yup
+    .string()
+    .trim()
+    .required("Billing address is required")
     .max(500),
   gstNumber: gstinOptional(),
   purchase_manager_name: yup
@@ -112,7 +117,8 @@ const defaultValues = {
   area: "",
   subZoneId: "",
   location: "",
-  address: "",
+  shippingAddress: "",
+  billingAddress: "",
   gstNumber: "",
   purchase_manager_name: "",
   purchase_manager_phone: "",
@@ -274,7 +280,8 @@ const IndustryForm = () => {
             ? data?.subZoneId?._id || ""
             : data?.subZoneId || "",
         location: data?.location || "",
-        address: data?.address || "",
+        shippingAddress: data?.shippingAddress || data?.address || "",
+        billingAddress: data?.billingAddress || data?.address || "",
         gstNumber: data?.gstNumber || "",
         purchase_manager_name: data?.purchase_manager_name || "",
         purchase_manager_phone: data?.purchase_manager_phone || "",
@@ -304,7 +311,8 @@ const IndustryForm = () => {
       if (isEdit) {
         const payload = {
           location: values.location || "",
-          address: values.address || "",
+          shippingAddress: values.shippingAddress || "",
+          billingAddress: values.billingAddress || "",
           gstNumber: (values.gstNumber || "").trim().toUpperCase(),
           subZoneId:
             (values.subZoneId && String(values.subZoneId).trim()) || null,
@@ -379,7 +387,7 @@ const IndustryForm = () => {
           <strong>{isEdit ? "Edit client" : "Add client"}</strong>
           <small className="text-muted d-block mt-1">
             {isEdit
-              ? "You can update branch, location, purchase managers and address."
+              ? "You can update branch, location, purchase managers and addresses."
               : "Select the branch this client belongs to."}
           </small>
         </CCardHeader>
@@ -642,13 +650,24 @@ const IndustryForm = () => {
           </CRow>
 
           <CRow>
-            <CCol md={12}>
+            <CCol md={6}>
               <div className="mb-3">
-                <CFormLabel>Address *</CFormLabel>
-                <CFormTextarea rows={3} {...register("address")} />
-                {errors.address && (
+                <CFormLabel>Shipping address *</CFormLabel>
+                <CFormTextarea rows={3} {...register("shippingAddress")} />
+                {errors.shippingAddress && (
                   <div className="text-danger small mt-1">
-                    {errors.address.message}
+                    {errors.shippingAddress.message}
+                  </div>
+                )}
+              </div>
+            </CCol>
+            <CCol md={6}>
+              <div className="mb-3">
+                <CFormLabel>Billing address *</CFormLabel>
+                <CFormTextarea rows={3} {...register("billingAddress")} />
+                {errors.billingAddress && (
+                  <div className="text-danger small mt-1">
+                    {errors.billingAddress.message}
                   </div>
                 )}
               </div>

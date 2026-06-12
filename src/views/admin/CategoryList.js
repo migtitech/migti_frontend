@@ -234,7 +234,6 @@ const CategoryList = () => {
                       <CTableHeaderCell>Group</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
-                      <CTableHeaderCell>Sort Order</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
@@ -282,7 +281,6 @@ const CategoryList = () => {
                           <CTableDataCell>
                             {cat.description?.substring(0, 50) || "-"}
                           </CTableDataCell>
-                          <CTableDataCell>{cat.sortOrder}</CTableDataCell>
                           <CTableDataCell>
                             {getStatusBadge(cat.status)}
                           </CTableDataCell>
@@ -367,7 +365,6 @@ const CategoryList = () => {
                               <CTableDataCell>
                                 {sub.description?.substring(0, 50) || "-"}
                               </CTableDataCell>
-                              <CTableDataCell>{sub.sortOrder}</CTableDataCell>
                               <CTableDataCell>
                                 {getStatusBadge(sub.status)}
                               </CTableDataCell>

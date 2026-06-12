@@ -135,10 +135,10 @@ const BatchBillingRequests = () => {
           <CCardBody className="py-3">
             <CRow className="g-3 align-items-end">
               <CCol md={3}>
-                <CFormLabel className="mb-1 small fw-semibold">PO Code</CFormLabel>
+                <CFormLabel className="mb-1 small fw-semibold">Sales Order Code</CFormLabel>
                 <CFormInput
                   size="sm"
-                  placeholder="Search by PO code"
+                  placeholder="Search by Sales Order code"
                   value={filterPoCode}
                   onChange={(e) => setFilterPoCode(e.target.value)}
                 />
@@ -229,7 +229,7 @@ const BatchBillingRequests = () => {
                               </div>
                               {r.poCode && (
                                 <div className="small text-body-secondary">
-                                  PO: <code className="small">{r.poCode}</code>
+                                  Sales Order: <code className="small">{r.poCode}</code>
                                 </div>
                               )}
                             </div>

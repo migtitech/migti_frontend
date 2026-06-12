@@ -223,7 +223,7 @@ const IndustryView = () => {
         }
       } catch (err) {
         if (!cancelled) {
-          toastError(err?.message || "Failed to load PO entries");
+          toastError(err?.message || "Failed to load Sales Order entries");
           setPurchaseOrders([]);
           setPoPagination(null);
         }
@@ -389,7 +389,7 @@ const IndustryView = () => {
                   Quotations: {quotationPagination?.totalItems ?? 0}
                 </CBadge>
                 <CBadge color="success">
-                  PO: {poPagination?.totalItems ?? 0}
+                  Sales Order: {poPagination?.totalItems ?? 0}
                 </CBadge>
               </div>
             </CCardHeader>
@@ -428,7 +428,7 @@ const IndustryView = () => {
                     onClick={() => setActiveTab("po")}
                     style={{ cursor: "pointer" }}
                   >
-                    PO
+                    Sales Order
                   </CNavLink>
                 </CNavItem>
                 <CNavItem>
@@ -717,14 +717,14 @@ const IndustryView = () => {
                 <CTabPane visible={activeTab === "po"}>
                   {poLoading && (
                     <div className="text-center py-3">
-                      <Loader message="Loading PO..." />
+                      <Loader message="Loading Sales Order..." />
                     </div>
                   )}
                   <CTable bordered responsive hover>
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
-                        <CTableHeaderCell>PO Number</CTableHeaderCell>
+                        <CTableHeaderCell>Sales Order Number</CTableHeaderCell>
                         <CTableHeaderCell>Salesperson</CTableHeaderCell>
                         <CTableHeaderCell>Amount</CTableHeaderCell>
                         <CTableHeaderCell>Entry Date</CTableHeaderCell>
@@ -757,7 +757,7 @@ const IndustryView = () => {
                       {!poLoading && purchaseOrders.length === 0 && (
                         <CTableRow>
                           <CTableDataCell colSpan={7} className="text-center">
-                            No PO entries found for this company.
+                            No Sales Order entries found for this company.
                           </CTableDataCell>
                         </CTableRow>
                       )}
@@ -832,7 +832,7 @@ const IndustryView = () => {
                     <CCol md={4}>
                       <CCard>
                         <CCardBody>
-                          <div className="text-muted small">PO Received</div>
+                          <div className="text-muted small">Sales Order Received</div>
                           <h4 className="mb-0">
                             {poPagination?.totalItems ?? 0}
                           </h4>
@@ -854,7 +854,7 @@ const IndustryView = () => {
                     <CCol md={6}>
                       <CCard>
                         <CCardBody>
-                          <div className="text-muted small">PO Amount</div>
+                          <div className="text-muted small">Sales Order Amount</div>
                           <h4 className="mb-0">
                             {formatINRCurrency(totalPoAmount)}
                           </h4>
@@ -879,7 +879,7 @@ const IndustryView = () => {
                           >
                             <CChartBar
                               data={{
-                                labels: ["Quotation Value", "PO Amount"],
+                                labels: ["Quotation Value", "Sales Order Amount"],
                                 datasets: [
                                   {
                                     data: [
@@ -921,7 +921,7 @@ const IndustryView = () => {
                           >
                             <CChartBar
                               data={{
-                                labels: ["Queries", "Quotations", "PO"],
+                                labels: ["Queries", "Quotations", "Sales Order"],
                                 datasets: [
                                   {
                                     label: "Count",

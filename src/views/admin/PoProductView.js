@@ -154,7 +154,7 @@ const PoProductView = () => {
           description: data?.description || "",
         });
       } catch (e) {
-        toastError(e?.message || "Failed to load PO product");
+        toastError(e?.message || "Failed to load Sales Order product");
       } finally {
         setLoading(false);
       }
@@ -176,7 +176,7 @@ const PoProductView = () => {
       const res = await poProductsBucketService.update(id, payload);
       const updated = res?.data?.data || res?.data;
       if (updated) setDoc(updated);
-      toastSuccess("PO product updated successfully");
+      toastSuccess("Sales Order product updated successfully");
     } catch (e) {
       toastError(e?.message || "Failed to update");
     } finally {
@@ -216,7 +216,7 @@ const PoProductView = () => {
           </CButton>
 
           <h5 className="mb-0 fw-semibold flex-grow-1 text-truncate">
-            {doc?.productName || "PO Product"}
+            {doc?.productName || "Sales Order Product"}
           </h5>
 
           <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -261,9 +261,9 @@ const PoProductView = () => {
           {/* Left: PO info + documents */}
           <CCol xs={12} lg={4}>
             <CCard className="mb-4">
-              <CCardHeader><strong>PO &amp; Line Info</strong></CCardHeader>
+              <CCardHeader><strong>Sales Order &amp; Line Info</strong></CCardHeader>
               <CCardBody>
-                <InfoRow label="PO Code" value={
+                <InfoRow label="Sales Order Code" value={
                   <span className="badge bg-dark font-monospace">{doc?.poCode || "—"}</span>
                 } />
                 <InfoRow label="Raw Product Code" value={
@@ -271,7 +271,7 @@ const PoProductView = () => {
                 } />
                 <InfoRow label="Quantity" value={`${doc?.quantity ?? "—"} ${doc?.unit || ""}`} />
                 <InfoRow label="Dispatch Date" value={formatDateDdMmYyyy(doc?.dispatchmentDate)} />
-                <InfoRow label="PO Rate" value={doc?.poRate != null ? `₹${doc.poRate}` : "—"} />
+                <InfoRow label="Sales Order Rate" value={doc?.poRate != null ? `₹${doc.poRate}` : "—"} />
                 <InfoRow
                   label="Target Rate"
                   value={doc?.targetRate != null ? `₹${doc.targetRate}` : "—"}
@@ -377,7 +377,7 @@ const PoProductView = () => {
                   </CCol>
 
                   <CCol xs={6} md={2}>
-                    <CFormLabel className="text-body-secondary">PO Rate (₹)</CFormLabel>
+                    <CFormLabel className="text-body-secondary">Sales Order Rate (₹)</CFormLabel>
                     <CFormInput
                       value={doc?.poRate != null ? doc.poRate : "—"}
                       readOnly
@@ -419,7 +419,7 @@ const PoProductView = () => {
                     />
                     {doc?.poRate != null && (
                       <CFormText className="text-body-secondary">
-                        PO Rate: ₹{doc.poRate} · Suggested (−10%): ₹
+                        Sales Order Rate: ₹{doc.poRate} · Suggested (−10%): ₹
                         {Math.round(doc.poRate * 0.9 * 100) / 100}
                       </CFormText>
                     )}

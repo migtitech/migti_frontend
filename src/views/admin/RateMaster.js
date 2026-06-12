@@ -37,7 +37,7 @@ const PAGE_SIZE = 25;
 const TYPE_CONFIG = {
   procurement: { label: "Procurement", color: "info" },
   quoted: { label: "Quoted", color: "primary" },
-  po: { label: "Purchase Order", color: "warning" },
+  po: { label: "Sales Order", color: "warning" },
   billing: { label: "Billing", color: "success" },
 };
 

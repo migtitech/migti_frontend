@@ -1,6 +1,9 @@
 import navigation, { PURCHASE_ROLE_NAV } from "../_nav";
 import { isPurchaseFamilyRole, normalizeRole } from "../hooks/usePermissions";
 
+/** Routes visible in the sidebar and open to every authenticated role. */
+export const UNIVERSAL_NAV_PATHS = new Set(["/sidebar-docs"]);
+
 /** Modules where HOD must have explicit permission (no full-access bypass). */
 export const HOD_PERMISSION_REQUIRED_MODULES = new Set(["po_payment_backlog"]);
 
@@ -31,6 +34,7 @@ export const INVENTORY_MANAGER_ALLOWED_PATHS = new Set(["/inventory-bucket"]);
 export const FINANCE_ALLOWED_PATHS = new Set([
   "/billing-requests",
   "/po-payment",
+  "/sidebar-docs",
 ]);
 
 export const ADMIN_ALLOWED_PATHS = new Set([
@@ -144,6 +148,10 @@ export const isNavItemVisible = (item, ctx) => {
     permissions,
   } = ctx;
 
+  if (item.to && UNIVERSAL_NAV_PATHS.has(item.to)) {
+    return true;
+  }
+
   if (strategy === "roles_only") {
     return Boolean(item.roles?.length && roleInList(role, item.roles));
   }
@@ -185,6 +193,11 @@ export const isNavItemVisible = (item, ctx) => {
   // Default strategy (super_admin, hod, sales, procurement, etc.)
   if (isHod && item.to && HOD_HIDDEN_PATHS.has(item.to)) {
     return false;
+  }
+
+  // Procurement sees Pro Bucket by default (no explicit pro_bucket permission required).
+  if (role === "procurement" && item.to === "/pro-bucket") {
+    return true;
   }
 
   if (!item.module) {

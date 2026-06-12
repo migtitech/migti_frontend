@@ -507,7 +507,7 @@ const MyPurchaseList = () => {
                               <div className="small mb-2">
                                 <div>
                                   <span className="text-body-secondary">
-                                    PO Code:
+                                    Sales Order Code:
                                   </span>{" "}
                                   <span className="font-monospace fw-semibold">
                                     {row.poCode || cardSnap.poCode || "—"}
@@ -701,7 +701,7 @@ const MyPurchaseList = () => {
                     mono
                   />
                   <DetailRow
-                    label="PO code"
+                    label="Sales Order code"
                     value={detail.poCode || snap.poCode}
                     mono
                   />

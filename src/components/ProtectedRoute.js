@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePermissions, { isPurchaseFamilyRole } from "../hooks/usePermissions";
+import { UNIVERSAL_NAV_PATHS } from "../utils/sidebarNav";
 import Loader from "./Loader/Loader";
 
 const normalizeRole = (role) =>
@@ -73,6 +74,10 @@ const ProtectedRoute = ({
   }
 
   const userRole = normalizeRole(user?.role);
+
+  if (UNIVERSAL_NAV_PATHS.has(path)) {
+    return children;
+  }
 
   if (isLocalProcurement) {
     if (!LOCAL_PROCUREMENT_OPEN_PATHS.has(path)) {

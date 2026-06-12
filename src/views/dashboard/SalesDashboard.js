@@ -67,7 +67,7 @@ const formatQuotationStatus = (s) => {
     ready: "Ready",
     hod_approved: "Approved",
     sentToClient: "Sent to client",
-    poReceived: "PO received",
+    poReceived: "Sales Order received",
     followup01: "Follow-up 1",
     followup02: "Follow-up 2",
     closed: "Closed",
@@ -334,7 +334,7 @@ const SalesDashboard = () => {
                 <CWidgetStatsA
                   color="success"
                   value={String(dashboard.pendingPurchaseOrdersCount)}
-                  title="Pending POs"
+                  title="Pending Sales Orders"
                   chart={
                     <CIcon
                       icon={cilBasket}
@@ -408,7 +408,7 @@ const SalesDashboard = () => {
                 <CWidgetStatsA
                   color="success"
                   value={String(dashboard.monthlyPurchaseOrdersCount)}
-                  title="Purchase orders"
+                  title="Sales Orders"
                   chart={
                     <CIcon
                       icon={cilBasket}
@@ -577,7 +577,7 @@ const SalesDashboard = () => {
             <CCol lg={12} className="mb-4">
               <CCard>
                 <CCardHeader>
-                  <strong>Pending purchase orders</strong>
+                  <strong>Pending sales orders</strong>
                   <small className="text-body-secondary ms-2">
                     Not fulfilled or cancelled
                   </small>
@@ -586,7 +586,7 @@ const SalesDashboard = () => {
                   <CTable hover responsive>
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell>PO code</CTableHeaderCell>
+                        <CTableHeaderCell>Sales Order code</CTableHeaderCell>
                         <CTableHeaderCell>Company</CTableHeaderCell>
                         <CTableHeaderCell>Status</CTableHeaderCell>
                         <CTableHeaderCell>Pending amount</CTableHeaderCell>
@@ -603,7 +603,7 @@ const SalesDashboard = () => {
                             colSpan={6}
                             className="text-body-secondary text-center py-4"
                           >
-                            No pending purchase orders
+                            No pending sales orders
                           </CTableDataCell>
                         </CTableRow>
                       ) : (

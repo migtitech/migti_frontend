@@ -143,7 +143,7 @@ const FinanceDashboard = () => {
                 </span>
               </>
             }
-            title="Total Purchase Orders"
+            title="Total Sales Orders"
             action={
               <CIcon
                 icon={cilCart}
@@ -159,7 +159,7 @@ const FinanceDashboard = () => {
                   labels: months,
                   datasets: [
                     {
-                      label: "Purchase Orders",
+                      label: "Sales Orders",
                       backgroundColor: "transparent",
                       borderColor: "rgba(255,255,255,.55)",
                       pointBackgroundColor: "#39f",
@@ -537,10 +537,10 @@ const FinanceDashboard = () => {
                   {purchaseOrders?.slice(0, 2).map((o) => (
                     <CTableRow key={`po-${o.id}`}>
                       <CTableDataCell>
-                        <CBadge color="warning">PO</CBadge>
+                        <CBadge color="warning">Sales Order</CBadge>
                       </CTableDataCell>
                       <CTableDataCell>
-                        PO-{String(o.id).padStart(4, "0")}
+                        Sales Order-{String(o.id).padStart(4, "0")}
                       </CTableDataCell>
                       <CTableDataCell>
                         ₹{o.totalAmount?.toLocaleString() || 0}

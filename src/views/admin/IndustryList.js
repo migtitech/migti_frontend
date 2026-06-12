@@ -48,7 +48,6 @@ const IndustryList = () => {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
-  const [categoryFilter, setCategoryFilter] = useState("");
   const [areas, setAreas] = useState([]);
   const [selectedAreaId, setSelectedAreaId] = useState("");
   const [branchFilter, setBranchFilter] = useState("");
@@ -135,7 +134,6 @@ const IndustryList = () => {
         pageNumber: page,
         pageSize: 10,
         search: searchTerm || undefined,
-        category: categoryFilter || undefined,
         areaIds: selectedAreaId || undefined,
       };
       if (isSalesRole) {
@@ -162,7 +160,6 @@ const IndustryList = () => {
   }, [
     page,
     searchTerm,
-    categoryFilter,
     selectedAreaId,
     branchFilter,
     userBranchId,
@@ -308,24 +305,6 @@ const IndustryList = () => {
                   </CFormSelect>
                 </CCol>
               )}
-              {!isSalesRole && (
-                <CCol md={2}>
-                  <CFormSelect
-                    label="Category"
-                    value={categoryFilter}
-                    onChange={(e) => {
-                      setCategoryFilter(e.target.value);
-                      setPage(1);
-                    }}
-                  >
-                    <option value="">All Categories</option>
-                    <option value="A">A</option>
-                    <option value="B">B</option>
-                    <option value="C">C</option>
-                    <option value="D">D</option>
-                  </CFormSelect>
-                </CCol>
-              )}
               {!isSalesRole && <CCol md={2}>
                 <CFormLabel className="small text-muted">Zones</CFormLabel>
                 <CFormSelect
@@ -380,10 +359,6 @@ const IndustryList = () => {
                               </div>
                             </div>
                             <div className="small">
-                              <div className="mb-1">
-                                <strong>Category:</strong>{" "}
-                                {industry.category || "-"}
-                              </div>
                               <div className="mb-1">
                                 <strong>GST No:</strong>{" "}
                                 {industry.gstNumber || "-"}
@@ -451,11 +426,10 @@ const IndustryList = () => {
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
                         <CTableHeaderCell>Client name</CTableHeaderCell>
-                        <CTableHeaderCell>Category</CTableHeaderCell>
                         <CTableHeaderCell>GST No</CTableHeaderCell>
                         <CTableHeaderCell>Zone</CTableHeaderCell>
                         <CTableHeaderCell>Purchase Manager</CTableHeaderCell>
-                        <CTableHeaderCell>Address</CTableHeaderCell>
+                        <CTableHeaderCell>Shipping address</CTableHeaderCell>
                         <CTableHeaderCell>Actions</CTableHeaderCell>
                       </CTableRow>
                     </CTableHead>
@@ -475,9 +449,6 @@ const IndustryList = () => {
                             <strong>{industry.name}</strong>
                           </CTableDataCell>
                           <CTableDataCell>
-                            {industry.category || "-"}
-                          </CTableDataCell>
-                          <CTableDataCell>
                             {industry.gstNumber || "-"}
                           </CTableDataCell>
                           <CTableDataCell>
@@ -487,7 +458,7 @@ const IndustryList = () => {
                             {getPurchaseManagerLabel(industry)}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {industry.address || "-"}
+                            {industry.shippingAddress || industry.address || "-"}
                           </CTableDataCell>
                           <CTableDataCell>
                             <CButton
@@ -535,7 +506,7 @@ const IndustryList = () => {
                       ))}
                       {industries.length === 0 && (
                         <CTableRow>
-                          <CTableDataCell colSpan={9} className="text-center">
+                          <CTableDataCell colSpan={8} className="text-center">
                             {searchTerm
                               ? "No clients match the current search."
                               : 'No clients found. Click "Add client" to create one.'}

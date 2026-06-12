@@ -157,9 +157,9 @@ const BillingRequestList = ({
           <CCardBody>
             <CRow className="g-3 mb-3">
               <CCol md={3}>
-                <CFormLabel>PO Code</CFormLabel>
+                <CFormLabel>Sales Order Code</CFormLabel>
                 <CFormInput
-                  placeholder="Search by PO code"
+                  placeholder="Search by Sales Order code"
                   value={filterPoCode}
                   onChange={(e) => setFilterPoCode(e.target.value)}
                 />
@@ -221,7 +221,7 @@ const BillingRequestList = ({
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell scope="col">BR Code</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">PO Code</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">Sales Order Code</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Products</CTableHeaderCell>
                       <CTableHeaderCell scope="col">
                         Total Amount

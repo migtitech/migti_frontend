@@ -300,7 +300,7 @@ const DispatchmentList = () => {
             <CIcon icon={cilTruck} className="text-primary" />
             <strong>Dispatchment</strong>
             <span className="text-body-secondary small">
-              PO lines <em>Ready for dispatchment</em> or <em>Delivered</em> —
+              Sales Order lines <em>Ready for dispatchment</em> or <em>Delivered</em> —
               use status to filter
             </span>
           </CCardHeader>
@@ -311,7 +311,7 @@ const DispatchmentList = () => {
                 <CFormInput
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Product name, PO number, or raw product code"
+                  placeholder="Product name, Sales Order number, or raw product code"
                 />
               </CCol>
               <CCol xs={6} md={2}>
@@ -354,7 +354,7 @@ const DispatchmentList = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>Product</CTableHeaderCell>
-                      <CTableHeaderCell>PO number</CTableHeaderCell>
+                      <CTableHeaderCell>Sales Order number</CTableHeaderCell>
                       <CTableHeaderCell>Raw code</CTableHeaderCell>
                       <CTableHeaderCell>Company & address</CTableHeaderCell>
                       <CTableHeaderCell>Purchase manager</CTableHeaderCell>
@@ -468,7 +468,7 @@ const DispatchmentList = () => {
         scroll
       >
         <COffcanvasHeader className="d-flex align-items-center justify-content-between">
-          <COffcanvasTitle>PO line (po_product)</COffcanvasTitle>
+          <COffcanvasTitle>Sales Order line (po_product)</COffcanvasTitle>
           <CCloseButton className="ms-2" onClick={closeDetail} />
         </COffcanvasHeader>
         <COffcanvasBody>
@@ -480,12 +480,12 @@ const DispatchmentList = () => {
             <p className="text-body-secondary">No data.</p>
           ) : (
             <>
-              <h6 className="mb-3">Product &amp; PO</h6>
+              <h6 className="mb-3">Product &amp; Sales Order</h6>
               <p className="mb-1">
                 <strong>Product:</strong> {detail.productName || "—"}
               </p>
               <p className="mb-1">
-                <strong>PO number:</strong> {detail.poCode || "—"}
+                <strong>Sales Order number:</strong> {detail.poCode || "—"}
               </p>
               <p className="mb-1">
                 <strong>Raw product code:</strong>{" "}
@@ -587,7 +587,7 @@ const DispatchmentList = () => {
                     <h6 className="mb-3">Mark delivered</h6>
                     <p className="small text-body-secondary mb-3">
                       Upload an image as receiving / delivery proof (required),
-                      optionally add a remark, then confirm. Saved on the PO
+                      optionally add a remark, then confirm. Saved on the Sales Order
                       line (<code>po_products</code>).
                     </p>
                     <CFormLabel>

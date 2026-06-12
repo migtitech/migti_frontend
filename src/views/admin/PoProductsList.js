@@ -42,7 +42,7 @@ const LINE_STATUS_OPTIONS = [
   { value: "ready_for_dispatchment", label: "Ready for Dispatchment" },
   { value: "delivered", label: "Delivered" },
   { value: "finance_approved", label: "Finance Approved" },
-  { value: "po_closed", label: "PO Closed" },
+  { value: "po_closed", label: "Sales Order Closed" },
 ];
 
 const deliverySubStatusBadge = (s) => {
@@ -153,7 +153,7 @@ const PoProductsList = () => {
       setRows(p.list);
       setTotal(p.total);
     } catch (e) {
-      toastError(e?.message || "Failed to load PO products");
+      toastError(e?.message || "Failed to load Sales Order products");
       setRows([]);
       setTotal(0);
     } finally {
@@ -182,7 +182,7 @@ const PoProductsList = () => {
           <CCardHeader className="d-flex flex-wrap align-items-center justify-content-between gap-2">
             <div className="d-flex align-items-center gap-2">
               <CIcon icon={cilList} className="text-primary" />
-              <strong>PO Products</strong>
+              <strong>Sales Order Products</strong>
             </div>
             <span className="small text-body-secondary">
               Total: <strong>{total}</strong>
@@ -196,7 +196,7 @@ const PoProductsList = () => {
                 <CFormLabel className="mb-1">Search</CFormLabel>
                 <div className="position-relative">
                   <CFormInput
-                    placeholder="Product name, PO code, raw code…"
+                    placeholder="Product name, Sales Order code, raw code…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
@@ -260,7 +260,7 @@ const PoProductsList = () => {
                       <CTableRow>
                         <CTableHeaderCell style={{ width: 50 }}>S.No</CTableHeaderCell>
                         <CTableHeaderCell style={{ minWidth: 190 }}>Product Name</CTableHeaderCell>
-                        <CTableHeaderCell style={{ minWidth: 120 }}>PO Code</CTableHeaderCell>
+                        <CTableHeaderCell style={{ minWidth: 120 }}>Sales Order Code</CTableHeaderCell>
                         <CTableHeaderCell style={{ width: 70 }}>Unit</CTableHeaderCell>
                         <CTableHeaderCell style={{ width: 70 }}>Qty</CTableHeaderCell>
                         <CTableHeaderCell style={{ minWidth: 160 }}>Company</CTableHeaderCell>
@@ -277,7 +277,7 @@ const PoProductsList = () => {
                             colSpan={9}
                             className="text-center text-body-secondary py-4"
                           >
-                            No PO products found.
+                            No Sales Order products found.
                           </CTableDataCell>
                         </CTableRow>
                       ) : (
@@ -366,7 +366,7 @@ const PoProductsList = () => {
                       Showing {Math.min((page - 1) * pageSize + 1, total)}–
                       {Math.min(page * pageSize, total)} of {total}
                     </span>
-                    <CPagination align="center" className="mb-0" aria-label="PO Products pages">
+                    <CPagination align="center" className="mb-0" aria-label="Sales Order Products pages">
                       <CPaginationItem
                         disabled={page <= 1}
                         onClick={() => setPage((p) => Math.max(1, p - 1))}

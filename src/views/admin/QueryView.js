@@ -135,6 +135,29 @@ const openLocationInNewTab = (value) => {
   }
 };
 
+const resolveProductImageUrl = (img) => {
+  if (!img) return "";
+  if (typeof img === "object" && img?.path) return getAssetsUrl(img.path);
+  return typeof img === "string" ? img : "";
+};
+
+const getProductImageUrls = (product) => {
+  const productRef =
+    typeof product?.product_id === "object" ? product.product_id : null;
+  const snapshotImages = Array.isArray(product?.images) ? product.images : [];
+  const productRefImages = Array.isArray(productRef?.images)
+    ? productRef.images
+    : [];
+  const allImages =
+    (snapshotImages.length ? snapshotImages : productRefImages) || [];
+  return allImages.map(resolveProductImageUrl).filter((src) => !!src);
+};
+
+const productHasPhoto = (product) => getProductImageUrls(product).length > 0;
+
+const getProductsMissingPhotos = (products = []) =>
+  products.filter((product) => !productHasPhoto(product));
+
 const QueryView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -170,11 +193,7 @@ const QueryView = () => {
     rates: [],
   });
 
-  const getImageUrl = (img) => {
-    if (!img) return "";
-    if (typeof img === "object" && img?.path) return getAssetsUrl(img.path);
-    return typeof img === "string" ? img : "";
-  };
+  const getImageUrl = resolveProductImageUrl;
 
   const fetchActivities = async (page = 1) => {
     if (!id) return;
@@ -318,6 +337,19 @@ const QueryView = () => {
   };
 
   const handleConvertClick = () => {
+    const missingPhotoProducts = getProductsMissingPhotos(query?.products || []);
+    if (missingPhotoProducts.length > 0) {
+      const labels = missingPhotoProducts
+        .map((product, index) => product.productName?.trim() || `Product ${index + 1}`)
+        .join(", ");
+      toastError(
+        missingPhotoProducts.length === 1
+          ? `Cannot convert to quotation: "${labels}" has no photo. Add a product image before converting.`
+          : `Cannot convert to quotation: the following products have no photo: ${labels}. Add images before converting.`,
+      );
+      return;
+    }
+
     setConfirmConvert({ visible: true });
   };
 

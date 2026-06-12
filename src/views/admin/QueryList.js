@@ -139,10 +139,20 @@ const QUERY_STATUS_OPTIONS = [
   { value: "closed", label: "Closed" },
 ];
 
+const isHodRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === "head_of_department" || normalized === "hod";
+};
+
+const canShowQueryEditButton = (role, status) =>
+  isHodRole(role) &&
+  status !== "closed" &&
+  status !== "convertedToQuotation";
+
 const QueryList = () => {
   const MOBILE_BREAKPOINT = 576;
   const navigate = useNavigate();
-  const { canDelete, canUpdate } = usePermissions();
+  const { canDelete } = usePermissions();
   const { user } = useAuth();
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const [filterInit] = useState(() => getInitialFilterState());
@@ -551,7 +561,7 @@ const QueryList = () => {
                                 >
                                   <EyeIcon />
                                 </CButton>
-                                {q.status !== "closed" && (
+                                {canShowQueryEditButton(user?.role, q.status) && (
                                   <CButton
                                     color="warning"
                                     variant="ghost"
@@ -753,23 +763,22 @@ const QueryList = () => {
                                 >
                                   <EyeIcon />
                                 </CButton>
-                                {canUpdate("queries") &&
-                                  q.status !== "closed" && (
-                                    <CButton
-                                      color="warning"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(
-                                          `/queries/edit/${q._id || q.id}`,
-                                        );
-                                      }}
-                                      title="Edit"
-                                    >
-                                      <CIcon icon={cilPencil} />
-                                    </CButton>
-                                  )}
+                                {canShowQueryEditButton(user?.role, q.status) && (
+                                  <CButton
+                                    color="warning"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigate(
+                                        `/queries/edit/${q._id || q.id}`,
+                                      );
+                                    }}
+                                    title="Edit"
+                                  >
+                                    <CIcon icon={cilPencil} />
+                                  </CButton>
+                                )}
                                 {canDelete("queries") && (
                                   <CButton
                                     color="danger"

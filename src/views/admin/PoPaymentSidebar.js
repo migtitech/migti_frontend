@@ -144,7 +144,7 @@ const PoPaymentSidebar = () => {
           },
         );
       } catch (err) {
-        toastError(err?.message || "Failed to load purchase orders");
+        toastError(err?.message || "Failed to load sales orders");
         setRows([]);
       } finally {
         setLoadingList(false);
@@ -165,7 +165,7 @@ const PoPaymentSidebar = () => {
       const payload = unwrapResponse(res);
       setDetail(payload?.data || payload);
     } catch (err) {
-      toastError(err?.message || "Failed to load PO");
+      toastError(err?.message || "Failed to load Sales Order");
       setDetail(null);
     } finally {
       setLoadingDetail(false);
@@ -259,9 +259,9 @@ const PoPaymentSidebar = () => {
             <CCardBody>
               <div className="d-flex justify-content-between flex-wrap align-items-center mb-3">
                 <div>
-                  <h4 className="mb-1">PO payment</h4>
+                  <h4 className="mb-1">Sales Order payment</h4>
                   <p className="text-body-secondary small mb-0">
-                    Track and record company payments against purchase orders.
+                    Track and record company payments against sales orders.
                   </p>
                 </div>
               </div>
@@ -270,14 +270,14 @@ const PoPaymentSidebar = () => {
                 <>
                   <CFormInput
                     className="mb-3"
-                    placeholder="Search PO code, company, product…"
+                    placeholder="Search Sales Order code, company, product…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />
                   <CTable align="middle" className="mb-0" hover responsive>
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell>PO</CTableHeaderCell>
+                        <CTableHeaderCell>Sales Order</CTableHeaderCell>
                         <CTableHeaderCell>Company</CTableHeaderCell>
                         <CTableHeaderCell className="text-end">
                           Total (incl. GST)
@@ -301,7 +301,7 @@ const PoPaymentSidebar = () => {
                             colSpan={7}
                             className="text-center text-body-secondary"
                           >
-                            No purchase orders
+                            No sales orders
                           </CTableDataCell>
                         </CTableRow>
                       )}
@@ -353,7 +353,7 @@ const PoPaymentSidebar = () => {
                       <CPagination
                         align="end"
                         className="mb-0"
-                        aria-label="PO pages"
+                        aria-label="Sales Order pages"
                       >
                         <CPaginationItem
                           disabled={page <= 1}
@@ -390,7 +390,7 @@ const PoPaymentSidebar = () => {
                       }}
                     >
                       <CIcon icon={cilArrowLeft} className="me-1" />
-                      All POs
+                      All Sales Orders
                     </CButton>
                     {loadingDetail ? (
                       <CSpinner size="sm" />
@@ -445,7 +445,7 @@ const PoPaymentSidebar = () => {
                             </CCol>
                             <CCol md={6}>
                               <div className="text-body-secondary small">
-                                Date of PO received
+                                Date of Sales Order received
                               </div>
                               <div>
                                 {formatDate(
@@ -489,7 +489,7 @@ const PoPaymentSidebar = () => {
                               ))}
                             </CTableBody>
                           </CTable>
-                          <h6 className="mt-4">Attachment (PO)</h6>
+                          <h6 className="mt-4">Attachment (Sales Order)</h6>
                           {detail.attachmentDocumentId &&
                           detail.attachmentDocumentId.path ? (
                             <CButton
@@ -582,7 +582,7 @@ const PoPaymentSidebar = () => {
                             if (rows.length === 0) {
                               return (
                                 <p className="text-body-secondary mb-0">
-                                  No employee information on this purchase order.
+                                  No employee information on this sales order.
                                 </p>
                               );
                             }

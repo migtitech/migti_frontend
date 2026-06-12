@@ -178,7 +178,11 @@ const QuotationCreate = () => {
             ? industry.area?.name || ""
             : industry?.area || "",
         location: industry?.location || "",
-        address: industry?.address || "",
+        address:
+          industry?.shippingAddress ||
+          industry?.billingAddress ||
+          industry?.address ||
+          "",
         email: industry?.email || "",
         purchase_manager_name: firstPm.name || "",
         purchase_manager_phone: firstPm.phone || "",
