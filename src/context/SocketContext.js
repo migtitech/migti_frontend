@@ -64,7 +64,6 @@ export const SocketProvider = ({ children }) => {
       setIsConnected(true);
       socket.emit("register", { userId: String(userId) });
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.info("[socket] connected", socketUrl, "user", String(userId));
       }
     });
@@ -72,7 +71,6 @@ export const SocketProvider = ({ children }) => {
     socket.on("disconnect", (reason) => {
       setIsConnected(false);
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.info("[socket] disconnect", reason);
       }
     });
@@ -100,7 +98,6 @@ export const SocketProvider = ({ children }) => {
 
     socket.on("notification:new", (payload) => {
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.info("[socket] notification:new", payload?.title, payload?._id);
       }
       emitNotificationNew(payload);
@@ -113,7 +110,6 @@ export const SocketProvider = ({ children }) => {
         (typeof err === "string" ? err : "Could not connect to live updates");
       toast.error(`Realtime: ${msg}`, { duration: 6000 });
       if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
         console.error("[socket] connect_error", socketUrl, err);
       }
     });
