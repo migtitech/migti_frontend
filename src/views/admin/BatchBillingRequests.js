@@ -34,7 +34,10 @@ const fmtAmount = (n) =>
 
 const totalAmount = (products) =>
   Array.isArray(products)
-    ? products.reduce((s, p) => s + (typeof p.amount === "number" ? p.amount : 0), 0)
+    ? products.reduce(
+        (s, p) => s + (typeof p.amount === "number" ? p.amount : 0),
+        0,
+      )
     : 0;
 
 const STATUS_MAP = {
@@ -118,7 +121,14 @@ const BatchBillingRequests = () => {
 
   useEffect(() => {
     load();
-  }, [page, pageSize, filterPoCodeDebounced, filterStatus, filterFrom, filterTo]);
+  }, [
+    page,
+    pageSize,
+    filterPoCodeDebounced,
+    filterStatus,
+    filterFrom,
+    filterTo,
+  ]);
 
   const totalPages = Math.max(1, pagination.totalPages || 1);
 
@@ -135,7 +145,9 @@ const BatchBillingRequests = () => {
           <CCardBody className="py-3">
             <CRow className="g-3 align-items-end">
               <CCol md={3}>
-                <CFormLabel className="mb-1 small fw-semibold">Sales Order Code</CFormLabel>
+                <CFormLabel className="mb-1 small fw-semibold">
+                  Sales Order Code
+                </CFormLabel>
                 <CFormInput
                   size="sm"
                   placeholder="Search by Sales Order code"
@@ -144,7 +156,9 @@ const BatchBillingRequests = () => {
                 />
               </CCol>
               <CCol md={2}>
-                <CFormLabel className="mb-1 small fw-semibold">Status</CFormLabel>
+                <CFormLabel className="mb-1 small fw-semibold">
+                  Status
+                </CFormLabel>
                 <CFormSelect
                   size="sm"
                   value={filterStatus}
@@ -201,7 +215,9 @@ const BatchBillingRequests = () => {
               <>
                 <CRow className="g-3">
                   {rows.map((r) => {
-                    const products = Array.isArray(r.products) ? r.products : [];
+                    const products = Array.isArray(r.products)
+                      ? r.products
+                      : [];
                     const total = totalAmount(products);
                     const createdByName =
                       r.createdBySnapshot?.name ||
@@ -211,8 +227,13 @@ const BatchBillingRequests = () => {
                       <CCol key={r._id} xs={12} md={6} xl={4}>
                         <div
                           className="border rounded p-3 h-100 d-flex flex-column gap-2"
-                          style={{ cursor: "pointer", transition: "box-shadow 0.15s" }}
-                          onClick={() => navigate(`/batch-billing-requests/${r._id}`)}
+                          style={{
+                            cursor: "pointer",
+                            transition: "box-shadow 0.15s",
+                          }}
+                          onClick={() =>
+                            navigate(`/batch-billing-requests/${r._id}`)
+                          }
                           onMouseEnter={(e) =>
                             (e.currentTarget.style.boxShadow =
                               "0 2px 12px rgba(0,0,0,0.12)")
@@ -224,12 +245,16 @@ const BatchBillingRequests = () => {
                           {/* Header row */}
                           <div className="d-flex align-items-start justify-content-between gap-2">
                             <div>
-                              <div className="fw-semibold text-truncate" style={{ maxWidth: 180 }}>
+                              <div
+                                className="fw-semibold text-truncate"
+                                style={{ maxWidth: 180 }}
+                              >
                                 {r.billingRequestCode || "—"}
                               </div>
                               {r.poCode && (
                                 <div className="small text-body-secondary">
-                                  Sales Order: <code className="small">{r.poCode}</code>
+                                  Sales Order:{" "}
+                                  <code className="small">{r.poCode}</code>
                                 </div>
                               )}
                             </div>
@@ -242,7 +267,10 @@ const BatchBillingRequests = () => {
                               <div className="fw-bold fs-5 lh-1">
                                 {products.length}
                               </div>
-                              <div className="text-body-secondary" style={{ fontSize: "0.72rem" }}>
+                              <div
+                                className="text-body-secondary"
+                                style={{ fontSize: "0.72rem" }}
+                              >
                                 Products
                               </div>
                             </div>
@@ -250,7 +278,10 @@ const BatchBillingRequests = () => {
                               <div className="fw-bold fs-5 lh-1">
                                 ₹{fmtAmount(total)}
                               </div>
-                              <div className="text-body-secondary" style={{ fontSize: "0.72rem" }}>
+                              <div
+                                className="text-body-secondary"
+                                style={{ fontSize: "0.72rem" }}
+                              >
                                 Total Amount
                               </div>
                             </div>
@@ -303,7 +334,9 @@ const BatchBillingRequests = () => {
                       <CPaginationItem
                         disabled={page >= totalPages}
                         onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{ cursor: page >= totalPages ? "default" : "pointer" }}
+                        style={{
+                          cursor: page >= totalPages ? "default" : "pointer",
+                        }}
                       >
                         Next
                       </CPaginationItem>
@@ -315,7 +348,6 @@ const BatchBillingRequests = () => {
           </CCardBody>
         </CCard>
       </CCol>
-
     </CRow>
   );
 };

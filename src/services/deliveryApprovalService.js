@@ -32,7 +32,9 @@ export const poProductsBucketService = {
     return api.post(PO_PRODUCTS_BUCKET.CREATE_PO_PRODUCT, data);
   },
   poCodeSuggestions: async (search) => {
-    return api.get(PO_PRODUCTS_BUCKET.PO_CODE_SUGGESTIONS, { params: { search } });
+    return api.get(PO_PRODUCTS_BUCKET.PO_CODE_SUGGESTIONS, {
+      params: { search },
+    });
   },
   approveDelivery: async (id) => {
     return api.post(PO_PRODUCTS_BUCKET.APPROVE_DELIVERY(id));

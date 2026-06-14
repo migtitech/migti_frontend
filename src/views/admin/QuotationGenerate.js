@@ -25,11 +25,7 @@ import {
   CSpinner,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilArrowLeft,
-  cilX,
-  cilArrowRight,
-} from "@coreui/icons";
+import { cilArrowLeft, cilX, cilArrowRight } from "@coreui/icons";
 import queryService from "../../services/queryService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";

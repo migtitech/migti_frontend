@@ -23,7 +23,13 @@ import {
   CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilArrowLeft, cilSave, cilCheckCircle, cilTrash, cilCloudUpload } from "@coreui/icons";
+import {
+  cilArrowLeft,
+  cilSave,
+  cilCheckCircle,
+  cilTrash,
+  cilCloudUpload,
+} from "@coreui/icons";
 import proBucketService from "../../services/proBucketService";
 import documentService from "../../services/documentService";
 import groupService from "../../services/groupService";
@@ -67,11 +73,7 @@ const formatCurrencyRate = (value) => {
 
 const supplierDisplayName = (supplier) => {
   if (!supplier || typeof supplier !== "object") return "—";
-  return (
-    supplier.name?.trim() ||
-    supplier.shopname?.trim() ||
-    "Supplier"
-  );
+  return supplier.name?.trim() || supplier.shopname?.trim() || "Supplier";
 };
 
 const submitterDisplayName = (submittedBy) => {
@@ -93,46 +95,55 @@ const resolveUrl = (img) => {
 
 const statusBadge = (s) => {
   switch (s) {
-    case "pending":          return <CBadge color="warning">Pending</CBadge>;
-    case "rate_submitted":   return <CBadge color="info">Rate Submitted</CBadge>;
-    case "fulfilled":        return <CBadge color="success">Fulfilled</CBadge>;
-    case "approval_pending": return <CBadge color="danger">HOD Pending</CBadge>;
-    default:                 return <CBadge color="light" textColor="dark">{s || "—"}</CBadge>;
+    case "pending":
+      return <CBadge color="warning">Pending</CBadge>;
+    case "rate_submitted":
+      return <CBadge color="info">Rate Submitted</CBadge>;
+    case "fulfilled":
+      return <CBadge color="success">Fulfilled</CBadge>;
+    case "approval_pending":
+      return <CBadge color="danger">HOD Pending</CBadge>;
+    default:
+      return (
+        <CBadge color="light" textColor="dark">
+          {s || "—"}
+        </CBadge>
+      );
   }
 };
 
 /* ── component ───────────────────────────────────── */
 const QueryProductView = () => {
-  const { id }       = useParams();
-  const navigate     = useNavigate();
+  const { id } = useParams();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const { user }     = useAuth();
+  const { user } = useAuth();
 
   const userIsHod = isHodRole(user?.role);
 
-  const [loading,   setLoading]   = useState(true);
-  const [saving,    setSaving]    = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
-  const [doc,       setDoc]       = useState(null);
+  const [doc, setDoc] = useState(null);
 
-  const [groups,        setGroups]        = useState([]);
+  const [groups, setGroups] = useState([]);
   const [allCategories, setAllCategories] = useState([]);
 
-  const [pendingFiles,    setPendingFiles]    = useState([]);
+  const [pendingFiles, setPendingFiles] = useState([]);
   const [pendingPreviews, setPendingPreviews] = useState([]);
 
   const [form, setForm] = useState({
-    productName:    "",
+    productName: "",
     rawProductCode: "",
-    quantity:       "",
-    unit:           "",
-    hsnNumber:      "",
-    modelNumber:    "",
-    gstPercentage:  "",
-    description:    "",
-    remark:         "",
-    groupId:        "",
-    categoryId:     "",
+    quantity: "",
+    unit: "",
+    hsnNumber: "",
+    modelNumber: "",
+    gstPercentage: "",
+    description: "",
+    remark: "",
+    groupId: "",
+    categoryId: "",
   });
 
   const [rateForm, setRateForm] = useState({
@@ -171,9 +182,10 @@ const QueryProductView = () => {
   /* categories filtered by selected group — must be after form useState */
   const filteredCategories = form.groupId
     ? allCategories.filter((c) => {
-        const gId = c.group && typeof c.group === "object"
-          ? c.group._id || c.group.id
-          : c.group;
+        const gId =
+          c.group && typeof c.group === "object"
+            ? c.group._id || c.group.id
+            : c.group;
         return String(gId || "") === String(form.groupId);
       })
     : allCategories;
@@ -186,15 +198,27 @@ const QueryProductView = () => {
           groupService.getAll({ pageSize: 100 }),
           categoryService.getAllCategories(),
         ]);
-        setGroups(sortAlphabetically(
-          Array.isArray(grpRes?.data?.groups)   ? grpRes.data.groups
-          : Array.isArray(grpRes?.data)          ? grpRes.data : [],
-        ));
-        setAllCategories(sortAlphabetically(
-          Array.isArray(catRes?.data?.categories) ? catRes.data.categories
-          : Array.isArray(catRes?.data)            ? catRes.data : [],
-        ));
-      } catch { /* non-critical */ }
+        setGroups(
+          sortAlphabetically(
+            Array.isArray(grpRes?.data?.groups)
+              ? grpRes.data.groups
+              : Array.isArray(grpRes?.data)
+                ? grpRes.data
+                : [],
+          ),
+        );
+        setAllCategories(
+          sortAlphabetically(
+            Array.isArray(catRes?.data?.categories)
+              ? catRes.data.categories
+              : Array.isArray(catRes?.data)
+                ? catRes.data
+                : [],
+          ),
+        );
+      } catch {
+        /* non-critical */
+      }
     };
     loadMeta();
   }, []);
@@ -204,26 +228,28 @@ const QueryProductView = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const res  = await withMinimumDelay(() => proBucketService.getById(id));
+        const res = await withMinimumDelay(() => proBucketService.getById(id));
         const data = res?.data?.data || res?.data;
         setDoc(data);
         applyRateManagement(data?.rateManagement);
         setForm({
-          productName:    data?.productName    || "",
+          productName: data?.productName || "",
           rawProductCode: data?.rawProductCode || "",
-          quantity:       data?.quantity ?? "",
-          unit:           data?.unit           || "",
-          hsnNumber:      data?.hsnNumber      || "",
-          modelNumber:    data?.modelNumber    || "",
-          gstPercentage:  data?.gstPercentage ?? "",
-          description:    data?.description   || "",
-          remark:         data?.remark        || "",
+          quantity: data?.quantity ?? "",
+          unit: data?.unit || "",
+          hsnNumber: data?.hsnNumber || "",
+          modelNumber: data?.modelNumber || "",
+          gstPercentage: data?.gstPercentage ?? "",
+          description: data?.description || "",
+          remark: data?.remark || "",
           groupId:
             data?.groupId && typeof data.groupId === "object"
-              ? data.groupId._id || "" : data?.groupId || "",
+              ? data.groupId._id || ""
+              : data?.groupId || "",
           categoryId:
             data?.categoryId && typeof data.categoryId === "object"
-              ? data.categoryId._id || "" : data?.categoryId || "",
+              ? data.categoryId._id || ""
+              : data?.categoryId || "",
         });
       } catch (e) {
         toastError(e?.message || "Failed to load query product");
@@ -242,30 +268,33 @@ const QueryProductView = () => {
   const setField = (key, val) => setForm((f) => ({ ...f, [key]: val }));
   const setRateField = (key, val) => setRateForm((f) => ({ ...f, [key]: val }));
 
-  const loadRateHistories = useCallback(async (page = 1, filters = historyFilters) => {
-    if (!userIsHod || !id) return;
-    setHistoryLoading(true);
-    try {
-      const params = {
-        page,
-        pageSize: historyPageSize,
-      };
-      if (filters.from) params.from = filters.from;
-      if (filters.to) params.to = filters.to;
-      if (filters.search?.trim()) params.search = filters.search.trim();
+  const loadRateHistories = useCallback(
+    async (page = 1, filters = historyFilters) => {
+      if (!userIsHod || !id) return;
+      setHistoryLoading(true);
+      try {
+        const params = {
+          page,
+          pageSize: historyPageSize,
+        };
+        if (filters.from) params.from = filters.from;
+        if (filters.to) params.to = filters.to;
+        if (filters.search?.trim()) params.search = filters.search.trim();
 
-      const res = await proBucketService.listHodRateHistories(id, params);
-      const payload = res?.data || res;
-      setHistoryRows(Array.isArray(payload?.data) ? payload.data : []);
-      setHistoryTotal(Number(payload?.total) || 0);
-      setHistoryPage(Number(payload?.page) || page);
-      setHistoryTotalPages(Number(payload?.totalPages) || 1);
-    } catch (e) {
-      toastError(e?.message || "Failed to load rate history");
-    } finally {
-      setHistoryLoading(false);
-    }
-  }, [historyFilters, historyPageSize, id, userIsHod]);
+        const res = await proBucketService.listHodRateHistories(id, params);
+        const payload = res?.data || res;
+        setHistoryRows(Array.isArray(payload?.data) ? payload.data : []);
+        setHistoryTotal(Number(payload?.total) || 0);
+        setHistoryPage(Number(payload?.page) || page);
+        setHistoryTotalPages(Number(payload?.totalPages) || 1);
+      } catch (e) {
+        toastError(e?.message || "Failed to load rate history");
+      } finally {
+        setHistoryLoading(false);
+      }
+    },
+    [historyFilters, historyPageSize, id, userIsHod],
+  );
 
   const applyHistoryFilters = () => {
     setHistoryFilters({
@@ -292,29 +321,37 @@ const QueryProductView = () => {
       return;
     }
     loadRateHistories(historyPage);
-  }, [form.rawProductCode, historyPage, historyFilters, id, loadRateHistories, userIsHod]);
+  }, [
+    form.rawProductCode,
+    historyPage,
+    historyFilters,
+    id,
+    loadRateHistories,
+    userIsHod,
+  ]);
 
   /* ── image helpers ── */
   const handleFilePick = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    setPendingFiles((p)    => [...p, ...files]);
-    setPendingPreviews((p) => [...p, ...files.map((f) => URL.createObjectURL(f))]);
+    setPendingFiles((p) => [...p, ...files]);
+    setPendingPreviews((p) => [
+      ...p,
+      ...files.map((f) => URL.createObjectURL(f)),
+    ]);
     e.target.value = "";
   };
 
   const removePending = (idx) => {
     URL.revokeObjectURL(pendingPreviews[idx]);
-    setPendingFiles((p)    => p.filter((_, i) => i !== idx));
+    setPendingFiles((p) => p.filter((_, i) => i !== idx));
     setPendingPreviews((p) => p.filter((_, i) => i !== idx));
   };
 
   const removeSaved = (imgId) => {
     setDoc((prev) => ({
       ...prev,
-      images: (prev?.images || []).filter(
-        (img) => (img?._id || img) !== imgId,
-      ),
+      images: (prev?.images || []).filter((img) => (img?._id || img) !== imgId),
     }));
   };
 
@@ -338,15 +375,16 @@ const QueryProductView = () => {
       }
 
       const payload = {
-        productName:    form.productName,
-        quantity:       form.quantity !== "" ? Number(form.quantity) : undefined,
-        modelNumber:    form.modelNumber,
-        gstPercentage:  form.gstPercentage !== "" ? Number(form.gstPercentage) : null,
-        remark:         form.remark,
-        images:         buildImageIds(uploadedDocs),
+        productName: form.productName,
+        quantity: form.quantity !== "" ? Number(form.quantity) : undefined,
+        modelNumber: form.modelNumber,
+        gstPercentage:
+          form.gstPercentage !== "" ? Number(form.gstPercentage) : null,
+        remark: form.remark,
+        images: buildImageIds(uploadedDocs),
       };
 
-      const res     = await proBucketService.updateQueryProduct(id, payload);
+      const res = await proBucketService.updateQueryProduct(id, payload);
       const updated = res?.data?.data || res?.data;
       if (updated) setDoc(updated);
 
@@ -384,7 +422,7 @@ const QueryProductView = () => {
 
     setUpdatingRate(true);
     try {
-      const res     = await proBucketService.updateHodRates(id, {
+      const res = await proBucketService.updateHodRates(id, {
         minRate,
         maxRate,
         discount: 0,
@@ -416,8 +454,8 @@ const QueryProductView = () => {
   const handleApprove = async () => {
     setApproving(true);
     try {
-      const res     = await proBucketService.updateQueryProduct(id, {
-        status:      "pending",
+      const res = await proBucketService.updateQueryProduct(id, {
+        status: "pending",
         hodApproved: true,
       });
       const updated = res?.data?.data || res?.data;
@@ -431,18 +469,18 @@ const QueryProductView = () => {
   };
 
   /* ── derived flags ── */
-  const hodApproved   = !!doc?.hodApproved;
-  const canUpdate     = userIsHod || !hodApproved;   // non-HOD locked out after approval
-  const savedImages   = Array.isArray(doc?.images) ? doc.images : [];
-  const queryCode     =
+  const hodApproved = !!doc?.hodApproved;
+  const canUpdate = userIsHod || !hodApproved; // non-HOD locked out after approval
+  const savedImages = Array.isArray(doc?.images) ? doc.images : [];
+  const queryCode =
     doc?.queryCode ||
-    (doc?.queryId && typeof doc.queryId === "object" ? doc.queryId.queryCode : "") ||
+    (doc?.queryId && typeof doc.queryId === "object"
+      ? doc.queryId.queryCode
+      : "") ||
     "—";
 
   const submittedRateUnit =
-    doc?.rateManagement?.submittedRateUnit?.trim() ||
-    form.unit?.trim() ||
-    "—";
+    doc?.rateManagement?.submittedRateUnit?.trim() || form.unit?.trim() || "—";
 
   const hasRateData =
     doc?.rateManagement?.hasSubmittedRates ||
@@ -461,12 +499,9 @@ const QueryProductView = () => {
   const minRateValue = normalizeRateComparison(rateForm.minRate);
   const maxRateValue = normalizeRateComparison(rateForm.maxRate);
   const ratesMinExceedsMax =
-    minRateValue != null &&
-    maxRateValue != null &&
-    minRateValue > maxRateValue;
+    minRateValue != null && maxRateValue != null && minRateValue > maxRateValue;
 
-  const ratesHaveZero =
-    minRateValue === 0 || maxRateValue === 0;
+  const ratesHaveZero = minRateValue === 0 || maxRateValue === 0;
 
   const historyStartItem =
     historyTotal === 0 ? 0 : (historyPage - 1) * historyPageSize + 1;
@@ -484,10 +519,13 @@ const QueryProductView = () => {
   return (
     <CRow>
       <CCol xs={12}>
-
         {/* ── Top bar ── */}
         <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-          <CButton color="secondary" variant="ghost" onClick={() => navigate("/query-products")}>
+          <CButton
+            color="secondary"
+            variant="ghost"
+            onClick={() => navigate("/query-products")}
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back
           </CButton>
@@ -501,7 +539,11 @@ const QueryProductView = () => {
 
             {hodApproved && (
               <CBadge color="success" className="px-2 py-1">
-                <CIcon icon={cilCheckCircle} className="me-1" style={{ width: 12 }} />
+                <CIcon
+                  icon={cilCheckCircle}
+                  className="me-1"
+                  style={{ width: 12 }}
+                />
                 HOD Approved
               </CBadge>
             )}
@@ -516,11 +558,20 @@ const QueryProductView = () => {
                 className="px-3"
               >
                 {approving ? (
-                  <><CSpinner size="sm" className="me-2" />Approving…</>
+                  <>
+                    <CSpinner size="sm" className="me-2" />
+                    Approving…
+                  </>
                 ) : hodApproved ? (
-                  <><CIcon icon={cilCheckCircle} className="me-1" />HOD Approved</>
+                  <>
+                    <CIcon icon={cilCheckCircle} className="me-1" />
+                    HOD Approved
+                  </>
                 ) : (
-                  <><CIcon icon={cilCheckCircle} className="me-1" />HOD Approve</>
+                  <>
+                    <CIcon icon={cilCheckCircle} className="me-1" />
+                    HOD Approve
+                  </>
                 )}
               </CButton>
             )}
@@ -532,13 +583,13 @@ const QueryProductView = () => {
           <div className="alert alert-success d-flex align-items-center gap-2 mb-3 py-2">
             <CIcon icon={cilCheckCircle} />
             <span>
-              This product has been <strong>HOD approved</strong>. Editing is restricted to Head of Department only.
+              This product has been <strong>HOD approved</strong>. Editing is
+              restricted to Head of Department only.
             </span>
           </div>
         )}
 
         <CRow className="g-4">
-
           {/* ── Images panel ── */}
           <CCol xs={12} lg={4}>
             <CCard className="h-100">
@@ -549,15 +600,18 @@ const QueryProductView = () => {
                 </CBadge>
               </CCardHeader>
               <CCardBody>
-
                 {savedImages.length > 0 && (
                   <div className="mb-3">
                     <p className="small text-body-secondary mb-2">Saved</p>
                     <div className="d-flex flex-wrap gap-2">
                       {savedImages.map((img, i) => {
-                        const url   = resolveUrl(img);
-                        const imgId = typeof img === "object" ? img._id || img.id : img;
-                        const name  = typeof img === "object" ? img.name || `Image ${i + 1}` : `Image ${i + 1}`;
+                        const url = resolveUrl(img);
+                        const imgId =
+                          typeof img === "object" ? img._id || img.id : img;
+                        const name =
+                          typeof img === "object"
+                            ? img.name || `Image ${i + 1}`
+                            : `Image ${i + 1}`;
                         return (
                           <div
                             key={i}
@@ -565,19 +619,38 @@ const QueryProductView = () => {
                             style={{ width: 100, flexShrink: 0 }}
                           >
                             {url ? (
-                              <a href={url} target="_blank" rel="noopener noreferrer">
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
                                 <img
-                                  src={url} alt={name}
-                                  style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }}
-                                  onError={(e) => { e.target.style.display = "none"; }}
+                                  src={url}
+                                  alt={name}
+                                  style={{
+                                    width: "100%",
+                                    height: 90,
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                  onError={(e) => {
+                                    e.target.style.display = "none";
+                                  }}
                                 />
                               </a>
                             ) : (
-                              <div className="d-flex align-items-center justify-content-center bg-light text-body-secondary small" style={{ height: 90 }}>
+                              <div
+                                className="d-flex align-items-center justify-content-center bg-light text-body-secondary small"
+                                style={{ height: 90 }}
+                              >
                                 No preview
                               </div>
                             )}
-                            <div className="px-1 py-1 small text-truncate border-top bg-white" style={{ fontSize: "0.65rem" }} title={name}>
+                            <div
+                              className="px-1 py-1 small text-truncate border-top bg-white"
+                              style={{ fontSize: "0.65rem" }}
+                              title={name}
+                            >
                               {name}
                             </div>
                             {canUpdate && (
@@ -586,14 +659,26 @@ const QueryProductView = () => {
                                 onClick={() => removeSaved(imgId)}
                                 title="Remove"
                                 style={{
-                                  position: "absolute", top: 3, right: 3,
-                                  background: "rgba(220,53,69,0.85)", border: "none",
-                                  borderRadius: "50%", width: 20, height: 20,
-                                  display: "flex", alignItems: "center", justifyContent: "center",
-                                  cursor: "pointer", padding: 0, color: "#fff",
+                                  position: "absolute",
+                                  top: 3,
+                                  right: 3,
+                                  background: "rgba(220,53,69,0.85)",
+                                  border: "none",
+                                  borderRadius: "50%",
+                                  width: 20,
+                                  height: 20,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  cursor: "pointer",
+                                  padding: 0,
+                                  color: "#fff",
                                 }}
                               >
-                                <CIcon icon={cilTrash} style={{ width: 10, height: 10 }} />
+                                <CIcon
+                                  icon={cilTrash}
+                                  style={{ width: 10, height: 10 }}
+                                />
                               </button>
                             )}
                           </div>
@@ -610,9 +695,26 @@ const QueryProductView = () => {
                     </p>
                     <div className="d-flex flex-wrap gap-2">
                       {pendingPreviews.map((src, i) => (
-                        <div key={i} className="position-relative border rounded overflow-hidden" style={{ width: 100, flexShrink: 0 }}>
-                          <img src={src} alt={pendingFiles[i]?.name} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} />
-                          <div className="px-1 py-1 small text-truncate border-top bg-white" style={{ fontSize: "0.65rem" }} title={pendingFiles[i]?.name}>
+                        <div
+                          key={i}
+                          className="position-relative border rounded overflow-hidden"
+                          style={{ width: 100, flexShrink: 0 }}
+                        >
+                          <img
+                            src={src}
+                            alt={pendingFiles[i]?.name}
+                            style={{
+                              width: "100%",
+                              height: 90,
+                              objectFit: "cover",
+                              display: "block",
+                            }}
+                          />
+                          <div
+                            className="px-1 py-1 small text-truncate border-top bg-white"
+                            style={{ fontSize: "0.65rem" }}
+                            title={pendingFiles[i]?.name}
+                          >
                             {pendingFiles[i]?.name}
                           </div>
                           <button
@@ -620,14 +722,26 @@ const QueryProductView = () => {
                             onClick={() => removePending(i)}
                             title="Remove"
                             style={{
-                              position: "absolute", top: 3, right: 3,
-                              background: "rgba(220,53,69,0.85)", border: "none",
-                              borderRadius: "50%", width: 20, height: 20,
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              cursor: "pointer", padding: 0, color: "#fff",
+                              position: "absolute",
+                              top: 3,
+                              right: 3,
+                              background: "rgba(220,53,69,0.85)",
+                              border: "none",
+                              borderRadius: "50%",
+                              width: 20,
+                              height: 20,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              cursor: "pointer",
+                              padding: 0,
+                              color: "#fff",
                             }}
                           >
-                            <CIcon icon={cilTrash} style={{ width: 10, height: 10 }} />
+                            <CIcon
+                              icon={cilTrash}
+                              style={{ width: 10, height: 10 }}
+                            />
                           </button>
                         </div>
                       ))}
@@ -657,7 +771,9 @@ const QueryProductView = () => {
                     </CButton>
                     {pendingFiles.length > 0 && (
                       <p className="small text-warning mt-2 mb-0">
-                        ⚠ {pendingFiles.length} image{pendingFiles.length !== 1 ? "s" : ""} waiting — click <strong>Update</strong> to save.
+                        ⚠ {pendingFiles.length} image
+                        {pendingFiles.length !== 1 ? "s" : ""} waiting — click{" "}
+                        <strong>Update</strong> to save.
                       </p>
                     )}
                   </>
@@ -672,15 +788,19 @@ const QueryProductView = () => {
               <CCardHeader className="d-flex justify-content-between align-items-center">
                 <strong>Product Details</strong>
                 <span className="small text-body-secondary">
-                  Query: <span className="badge bg-dark font-monospace">{queryCode}</span>
+                  Query:{" "}
+                  <span className="badge bg-dark font-monospace">
+                    {queryCode}
+                  </span>
                 </span>
               </CCardHeader>
 
               <CCardBody>
                 <CRow className="g-3">
-
                   <CCol xs={12} md={6}>
-                    <CFormLabel>Product Name <span className="text-danger">*</span></CFormLabel>
+                    <CFormLabel>
+                      Product Name <span className="text-danger">*</span>
+                    </CFormLabel>
                     <CFormInput
                       value={form.productName}
                       onChange={(e) => setField("productName", e.target.value)}
@@ -701,7 +821,11 @@ const QueryProductView = () => {
 
                   <CCol xs={12} md={6}>
                     <CFormLabel>Query Code</CFormLabel>
-                    <CFormInput value={queryCode} readOnly className="bg-light font-monospace" />
+                    <CFormInput
+                      value={queryCode}
+                      readOnly
+                      className="bg-light font-monospace"
+                    />
                   </CCol>
 
                   <CCol xs={6} md={3}>
@@ -717,7 +841,8 @@ const QueryProductView = () => {
                   <CCol xs={6} md={3}>
                     <CFormLabel>Quantity</CFormLabel>
                     <CFormInput
-                      type="number" min={0}
+                      type="number"
+                      min={0}
                       value={form.quantity}
                       onChange={(e) => setField("quantity", e.target.value)}
                       placeholder="0"
@@ -748,9 +873,13 @@ const QueryProductView = () => {
                   <CCol xs={6} md={3}>
                     <CFormLabel>GST %</CFormLabel>
                     <CFormInput
-                      type="number" min={0} max={100}
+                      type="number"
+                      min={0}
+                      max={100}
                       value={form.gstPercentage}
-                      onChange={(e) => setField("gstPercentage", e.target.value)}
+                      onChange={(e) =>
+                        setField("gstPercentage", e.target.value)
+                      }
                       placeholder="0"
                       disabled={!canUpdate}
                     />
@@ -765,7 +894,9 @@ const QueryProductView = () => {
                     >
                       <option value="">— No Group —</option>
                       {groups.map((g) => (
-                        <option key={g._id || g.id} value={g._id || g.id}>{g.name}</option>
+                        <option key={g._id || g.id} value={g._id || g.id}>
+                          {g.name}
+                        </option>
                       ))}
                     </CFormSelect>
                   </CCol>
@@ -786,7 +917,9 @@ const QueryProductView = () => {
                     >
                       <option value="">— No Category —</option>
                       {filteredCategories.map((c) => (
-                        <option key={c._id || c.id} value={c._id || c.id}>{c.name}</option>
+                        <option key={c._id || c.id} value={c._id || c.id}>
+                          {c.name}
+                        </option>
                       ))}
                     </CFormSelect>
                   </CCol>
@@ -826,11 +959,21 @@ const QueryProductView = () => {
                   </CButton>
 
                   {canUpdate && (
-                    <CButton color="primary" onClick={handleUpdate} disabled={saving}>
+                    <CButton
+                      color="primary"
+                      onClick={handleUpdate}
+                      disabled={saving}
+                    >
                       {saving ? (
-                        <><CSpinner size="sm" className="me-2" />Updating…</>
+                        <>
+                          <CSpinner size="sm" className="me-2" />
+                          Updating…
+                        </>
                       ) : (
-                        <><CIcon icon={cilSave} className="me-2" />Update</>
+                        <>
+                          <CIcon icon={cilSave} className="me-2" />
+                          Update
+                        </>
                       )}
                     </CButton>
                   )}
@@ -854,8 +997,9 @@ const QueryProductView = () => {
               <CCardBody>
                 {!hasRateData && !form.rawProductCode?.trim() ? (
                   <p className="text-body-secondary mb-0">
-                    No supplier rates have been submitted yet. Rates can be managed here
-                    after procurement submits rates for this product.
+                    No supplier rates have been submitted yet. Rates can be
+                    managed here after procurement submits rates for this
+                    product.
                   </p>
                 ) : (
                   <>
@@ -875,7 +1019,9 @@ const QueryProductView = () => {
                           type="number"
                           min={0}
                           value={rateForm.minRate}
-                          onChange={(e) => setRateField("minRate", e.target.value)}
+                          onChange={(e) =>
+                            setRateField("minRate", e.target.value)
+                          }
                           placeholder="0"
                           disabled={!userIsHod}
                           invalid={ratesMinExceedsMax}
@@ -888,7 +1034,9 @@ const QueryProductView = () => {
                           type="number"
                           min={0}
                           value={rateForm.maxRate}
-                          onChange={(e) => setRateField("maxRate", e.target.value)}
+                          onChange={(e) =>
+                            setRateField("maxRate", e.target.value)
+                          }
                           placeholder="0"
                           disabled={!userIsHod}
                           invalid={ratesMinExceedsMax}
@@ -904,14 +1052,15 @@ const QueryProductView = () => {
 
                     {ratesHaveZero && userIsHod && (
                       <p className="small text-warning mt-3 mb-0">
-                        Minimum and maximum rates must both be greater than 0 to update.
+                        Minimum and maximum rates must both be greater than 0 to
+                        update.
                       </p>
                     )}
 
                     {!form.rawProductCode?.trim() && (
                       <p className="small text-warning mt-3 mb-0">
-                        Raw product code is missing — rates cannot be updated until it is
-                        set on the source query.
+                        Raw product code is missing — rates cannot be updated
+                        until it is set on the source query.
                       </p>
                     )}
 
@@ -925,18 +1074,26 @@ const QueryProductView = () => {
                             !form.rawProductCode?.trim() ||
                             ratesMinExceedsMax ||
                             ratesHaveZero ||
-                            (ratesUnchanged &&
-                              !ratesAwaitingHodApproval)
+                            (ratesUnchanged && !ratesAwaitingHodApproval)
                           }
                         >
                           {updatingRate ? (
-                            <><CSpinner size="sm" className="me-2" />
-                              {ratesAwaitingHodApproval ? "Approving…" : "Updating rate…"}
+                            <>
+                              <CSpinner size="sm" className="me-2" />
+                              {ratesAwaitingHodApproval
+                                ? "Approving…"
+                                : "Updating rate…"}
                             </>
                           ) : ratesAwaitingHodApproval ? (
-                            <><CIcon icon={cilCheckCircle} className="me-2" />Approve & Update Rate</>
+                            <>
+                              <CIcon icon={cilCheckCircle} className="me-2" />
+                              Approve & Update Rate
+                            </>
                           ) : (
-                            <><CIcon icon={cilSave} className="me-2" />Update Rate</>
+                            <>
+                              <CIcon icon={cilSave} className="me-2" />
+                              Update Rate
+                            </>
                           )}
                         </CButton>
                       </div>
@@ -959,20 +1116,24 @@ const QueryProductView = () => {
                 <strong>Procurement Rates</strong>
                 {procurementRates.length > 0 && (
                   <CBadge color="info">
-                    {procurementRates.length} rate{procurementRates.length === 1 ? "" : "s"}
+                    {procurementRates.length} rate
+                    {procurementRates.length === 1 ? "" : "s"}
                   </CBadge>
                 )}
               </CCardHeader>
               <CCardBody>
                 {procurementRates.length === 0 ? (
                   <p className="text-body-secondary mb-0">
-                    No procurement rates have been submitted for this product yet.
+                    No procurement rates have been submitted for this product
+                    yet.
                   </p>
                 ) : (
                   <CTable responsive hover className="mb-0">
                     <CTableHead>
                       <CTableRow>
-                        <CTableHeaderCell style={{ width: 48 }}>#</CTableHeaderCell>
+                        <CTableHeaderCell style={{ width: 48 }}>
+                          #
+                        </CTableHeaderCell>
                         <CTableHeaderCell>Supplier</CTableHeaderCell>
                         <CTableHeaderCell>Phone</CTableHeaderCell>
                         <CTableHeaderCell>Rate</CTableHeaderCell>
@@ -984,7 +1145,11 @@ const QueryProductView = () => {
                     </CTableHead>
                     <CTableBody>
                       {procurementRates.map((row, idx) => (
-                        <CTableRow key={row._id || `${row.submittedAt}-${row.rate}-${idx}`}>
+                        <CTableRow
+                          key={
+                            row._id || `${row.submittedAt}-${row.rate}-${idx}`
+                          }
+                        >
                           <CTableDataCell>{idx + 1}</CTableDataCell>
                           <CTableDataCell>
                             <span className="fw-semibold">
@@ -1002,8 +1167,12 @@ const QueryProductView = () => {
                           <CTableDataCell className="fw-semibold text-primary">
                             {formatCurrencyRate(row.rate)}
                           </CTableDataCell>
-                          <CTableDataCell>{row.unit?.trim() || "—"}</CTableDataCell>
-                          <CTableDataCell>{row.remark?.trim() || "—"}</CTableDataCell>
+                          <CTableDataCell>
+                            {row.unit?.trim() || "—"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {row.remark?.trim() || "—"}
+                          </CTableDataCell>
                           <CTableDataCell>
                             {submitterDisplayName(row.submittedBy)}
                           </CTableDataCell>
@@ -1025,13 +1194,16 @@ const QueryProductView = () => {
                 <CCardHeader className="d-flex justify-content-between align-items-center">
                   <strong>Product Rate History</strong>
                   {historyTotal > 0 && (
-                    <CBadge color="info">{historyTotal} record{historyTotal === 1 ? "" : "s"}</CBadge>
+                    <CBadge color="info">
+                      {historyTotal} record{historyTotal === 1 ? "" : "s"}
+                    </CBadge>
                   )}
                 </CCardHeader>
                 <CCardBody>
                   {!form.rawProductCode?.trim() ? (
                     <p className="text-body-secondary mb-0">
-                      Rate history is available once this product has a raw product code.
+                      Rate history is available once this product has a raw
+                      product code.
                     </p>
                   ) : (
                     <>
@@ -1086,7 +1258,12 @@ const QueryProductView = () => {
                             }
                           />
                         </CCol>
-                        <CCol xs={12} md={6} lg={5} className="d-flex flex-wrap gap-2">
+                        <CCol
+                          xs={12}
+                          md={6}
+                          lg={5}
+                          className="d-flex flex-wrap gap-2"
+                        >
                           <CButton
                             color="primary"
                             onClick={applyHistoryFilters}
@@ -1121,20 +1298,34 @@ const QueryProductView = () => {
                           <CTable responsive hover className="mb-0">
                             <CTableHead>
                               <CTableRow>
-                                <CTableHeaderCell>Date &amp; Time</CTableHeaderCell>
+                                <CTableHeaderCell>
+                                  Date &amp; Time
+                                </CTableHeaderCell>
                                 <CTableHeaderCell>Unit</CTableHeaderCell>
-                                <CTableHeaderCell>Minimum Rate</CTableHeaderCell>
-                                <CTableHeaderCell>Maximum Rate</CTableHeaderCell>
+                                <CTableHeaderCell>
+                                  Minimum Rate
+                                </CTableHeaderCell>
+                                <CTableHeaderCell>
+                                  Maximum Rate
+                                </CTableHeaderCell>
                                 <CTableHeaderCell>Query ID</CTableHeaderCell>
                               </CTableRow>
                             </CTableHead>
                             <CTableBody>
                               {historyRows.map((row) => (
                                 <CTableRow key={row.id || row._id}>
-                                  <CTableDataCell>{formatDateTime(row.createdAt)}</CTableDataCell>
-                                  <CTableDataCell>{row.unit?.trim() || "—"}</CTableDataCell>
-                                  <CTableDataCell>{formatRateValue(row.minRate)}</CTableDataCell>
-                                  <CTableDataCell>{formatRateValue(row.maxRate)}</CTableDataCell>
+                                  <CTableDataCell>
+                                    {formatDateTime(row.createdAt)}
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    {row.unit?.trim() || "—"}
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    {formatRateValue(row.minRate)}
+                                  </CTableDataCell>
+                                  <CTableDataCell>
+                                    {formatRateValue(row.maxRate)}
+                                  </CTableDataCell>
                                   <CTableDataCell>
                                     <span className="font-monospace small">
                                       {row.queryId ? String(row.queryId) : "—"}
@@ -1153,7 +1344,8 @@ const QueryProductView = () => {
                           {historyTotalPages > 1 && (
                             <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-3 border-top">
                               <div className="small text-body-secondary">
-                                Showing {historyStartItem}-{historyEndItem} of {historyTotal}
+                                Showing {historyStartItem}-{historyEndItem} of{" "}
+                                {historyTotal}
                               </div>
                               <CPagination className="mb-0">
                                 <CPaginationItem
@@ -1164,7 +1356,9 @@ const QueryProductView = () => {
                                 </CPaginationItem>
                                 <CPaginationItem
                                   disabled={historyLoading || historyPage <= 1}
-                                  onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                                  onClick={() =>
+                                    setHistoryPage((p) => Math.max(1, p - 1))
+                                  }
                                 >
                                   Previous
                                 </CPaginationItem>
@@ -1172,16 +1366,26 @@ const QueryProductView = () => {
                                   {historyPage} / {historyTotalPages}
                                 </CPaginationItem>
                                 <CPaginationItem
-                                  disabled={historyLoading || historyPage >= historyTotalPages}
+                                  disabled={
+                                    historyLoading ||
+                                    historyPage >= historyTotalPages
+                                  }
                                   onClick={() =>
-                                    setHistoryPage((p) => Math.min(historyTotalPages, p + 1))
+                                    setHistoryPage((p) =>
+                                      Math.min(historyTotalPages, p + 1),
+                                    )
                                   }
                                 >
                                   Next
                                 </CPaginationItem>
                                 <CPaginationItem
-                                  disabled={historyLoading || historyPage >= historyTotalPages}
-                                  onClick={() => setHistoryPage(historyTotalPages)}
+                                  disabled={
+                                    historyLoading ||
+                                    historyPage >= historyTotalPages
+                                  }
+                                  onClick={() =>
+                                    setHistoryPage(historyTotalPages)
+                                  }
                                 >
                                   Last
                                 </CPaginationItem>

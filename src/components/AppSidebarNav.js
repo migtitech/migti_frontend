@@ -36,9 +36,7 @@ export const AppSidebarNav = ({ items }) => {
         {name && name}
         {badge && (
           <CBadge
-            {...(badge.style
-              ? { style: badge.style }
-              : { color: badge.color })}
+            {...(badge.style ? { style: badge.style } : { color: badge.color })}
             className="ms-auto"
             size="sm"
           >

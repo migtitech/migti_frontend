@@ -29,8 +29,7 @@ const formatAmount = (v) =>
     maximumFractionDigits: 2,
   })}`;
 
-const formatDate = (v) =>
-  v ? new Date(v).toLocaleDateString("en-IN") : "—";
+const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "—");
 
 const SalaryManagement = () => {
   const navigate = useNavigate();
@@ -132,7 +131,9 @@ const SalaryManagement = () => {
                     <CTableHeaderCell>Employee ID</CTableHeaderCell>
                     <CTableHeaderCell>Pay Date</CTableHeaderCell>
                     <CTableHeaderCell>Net Pay</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">
+                      Actions
+                    </CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
@@ -144,8 +145,12 @@ const SalaryManagement = () => {
                         <CTableDataCell>{record.month}</CTableDataCell>
                         <CTableDataCell>{snap.name || "—"}</CTableDataCell>
                         <CTableDataCell>{snap.idnumber || "—"}</CTableDataCell>
-                        <CTableDataCell>{formatDate(record.payDate)}</CTableDataCell>
-                        <CTableDataCell>{formatAmount(record.netPay)}</CTableDataCell>
+                        <CTableDataCell>
+                          {formatDate(record.payDate)}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {formatAmount(record.netPay)}
+                        </CTableDataCell>
                         <CTableDataCell className="text-end">
                           <CButton
                             color="light"

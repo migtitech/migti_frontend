@@ -212,10 +212,7 @@ const ProductView = () => {
             Edit
           </CButton>
           {product?.status !== "hod_approved" && (
-            <CButton
-              color="success"
-              onClick={() => setShowConfirmModal(true)}
-            >
+            <CButton color="success" onClick={() => setShowConfirmModal(true)}>
               <CIcon icon={cilCheckCircle} className="me-1" />
               HOD Approve
             </CButton>
@@ -583,7 +580,9 @@ const ProductView = () => {
               setSecretCode(e.target.value);
               setSecretError("");
             }}
-            onKeyDown={(e) => e.key === "Enter" && !approving && handleSecretSubmit()}
+            onKeyDown={(e) =>
+              e.key === "Enter" && !approving && handleSecretSubmit()
+            }
             autoFocus
             invalid={!!secretError}
           />

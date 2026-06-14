@@ -91,7 +91,10 @@ const queryService = {
   },
 
   /** Procurement (Pro Bucket) rates for one line: `query_products` matched by queryId + rawProductCode / lineIndex */
-  getLineProcurementRates: async (queryId, { rawProductCode, lineIndex } = {}) => {
+  getLineProcurementRates: async (
+    queryId,
+    { rawProductCode, lineIndex } = {},
+  ) => {
     const params = {
       queryId,
       rawProductCode: String(rawProductCode ?? "").trim(),

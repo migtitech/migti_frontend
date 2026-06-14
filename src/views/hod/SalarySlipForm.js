@@ -151,7 +151,7 @@ const SalarySlipForm = () => {
 
   const handleEmployeeSelect = (employeeId) => {
     const employee = employees.find(
-      (e) => String(e._id || e.id) === String(employeeId)
+      (e) => String(e._id || e.id) === String(employeeId),
     );
     if (!employee) {
       handleChange("employeeId", employeeId);
@@ -262,7 +262,9 @@ const SalarySlipForm = () => {
             >
               <CIcon icon={cilArrowLeft} />
             </CButton>
-            <strong>{isEdit ? "Edit Salary Slip" : "Generate Salary Slip"}</strong>
+            <strong>
+              {isEdit ? "Edit Salary Slip" : "Generate Salary Slip"}
+            </strong>
           </CCardHeader>
           <CCardBody>
             <CForm>
@@ -324,14 +326,18 @@ const SalarySlipForm = () => {
                   <CFormLabel>Designation</CFormLabel>
                   <CFormInput
                     value={form.designation}
-                    onChange={(e) => handleChange("designation", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("designation", e.target.value)
+                    }
                   />
                 </CCol>
                 <CCol md={6}>
                   <CFormLabel>Payment Mode</CFormLabel>
                   <CFormSelect
                     value={form.paymentMode}
-                    onChange={(e) => handleChange("paymentMode", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("paymentMode", e.target.value)
+                    }
                   >
                     {PAYMENT_MODES.map((mode) => (
                       <option key={mode} value={mode}>
@@ -363,7 +369,9 @@ const SalarySlipForm = () => {
                     min="0"
                     step="1"
                     value={form.presentDays}
-                    onChange={(e) => handleChange("presentDays", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("presentDays", e.target.value)
+                    }
                   />
                 </CCol>
                 <CCol md={4}>
@@ -387,7 +395,9 @@ const SalarySlipForm = () => {
                     min="0"
                     step="0.01"
                     value={form.basicSalary}
-                    onChange={(e) => handleChange("basicSalary", e.target.value)}
+                    onChange={(e) =>
+                      handleChange("basicSalary", e.target.value)
+                    }
                   />
                 </CCol>
                 <CCol md={3}>
@@ -500,7 +510,9 @@ const SalarySlipForm = () => {
                           </div>
                         </CCol>
                         <CCol md={4}>
-                          <div className="text-muted small">Total Deductions</div>
+                          <div className="text-muted small">
+                            Total Deductions
+                          </div>
                           <div className="fw-semibold">
                             {formatAmount(totals.totalDeduction)}
                           </div>
@@ -531,7 +543,9 @@ const SalarySlipForm = () => {
                     onClick={() => handleSubmit(true)}
                   >
                     <CIcon icon={cilCloudDownload} className="me-1" />
-                    {isEdit ? "Update & Download PDF" : "Generate & Download PDF"}
+                    {isEdit
+                      ? "Update & Download PDF"
+                      : "Generate & Download PDF"}
                   </CButton>
                   <CButton
                     color="secondary"

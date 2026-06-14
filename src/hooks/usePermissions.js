@@ -117,10 +117,7 @@ const usePermissions = () => {
     (module) => {
       if (!user) return false;
       if (isFullAccess) return true;
-      if (
-        module === "suppliers" &&
-        hasProcurementSuppliersBypass(user.role)
-      ) {
+      if (module === "suppliers" && hasProcurementSuppliersBypass(user.role)) {
         return true;
       }
       if (

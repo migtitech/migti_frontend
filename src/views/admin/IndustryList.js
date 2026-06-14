@@ -137,7 +137,9 @@ const IndustryList = () => {
         areaIds: selectedAreaId || undefined,
       };
       if (isSalesRole) {
-        const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+        const storedUser = JSON.parse(
+          localStorage.getItem("migticrm_user") || "{}",
+        );
         const userZoneIds = storedUser?.zoneIds;
         if (Array.isArray(userZoneIds) && userZoneIds.length) {
           params.zoneIds = userZoneIds.join(",");
@@ -305,27 +307,29 @@ const IndustryList = () => {
                   </CFormSelect>
                 </CCol>
               )}
-              {!isSalesRole && <CCol md={2}>
-                <CFormLabel className="small text-muted">Zones</CFormLabel>
-                <CFormSelect
-                  value={selectedAreaId}
-                  onChange={(e) => {
-                    setSelectedAreaId(e.target.value);
-                    setPage(1);
-                  }}
-                >
-                  <option value="">All Zones</option>
-                  {areas.map((a) => {
-                    const id = String(a._id || a.id);
-                    return (
-                      <option key={id} value={id}>
-                        {a.name}
-                        {a.city ? ` - ${a.city}` : ""}
-                      </option>
-                    );
-                  })}
-                </CFormSelect>
-              </CCol>}
+              {!isSalesRole && (
+                <CCol md={2}>
+                  <CFormLabel className="small text-muted">Zones</CFormLabel>
+                  <CFormSelect
+                    value={selectedAreaId}
+                    onChange={(e) => {
+                      setSelectedAreaId(e.target.value);
+                      setPage(1);
+                    }}
+                  >
+                    <option value="">All Zones</option>
+                    {areas.map((a) => {
+                      const id = String(a._id || a.id);
+                      return (
+                        <option key={id} value={id}>
+                          {a.name}
+                          {a.city ? ` - ${a.city}` : ""}
+                        </option>
+                      );
+                    })}
+                  </CFormSelect>
+                </CCol>
+              )}
             </CRow>
             {loading ? (
               <Loader message="Loading industries..." />
@@ -458,7 +462,9 @@ const IndustryList = () => {
                             {getPurchaseManagerLabel(industry)}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {industry.shippingAddress || industry.address || "-"}
+                            {industry.shippingAddress ||
+                              industry.address ||
+                              "-"}
                           </CTableDataCell>
                           <CTableDataCell>
                             <CButton

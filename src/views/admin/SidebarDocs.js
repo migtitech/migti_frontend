@@ -265,9 +265,7 @@ const SidebarDocs = () => {
                             <div className="small text-medium-emphasis mb-1">
                               #{(page - 1) * 10 + index + 1}
                             </div>
-                            <div className="fw-semibold">
-                              {doc.name || "-"}
-                            </div>
+                            <div className="fw-semibold">{doc.name || "-"}</div>
                             <div className="small text-medium-emphasis">
                               {doc.doc_type || "-"}
                             </div>
@@ -331,18 +329,15 @@ const SidebarDocs = () => {
                       >
                         Previous
                       </CPaginationItem>
-                      {Array.from(
-                        { length: pagination.totalPages },
-                        (_, i) => (
-                          <CPaginationItem
-                            key={i + 1}
-                            active={page === i + 1}
-                            onClick={() => setPage(i + 1)}
-                          >
-                            {i + 1}
-                          </CPaginationItem>
-                        ),
-                      )}
+                      {Array.from({ length: pagination.totalPages }, (_, i) => (
+                        <CPaginationItem
+                          key={i + 1}
+                          active={page === i + 1}
+                          onClick={() => setPage(i + 1)}
+                        >
+                          {i + 1}
+                        </CPaginationItem>
+                      ))}
                       <CPaginationItem
                         disabled={!pagination.hasNextPage}
                         onClick={() => setPage(page + 1)}

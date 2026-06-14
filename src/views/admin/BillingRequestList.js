@@ -221,7 +221,9 @@ const BillingRequestList = ({
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell scope="col">BR Code</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Sales Order Code</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">
+                        Sales Order Code
+                      </CTableHeaderCell>
                       <CTableHeaderCell scope="col">Products</CTableHeaderCell>
                       <CTableHeaderCell scope="col">
                         Total Amount
@@ -277,9 +279,7 @@ const BillingRequestList = ({
                                 size="sm"
                                 color="primary"
                                 variant="outline"
-                                onClick={() =>
-                                  navigate(`${basePath}/${r._id}`)
-                                }
+                                onClick={() => navigate(`${basePath}/${r._id}`)}
                               >
                                 View
                               </CButton>

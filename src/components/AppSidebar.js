@@ -14,10 +14,7 @@ import {
 import { AppSidebarNav } from "./AppSidebarNav";
 import usePermissions from "../hooks/usePermissions";
 import { useAuth } from "../context/AuthContext";
-import {
-  getFilteredSidebarNav,
-  navContainsTo,
-} from "../utils/sidebarNav";
+import { getFilteredSidebarNav, navContainsTo } from "../utils/sidebarNav";
 import queryService from "../services/queryService";
 import quotationService from "../services/quotationService";
 import deliveryApprovalService from "../services/deliveryApprovalService";
@@ -49,8 +46,7 @@ const AppSidebar = () => {
   const [readyForDispatchmentCount, setReadyForDispatchmentCount] =
     useState(null);
   const [proBucketPendingCount, setProBucketPendingCount] = useState(null);
-  const [purchaseBucketOpenCount, setPurchaseBucketOpenCount] =
-    useState(null);
+  const [purchaseBucketOpenCount, setPurchaseBucketOpenCount] = useState(null);
   const [billingRequestPendingCount, setBillingRequestPendingCount] =
     useState(null);
   const [queryProductsHodPendingCount, setQueryProductsHodPendingCount] =
@@ -137,8 +133,7 @@ const AppSidebar = () => {
         const data = res?.data || res;
         const result = data?.data ?? data;
         const total = Number(result?.pagination?.totalItems ?? 0);
-        if (!cancelled)
-          setDraftQueryCount(Number.isFinite(total) ? total : 0);
+        if (!cancelled) setDraftQueryCount(Number.isFinite(total) ? total : 0);
       } catch {
         if (!cancelled) setDraftQueryCount(0);
       }
@@ -202,9 +197,7 @@ const AppSidebar = () => {
         const inner = res?.data ?? res;
         const total = Number(inner?.total ?? 0);
         if (!cancelled)
-          setDeliveryApprovalPendingCount(
-            Number.isFinite(total) ? total : 0,
-          );
+          setDeliveryApprovalPendingCount(Number.isFinite(total) ? total : 0);
       } catch {
         if (!cancelled) setDeliveryApprovalPendingCount(0);
       }

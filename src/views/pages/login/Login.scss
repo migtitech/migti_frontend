@@ -3,8 +3,16 @@
   --brand-primary-hover: #5f46cb;
   --brand-soft: #f4f1ff;
   background:
-    radial-gradient(circle at 12% 18%, rgba(111, 86, 217, 0.14) 0, rgba(111, 86, 217, 0) 32%),
-    radial-gradient(circle at 85% 88%, rgba(111, 86, 217, 0.1) 0, rgba(111, 86, 217, 0) 38%),
+    radial-gradient(
+      circle at 12% 18%,
+      rgba(111, 86, 217, 0.14) 0,
+      rgba(111, 86, 217, 0) 32%
+    ),
+    radial-gradient(
+      circle at 85% 88%,
+      rgba(111, 86, 217, 0.1) 0,
+      rgba(111, 86, 217, 0) 38%
+    ),
     linear-gradient(155deg, #f8f9ff 0%, #f4f6fc 54%, #eff2fb 100%);
   position: relative;
   overflow: hidden;
@@ -81,7 +89,9 @@
 }
 
 .auth-input-group {
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .auth-input-group .input-group-text {
@@ -136,7 +146,10 @@
   background: linear-gradient(135deg, #6f56d9 0%, #7d66df 100%);
   font-weight: 600;
   letter-spacing: 0.01em;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .auth-submit-btn:hover,

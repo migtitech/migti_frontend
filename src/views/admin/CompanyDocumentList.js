@@ -272,7 +272,9 @@ const CompanyDocumentList = () => {
                             <CButton
                               color="link"
                               className="p-0 text-decoration-none"
-                              disabled={!docFileId || openingDocId === String(docFileId)}
+                              disabled={
+                                !docFileId || openingDocId === String(docFileId)
+                              }
                               onClick={() => openDocument(doc)}
                             >
                               {getFileName(doc)}
@@ -333,18 +335,15 @@ const CompanyDocumentList = () => {
                       >
                         Previous
                       </CPaginationItem>
-                      {Array.from(
-                        { length: pagination.totalPages },
-                        (_, i) => (
-                          <CPaginationItem
-                            key={i + 1}
-                            active={page === i + 1}
-                            onClick={() => setPage(i + 1)}
-                          >
-                            {i + 1}
-                          </CPaginationItem>
-                        ),
-                      )}
+                      {Array.from({ length: pagination.totalPages }, (_, i) => (
+                        <CPaginationItem
+                          key={i + 1}
+                          active={page === i + 1}
+                          onClick={() => setPage(i + 1)}
+                        >
+                          {i + 1}
+                        </CPaginationItem>
+                      ))}
                       <CPaginationItem
                         disabled={!pagination.hasNextPage}
                         onClick={() => setPage(page + 1)}
@@ -418,9 +417,7 @@ const CompanyDocumentList = () => {
             </small>
           </div>
           {form.file && (
-            <div className="small text-muted">
-              Selected: {form.file.name}
-            </div>
+            <div className="small text-muted">Selected: {form.file.name}</div>
           )}
         </CModalBody>
         <CModalFooter>

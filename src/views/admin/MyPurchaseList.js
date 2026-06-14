@@ -15,12 +15,7 @@ import {
   CRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilCart,
-  cilCloudUpload,
-  cilLocationPin,
-  cilX,
-} from "@coreui/icons";
+import { cilCart, cilCloudUpload, cilLocationPin, cilX } from "@coreui/icons";
 import localPurchaseService from "../../services/localPurchaseService";
 import documentService from "../../services/documentService";
 import { Loader } from "../../components";
@@ -172,7 +167,11 @@ const unwrapLocalPurchase = (res) => {
   const block = res?.data ?? res;
   if (block && typeof block === "object") {
     if (resolveAssignmentId(block)) return block;
-    if (block.data && typeof block.data === "object" && resolveAssignmentId(block.data)) {
+    if (
+      block.data &&
+      typeof block.data === "object" &&
+      resolveAssignmentId(block.data)
+    ) {
       return block.data;
     }
   }
@@ -294,7 +293,9 @@ const MyPurchaseList = () => {
     let billDocumentId;
     if (billFile) {
       const billUploadRes = await documentService.uploadAttachments([billFile]);
-      const billDoc = extractUploadedDocuments(billUploadRes).find((d) => d?._id);
+      const billDoc = extractUploadedDocuments(billUploadRes).find(
+        (d) => d?._id,
+      );
       if (!billDoc?._id) {
         throw new Error("Failed to upload bill");
       }
@@ -303,7 +304,8 @@ const MyPurchaseList = () => {
 
     let productImages = [];
     if (productImageFiles.length) {
-      const imageUploadRes = await documentService.uploadImages(productImageFiles);
+      const imageUploadRes =
+        await documentService.uploadImages(productImageFiles);
       productImages = extractUploadedDocuments(imageUploadRes)
         .filter((d) => d?._id)
         .map((d) => ({ documentId: String(d._id) }));
@@ -415,7 +417,8 @@ const MyPurchaseList = () => {
   };
 
   const snap = detail?.productSnapshot || {};
-  const isPending = String(detail?.status || "pending").toLowerCase() !== "submitted";
+  const isPending =
+    String(detail?.status || "pending").toLowerCase() !== "submitted";
   const referenceImages = toGalleryItems(detail?.productImagesFromQuery);
   const submittedProductImages = toGalleryItems(detail?.productImages);
   const billUrl = detail?.bill?.path ? imgSrc(detail.bill.path) : "";
@@ -474,7 +477,12 @@ const MyPurchaseList = () => {
                       const cardSnap = row.productSnapshot || {};
 
                       return (
-                        <CCol key={resolveAssignmentId(row) || row._id} xs={12} sm={6} lg={4}>
+                        <CCol
+                          key={resolveAssignmentId(row) || row._id}
+                          xs={12}
+                          sm={6}
+                          lg={4}
+                        >
                           <CCard
                             className="h-100 shadow-sm"
                             role="button"
@@ -517,7 +525,8 @@ const MyPurchaseList = () => {
                                   <span className="text-body-secondary">
                                     Qty:
                                   </span>{" "}
-                                  {cardSnap.quantity ?? "—"} {cardSnap.unit || ""}
+                                  {cardSnap.quantity ?? "—"}{" "}
+                                  {cardSnap.unit || ""}
                                 </div>
                                 {cardSnap.rawProductCode && (
                                   <div>
@@ -719,7 +728,9 @@ const MyPurchaseList = () => {
                   <DetailRow
                     label="GST %"
                     value={
-                      snap.gstPercentage != null ? `${snap.gstPercentage}%` : null
+                      snap.gstPercentage != null
+                        ? `${snap.gstPercentage}%`
+                        : null
                     }
                   />
                   <DetailRow
@@ -736,7 +747,11 @@ const MyPurchaseList = () => {
                 >
                   <div
                     className="text-body-secondary mb-2"
-                    style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4 }}
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: 0.4,
+                    }}
                   >
                     ASSIGNMENT
                   </div>
@@ -775,11 +790,18 @@ const MyPurchaseList = () => {
                 {!isPending && (
                   <div
                     className="rounded-3 p-3 mb-3"
-                    style={{ background: "#f0fdf4", border: "1px solid #bbf7d0" }}
+                    style={{
+                      background: "#f0fdf4",
+                      border: "1px solid #bbf7d0",
+                    }}
                   >
                     <div
                       className="text-body-secondary mb-2"
-                      style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4 }}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.4,
+                      }}
                     >
                       SUBMISSION
                     </div>
@@ -842,15 +864,21 @@ const MyPurchaseList = () => {
                   >
                     <div
                       className="text-body-secondary mb-3"
-                      style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4 }}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.4,
+                      }}
                     >
                       RE-UPLOAD BILL / IMAGES
                     </div>
                     <p className="small text-body-secondary mb-3">
-                      Choose a new bill and/or product images. Only the files you
-                      select will be replaced.
+                      Choose a new bill and/or product images. Only the files
+                      you select will be replaced.
                     </p>
-                    <CFormLabel htmlFor="local-purchase-bill-reupload">Bill</CFormLabel>
+                    <CFormLabel htmlFor="local-purchase-bill-reupload">
+                      Bill
+                    </CFormLabel>
                     <CFormInput
                       id="local-purchase-bill-reupload"
                       type="file"
@@ -917,7 +945,11 @@ const MyPurchaseList = () => {
                   >
                     <div
                       className="text-body-secondary mb-3"
-                      style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4 }}
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.4,
+                      }}
                     >
                       SUBMIT PURCHASE
                     </div>
@@ -984,7 +1016,9 @@ const MyPurchaseList = () => {
                       disabled={submitting || uploading}
                     >
                       <CIcon icon={cilCloudUpload} className="me-2" />
-                      {submitting || uploading ? "Submitting…" : "Mark submitted"}
+                      {submitting || uploading
+                        ? "Submitting…"
+                        : "Mark submitted"}
                     </CButton>
                   </div>
                 )}

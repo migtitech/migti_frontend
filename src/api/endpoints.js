@@ -287,7 +287,8 @@ export const QUOTATIONS = {
   GET_BY_ID: "/quotations/get-by-id",
   PRO_BUCKET_LINES: "/quotations/pro-bucket-lines",
   LINE_PROCUREMENT_RATES: "/quotations/line-procurement-rates",
-  ALL_PRODUCTS_HOD_RATES_APPROVED: "/quotations/all-products-hod-rates-approved",
+  ALL_PRODUCTS_HOD_RATES_APPROVED:
+    "/quotations/all-products-hod-rates-approved",
   SNAPSHOTS_LIST: "/quotations/snapshots/list",
   UPDATE: "/quotations/update",
   UPDATE_STATUS: "/quotations/update-status",
@@ -385,7 +386,8 @@ export const PRO_BUCKET = {
   UPDATE_QUERY_PRODUCT: (id) => `/pro-bucket/query-products/${id}`,
   APPEND_RATES: (id) => `/pro-bucket/query-products/${id}/rates`,
   UPDATE_HOD_RATES: (id) => `/pro-bucket/query-products/${id}/hod-rates`,
-  HOD_RATE_HISTORIES: (id) => `/pro-bucket/query-products/${id}/hod-rate-histories`,
+  HOD_RATE_HISTORIES: (id) =>
+    `/pro-bucket/query-products/${id}/hod-rate-histories`,
 };
 
 export const LOCAL_PROCUREMENT = {
@@ -406,14 +408,17 @@ export const LOCAL_PURCHASE = {
 
 /** Batch billing requests raised from Purchase Bucket (collection: billing_requests) */
 export const BILLING_REQUESTS = {
-  CREATE: '/billing-requests',
-  LIST: '/billing-requests',
+  CREATE: "/billing-requests",
+  LIST: "/billing-requests",
   BY_ID: (id) => `/billing-requests/${id}`,
   FINANCE_APPROVE: (id) => `/billing-requests/${id}/finance-approve`,
-  HOD_PRODUCT_ACTION: (id, productId) => `/billing-requests/${id}/products/${productId}/hod-action`,
-  RESUBMIT_PRODUCT: (id, productId) => `/billing-requests/${id}/products/${productId}/resubmit`,
-  MARK_PRODUCT_PURCHASED: (id, productId) => `/billing-requests/${id}/products/${productId}/mark-purchased`,
-}
+  HOD_PRODUCT_ACTION: (id, productId) =>
+    `/billing-requests/${id}/products/${productId}/hod-action`,
+  RESUBMIT_PRODUCT: (id, productId) =>
+    `/billing-requests/${id}/products/${productId}/resubmit`,
+  MARK_PRODUCT_PURCHASED: (id, productId) =>
+    `/billing-requests/${id}/products/${productId}/mark-purchased`,
+};
 
 export const PURCHASE_BUCKET = {
   PO_PRODUCTS: "/purchase-bucket/po-products",

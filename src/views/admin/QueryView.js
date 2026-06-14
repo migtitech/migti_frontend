@@ -337,10 +337,15 @@ const QueryView = () => {
   };
 
   const handleConvertClick = () => {
-    const missingPhotoProducts = getProductsMissingPhotos(query?.products || []);
+    const missingPhotoProducts = getProductsMissingPhotos(
+      query?.products || [],
+    );
     if (missingPhotoProducts.length > 0) {
       const labels = missingPhotoProducts
-        .map((product, index) => product.productName?.trim() || `Product ${index + 1}`)
+        .map(
+          (product, index) =>
+            product.productName?.trim() || `Product ${index + 1}`,
+        )
         .join(", ");
       toastError(
         missingPhotoProducts.length === 1
@@ -395,7 +400,9 @@ const QueryView = () => {
   const openProcurementRatesModal = async (productRow, lineIndex) => {
     const rawCode = String(productRow?.rawProductCode ?? "").trim();
     if (!id || !rawCode) {
-      toastError("This line has no product code; procurement rates are unavailable.");
+      toastError(
+        "This line has no product code; procurement rates are unavailable.",
+      );
       return;
     }
     const productLabel =
@@ -1066,9 +1073,9 @@ const QueryView = () => {
                       {procurementRatesModal.rawProductCode}
                     </span>
                   </>
-                ) : null}
-                {" "}
-                · Line status {proBucketStatusBadge(procurementRatesModal.status)}
+                ) : null}{" "}
+                · Line status{" "}
+                {proBucketStatusBadge(procurementRatesModal.status)}
               </div>
               {procurementRatesModal.rates.length === 0 ? (
                 <p className="text-muted mb-0">
@@ -1081,7 +1088,9 @@ const QueryView = () => {
                       <CTableHeaderCell scope="col">#</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Min rate</CTableHeaderCell>
                       <CTableHeaderCell scope="col">Max rate</CTableHeaderCell>
-                      <CTableHeaderCell scope="col">Discount (%)</CTableHeaderCell>
+                      <CTableHeaderCell scope="col">
+                        Discount (%)
+                      </CTableHeaderCell>
                       <CTableHeaderCell scope="col">Unit</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
@@ -1100,7 +1109,8 @@ const QueryView = () => {
                             : "—"}
                         </CTableDataCell>
                         <CTableDataCell>
-                          {r.discount != null && !Number.isNaN(Number(r.discount))
+                          {r.discount != null &&
+                          !Number.isNaN(Number(r.discount))
                             ? Number(r.discount)
                             : "—"}
                         </CTableDataCell>

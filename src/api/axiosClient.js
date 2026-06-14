@@ -127,9 +127,7 @@ axiosClient.interceptors.response.use(
       message:
         error.response?.data?.message || error.message || "An error occurred",
       errors:
-        error.response?.data?.errors ||
-        error.response?.data?.error ||
-        null,
+        error.response?.data?.errors || error.response?.data?.error || null,
       data: error.response?.data || null,
     };
 

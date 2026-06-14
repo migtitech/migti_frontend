@@ -377,7 +377,9 @@ const QuotationFollowupDashboard = () => {
                         <CTableDataCell>
                           {row.companyName || row.industry_id?.name || "—"}
                         </CTableDataCell>
-                        <CTableDataCell>{row.zoneId?.name || "—"}</CTableDataCell>
+                        <CTableDataCell>
+                          {row.zoneId?.name || "—"}
+                        </CTableDataCell>
                         <CTableDataCell>
                           {row.salesEmployeeId?.name || "—"}
                         </CTableDataCell>
@@ -492,11 +494,7 @@ const QuotationFollowupDashboard = () => {
         </CModalFooter>
       </CModal>
 
-      <CModal
-        visible={historyModalOpen}
-        onClose={closeHistoryModal}
-        size="lg"
-      >
+      <CModal visible={historyModalOpen} onClose={closeHistoryModal} size="lg">
         <CModalHeader>
           <CModalTitle>Follow-up history</CModalTitle>
         </CModalHeader>
@@ -505,10 +503,7 @@ const QuotationFollowupDashboard = () => {
             <p className="text-body-secondary small mb-3">
               Quotation: <strong>{selectedRow.quotationCode}</strong>
               {selectedRow.companyName ? (
-                <>
-                  {" "}
-                  · {selectedRow.companyName}
-                </>
+                <> · {selectedRow.companyName}</>
               ) : null}
             </p>
           )}

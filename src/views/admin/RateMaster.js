@@ -67,7 +67,8 @@ const getSupplierLabel = (row) => {
   const snap = row?.supplierSnapshot;
   if (!snap || typeof snap !== "object") return "-";
   const name = snap.name || snap.shopname || snap.supplierName || "";
-  const shop = snap.shopname && snap.shopname !== name ? ` (${snap.shopname})` : "";
+  const shop =
+    snap.shopname && snap.shopname !== name ? ` (${snap.shopname})` : "";
   return name ? `${name}${shop}` : "-";
 };
 
@@ -299,8 +300,8 @@ const RateMaster = () => {
                 )}
               </CInputGroup>
               <div className="text-muted small mb-3">
-                Only codes that have captured rates are suggested. Press Enter to
-                search the typed code.
+                Only codes that have captured rates are suggested. Press Enter
+                to search the typed code.
               </div>
 
               {showDropdown && results.length > 0 && (
@@ -399,7 +400,9 @@ const RateMaster = () => {
                             key={b.key || "all"}
                             size="sm"
                             color={b.color}
-                            variant={typeFilter === b.key ? undefined : "outline"}
+                            variant={
+                              typeFilter === b.key ? undefined : "outline"
+                            }
                             onClick={() => handleTypeFilter(b.key)}
                           >
                             {b.label}

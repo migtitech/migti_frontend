@@ -479,7 +479,9 @@ const IndustryView = () => {
                         <CTableRow key={pm._id || idx}>
                           <CTableDataCell>{idx + 1}</CTableDataCell>
                           <CTableDataCell>{pm.name || "-"}</CTableDataCell>
-                          <CTableDataCell>{pm.department || "-"}</CTableDataCell>
+                          <CTableDataCell>
+                            {pm.department || "-"}
+                          </CTableDataCell>
                           <CTableDataCell>{pm.phone || "-"}</CTableDataCell>
                           <CTableDataCell>{pm.email || "-"}</CTableDataCell>
                         </CTableRow>
@@ -832,7 +834,9 @@ const IndustryView = () => {
                     <CCol md={4}>
                       <CCard>
                         <CCardBody>
-                          <div className="text-muted small">Sales Order Received</div>
+                          <div className="text-muted small">
+                            Sales Order Received
+                          </div>
                           <h4 className="mb-0">
                             {poPagination?.totalItems ?? 0}
                           </h4>
@@ -854,7 +858,9 @@ const IndustryView = () => {
                     <CCol md={6}>
                       <CCard>
                         <CCardBody>
-                          <div className="text-muted small">Sales Order Amount</div>
+                          <div className="text-muted small">
+                            Sales Order Amount
+                          </div>
                           <h4 className="mb-0">
                             {formatINRCurrency(totalPoAmount)}
                           </h4>
@@ -879,7 +885,10 @@ const IndustryView = () => {
                           >
                             <CChartBar
                               data={{
-                                labels: ["Quotation Value", "Sales Order Amount"],
+                                labels: [
+                                  "Quotation Value",
+                                  "Sales Order Amount",
+                                ],
                                 datasets: [
                                   {
                                     data: [
@@ -921,7 +930,11 @@ const IndustryView = () => {
                           >
                             <CChartBar
                               data={{
-                                labels: ["Queries", "Quotations", "Sales Order"],
+                                labels: [
+                                  "Queries",
+                                  "Quotations",
+                                  "Sales Order",
+                                ],
                                 datasets: [
                                   {
                                     label: "Count",

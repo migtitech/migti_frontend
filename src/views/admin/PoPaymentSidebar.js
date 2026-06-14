@@ -545,9 +545,7 @@ const PoPaymentSidebar = () => {
                             if (
                               created &&
                               typeof created === "object" &&
-                              (!salesId ||
-                                !createdId ||
-                                salesId !== createdId)
+                              (!salesId || !createdId || salesId !== createdId)
                             ) {
                               rows.push({
                                 key: "created",

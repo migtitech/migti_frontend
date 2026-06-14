@@ -145,9 +145,7 @@ const isHodRole = (role) => {
 };
 
 const canShowQueryEditButton = (role, status) =>
-  isHodRole(role) &&
-  status !== "closed" &&
-  status !== "convertedToQuotation";
+  isHodRole(role) && status !== "closed" && status !== "convertedToQuotation";
 
 const QueryList = () => {
   const MOBILE_BREAKPOINT = 576;
@@ -190,7 +188,9 @@ const QueryList = () => {
         dateTo: dateTo.trim() || undefined,
       };
       if (isSalesRole) {
-        const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+        const storedUser = JSON.parse(
+          localStorage.getItem("migticrm_user") || "{}",
+        );
         const userZoneIds = storedUser?.zoneIds;
         if (Array.isArray(userZoneIds) && userZoneIds.length) {
           params.zoneIds = userZoneIds.join(",");
@@ -385,28 +385,31 @@ const QueryList = () => {
                     </CFormSelect>
                   </div>
                 </CCol>
-                {!isSalesRole && <CCol md={3}>
-                  <div>
-                    <CFormLabel className="mb-1 small text-muted">
-                      Zones
-                    </CFormLabel>
-                    <CFormSelect
-                      value={selectedAreaId}
-                      onChange={(e) => setSelectedAreaId(e.target.value)}
-                    >
-                      <option value="">All Zones</option>
-                      {areas.map((a) => {
-                        const id = String(a._id || a.id);
-                        return (
-                          <option key={id} value={id}>
-                            {a.name}
-                            {a.city ? ` - ${a.city}` : ""}
-                          </option>
-                        );
-                      })}
-                    </CFormSelect>
-                  </div>
-                </CCol>}                <CCol md={2} className="d-flex align-items-end">
+                {!isSalesRole && (
+                  <CCol md={3}>
+                    <div>
+                      <CFormLabel className="mb-1 small text-muted">
+                        Zones
+                      </CFormLabel>
+                      <CFormSelect
+                        value={selectedAreaId}
+                        onChange={(e) => setSelectedAreaId(e.target.value)}
+                      >
+                        <option value="">All Zones</option>
+                        {areas.map((a) => {
+                          const id = String(a._id || a.id);
+                          return (
+                            <option key={id} value={id}>
+                              {a.name}
+                              {a.city ? ` - ${a.city}` : ""}
+                            </option>
+                          );
+                        })}
+                      </CFormSelect>
+                    </div>
+                  </CCol>
+                )}{" "}
+                <CCol md={2} className="d-flex align-items-end">
                   <CButton
                     type="button"
                     color={filtersLocked ? "warning" : "secondary"}
@@ -453,144 +456,153 @@ const QueryList = () => {
                                 navigate(`/queries/${q._id || q.id}`)
                               }
                             >
-                            <CCardBody>
-                              <div className="d-flex justify-content-between align-items-start mb-2">
-                                <div>
-                                  <div className="small text-muted">
-                                    #{(currentPage - 1) * pageSize + index + 1}
+                              <CCardBody>
+                                <div className="d-flex justify-content-between align-items-start mb-2">
+                                  <div>
+                                    <div className="small text-muted">
+                                      #
+                                      {(currentPage - 1) * pageSize + index + 1}
+                                    </div>
+                                    <strong>{q.queryCode || "—"}</strong>
                                   </div>
-                                  <strong>{q.queryCode || "—"}</strong>
+                                  <div>
+                                    <CBadge
+                                      color={
+                                        q.status === "closed"
+                                          ? "secondary"
+                                          : q.status === "convertedToQuotation"
+                                            ? "success"
+                                            : q.status === "progress"
+                                              ? "primary"
+                                              : q.status &&
+                                                  q.status.startsWith(
+                                                    "followup",
+                                                  )
+                                                ? "warning"
+                                                : "info"
+                                      }
+                                    >
+                                      {q.status || "pending"}
+                                    </CBadge>
+                                  </div>
                                 </div>
-                                <div>
-                                  <CBadge
-                                    color={
-                                      q.status === "closed"
-                                        ? "secondary"
-                                        : q.status === "convertedToQuotation"
-                                          ? "success"
-                                          : q.status === "progress"
-                                            ? "primary"
-                                            : q.status &&
-                                                q.status.startsWith("followup")
-                                              ? "warning"
-                                              : "info"
-                                    }
-                                  >
-                                    {q.status || "pending"}
-                                  </CBadge>
+                                <div className="small mb-1">
+                                  <strong>Company:</strong>{" "}
+                                  {q.companyInfo?.name || "-"}
                                 </div>
-                              </div>
-                              <div className="small mb-1">
-                                <strong>Company:</strong>{" "}
-                                {q.companyInfo?.name || "-"}
-                              </div>
-                              <div className="small mb-1">
-                                <strong>Products:</strong>{" "}
-                                {q.products?.length
-                                  ? `${q.products.length} item(s)`
-                                  : "-"}
-                              </div>
-                              <div className="small mb-1">
-                                <strong>Rate available:</strong>{" "}
-                                {String(
-                                  Number(q.queryProductRateAvailableCount) ||
-                                    0,
-                                )}
-                              </div>
-                              <div className="small mb-1">
-                                <strong>Quotation no.:</strong>{" "}
-                                {Array.isArray(q.convertedQuotations) &&
-                                q.convertedQuotations.length > 0
-                                  ? q.convertedQuotations.map((ref, idx) => {
-                                      const qid =
-                                        ref.quotationId?._id ?? ref.quotationId;
-                                      const code =
-                                        ref.quotationCode || qid || "—";
-                                      return (
-                                        <span key={String(qid || idx)}>
-                                          <span
-                                            role="link"
-                                            tabIndex={0}
-                                            className="text-primary text-decoration-underline"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (qid)
-                                                navigate(`/quotations/${qid}`);
-                                            }}
-                                            onKeyDown={(e) => {
-                                              if (
-                                                e.key === "Enter" ||
-                                                e.key === " "
-                                              ) {
-                                                e.preventDefault();
+                                <div className="small mb-1">
+                                  <strong>Products:</strong>{" "}
+                                  {q.products?.length
+                                    ? `${q.products.length} item(s)`
+                                    : "-"}
+                                </div>
+                                <div className="small mb-1">
+                                  <strong>Rate available:</strong>{" "}
+                                  {String(
+                                    Number(q.queryProductRateAvailableCount) ||
+                                      0,
+                                  )}
+                                </div>
+                                <div className="small mb-1">
+                                  <strong>Quotation no.:</strong>{" "}
+                                  {Array.isArray(q.convertedQuotations) &&
+                                  q.convertedQuotations.length > 0
+                                    ? q.convertedQuotations.map((ref, idx) => {
+                                        const qid =
+                                          ref.quotationId?._id ??
+                                          ref.quotationId;
+                                        const code =
+                                          ref.quotationCode || qid || "—";
+                                        return (
+                                          <span key={String(qid || idx)}>
+                                            <span
+                                              role="link"
+                                              tabIndex={0}
+                                              className="text-primary text-decoration-underline"
+                                              onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (qid)
                                                   navigate(
                                                     `/quotations/${qid}`,
                                                   );
-                                              }
-                                            }}
-                                          >
-                                            {code}
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (
+                                                  e.key === "Enter" ||
+                                                  e.key === " "
+                                                ) {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  if (qid)
+                                                    navigate(
+                                                      `/quotations/${qid}`,
+                                                    );
+                                                }
+                                              }}
+                                            >
+                                              {code}
+                                            </span>
+                                            {idx <
+                                            q.convertedQuotations.length - 1
+                                              ? ", "
+                                              : ""}
                                           </span>
-                                          {idx <
-                                          q.convertedQuotations.length - 1
-                                            ? ", "
-                                            : ""}
-                                        </span>
-                                      );
-                                    })
-                                  : "—"}
-                              </div>
-                              <div className="small mb-2">
-                                <strong>Date:</strong>{" "}
-                                {q.createdAt
-                                  ? `${formatDateDdMmYyyy(q.createdAt)} ${new Date(q.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
-                                  : "-"}
-                              </div>
-                              <div className="d-flex gap-2">
-                                <CButton
-                                  color="info"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/queries/${q._id || q.id}`);
-                                  }}
-                                  title="View"
-                                >
-                                  <EyeIcon />
-                                </CButton>
-                                {canShowQueryEditButton(user?.role, q.status) && (
+                                        );
+                                      })
+                                    : "—"}
+                                </div>
+                                <div className="small mb-2">
+                                  <strong>Date:</strong>{" "}
+                                  {q.createdAt
+                                    ? `${formatDateDdMmYyyy(q.createdAt)} ${new Date(q.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                                    : "-"}
+                                </div>
+                                <div className="d-flex gap-2">
                                   <CButton
-                                    color="warning"
+                                    color="info"
                                     variant="ghost"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      navigate(
-                                        `/queries/edit/${q._id || q.id}`,
-                                      );
+                                      navigate(`/queries/${q._id || q.id}`);
                                     }}
-                                    title="Edit"
+                                    title="View"
                                   >
-                                    <CIcon icon={cilPencil} />
+                                    <EyeIcon />
                                   </CButton>
-                                )}
-                                <CButton
-                                  color="danger"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteClick(q._id || q.id);
-                                  }}
-                                  title="Delete"
-                                >
-                                  <CIcon icon={cilTrash} />
-                                </CButton>
-                              </div>
-                            </CCardBody>
+                                  {canShowQueryEditButton(
+                                    user?.role,
+                                    q.status,
+                                  ) && (
+                                    <CButton
+                                      color="warning"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(
+                                          `/queries/edit/${q._id || q.id}`,
+                                        );
+                                      }}
+                                      title="Edit"
+                                    >
+                                      <CIcon icon={cilPencil} />
+                                    </CButton>
+                                  )}
+                                  <CButton
+                                    color="danger"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteClick(q._id || q.id);
+                                    }}
+                                    title="Delete"
+                                  >
+                                    <CIcon icon={cilTrash} />
+                                  </CButton>
+                                </div>
+                              </CCardBody>
                             </CCard>
                           );
                         })
@@ -633,167 +645,176 @@ const QueryList = () => {
                                   navigate(`/queries/${q._id || q.id}`)
                                 }
                               >
-                              <CTableDataCell>
-                                {(currentPage - 1) * pageSize + index + 1}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                <strong>{q.queryCode || "—"}</strong>
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                <CBadge
-                                  color={
-                                    q.status === "closed"
-                                      ? "secondary"
-                                      : q.status === "convertedToQuotation"
-                                        ? "success"
-                                        : q.status === "progress"
-                                          ? "primary"
-                                          : q.status &&
-                                              q.status.startsWith("followup")
-                                            ? "warning"
-                                            : "info"
-                                  }
-                                >
-                                  {q.status || "pending"}
-                                </CBadge>
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                <strong>{q.companyInfo?.name || "-"}</strong>
-                                {(q.companyInfo?.purchaseManagers?.length > 0
-                                  ? (q.companyInfo.purchaseManagers || [])
-                                      .map((m) => m.name || m.phone)
-                                      .filter(Boolean)
-                                      .join(", ")
-                                  : q.companyInfo?.purchase_manager_name ||
-                                    q.companyInfo?.purchase_manager_phone) && (
-                                  <div className="text-muted small">
-                                    {q.companyInfo?.purchaseManagers?.length > 0
-                                      ? q.companyInfo.purchaseManagers.map(
-                                          (pm, index) => (
-                                            <div key={index}>
-                                              {pm.name}{" "}
-                                              {pm.phone ? `(${pm.phone})` : ""}
-                                            </div>
-                                          ),
-                                        )
-                                      : "-"}
-                                  </div>
-                                )}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {q.products?.length
-                                  ? `${q.products.length} item(s)`
-                                  : "-"}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {String(
-                                  Number(q.queryProductRateAvailableCount) ||
-                                    0,
-                                )}
-                              </CTableDataCell>
-                              <CTableDataCell className="small">
-                                {Array.isArray(q.convertedQuotations) &&
-                                q.convertedQuotations.length > 0
-                                  ? q.convertedQuotations.map((ref) => {
-                                      const qid =
-                                        ref.quotationId?._id ?? ref.quotationId;
-                                      const code =
-                                        ref.quotationCode || qid || "—";
-                                      return (
-                                        <div key={String(qid)}>
-                                          <span
-                                            role="link"
-                                            tabIndex={0}
-                                            className="text-primary text-decoration-underline"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              if (qid)
-                                                navigate(`/quotations/${qid}`);
-                                            }}
-                                            onKeyDown={(e) => {
-                                              if (
-                                                e.key === "Enter" ||
-                                                e.key === " "
-                                              ) {
-                                                e.preventDefault();
+                                <CTableDataCell>
+                                  {(currentPage - 1) * pageSize + index + 1}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <strong>{q.queryCode || "—"}</strong>
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <CBadge
+                                    color={
+                                      q.status === "closed"
+                                        ? "secondary"
+                                        : q.status === "convertedToQuotation"
+                                          ? "success"
+                                          : q.status === "progress"
+                                            ? "primary"
+                                            : q.status &&
+                                                q.status.startsWith("followup")
+                                              ? "warning"
+                                              : "info"
+                                    }
+                                  >
+                                    {q.status || "pending"}
+                                  </CBadge>
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <strong>{q.companyInfo?.name || "-"}</strong>
+                                  {(q.companyInfo?.purchaseManagers?.length > 0
+                                    ? (q.companyInfo.purchaseManagers || [])
+                                        .map((m) => m.name || m.phone)
+                                        .filter(Boolean)
+                                        .join(", ")
+                                    : q.companyInfo?.purchase_manager_name ||
+                                      q.companyInfo
+                                        ?.purchase_manager_phone) && (
+                                    <div className="text-muted small">
+                                      {q.companyInfo?.purchaseManagers?.length >
+                                      0
+                                        ? q.companyInfo.purchaseManagers.map(
+                                            (pm, index) => (
+                                              <div key={index}>
+                                                {pm.name}{" "}
+                                                {pm.phone
+                                                  ? `(${pm.phone})`
+                                                  : ""}
+                                              </div>
+                                            ),
+                                          )
+                                        : "-"}
+                                    </div>
+                                  )}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {q.products?.length
+                                    ? `${q.products.length} item(s)`
+                                    : "-"}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {String(
+                                    Number(q.queryProductRateAvailableCount) ||
+                                      0,
+                                  )}
+                                </CTableDataCell>
+                                <CTableDataCell className="small">
+                                  {Array.isArray(q.convertedQuotations) &&
+                                  q.convertedQuotations.length > 0
+                                    ? q.convertedQuotations.map((ref) => {
+                                        const qid =
+                                          ref.quotationId?._id ??
+                                          ref.quotationId;
+                                        const code =
+                                          ref.quotationCode || qid || "—";
+                                        return (
+                                          <div key={String(qid)}>
+                                            <span
+                                              role="link"
+                                              tabIndex={0}
+                                              className="text-primary text-decoration-underline"
+                                              onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (qid)
                                                   navigate(
                                                     `/quotations/${qid}`,
                                                   );
-                                              }
-                                            }}
-                                          >
-                                            {code}
-                                          </span>
-                                        </div>
-                                      );
-                                    })
-                                  : "—"}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {q.createdAt ? (
-                                  <>
-                                    {formatDateDdMmYyyy(q.createdAt)}
-                                    <div className="text-muted small">
-                                      {new Date(q.createdAt).toLocaleTimeString(
-                                        [],
-                                        {
+                                              }}
+                                              onKeyDown={(e) => {
+                                                if (
+                                                  e.key === "Enter" ||
+                                                  e.key === " "
+                                                ) {
+                                                  e.preventDefault();
+                                                  e.stopPropagation();
+                                                  if (qid)
+                                                    navigate(
+                                                      `/quotations/${qid}`,
+                                                    );
+                                                }
+                                              }}
+                                            >
+                                              {code}
+                                            </span>
+                                          </div>
+                                        );
+                                      })
+                                    : "—"}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {q.createdAt ? (
+                                    <>
+                                      {formatDateDdMmYyyy(q.createdAt)}
+                                      <div className="text-muted small">
+                                        {new Date(
+                                          q.createdAt,
+                                        ).toLocaleTimeString([], {
                                           hour: "2-digit",
                                           minute: "2-digit",
                                           second: "2-digit",
-                                        },
-                                      )}
-                                    </div>
-                                  </>
-                                ) : (
-                                  "-"
-                                )}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                <CButton
-                                  color="info"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/queries/${q._id || q.id}`);
-                                  }}
-                                  title="View"
-                                >
-                                  <EyeIcon />
-                                </CButton>
-                                {canShowQueryEditButton(user?.role, q.status) && (
+                                        })}
+                                      </div>
+                                    </>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </CTableDataCell>
+                                <CTableDataCell>
                                   <CButton
-                                    color="warning"
+                                    color="info"
                                     variant="ghost"
                                     size="sm"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      navigate(
-                                        `/queries/edit/${q._id || q.id}`,
-                                      );
+                                      navigate(`/queries/${q._id || q.id}`);
                                     }}
-                                    title="Edit"
+                                    title="View"
                                   >
-                                    <CIcon icon={cilPencil} />
+                                    <EyeIcon />
                                   </CButton>
-                                )}
-                                {canDelete("queries") && (
-                                  <CButton
-                                    color="danger"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteClick(q._id || q.id);
-                                    }}
-                                    title="Delete"
-                                  >
-                                    <CIcon icon={cilTrash} />
-                                  </CButton>
-                                )}
-                              </CTableDataCell>
+                                  {canShowQueryEditButton(
+                                    user?.role,
+                                    q.status,
+                                  ) && (
+                                    <CButton
+                                      color="warning"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate(
+                                          `/queries/edit/${q._id || q.id}`,
+                                        );
+                                      }}
+                                      title="Edit"
+                                    >
+                                      <CIcon icon={cilPencil} />
+                                    </CButton>
+                                  )}
+                                  {canDelete("queries") && (
+                                    <CButton
+                                      color="danger"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteClick(q._id || q.id);
+                                      }}
+                                      title="Delete"
+                                    >
+                                      <CIcon icon={cilTrash} />
+                                    </CButton>
+                                  )}
+                                </CTableDataCell>
                               </CTableRow>
                             );
                           })

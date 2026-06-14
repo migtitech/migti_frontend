@@ -215,7 +215,9 @@ const QueryProductFindSidebar = ({
                             lineHeight: 1.35,
                           }}
                         >
-                          {p.shortDescription?.trim() ? p.shortDescription : "—"}
+                          {p.shortDescription?.trim()
+                            ? p.shortDescription
+                            : "—"}
                         </div>
                         <div className="small mt-2">
                           <span className="text-muted">HSN: </span>

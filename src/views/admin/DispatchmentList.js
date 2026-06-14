@@ -300,8 +300,8 @@ const DispatchmentList = () => {
             <CIcon icon={cilTruck} className="text-primary" />
             <strong>Dispatchment</strong>
             <span className="text-body-secondary small">
-              Sales Order lines <em>Ready for dispatchment</em> or <em>Delivered</em> —
-              use status to filter
+              Sales Order lines <em>Ready for dispatchment</em> or{" "}
+              <em>Delivered</em> — use status to filter
             </span>
           </CCardHeader>
           <CCardBody>
@@ -581,104 +581,103 @@ const DispatchmentList = () => {
                 </div>
               )}
 
-              {canAct &&
-                invStatus(detail) === "ready_for_dispatchment" && (
-                  <div className="mt-4 pt-3 border-top">
-                    <h6 className="mb-3">Mark delivered</h6>
-                    <p className="small text-body-secondary mb-3">
-                      Upload an image as receiving / delivery proof (required),
-                      optionally add a remark, then confirm. Saved on the Sales Order
-                      line (<code>po_products</code>).
-                    </p>
-                    <CFormLabel>
-                      Receiving proof (image)
-                      <span className="text-danger ms-1" aria-hidden>
-                        *
-                      </span>
-                    </CFormLabel>
-                    <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-                      <CFormInput
-                        type="file"
-                        id="dispatch-recv-img-gallery"
-                        className="d-none"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const f = e?.target?.files?.[0] || null;
-                          e.target.value = "";
-                          setReceivingFile(f);
-                        }}
-                      />
-                      <CFormInput
-                        type="file"
-                        id="dispatch-recv-img-camera"
-                        className="d-none"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) => {
-                          const f = e?.target?.files?.[0] || null;
-                          e.target.value = "";
-                          setReceivingFile(f);
-                        }}
-                      />
-                      <CButton
-                        color="primary"
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={() =>
-                          document
-                            .getElementById("dispatch-recv-img-gallery")
-                            ?.click()
-                        }
-                      >
-                        Choose image
-                      </CButton>
-                      <CButton
-                        color="info"
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        onClick={() =>
-                          document
-                            .getElementById("dispatch-recv-img-camera")
-                            ?.click()
-                        }
-                      >
-                        Take photo
-                      </CButton>
-                      {receivingFile ? (
-                        <span className="small text-body-secondary">
-                          {receivingFile.name}
-                        </span>
-                      ) : (
-                        <span className="small text-warning">
-                          Required before marking delivered
-                        </span>
-                      )}
-                    </div>
-                    <CFormLabel>Remark</CFormLabel>
-                    <CFormTextarea
-                      value={receivingRemark}
-                      onChange={(e) => setReceivingRemark(e.target.value)}
-                      rows={3}
-                      className="mb-3"
-                      placeholder="Delivery / receiving notes…"
+              {canAct && invStatus(detail) === "ready_for_dispatchment" && (
+                <div className="mt-4 pt-3 border-top">
+                  <h6 className="mb-3">Mark delivered</h6>
+                  <p className="small text-body-secondary mb-3">
+                    Upload an image as receiving / delivery proof (required),
+                    optionally add a remark, then confirm. Saved on the Sales
+                    Order line (<code>po_products</code>).
+                  </p>
+                  <CFormLabel>
+                    Receiving proof (image)
+                    <span className="text-danger ms-1" aria-hidden>
+                      *
+                    </span>
+                  </CFormLabel>
+                  <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
+                    <CFormInput
+                      type="file"
+                      id="dispatch-recv-img-gallery"
+                      className="d-none"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e?.target?.files?.[0] || null;
+                        e.target.value = "";
+                        setReceivingFile(f);
+                      }}
+                    />
+                    <CFormInput
+                      type="file"
+                      id="dispatch-recv-img-camera"
+                      className="d-none"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => {
+                        const f = e?.target?.files?.[0] || null;
+                        e.target.value = "";
+                        setReceivingFile(f);
+                      }}
                     />
                     <CButton
-                      color="success"
-                      disabled={delivering || !receivingFile}
-                      onClick={markDeliveredFromDetail}
+                      color="primary"
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() =>
+                        document
+                          .getElementById("dispatch-recv-img-gallery")
+                          ?.click()
+                      }
                     >
-                      {delivering ? (
-                        <>
-                          <CSpinner size="sm" className="me-2" /> Saving…
-                        </>
-                      ) : (
-                        "Mark delivered"
-                      )}
+                      Choose image
                     </CButton>
+                    <CButton
+                      color="info"
+                      variant="outline"
+                      size="sm"
+                      type="button"
+                      onClick={() =>
+                        document
+                          .getElementById("dispatch-recv-img-camera")
+                          ?.click()
+                      }
+                    >
+                      Take photo
+                    </CButton>
+                    {receivingFile ? (
+                      <span className="small text-body-secondary">
+                        {receivingFile.name}
+                      </span>
+                    ) : (
+                      <span className="small text-warning">
+                        Required before marking delivered
+                      </span>
+                    )}
                   </div>
-                )}
+                  <CFormLabel>Remark</CFormLabel>
+                  <CFormTextarea
+                    value={receivingRemark}
+                    onChange={(e) => setReceivingRemark(e.target.value)}
+                    rows={3}
+                    className="mb-3"
+                    placeholder="Delivery / receiving notes…"
+                  />
+                  <CButton
+                    color="success"
+                    disabled={delivering || !receivingFile}
+                    onClick={markDeliveredFromDetail}
+                  >
+                    {delivering ? (
+                      <>
+                        <CSpinner size="sm" className="me-2" /> Saving…
+                      </>
+                    ) : (
+                      "Mark delivered"
+                    )}
+                  </CButton>
+                </div>
+              )}
             </>
           )}
         </COffcanvasBody>

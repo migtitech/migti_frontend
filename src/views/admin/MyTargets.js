@@ -30,8 +30,7 @@ const PERIOD_OPTIONS = [
 const formatAmount = (v) =>
   `₹${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-const formatDate = (v) =>
-  v ? new Date(v).toLocaleDateString("en-IN") : "-";
+const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "-");
 
 const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, v));
 
@@ -86,7 +85,7 @@ const MyTargets = () => {
     const active = targets.filter((t) => (t.status || "active") === "active");
     const totalTarget = active.reduce(
       (s, t) => s + Number(t.targetAmount || 0),
-      0
+      0,
     );
     return { totalTarget, activeCount: active.length };
   }, [targets]);
@@ -182,7 +181,7 @@ const MyTargets = () => {
                       displayed.map((row) => {
                         const meta = getProgressMeta(
                           row.targetAmount,
-                          row.achievedAmount
+                          row.achievedAmount,
                         );
                         return (
                           <CTableRow key={row._id}>

@@ -287,9 +287,7 @@ const PendingPayment = () => {
                               {formatAmount(fin.remainingAmount)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(
-                                computePaymentDueDate(row.createdAt),
-                              )}
+                              {formatDate(computePaymentDueDate(row.createdAt))}
                             </CTableDataCell>
                             <CTableDataCell>
                               <CBadge color={b.color}>{b.label}</CBadge>

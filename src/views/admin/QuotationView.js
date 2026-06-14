@@ -322,8 +322,7 @@ const mapQueryProductLineForApi = (p) => {
     unit: p.unit || "",
     hsnNumber: p.hsnNumber || "",
     modelNumber: p.modelNumber || "",
-    gstPercentage:
-      typeof p.gstPercentage === "number" ? p.gstPercentage : null,
+    gstPercentage: typeof p.gstPercentage === "number" ? p.gstPercentage : null,
     variants: (p.variants || []).map((v) => ({
       variantName: v?.variantName || "",
     })),
@@ -332,8 +331,7 @@ const mapQueryProductLineForApi = (p) => {
     product_id: toRefIdString(p.product_id),
     groupId: toRefIdString(p.groupId),
     categoryId: toRefIdString(p.categoryId),
-    rawProductCode:
-      (p.rawProductCode && String(p.rawProductCode).trim()) || "",
+    rawProductCode: (p.rawProductCode && String(p.rawProductCode).trim()) || "",
     query_tracking_code:
       (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
     images: (Array.isArray(p.images) ? p.images : [])
@@ -1097,8 +1095,7 @@ const QuotationView = () => {
         ...prev,
         [idx]: {
           select,
-          other:
-            select === DELIVERY_WITHIN_OTHERS ? current.other || "" : "",
+          other: select === DELIVERY_WITHIN_OTHERS ? current.other || "" : "",
         },
       };
     });
@@ -1591,8 +1588,7 @@ const QuotationView = () => {
         };
         if (newPayload.name) {
           const res = await queryNewProductService.create(newPayload);
-          createdQueryNewProduct =
-            res?.data?.data ?? res?.data ?? res ?? null;
+          createdQueryNewProduct = res?.data?.data ?? res?.data ?? res ?? null;
         }
       }
 
@@ -1677,7 +1673,9 @@ const QuotationView = () => {
     }
   };
 
-  const currentUserRoleForPdf = normalizeRole(user?.role || getCurrentUserRole());
+  const currentUserRoleForPdf = normalizeRole(
+    user?.role || getCurrentUserRole(),
+  );
   const isSalesRole = currentUserRoleForPdf.startsWith("sales");
   const canDownloadPdf =
     isSalesRole ||
@@ -1688,7 +1686,11 @@ const QuotationView = () => {
   const pdfDownloadDisabledTitle =
     "Download disabled until HOD approval or all product rates are HOD approved";
 
-  const openProcurementRatesModal = async (productRow, lineIndex, imageUrls = []) => {
+  const openProcurementRatesModal = async (
+    productRow,
+    lineIndex,
+    imageUrls = [],
+  ) => {
     if (!quotation?.id) return;
     const rawCode = String(productRow?.rawProductCode ?? "").trim();
     if (!rawCode) {
@@ -1811,8 +1813,7 @@ const QuotationView = () => {
   const canDeleteQuotation =
     hasPermission("quotations", "delete") || isSalesRole;
   const canDeleteQuotationProduct = canDeleteQuotation;
-  const canApproveAsHod =
-    isHodUser && hasPermission("quotations", "update");
+  const canApproveAsHod = isHodUser && hasPermission("quotations", "update");
   const canCreatePurchaseOrder =
     hasPermission("purchase_orders", "create") ||
     canConvertQuotationToPo(userRole);
@@ -1882,7 +1883,9 @@ const QuotationView = () => {
       !canConvertToPo
     ) {
       if (quotation?.id && canCreatePurchaseOrder && !canConvertToPo) {
-        toastError("Convert to Sales Order is available only after HOD approval");
+        toastError(
+          "Convert to Sales Order is available only after HOD approval",
+        );
       }
       return;
     }
@@ -2140,13 +2143,9 @@ const QuotationView = () => {
                 color="secondary"
                 variant="outline"
                 onClick={handleDownloadProductsPdf}
-                disabled={
-                  exportingPdf || isSnapshotPreview || !canDownloadPdf
-                }
+                disabled={exportingPdf || isSnapshotPreview || !canDownloadPdf}
                 title={
-                  canDownloadPdf
-                    ? "Download PDF"
-                    : pdfDownloadDisabledTitle
+                  canDownloadPdf ? "Download PDF" : pdfDownloadDisabledTitle
                 }
                 className="d-inline-flex align-items-center px-3"
                 style={{ height: 40 }}
@@ -2162,9 +2161,7 @@ const QuotationView = () => {
                   color="success"
                   variant="outline"
                   disabled={
-                    convertingPo ||
-                    isSnapshotPreview ||
-                    !canConvertToPo
+                    convertingPo || isSnapshotPreview || !canConvertToPo
                   }
                   onClick={handleConvertToPoClick}
                   className="d-inline-flex align-items-center px-3"
@@ -2289,8 +2286,7 @@ const QuotationView = () => {
                     activeTab === "freightPacking"
                       ? "2px solid #321fdb"
                       : "2px solid transparent",
-                  color:
-                    activeTab === "freightPacking" ? "#321fdb" : "#6c757d",
+                  color: activeTab === "freightPacking" ? "#321fdb" : "#6c757d",
                   fontWeight: 600,
                   paddingInline: 10,
                 }}
@@ -2833,9 +2829,7 @@ const QuotationView = () => {
                           exchanged.
                         </li>
                         <li>Warranty as per company policy.</li>
-                        <li>
-                          Payment terms – 100% advance with sales order.
-                        </li>
+                        <li>Payment terms – 100% advance with sales order.</li>
                         <li>Freight charges as actual.</li>
                         <li>Order once placed cannot be cancelled.</li>
                       </ul>
@@ -3182,7 +3176,6 @@ const QuotationView = () => {
               </CCard>
             </CTabPane>
 
-
             {/* Tab: Single Product Edit */}
             <CTabPane visible={activeTab === "products"}>
               <CCard className="mb-4">
@@ -3367,8 +3360,8 @@ const QuotationView = () => {
                             }}
                           />
                           <div className="small text-muted mt-1">
-                            Upload additional image(s). Existing images cannot be
-                            removed.
+                            Upload additional image(s). Existing images cannot
+                            be removed.
                           </div>
                         </CCol>
                       </CRow>
@@ -4664,7 +4657,9 @@ const QuotationView = () => {
           <CButton
             color="danger"
             onClick={handleConfirmDeleteProduct}
-            disabled={updating || isSnapshotPreview || !canDeleteQuotationProduct}
+            disabled={
+              updating || isSnapshotPreview || !canDeleteQuotationProduct
+            }
           >
             {updating ? (
               <>
@@ -4712,9 +4707,9 @@ const QuotationView = () => {
                       {procurementRatesModal.rawProductCode}
                     </span>
                   </>
-                ) : null}
-                {" "}
-                · Line status {proBucketStatusBadge(procurementRatesModal.status)}
+                ) : null}{" "}
+                · Line status{" "}
+                {proBucketStatusBadge(procurementRatesModal.status)}
               </div>
               {procurementRatesModal.imageUrls?.length > 0 ? (
                 <div className="mb-3">
@@ -4728,10 +4723,7 @@ const QuotationView = () => {
                         className="rounded border overflow-hidden flex-shrink-0"
                         style={{ width: 72, height: 72, cursor: "pointer" }}
                         onClick={() =>
-                          openImageGallery(
-                            procurementRatesModal.imageUrls,
-                            i,
-                          )
+                          openImageGallery(procurementRatesModal.imageUrls, i)
                         }
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {

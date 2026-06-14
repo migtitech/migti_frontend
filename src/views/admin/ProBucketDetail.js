@@ -129,7 +129,12 @@ const fetchAllSuppliersByCategory = async (categoryId) => {
   return all;
 };
 
-const CategorySuppliersTable = ({ suppliers, loading, categoryName, navigate }) => {
+const CategorySuppliersTable = ({
+  suppliers,
+  loading,
+  categoryName,
+  navigate,
+}) => {
   if (loading) {
     return <Loader message="Loading category suppliers…" />;
   }
@@ -180,10 +185,16 @@ const CategorySuppliersTable = ({ suppliers, loading, categoryName, navigate }) 
               <CTableDataCell>{dash(s.label)}</CTableDataCell>
               <CTableDataCell>{dash(s.shop_location)}</CTableDataCell>
               <CTableDataCell>{dash(s.gst)}</CTableDataCell>
-              <CTableDataCell className="text-break" style={{ maxWidth: "14rem" }}>
+              <CTableDataCell
+                className="text-break"
+                style={{ maxWidth: "14rem" }}
+              >
                 {dash(s.address)}
               </CTableDataCell>
-              <CTableDataCell className="text-break" style={{ maxWidth: "12rem" }}>
+              <CTableDataCell
+                className="text-break"
+                style={{ maxWidth: "12rem" }}
+              >
                 {dash(s.remark)}
               </CTableDataCell>
               <CTableDataCell onClick={(e) => e.stopPropagation()}>
@@ -629,10 +640,17 @@ const ProBucketDetail = () => {
       <CCol xs={12}>
         <CCard className="mb-3">
           <CCardBody className="d-flex align-items-center justify-content-between gap-2 py-2">
-            <CBreadcrumb className="mb-0 flex-shrink-1" style={{ minWidth: 0, overflow: "hidden" }}>
+            <CBreadcrumb
+              className="mb-0 flex-shrink-1"
+              style={{ minWidth: 0, overflow: "hidden" }}
+            >
               <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
               <CBreadcrumbItem href="#/pro-bucket">Pro Bucket</CBreadcrumbItem>
-              <CBreadcrumbItem active className="text-truncate d-inline-block" style={{ maxWidth: "10rem" }}>
+              <CBreadcrumbItem
+                active
+                className="text-truncate d-inline-block"
+                style={{ maxWidth: "10rem" }}
+              >
                 {item?.productName || "Item"}
               </CBreadcrumbItem>
             </CBreadcrumb>
@@ -744,19 +762,20 @@ const ProBucketDetail = () => {
                           className="d-flex align-items-center gap-2"
                         >
                           Suppliers
-                          {productCategoryId && categorySuppliers.length > 0 && (
-                            <CBadge
-                              color={
-                                activeTab === TAB_SUPPLIERS
-                                  ? "primary"
-                                  : "secondary"
-                              }
-                              shape="rounded-pill"
-                              style={{ fontSize: "0.65rem" }}
-                            >
-                              {categorySuppliers.length}
-                            </CBadge>
-                          )}
+                          {productCategoryId &&
+                            categorySuppliers.length > 0 && (
+                              <CBadge
+                                color={
+                                  activeTab === TAB_SUPPLIERS
+                                    ? "primary"
+                                    : "secondary"
+                                }
+                                shape="rounded-pill"
+                                style={{ fontSize: "0.65rem" }}
+                              >
+                                {categorySuppliers.length}
+                              </CBadge>
+                            )}
                         </CNavLink>
                       </CNavItem>
                       <CNavItem className="flex-shrink-0">
@@ -770,7 +789,9 @@ const ProBucketDetail = () => {
                           {item?.rates?.length > 0 && (
                             <CBadge
                               color={
-                                activeTab === TAB_RATES ? "primary" : "secondary"
+                                activeTab === TAB_RATES
+                                  ? "primary"
+                                  : "secondary"
                               }
                               shape="rounded-pill"
                               style={{ fontSize: "0.65rem" }}
@@ -809,7 +830,10 @@ const ProBucketDetail = () => {
                   <CTabPane role="tabpanel" visible={activeTab === TAB_ITEM}>
                     <ItemInfoSections item={item} />
                   </CTabPane>
-                  <CTabPane role="tabpanel" visible={activeTab === TAB_SUPPLIERS}>
+                  <CTabPane
+                    role="tabpanel"
+                    visible={activeTab === TAB_SUPPLIERS}
+                  >
                     {!productCategoryId ? (
                       <p className="text-body-secondary mb-0">
                         No category is assigned to this product, so suppliers
@@ -837,7 +861,7 @@ const ProBucketDetail = () => {
                     )}
                   </CTabPane>
                   <CTabPane role="tabpanel" visible={activeTab === TAB_RATES}>
-                    {canAddRate && !isPhoneView && (item.rates?.length > 0) && (
+                    {canAddRate && !isPhoneView && item.rates?.length > 0 && (
                       <CButton
                         color="primary"
                         className="mb-3"
@@ -878,13 +902,14 @@ const ProBucketDetail = () => {
                         )}
                         {canAddRate && isPhoneView && (
                           <p className="text-body-secondary small mb-0">
-                            Tap <strong>Add rate</strong> above to submit a rate.
+                            Tap <strong>Add rate</strong> above to submit a
+                            rate.
                           </p>
                         )}
                       </div>
                     )}
 
-                    {(item.rates?.length > 0) && (
+                    {item.rates?.length > 0 && (
                       <CRow>
                         {(item.rates || []).map((r) => (
                           <CCol
@@ -930,20 +955,27 @@ const ProBucketDetail = () => {
                                 <div className="d-flex flex-wrap gap-3 small text-body-secondary border-top pt-2 mt-1">
                                   <span>
                                     <span className="me-1">Unit:</span>
-                                    <span className="text-body">{r.unit || "—"}</span>
+                                    <span className="text-body">
+                                      {r.unit || "—"}
+                                    </span>
                                   </span>
                                   {r.remark && (
                                     <span>
                                       <span className="me-1">Remark:</span>
-                                      <span className="text-body">{r.remark}</span>
+                                      <span className="text-body">
+                                        {r.remark}
+                                      </span>
                                     </span>
                                   )}
                                   {r.submittedAt && (
                                     <span className="ms-auto text-nowrap">
-                                      {new Date(r.submittedAt).toLocaleDateString(
-                                        undefined,
-                                        { day: "numeric", month: "short", year: "numeric" },
-                                      )}
+                                      {new Date(
+                                        r.submittedAt,
+                                      ).toLocaleDateString(undefined, {
+                                        day: "numeric",
+                                        month: "short",
+                                        year: "numeric",
+                                      })}
                                     </span>
                                   )}
                                 </div>
@@ -992,7 +1024,8 @@ const ProBucketDetail = () => {
                   borderTopLeftRadius: "1rem",
                   borderTopRightRadius: "1rem",
                   boxShadow: "0 -10px 40px rgba(0, 0, 0, 0.2)",
-                  borderTop: "1px solid var(--cui-border-color-translucent, rgba(0,0,0,0.08))",
+                  borderTop:
+                    "1px solid var(--cui-border-color-translucent, rgba(0,0,0,0.08))",
                 }
               : { zIndex: 1050, width: "min(28rem, 100%)" }
           }
@@ -1025,9 +1058,7 @@ const ProBucketDetail = () => {
             <div style={{ minWidth: 0 }}>
               <h2
                 className={`mb-0 ${isPhoneView ? "fs-5 fw-semibold" : "h6"}`}
-                style={
-                  isPhoneView ? { letterSpacing: "-0.02em" } : undefined
-                }
+                style={isPhoneView ? { letterSpacing: "-0.02em" } : undefined}
               >
                 Add rate
               </h2>
@@ -1098,11 +1129,19 @@ const ProBucketDetail = () => {
                 >
                   <div
                     className="d-flex align-items-center justify-content-between px-3 py-2 border-bottom"
-                    style={{ background: "var(--cui-secondary-bg, #e9ecef)", borderRadius: "calc(0.375rem - 1px) calc(0.375rem - 1px) 0 0" }}
+                    style={{
+                      background: "var(--cui-secondary-bg, #e9ecef)",
+                      borderRadius:
+                        "calc(0.375rem - 1px) calc(0.375rem - 1px) 0 0",
+                    }}
                   >
                     <span
                       className="fw-semibold small text-body-secondary"
-                      style={{ textTransform: "uppercase", fontSize: "0.7rem", letterSpacing: "0.05em" }}
+                      style={{
+                        textTransform: "uppercase",
+                        fontSize: "0.7rem",
+                        letterSpacing: "0.05em",
+                      }}
                     >
                       Rate entry {rateRows.length > 1 ? idx + 1 : ""}
                     </span>
@@ -1126,7 +1165,12 @@ const ProBucketDetail = () => {
                       <CCol xs={12}>
                         <CFormLabel className="mb-1">
                           Supplier{" "}
-                          <span className="text-body-secondary fw-normal" style={{ fontSize: "0.8em" }}>(optional)</span>
+                          <span
+                            className="text-body-secondary fw-normal"
+                            style={{ fontSize: "0.8em" }}
+                          >
+                            (optional)
+                          </span>
                         </CFormLabel>
                         <CFormSelect
                           value={row.supplierId}
@@ -1214,7 +1258,9 @@ const ProBucketDetail = () => {
               paddingBottom: isPhoneView
                 ? "max(0.75rem, env(safe-area-inset-bottom, 0px))"
                 : undefined,
-              boxShadow: isPhoneView ? "0 -4px 20px rgba(0,0,0,0.06)" : undefined,
+              boxShadow: isPhoneView
+                ? "0 -4px 20px rgba(0,0,0,0.06)"
+                : undefined,
             }}
             onClick={(e) => e.stopPropagation()}
             role="presentation"
@@ -1329,10 +1375,7 @@ const ProBucketDetail = () => {
                   <option value="">— Select employee —</option>
                   {localProEmployees.map((emp) => {
                     const empId = emp.employeeId || emp._id;
-                    const label =
-                      emp.email ||
-                      emp.companyEmail ||
-                      "—";
+                    const label = emp.email || emp.companyEmail || "—";
                     return (
                       <option key={empId} value={String(empId)}>
                         {label}

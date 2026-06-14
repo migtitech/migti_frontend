@@ -27,8 +27,7 @@ const formatAmount = (v) =>
     maximumFractionDigits: 2,
   })}`;
 
-const formatDate = (v) =>
-  v ? new Date(v).toLocaleDateString("en-IN") : "—";
+const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "—");
 
 const MySalary = () => {
   const [loading, setLoading] = useState(false);
@@ -111,7 +110,9 @@ const MySalary = () => {
                     <CTableHeaderCell>Month</CTableHeaderCell>
                     <CTableHeaderCell>Pay Date</CTableHeaderCell>
                     <CTableHeaderCell>Net Pay</CTableHeaderCell>
-                    <CTableHeaderCell className="text-end">Download</CTableHeaderCell>
+                    <CTableHeaderCell className="text-end">
+                      Download
+                    </CTableHeaderCell>
                   </CTableRow>
                 </CTableHead>
                 <CTableBody>
@@ -120,8 +121,12 @@ const MySalary = () => {
                     return (
                       <CTableRow key={id}>
                         <CTableDataCell>{record.month}</CTableDataCell>
-                        <CTableDataCell>{formatDate(record.payDate)}</CTableDataCell>
-                        <CTableDataCell>{formatAmount(record.netPay)}</CTableDataCell>
+                        <CTableDataCell>
+                          {formatDate(record.payDate)}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          {formatAmount(record.netPay)}
+                        </CTableDataCell>
                         <CTableDataCell className="text-end">
                           <CButton
                             color="primary"

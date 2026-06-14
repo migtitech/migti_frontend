@@ -202,10 +202,7 @@ const LocalProcurementList = () => {
       toastError("Enter a valid rate ≥ 0");
       return;
     }
-    if (
-      price !== "" &&
-      (Number.isNaN(Number(price)) || Number(price) < 0)
-    ) {
+    if (price !== "" && (Number.isNaN(Number(price)) || Number(price) < 0)) {
       toastError("Enter a valid price ≥ 0");
       return;
     }
@@ -366,7 +363,9 @@ const LocalProcurementList = () => {
 
                             <div className="small mb-2">
                               <div>
-                                <span className="text-body-secondary">Qty:</span>{" "}
+                                <span className="text-body-secondary">
+                                  Qty:
+                                </span>{" "}
                                 {snap.quantity ?? "—"} {snap.unit || ""}
                               </div>
                               {snap.categoryName && (
@@ -429,11 +428,15 @@ const LocalProcurementList = () => {
                                 {submissionImages.length > 0 && (
                                   <div className="d-flex flex-wrap gap-1 mt-2">
                                     {submissionImages.map((img) => {
-                                      const thumb = imgSrc(resolveImagePath(img));
+                                      const thumb = imgSrc(
+                                        resolveImagePath(img),
+                                      );
                                       if (!thumb) return null;
                                       return (
                                         <a
-                                          key={img._id || img.documentId || thumb}
+                                          key={
+                                            img._id || img.documentId || thumb
+                                          }
                                           href={thumb}
                                           target="_blank"
                                           rel="noreferrer"

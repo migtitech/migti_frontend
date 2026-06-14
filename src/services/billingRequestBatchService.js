@@ -11,19 +11,30 @@ const billingRequestBatchService = {
     return response;
   },
   financeApprove: async (id, data = {}) => {
-    const response = await api.patch(BILLING_REQUESTS.FINANCE_APPROVE(id), data);
+    const response = await api.patch(
+      BILLING_REQUESTS.FINANCE_APPROVE(id),
+      data,
+    );
     return response;
   },
   hodProductAction: async (id, productId, data = {}) => {
-    const response = await api.patch(BILLING_REQUESTS.HOD_PRODUCT_ACTION(id, productId), data);
+    const response = await api.patch(
+      BILLING_REQUESTS.HOD_PRODUCT_ACTION(id, productId),
+      data,
+    );
     return response;
   },
   resubmitProduct: async (id, productId, data = {}) => {
-    const response = await api.patch(BILLING_REQUESTS.RESUBMIT_PRODUCT(id, productId), data);
+    const response = await api.patch(
+      BILLING_REQUESTS.RESUBMIT_PRODUCT(id, productId),
+      data,
+    );
     return response;
   },
   markProductPurchased: async (id, productId) => {
-    const response = await api.patch(BILLING_REQUESTS.MARK_PRODUCT_PURCHASED(id, productId));
+    const response = await api.patch(
+      BILLING_REQUESTS.MARK_PRODUCT_PURCHASED(id, productId),
+    );
     return response;
   },
 };

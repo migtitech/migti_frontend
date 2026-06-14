@@ -14,7 +14,7 @@ const localProcurementService = {
     const response = await api.post(LOCAL_PROCUREMENT.ASSIGN, {
       queryProductId,
       employeeId,
-      remark: remark || '',
+      remark: remark || "",
     });
     return response;
   },

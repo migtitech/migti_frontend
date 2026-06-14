@@ -25,7 +25,12 @@ import { getAssetsUrl } from "../../api/endpoints";
 
 const isHodRole = (role) => {
   const r = String(role || "").toLowerCase();
-  return r === "head_of_department" || r === "hod" || r === "admin" || r === "super_admin";
+  return (
+    r === "head_of_department" ||
+    r === "hod" ||
+    r === "admin" ||
+    r === "super_admin"
+  );
 };
 
 const deliverySubStatusBadge = (s) => {
@@ -38,7 +43,9 @@ const deliverySubStatusBadge = (s) => {
       return s ? (
         <CBadge color="secondary">{s.replace(/_/g, " ")}</CBadge>
       ) : (
-        <CBadge color="light" textColor="dark">—</CBadge>
+        <CBadge color="light" textColor="dark">
+          —
+        </CBadge>
       );
   }
 };
@@ -57,7 +64,9 @@ const lineStatusBadge = (s) => {
     payment_request_raised: "info",
     billing_request_rejected: "danger",
   };
-  const label = s ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—";
+  const label = s
+    ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    : "—";
   return <CBadge color={map[s] || "secondary"}>{label}</CBadge>;
 };
 
@@ -141,7 +150,9 @@ const PoProductView = () => {
     const load = async () => {
       setLoading(true);
       try {
-        const res = await withMinimumDelay(() => poProductsBucketService.getById(id));
+        const res = await withMinimumDelay(() =>
+          poProductsBucketService.getById(id),
+        );
         const data = res?.data?.data || res?.data;
         setDoc(data);
         setForm({
@@ -187,7 +198,9 @@ const PoProductView = () => {
   const handleApprove = async () => {
     setApproving(true);
     try {
-      const res = await poProductsBucketService.update(id, { status: "pending" });
+      const res = await poProductsBucketService.update(id, {
+        status: "pending",
+      });
       const updated = res?.data?.data || res?.data;
       if (updated) setDoc(updated);
       toastSuccess("HOD approved — status set to Pending");
@@ -210,7 +223,11 @@ const PoProductView = () => {
       <CCol xs={12}>
         {/* Top bar */}
         <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
-          <CButton color="secondary" variant="ghost" onClick={() => navigate("/po-products")}>
+          <CButton
+            color="secondary"
+            variant="ghost"
+            onClick={() => navigate("/po-products")}
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back
           </CButton>
@@ -224,7 +241,11 @@ const PoProductView = () => {
 
             {hodApproved && (
               <CBadge color="success" className="px-2 py-1">
-                <CIcon icon={cilCheckCircle} className="me-1" style={{ width: 12 }} />
+                <CIcon
+                  icon={cilCheckCircle}
+                  className="me-1"
+                  style={{ width: 12 }}
+                />
                 HOD Approved
               </CBadge>
             )}
@@ -238,9 +259,15 @@ const PoProductView = () => {
                 className="px-3"
               >
                 {approving ? (
-                  <><CSpinner size="sm" className="me-2" />Approving…</>
+                  <>
+                    <CSpinner size="sm" className="me-2" />
+                    Approving…
+                  </>
                 ) : (
-                  <><CIcon icon={cilCheckCircle} className="me-1" />HOD Approve</>
+                  <>
+                    <CIcon icon={cilCheckCircle} className="me-1" />
+                    HOD Approve
+                  </>
                 )}
               </CButton>
             )}
@@ -261,35 +288,65 @@ const PoProductView = () => {
           {/* Left: PO info + documents */}
           <CCol xs={12} lg={4}>
             <CCard className="mb-4">
-              <CCardHeader><strong>Sales Order &amp; Line Info</strong></CCardHeader>
+              <CCardHeader>
+                <strong>Sales Order &amp; Line Info</strong>
+              </CCardHeader>
               <CCardBody>
-                <InfoRow label="Sales Order Code" value={
-                  <span className="badge bg-dark font-monospace">{doc?.poCode || "—"}</span>
-                } />
-                <InfoRow label="Raw Product Code" value={
-                  doc?.rawProductCode ? <code>{doc.rawProductCode}</code> : "—"
-                } />
-                <InfoRow label="Quantity" value={`${doc?.quantity ?? "—"} ${doc?.unit || ""}`} />
-                <InfoRow label="Dispatch Date" value={formatDateDdMmYyyy(doc?.dispatchmentDate)} />
-                <InfoRow label="Sales Order Rate" value={doc?.poRate != null ? `₹${doc.poRate}` : "—"} />
+                <InfoRow
+                  label="Sales Order Code"
+                  value={
+                    <span className="badge bg-dark font-monospace">
+                      {doc?.poCode || "—"}
+                    </span>
+                  }
+                />
+                <InfoRow
+                  label="Raw Product Code"
+                  value={
+                    doc?.rawProductCode ? (
+                      <code>{doc.rawProductCode}</code>
+                    ) : (
+                      "—"
+                    )
+                  }
+                />
+                <InfoRow
+                  label="Quantity"
+                  value={`${doc?.quantity ?? "—"} ${doc?.unit || ""}`}
+                />
+                <InfoRow
+                  label="Dispatch Date"
+                  value={formatDateDdMmYyyy(doc?.dispatchmentDate)}
+                />
+                <InfoRow
+                  label="Sales Order Rate"
+                  value={doc?.poRate != null ? `₹${doc.poRate}` : "—"}
+                />
                 <InfoRow
                   label="Target Rate"
                   value={doc?.targetRate != null ? `₹${doc.targetRate}` : "—"}
                 />
                 {doc?.receivingRemark && (
-                  <InfoRow label="Receiving Remark" value={doc.receivingRemark} />
+                  <InfoRow
+                    label="Receiving Remark"
+                    value={doc.receivingRemark}
+                  />
                 )}
               </CCardBody>
             </CCard>
 
             {companyInfo && (
               <CCard className="mb-4">
-                <CCardHeader><strong>Company</strong></CCardHeader>
+                <CCardHeader>
+                  <strong>Company</strong>
+                </CCardHeader>
                 <CCardBody>
                   <InfoRow label="Name" value={companyInfo.name} />
                   <InfoRow
                     label="Area / Location"
-                    value={[companyInfo.area, companyInfo.location].filter(Boolean).join(", ")}
+                    value={[companyInfo.area, companyInfo.location]
+                      .filter(Boolean)
+                      .join(", ")}
                   />
                   <InfoRow label="Address" value={companyInfo.address} />
                   {Array.isArray(companyInfo.purchaseManagers) &&
@@ -301,7 +358,9 @@ const PoProductView = () => {
                         <ul className="ps-3 mb-0 small">
                           {companyInfo.purchaseManagers.map((pm, i) => (
                             <li key={i}>
-                              {[pm.name, pm.phone, pm.email].filter(Boolean).join(" · ") || "—"}
+                              {[pm.name, pm.phone, pm.email]
+                                .filter(Boolean)
+                                .join(" · ") || "—"}
                             </li>
                           ))}
                         </ul>
@@ -314,7 +373,9 @@ const PoProductView = () => {
             {/* Documents */}
             {(doc?.attachmentDocumentId || doc?.receivingDocumentId) && (
               <CCard>
-                <CCardHeader><strong>Documents</strong></CCardHeader>
+                <CCardHeader>
+                  <strong>Documents</strong>
+                </CCardHeader>
                 <CCardBody>
                   <DocumentPreview
                     doc={doc.attachmentDocumentId}
@@ -344,12 +405,20 @@ const PoProductView = () => {
                 <CRow className="g-3">
                   {/* Read-only fields */}
                   <CCol xs={6} md={4}>
-                    <CFormLabel className="text-body-secondary">Product Name</CFormLabel>
-                    <CFormInput value={doc?.productName || "—"} readOnly className="bg-light" />
+                    <CFormLabel className="text-body-secondary">
+                      Product Name
+                    </CFormLabel>
+                    <CFormInput
+                      value={doc?.productName || "—"}
+                      readOnly
+                      className="bg-light"
+                    />
                   </CCol>
 
                   <CCol xs={6} md={4}>
-                    <CFormLabel className="text-body-secondary">Raw Product Code</CFormLabel>
+                    <CFormLabel className="text-body-secondary">
+                      Raw Product Code
+                    </CFormLabel>
                     <CFormInput
                       value={doc?.rawProductCode || "—"}
                       readOnly
@@ -358,17 +427,31 @@ const PoProductView = () => {
                   </CCol>
 
                   <CCol xs={6} md={4}>
-                    <CFormLabel className="text-body-secondary">HSN Number</CFormLabel>
-                    <CFormInput value={doc?.hsnNumber || "—"} readOnly className="bg-light" />
+                    <CFormLabel className="text-body-secondary">
+                      HSN Number
+                    </CFormLabel>
+                    <CFormInput
+                      value={doc?.hsnNumber || "—"}
+                      readOnly
+                      className="bg-light"
+                    />
                   </CCol>
 
                   <CCol xs={6} md={4}>
-                    <CFormLabel className="text-body-secondary">Model Number</CFormLabel>
-                    <CFormInput value={doc?.modelNumber || "—"} readOnly className="bg-light" />
+                    <CFormLabel className="text-body-secondary">
+                      Model Number
+                    </CFormLabel>
+                    <CFormInput
+                      value={doc?.modelNumber || "—"}
+                      readOnly
+                      className="bg-light"
+                    />
                   </CCol>
 
                   <CCol xs={6} md={2}>
-                    <CFormLabel className="text-body-secondary">GST %</CFormLabel>
+                    <CFormLabel className="text-body-secondary">
+                      GST %
+                    </CFormLabel>
                     <CFormInput
                       value={doc?.gstPercentage ?? "—"}
                       readOnly
@@ -377,7 +460,9 @@ const PoProductView = () => {
                   </CCol>
 
                   <CCol xs={6} md={2}>
-                    <CFormLabel className="text-body-secondary">Sales Order Rate (₹)</CFormLabel>
+                    <CFormLabel className="text-body-secondary">
+                      Sales Order Rate (₹)
+                    </CFormLabel>
                     <CFormInput
                       value={doc?.poRate != null ? doc.poRate : "—"}
                       readOnly
@@ -402,7 +487,11 @@ const PoProductView = () => {
 
                   <CCol xs={6} md={3}>
                     <CFormLabel>Unit</CFormLabel>
-                    <CFormInput value={doc?.unit || "—"} readOnly className="bg-light" />
+                    <CFormInput
+                      value={doc?.unit || "—"}
+                      readOnly
+                      className="bg-light"
+                    />
                   </CCol>
 
                   <CCol xs={12} md={6}>
@@ -455,11 +544,21 @@ const PoProductView = () => {
                   >
                     Cancel
                   </CButton>
-                  <CButton color="primary" onClick={handleUpdate} disabled={saving}>
+                  <CButton
+                    color="primary"
+                    onClick={handleUpdate}
+                    disabled={saving}
+                  >
                     {saving ? (
-                      <><CSpinner size="sm" className="me-2" />Updating…</>
+                      <>
+                        <CSpinner size="sm" className="me-2" />
+                        Updating…
+                      </>
                     ) : (
-                      <><CIcon icon={cilSave} className="me-2" />Update</>
+                      <>
+                        <CIcon icon={cilSave} className="me-2" />
+                        Update
+                      </>
                     )}
                   </CButton>
                 </div>

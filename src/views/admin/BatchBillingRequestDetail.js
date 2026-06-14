@@ -50,15 +50,33 @@ const unwrap = (res) => {
 };
 
 const BATCH_STATUS_MAP = {
-  hod_approval_pending: { label: "Pending Approval", color: "#f59e0b", bg: "#fffbeb" },
+  hod_approval_pending: {
+    label: "Pending Approval",
+    color: "#f59e0b",
+    bg: "#fffbeb",
+  },
   hod_approved: { label: "HOD Approved", color: "#16a34a", bg: "#f0fdf4" },
   hod_rejected: { label: "HOD Rejected", color: "#dc2626", bg: "#fef2f2" },
-  finance_approved: { label: "Finance Approved", color: "#2563eb", bg: "#eff6ff" },
+  finance_approved: {
+    label: "Finance Approved",
+    color: "#2563eb",
+    bg: "#eff6ff",
+  },
 };
 
 const HOD_STATUS_CONFIG = {
-  approved: { label: "HOD Approved", color: "#16a34a", bg: "#f0fdf4", icon: cilCheckCircle },
-  rejected: { label: "HOD Rejected", color: "#dc2626", bg: "#fef2f2", icon: cilXCircle },
+  approved: {
+    label: "HOD Approved",
+    color: "#16a34a",
+    bg: "#f0fdf4",
+    icon: cilCheckCircle,
+  },
+  rejected: {
+    label: "HOD Rejected",
+    color: "#dc2626",
+    bg: "#fef2f2",
+    icon: cilXCircle,
+  },
 };
 
 const BatchStatusPill = ({ status }) => {
@@ -157,10 +175,23 @@ const StatBox = ({ label, value, accent }) => (
       border: "1px solid #e2e8f0",
     }}
   >
-    <div style={{ fontSize: 11, color: "#64748b", fontWeight: 500, marginBottom: 2 }}>
+    <div
+      style={{
+        fontSize: 11,
+        color: "#64748b",
+        fontWeight: 500,
+        marginBottom: 2,
+      }}
+    >
       {label}
     </div>
-    <div style={{ fontSize: 17, fontWeight: 700, color: accent ? "#2563eb" : "#1e293b" }}>
+    <div
+      style={{
+        fontSize: 17,
+        fontWeight: 700,
+        color: accent ? "#2563eb" : "#1e293b",
+      }}
+    >
       {value}
     </div>
   </div>
@@ -201,7 +232,10 @@ const BatchBillingRequestDetail = () => {
   const onMarkPurchased = async (productId) => {
     setPurchasingId(productId);
     try {
-      const res = await billingRequestBatchService.markProductPurchased(id, productId);
+      const res = await billingRequestBatchService.markProductPurchased(
+        id,
+        productId,
+      );
       const updated = unwrap(res);
       if (updated) setDetail(updated);
       toastSuccess("Product marked as purchased.");
@@ -218,7 +252,9 @@ const BatchBillingRequestDetail = () => {
     setResubmitBillName("");
     setResubmitPhotoFile(null);
     setResubmitPhotoName("");
-    setResubmitAmount(typeof product.amount === "number" ? String(product.amount) : "");
+    setResubmitAmount(
+      typeof product.amount === "number" ? String(product.amount) : "",
+    );
     setResubmitRemark(product.remark || "");
     setResubmitOpen(true);
   };
@@ -257,7 +293,11 @@ const BatchBillingRequestDetail = () => {
       toastError("Please upload the product photo.");
       return;
     }
-    if (!resubmitAmount || Number.isNaN(Number(resubmitAmount)) || Number(resubmitAmount) <= 0) {
+    if (
+      !resubmitAmount ||
+      Number.isNaN(Number(resubmitAmount)) ||
+      Number(resubmitAmount) <= 0
+    ) {
       toastError("Please enter a valid amount.");
       return;
     }
@@ -265,9 +305,14 @@ const BatchBillingRequestDetail = () => {
     try {
       let billDocId = String(resubmitProduct.billDocId);
       if (resubmitBillFile) {
-        const billUp = await documentService.uploadAttachments([resubmitBillFile]);
+        const billUp = await documentService.uploadAttachments([
+          resubmitBillFile,
+        ]);
         const billDocs =
-          billUp?.data?.documents || billUp?.documents || billUp?.data?.data?.documents || [];
+          billUp?.data?.documents ||
+          billUp?.documents ||
+          billUp?.data?.data?.documents ||
+          [];
         const billDoc = billDocs[0];
         if (!billDoc?._id) {
           toastError("Bill upload failed — no document ID returned.");
@@ -280,9 +325,14 @@ const BatchBillingRequestDetail = () => {
         ? String(resubmitProduct.productImageDocId)
         : null;
       if (resubmitPhotoFile) {
-        const photoUp = await documentService.uploadAttachments([resubmitPhotoFile]);
+        const photoUp = await documentService.uploadAttachments([
+          resubmitPhotoFile,
+        ]);
         const photoDocs =
-          photoUp?.data?.documents || photoUp?.documents || photoUp?.data?.data?.documents || [];
+          photoUp?.data?.documents ||
+          photoUp?.documents ||
+          photoUp?.data?.data?.documents ||
+          [];
         const photoDoc = photoDocs[0];
         if (photoDoc?._id) productImageDocId = String(photoDoc._id);
       }
@@ -321,7 +371,12 @@ const BatchBillingRequestDetail = () => {
       <CRow>
         <CCol xs={12}>
           <p className="text-body-secondary">Billing request not found.</p>
-          <CButton color="secondary" variant="outline" size="sm" onClick={() => navigate(-1)}>
+          <CButton
+            color="secondary"
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(-1)}
+          >
             Back
           </CButton>
         </CCol>
@@ -340,8 +395,12 @@ const BatchBillingRequestDetail = () => {
         {/* Breadcrumb */}
         <CBreadcrumb className="mb-3" style={{ fontSize: 13 }}>
           <CBreadcrumbItem href="#/dashboard">Home</CBreadcrumbItem>
-          <CBreadcrumbItem href="#/batch-billing-requests">Billing Requests</CBreadcrumbItem>
-          <CBreadcrumbItem active>{detail.billingRequestCode || "Detail"}</CBreadcrumbItem>
+          <CBreadcrumbItem href="#/batch-billing-requests">
+            Billing Requests
+          </CBreadcrumbItem>
+          <CBreadcrumbItem active>
+            {detail.billingRequestCode || "Detail"}
+          </CBreadcrumbItem>
         </CBreadcrumb>
 
         {/* Page header */}
@@ -367,18 +426,39 @@ const BatchBillingRequestDetail = () => {
           {/* Stats row */}
           <div className="d-flex gap-2 mt-3 flex-wrap">
             <StatBox
-              label={<><CIcon icon={cilTag} className="me-1" />Products</>}
+              label={
+                <>
+                  <CIcon icon={cilTag} className="me-1" />
+                  Products
+                </>
+              }
               value={products.length}
             />
-            <StatBox label="Total Amount" value={fmtAmount(grandTotal)} accent />
+            <StatBox
+              label="Total Amount"
+              value={fmtAmount(grandTotal)}
+              accent
+            />
           </div>
 
           {detail.statusRemark && (
             <div
               className="mt-3 rounded-2 p-2 d-flex gap-2 align-items-start"
-              style={{ background: "#fffbeb", border: "1px solid #fde68a", fontSize: 13 }}
+              style={{
+                background: "#fffbeb",
+                border: "1px solid #fde68a",
+                fontSize: 13,
+              }}
             >
-              <CIcon icon={cilWarning} style={{ color: "#d97706", fontSize: 15, marginTop: 1, flexShrink: 0 }} />
+              <CIcon
+                icon={cilWarning}
+                style={{
+                  color: "#d97706",
+                  fontSize: 15,
+                  marginTop: 1,
+                  flexShrink: 0,
+                }}
+              />
               <span style={{ color: "#92400e" }}>
                 <strong>Overall Remark:</strong> {detail.statusRemark}
               </span>
@@ -417,7 +497,9 @@ const BatchBillingRequestDetail = () => {
                 {detail.financeApprovedAt && (
                   <div>
                     <span style={{ color: "#64748b" }}>On: </span>
-                    <span style={{ fontWeight: 600 }}>{fmtDate(detail.financeApprovedAt)}</span>
+                    <span style={{ fontWeight: 600 }}>
+                      {fmtDate(detail.financeApprovedAt)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -432,14 +514,25 @@ const BatchBillingRequestDetail = () => {
                   size="sm"
                   color="success"
                   variant="outline"
-                  style={{ alignSelf: "flex-start", borderRadius: 8, fontWeight: 600, fontSize: 12 }}
+                  style={{
+                    alignSelf: "flex-start",
+                    borderRadius: 8,
+                    fontWeight: 600,
+                    fontSize: 12,
+                  }}
                   disabled={!!docLoadingId}
                   onClick={() =>
-                    openDocWithAuth(String(detail.paymentProofDocId), setDocLoadingId)
+                    openDocWithAuth(
+                      String(detail.paymentProofDocId),
+                      setDocLoadingId,
+                    )
                   }
                 >
                   {docLoadingId === String(detail.paymentProofDocId) ? (
-                    <><CSpinner size="sm" className="me-1" />Opening…</>
+                    <>
+                      <CSpinner size="sm" className="me-1" />
+                      Opening…
+                    </>
                   ) : (
                     "View Payment Proof"
                   )}
@@ -458,13 +551,19 @@ const BatchBillingRequestDetail = () => {
             <CIcon icon={cilTag} className="me-1" />
             Products ({products.length})
           </span>
-          <span style={{ color: "#64748b", fontWeight: 600 }}>{fmtAmount(grandTotal)}</span>
+          <span style={{ color: "#64748b", fontWeight: 600 }}>
+            {fmtAmount(grandTotal)}
+          </span>
         </div>
 
         {products.length === 0 ? (
           <div
             className="text-center py-5 rounded-3"
-            style={{ background: "#f8fafc", border: "1px dashed #cbd5e1", color: "#94a3b8" }}
+            style={{
+              background: "#f8fafc",
+              border: "1px dashed #cbd5e1",
+              color: "#94a3b8",
+            }}
           >
             No products found.
           </div>
@@ -474,7 +573,9 @@ const BatchBillingRequestDetail = () => {
               const isRejected = p.hodStatus === "rejected";
               const isApproved = p.hodStatus === "approved";
               const supplierName =
-                p.supplierSnapshot?.name || p.supplierSnapshot?.companyName || null;
+                p.supplierSnapshot?.name ||
+                p.supplierSnapshot?.companyName ||
+                null;
               const isDocLoading = docLoadingId === String(p.billDocId);
 
               return (
@@ -485,8 +586,8 @@ const BatchBillingRequestDetail = () => {
                       border: isRejected
                         ? "1.5px solid #fca5a5"
                         : isApproved
-                        ? "1.5px solid #86efac"
-                        : "1.5px solid #e2e8f0",
+                          ? "1.5px solid #86efac"
+                          : "1.5px solid #e2e8f0",
                       borderRadius: 12,
                       boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
                       overflow: "hidden",
@@ -499,8 +600,8 @@ const BatchBillingRequestDetail = () => {
                         background: isRejected
                           ? "#ef4444"
                           : isApproved
-                          ? "#22c55e"
-                          : "#f59e0b",
+                            ? "#22c55e"
+                            : "#f59e0b",
                       }}
                     />
 
@@ -559,7 +660,8 @@ const BatchBillingRequestDetail = () => {
                               fontWeight: 500,
                             }}
                           >
-                            Qty: {p.quantity}{p.unit ? ` ${p.unit}` : ""}
+                            Qty: {p.quantity}
+                            {p.unit ? ` ${p.unit}` : ""}
                           </span>
                         )}
                         {supplierName && (
@@ -584,7 +686,12 @@ const BatchBillingRequestDetail = () => {
                       {/* Product remark */}
                       {p.remark && (
                         <div style={{ fontSize: 12, color: "#64748b" }}>
-                          <span className="fw-medium" style={{ color: "#475569" }}>Note: </span>
+                          <span
+                            className="fw-medium"
+                            style={{ color: "#475569" }}
+                          >
+                            Note:{" "}
+                          </span>
                           {p.remark}
                         </div>
                       )}
@@ -596,11 +703,23 @@ const BatchBillingRequestDetail = () => {
                           color="secondary"
                           variant="outline"
                           disabled={!!docLoadingId}
-                          onClick={() => openDocWithAuth(String(p.billDocId), setDocLoadingId)}
-                          style={{ alignSelf: "flex-start", fontSize: 12, borderRadius: 6 }}
+                          onClick={() =>
+                            openDocWithAuth(
+                              String(p.billDocId),
+                              setDocLoadingId,
+                            )
+                          }
+                          style={{
+                            alignSelf: "flex-start",
+                            fontSize: 12,
+                            borderRadius: 6,
+                          }}
                         >
                           {isDocLoading ? (
-                            <><CSpinner size="sm" className="me-1" />Loading…</>
+                            <>
+                              <CSpinner size="sm" className="me-1" />
+                              Loading…
+                            </>
                           ) : (
                             "View Bill"
                           )}
@@ -612,23 +731,44 @@ const BatchBillingRequestDetail = () => {
                         className="d-flex align-items-center justify-content-between mt-auto pt-2"
                         style={{ borderTop: "1px solid #f1f5f9" }}
                       >
-                        <span style={{ fontSize: 12, color: "#94a3b8", fontWeight: 500 }}>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: "#94a3b8",
+                            fontWeight: 500,
+                          }}
+                        >
                           HOD Status
                         </span>
                         <HodStatusPill status={p.hodStatus} />
                       </div>
 
                       {/* Mark Purchased — only when finance approved */}
-                      {detail.status === "finance_approved" && (
-                        p.isPurchased ? (
+                      {detail.status === "finance_approved" &&
+                        (p.isPurchased ? (
                           <div
                             className="d-flex align-items-center gap-2 rounded-2 p-2"
-                            style={{ background: "#f0fdf4", border: "1px solid #86efac", fontSize: 12, fontWeight: 600, color: "#15803d" }}
+                            style={{
+                              background: "#f0fdf4",
+                              border: "1px solid #86efac",
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: "#15803d",
+                            }}
                           >
-                            <CIcon icon={cilCheckCircle} style={{ fontSize: 15 }} />
+                            <CIcon
+                              icon={cilCheckCircle}
+                              style={{ fontSize: 15 }}
+                            />
                             Purchased
                             {p.purchasedAt && (
-                              <span style={{ fontWeight: 400, color: "#64748b", marginLeft: "auto" }}>
+                              <span
+                                style={{
+                                  fontWeight: 400,
+                                  color: "#64748b",
+                                  marginLeft: "auto",
+                                }}
+                              >
                                 {fmtDate(p.purchasedAt)}
                               </span>
                             )}
@@ -643,13 +783,15 @@ const BatchBillingRequestDetail = () => {
                             onClick={() => onMarkPurchased(String(p._id))}
                           >
                             {purchasingId === String(p._id) ? (
-                              <><CSpinner size="sm" className="me-1" />Marking…</>
+                              <>
+                                <CSpinner size="sm" className="me-1" />
+                                Marking…
+                              </>
                             ) : (
                               "Mark as Purchased"
                             )}
                           </CButton>
-                        )
-                      )}
+                        ))}
 
                       {/* Rejected panel */}
                       {isRejected && (
@@ -662,18 +804,33 @@ const BatchBillingRequestDetail = () => {
                         >
                           <div
                             className="d-flex align-items-center gap-2"
-                            style={{ fontSize: 13, fontWeight: 700, color: "#dc2626" }}
+                            style={{
+                              fontSize: 13,
+                              fontWeight: 700,
+                              color: "#dc2626",
+                            }}
                           >
                             <CIcon icon={cilWarning} style={{ fontSize: 15 }} />
                             Rejection Reason
                           </div>
-                          <div style={{ fontSize: 13, color: "#7f1d1d", lineHeight: 1.5 }}>
+                          <div
+                            style={{
+                              fontSize: 13,
+                              color: "#7f1d1d",
+                              lineHeight: 1.5,
+                            }}
+                          >
                             {p.hodRemark || "No reason provided."}
                           </div>
                           {p.hodReviewedBySnapshot && (
                             <div style={{ fontSize: 11, color: "#b91c1c" }}>
-                              — {p.hodReviewedBySnapshot.name || p.hodReviewedBySnapshot.fullName || ""}
-                              {p.hodReviewedAt ? `, ${fmtDate(p.hodReviewedAt)}` : ""}
+                              —{" "}
+                              {p.hodReviewedBySnapshot.name ||
+                                p.hodReviewedBySnapshot.fullName ||
+                                ""}
+                              {p.hodReviewedAt
+                                ? `, ${fmtDate(p.hodReviewedAt)}`
+                                : ""}
                             </div>
                           )}
                           <CButton
@@ -709,13 +866,22 @@ const BatchBillingRequestDetail = () => {
           className="d-flex align-items-center justify-content-between"
           style={{ borderBottom: "1px solid #e2e8f0", padding: "16px 20px" }}
         >
-          <COffcanvasTitle style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>
+          <COffcanvasTitle
+            style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}
+          >
             Upload Information Again
           </COffcanvasTitle>
           <CCloseButton onClick={closeResubmit} disabled={resubmitting} />
         </COffcanvasHeader>
 
-        <COffcanvasBody style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 18 }}>
+        <COffcanvasBody
+          style={{
+            padding: "20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 18,
+          }}
+        >
           {resubmitProduct && (
             <>
               {/* Product summary */}
@@ -723,21 +889,47 @@ const BatchBillingRequestDetail = () => {
                 className="rounded-2 p-3"
                 style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}
               >
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}>
+                <div
+                  style={{ fontSize: 15, fontWeight: 700, color: "#1e293b" }}
+                >
                   {resubmitProduct.productName || "Product"}
                 </div>
                 {resubmitProduct.rawProductCode && (
-                  <div style={{ fontSize: 12, color: "#2563eb", fontFamily: "monospace", marginTop: 2 }}>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "#2563eb",
+                      fontFamily: "monospace",
+                      marginTop: 2,
+                    }}
+                  >
                     {resubmitProduct.rawProductCode}
                   </div>
                 )}
                 {resubmitProduct.hodRemark && (
                   <div
                     className="mt-2 rounded-2 p-2 d-flex gap-2 align-items-start"
-                    style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+                    style={{
+                      background: "#fef2f2",
+                      border: "1px solid #fecaca",
+                    }}
                   >
-                    <CIcon icon={cilWarning} style={{ color: "#dc2626", fontSize: 14, flexShrink: 0, marginTop: 1 }} />
-                    <div style={{ fontSize: 12, color: "#7f1d1d", lineHeight: 1.5 }}>
+                    <CIcon
+                      icon={cilWarning}
+                      style={{
+                        color: "#dc2626",
+                        fontSize: 14,
+                        flexShrink: 0,
+                        marginTop: 1,
+                      }}
+                    />
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#7f1d1d",
+                        lineHeight: 1.5,
+                      }}
+                    >
                       <strong>Rejected:</strong> {resubmitProduct.hodRemark}
                     </div>
                   </div>
@@ -746,13 +938,25 @@ const BatchBillingRequestDetail = () => {
 
               {/* Bill upload */}
               <div>
-                <CFormLabel style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                <CFormLabel
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 6,
+                  }}
+                >
                   Bill / Invoice <span style={{ color: "#ef4444" }}>*</span>
                 </CFormLabel>
                 {resubmitProduct.billDocId && (
                   <button
                     type="button"
-                    onClick={() => openDocWithAuth(String(resubmitProduct.billDocId), setDocLoadingId)}
+                    onClick={() =>
+                      openDocWithAuth(
+                        String(resubmitProduct.billDocId),
+                        setDocLoadingId,
+                      )
+                    }
                     disabled={!!docLoadingId}
                     style={{
                       width: "100%",
@@ -770,7 +974,10 @@ const BatchBillingRequestDetail = () => {
                       fontWeight: 500,
                     }}
                   >
-                    <CIcon icon={cilCloudUpload} style={{ fontSize: 15, flexShrink: 0 }} />
+                    <CIcon
+                      icon={cilCloudUpload}
+                      style={{ fontSize: 15, flexShrink: 0 }}
+                    />
                     {docLoadingId === String(resubmitProduct.billDocId)
                       ? "Opening…"
                       : "View previously uploaded bill"}
@@ -791,7 +998,9 @@ const BatchBillingRequestDetail = () => {
                     width: "100%",
                     padding: "14px 16px",
                     borderRadius: 10,
-                    border: resubmitBillFile ? "2px solid #22c55e" : "2px dashed #cbd5e1",
+                    border: resubmitBillFile
+                      ? "2px solid #22c55e"
+                      : "2px dashed #cbd5e1",
                     background: resubmitBillFile ? "#f0fdf4" : "#f8fafc",
                     cursor: "pointer",
                     display: "flex",
@@ -807,21 +1016,41 @@ const BatchBillingRequestDetail = () => {
                     icon={resubmitBillFile ? cilCheckCircle : cilCloudUpload}
                     style={{ fontSize: 20, flexShrink: 0 }}
                   />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {resubmitBillFile ? resubmitBillName : "Upload new bill / invoice"}
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {resubmitBillFile
+                      ? resubmitBillName
+                      : "Upload new bill / invoice"}
                   </span>
                 </button>
               </div>
 
               {/* Photo upload */}
               <div>
-                <CFormLabel style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                <CFormLabel
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 6,
+                  }}
+                >
                   Product Photo <span style={{ color: "#ef4444" }}>*</span>
                 </CFormLabel>
                 {resubmitProduct.productImageDocId && (
                   <button
                     type="button"
-                    onClick={() => openDocWithAuth(String(resubmitProduct.productImageDocId), setDocLoadingId)}
+                    onClick={() =>
+                      openDocWithAuth(
+                        String(resubmitProduct.productImageDocId),
+                        setDocLoadingId,
+                      )
+                    }
                     disabled={!!docLoadingId}
                     style={{
                       width: "100%",
@@ -839,7 +1068,10 @@ const BatchBillingRequestDetail = () => {
                       fontWeight: 500,
                     }}
                   >
-                    <CIcon icon={cilCloudUpload} style={{ fontSize: 15, flexShrink: 0 }} />
+                    <CIcon
+                      icon={cilCloudUpload}
+                      style={{ fontSize: 15, flexShrink: 0 }}
+                    />
                     {docLoadingId === String(resubmitProduct.productImageDocId)
                       ? "Opening…"
                       : "View previously uploaded photo"}
@@ -860,7 +1092,9 @@ const BatchBillingRequestDetail = () => {
                     width: "100%",
                     padding: "14px 16px",
                     borderRadius: 10,
-                    border: resubmitPhotoFile ? "2px solid #22c55e" : "2px dashed #cbd5e1",
+                    border: resubmitPhotoFile
+                      ? "2px solid #22c55e"
+                      : "2px dashed #cbd5e1",
                     background: resubmitPhotoFile ? "#f0fdf4" : "#f8fafc",
                     cursor: "pointer",
                     display: "flex",
@@ -876,15 +1110,30 @@ const BatchBillingRequestDetail = () => {
                     icon={resubmitPhotoFile ? cilCheckCircle : cilCloudUpload}
                     style={{ fontSize: 20, flexShrink: 0 }}
                   />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {resubmitPhotoFile ? resubmitPhotoName : "Upload new product photo"}
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {resubmitPhotoFile
+                      ? resubmitPhotoName
+                      : "Upload new product photo"}
                   </span>
                 </button>
               </div>
 
               {/* Amount */}
               <div>
-                <CFormLabel style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                <CFormLabel
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 6,
+                  }}
+                >
                   Amount (₹) <span style={{ color: "#ef4444" }}>*</span>
                 </CFormLabel>
                 <CFormInput
@@ -901,9 +1150,20 @@ const BatchBillingRequestDetail = () => {
 
               {/* Remark */}
               <div>
-                <CFormLabel style={{ fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 }}>
+                <CFormLabel
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#374151",
+                    marginBottom: 6,
+                  }}
+                >
                   Remark{" "}
-                  <span style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8" }}>(optional)</span>
+                  <span
+                    style={{ fontSize: 12, fontWeight: 400, color: "#94a3b8" }}
+                  >
+                    (optional)
+                  </span>
                 </CFormLabel>
                 <CFormTextarea
                   rows={3}
@@ -933,7 +1193,10 @@ const BatchBillingRequestDetail = () => {
                   style={{ flex: 1, borderRadius: 8, fontWeight: 600 }}
                 >
                   {resubmitting ? (
-                    <><CSpinner size="sm" className="me-2" />Submitting…</>
+                    <>
+                      <CSpinner size="sm" className="me-2" />
+                      Submitting…
+                    </>
                   ) : (
                     "Resubmit"
                   )}

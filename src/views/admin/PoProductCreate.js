@@ -74,7 +74,9 @@ const PoProductCreate = () => {
         targetRate: form.targetRate !== "" ? Number(form.targetRate) : null,
         remark: form.remark,
       });
-      toastSuccess("Sales Order product created with HOD Approval Pending status");
+      toastSuccess(
+        "Sales Order product created with HOD Approval Pending status",
+      );
       navigate("/po-products");
     } catch (e) {
       toastError(e?.message || "Failed to create product");
@@ -106,49 +108,94 @@ const PoProductCreate = () => {
         </div>
 
         <CCard>
-          <CCardHeader><strong>Create Product Entry</strong></CCardHeader>
+          <CCardHeader>
+            <strong>Create Product Entry</strong>
+          </CCardHeader>
           <CCardBody>
             <CRow className="g-3">
-
               {/* All info fields — disabled */}
               <CCol xs={12} md={6}>
-                <CFormLabel className="text-body-secondary">Product Name</CFormLabel>
-                <CFormInput value={product.productName || "—"} disabled className="bg-light" />
+                <CFormLabel className="text-body-secondary">
+                  Product Name
+                </CFormLabel>
+                <CFormInput
+                  value={product.productName || "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={12} md={6}>
-                <CFormLabel className="text-body-secondary">Raw Product Code</CFormLabel>
-                <CFormInput value={product.rawProductCode || "—"} disabled className="bg-light font-monospace" />
+                <CFormLabel className="text-body-secondary">
+                  Raw Product Code
+                </CFormLabel>
+                <CFormInput
+                  value={product.rawProductCode || "—"}
+                  disabled
+                  className="bg-light font-monospace"
+                />
               </CCol>
 
               <CCol xs={6} md={3}>
-                <CFormLabel className="text-body-secondary">Sales Order Code</CFormLabel>
-                <CFormInput value={product.poCode || "—"} disabled className="bg-light font-monospace" />
+                <CFormLabel className="text-body-secondary">
+                  Sales Order Code
+                </CFormLabel>
+                <CFormInput
+                  value={product.poCode || "—"}
+                  disabled
+                  className="bg-light font-monospace"
+                />
               </CCol>
 
               <CCol xs={6} md={3}>
                 <CFormLabel className="text-body-secondary">Unit</CFormLabel>
-                <CFormInput value={product.unit || "—"} disabled className="bg-light" />
+                <CFormInput
+                  value={product.unit || "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={6} md={3}>
-                <CFormLabel className="text-body-secondary">HSN Number</CFormLabel>
-                <CFormInput value={product.hsnNumber || "—"} disabled className="bg-light" />
+                <CFormLabel className="text-body-secondary">
+                  HSN Number
+                </CFormLabel>
+                <CFormInput
+                  value={product.hsnNumber || "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={6} md={3}>
-                <CFormLabel className="text-body-secondary">Model Number</CFormLabel>
-                <CFormInput value={product.modelNumber || "—"} disabled className="bg-light" />
+                <CFormLabel className="text-body-secondary">
+                  Model Number
+                </CFormLabel>
+                <CFormInput
+                  value={product.modelNumber || "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={6} md={3}>
                 <CFormLabel className="text-body-secondary">GST %</CFormLabel>
-                <CFormInput value={product.gstPercentage ?? "—"} disabled className="bg-light" />
+                <CFormInput
+                  value={product.gstPercentage ?? "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={6} md={3}>
-                <CFormLabel className="text-body-secondary">Sales Order Rate (₹)</CFormLabel>
-                <CFormInput value={product.poRate != null ? product.poRate : "—"} disabled className="bg-light" />
+                <CFormLabel className="text-body-secondary">
+                  Sales Order Rate (₹)
+                </CFormLabel>
+                <CFormInput
+                  value={product.poRate != null ? product.poRate : "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={12} md={6}>
@@ -167,8 +214,15 @@ const PoProductCreate = () => {
               </CCol>
 
               <CCol xs={12}>
-                <CFormLabel className="text-body-secondary">Description</CFormLabel>
-                <CFormTextarea rows={2} value={product.description || "—"} disabled className="bg-light" />
+                <CFormLabel className="text-body-secondary">
+                  Description
+                </CFormLabel>
+                <CFormTextarea
+                  rows={2}
+                  value={product.description || "—"}
+                  disabled
+                  className="bg-light"
+                />
               </CCol>
 
               <CCol xs={12}>
@@ -203,7 +257,8 @@ const PoProductCreate = () => {
                 />
                 {product.poRate != null && (
                   <CFormText className="text-body-secondary">
-                    Suggested (−10%): ₹{Math.round(product.poRate * 0.9 * 100) / 100}
+                    Suggested (−10%): ₹
+                    {Math.round(product.poRate * 0.9 * 100) / 100}
                   </CFormText>
                 )}
               </CCol>
@@ -217,7 +272,6 @@ const PoProductCreate = () => {
                   placeholder="Any remarks…"
                 />
               </CCol>
-
             </CRow>
 
             <div className="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
@@ -231,9 +285,15 @@ const PoProductCreate = () => {
               </CButton>
               <CButton color="primary" onClick={handleSave} disabled={saving}>
                 {saving ? (
-                  <><CSpinner size="sm" className="me-2" />Saving…</>
+                  <>
+                    <CSpinner size="sm" className="me-2" />
+                    Saving…
+                  </>
                 ) : (
-                  <><CIcon icon={cilSave} className="me-2" />Create Product</>
+                  <>
+                    <CIcon icon={cilSave} className="me-2" />
+                    Create Product
+                  </>
                 )}
               </CButton>
             </div>

@@ -77,9 +77,7 @@ const PurchaseOrderSidebar = React.lazy(
 const PoPaymentSidebar = React.lazy(
   () => import("./views/admin/PoPaymentSidebar"),
 );
-const PendingPayment = React.lazy(
-  () => import("./views/admin/PendingPayment"),
-);
+const PendingPayment = React.lazy(() => import("./views/admin/PendingPayment"));
 const PoPaymentBacklog = React.lazy(
   () => import("./views/admin/PoPaymentBacklog"),
 );
@@ -164,9 +162,7 @@ const LocalProcurementList = React.lazy(
 const LocalPurchaseList = React.lazy(
   () => import("./views/admin/LocalPurchaseList"),
 );
-const MyPurchaseList = React.lazy(
-  () => import("./views/admin/MyPurchaseList"),
-);
+const MyPurchaseList = React.lazy(() => import("./views/admin/MyPurchaseList"));
 const ProDashboard = React.lazy(() => import("./views/dashboard/ProDashboard"));
 const PurchaseBucketList = React.lazy(
   () => import("./views/admin/PurchaseBucketList"),
@@ -190,15 +186,9 @@ const DispatchmentList = React.lazy(
 const DeliveryApprovalList = React.lazy(
   () => import("./views/admin/DeliveryApprovalList"),
 );
-const PoProductsList = React.lazy(
-  () => import("./views/admin/PoProductsList"),
-);
-const PoProductView = React.lazy(
-  () => import("./views/admin/PoProductView"),
-);
-const PoProductAdd = React.lazy(
-  () => import("./views/admin/PoProductAdd"),
-);
+const PoProductsList = React.lazy(() => import("./views/admin/PoProductsList"));
+const PoProductView = React.lazy(() => import("./views/admin/PoProductView"));
+const PoProductAdd = React.lazy(() => import("./views/admin/PoProductAdd"));
 const PoProductCreate = React.lazy(
   () => import("./views/admin/PoProductCreate"),
 );
@@ -220,9 +210,7 @@ const SubZoneForm = React.lazy(() => import("./views/admin/SubZoneForm"));
 const CompanyDocumentList = React.lazy(
   () => import("./views/admin/CompanyDocumentList"),
 );
-const BranchSettings = React.lazy(
-  () => import("./views/admin/BranchSettings"),
-);
+const BranchSettings = React.lazy(() => import("./views/admin/BranchSettings"));
 const SidebarDocs = React.lazy(() => import("./views/admin/SidebarDocs"));
 
 // Industries
@@ -886,12 +874,7 @@ const routes = [
     element: DeliveryApprovalList,
     module: null,
     action: "read",
-    allowedRoles: [
-      "super_admin",
-      "admin",
-      "head_of_department",
-      "hod",
-    ],
+    allowedRoles: ["super_admin", "admin", "head_of_department", "hod"],
   },
   {
     path: "/po-products",
@@ -938,7 +921,14 @@ const routes = [
     element: LocalProcurementList,
     module: null,
     action: "read",
-    allowedRoles: ["procurement", "localprocurement", "super_admin", "admin", "head_of_department", "hod"],
+    allowedRoles: [
+      "procurement",
+      "localprocurement",
+      "super_admin",
+      "admin",
+      "head_of_department",
+      "hod",
+    ],
   },
   {
     path: "/local-purchase",

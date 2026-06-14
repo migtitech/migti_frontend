@@ -25,7 +25,12 @@ import {
   CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilMoney, cilArrowLeft, cilOptions, cilCheckCircle } from "@coreui/icons";
+import {
+  cilMoney,
+  cilArrowLeft,
+  cilOptions,
+  cilCheckCircle,
+} from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import billingRequestBatchService from "../../services/billingRequestBatchService";
 import documentService from "../../services/documentService";
@@ -88,7 +93,10 @@ const HOD_PRODUCT_STATUS_MAP = {
 
 const HodProductBadge = ({ status }) => {
   if (!status) return <CBadge color="secondary">Pending</CBadge>;
-  const s = HOD_PRODUCT_STATUS_MAP[status] || { label: status, color: "secondary" };
+  const s = HOD_PRODUCT_STATUS_MAP[status] || {
+    label: status,
+    color: "secondary",
+  };
   return <CBadge color={s.color}>{s.label}</CBadge>;
 };
 
@@ -133,9 +141,7 @@ const BillingRequestView = ({
     billingRequestBatchService
       .getById(id)
       .then((res) => setDetail(unwrap(res)))
-      .catch((e) =>
-        toastError(e?.message || "Failed to load billing request"),
-      )
+      .catch((e) => toastError(e?.message || "Failed to load billing request"))
       .finally(() => setLoading(false));
   }, [id]);
 
@@ -197,7 +203,10 @@ const BillingRequestView = ({
       if (proofFile) {
         const up = await documentService.uploadAttachments([proofFile]);
         const docs =
-          up?.data?.documents || up?.documents || up?.data?.data?.documents || [];
+          up?.data?.documents ||
+          up?.documents ||
+          up?.data?.data?.documents ||
+          [];
         const first = docs[0];
         if (!first?._id) {
           toastError("Proof upload failed — no document ID returned.");
@@ -255,9 +264,7 @@ const BillingRequestView = ({
     0,
   );
   const createdByName =
-    detail.createdBySnapshot?.name ||
-    detail.createdBySnapshot?.fullName ||
-    "—";
+    detail.createdBySnapshot?.name || detail.createdBySnapshot?.fullName || "—";
   const reviewedByName =
     detail.reviewedBySnapshot?.name ||
     detail.reviewedBySnapshot?.fullName ||
@@ -284,11 +291,7 @@ const BillingRequestView = ({
             <CIcon icon={cilArrowLeft} className="me-1" size="sm" />
             Back
           </CButton>
-          <CButton
-            color="primary"
-            size="sm"
-            onClick={openAction}
-          >
+          <CButton color="primary" size="sm" onClick={openAction}>
             <CIcon icon={cilOptions} className="me-1" size="sm" />
             Action
           </CButton>
@@ -306,7 +309,9 @@ const BillingRequestView = ({
           <CCardBody>
             <CRow className="g-3">
               <CCol sm={6} md={3}>
-                <div className="text-body-secondary small mb-1">Sales Order Code</div>
+                <div className="text-body-secondary small mb-1">
+                  Sales Order Code
+                </div>
                 <div className="fw-medium">
                   <code>{detail.poCode || "—"}</code>
                 </div>
@@ -358,10 +363,15 @@ const BillingRequestView = ({
           <CCard className="mb-4" style={{ border: "1.5px solid #86efac" }}>
             <CCardHeader
               className="d-flex align-items-center gap-2"
-              style={{ background: "#f0fdf4", borderBottom: "1px solid #86efac" }}
+              style={{
+                background: "#f0fdf4",
+                borderBottom: "1px solid #86efac",
+              }}
             >
               <CIcon icon={cilCheckCircle} style={{ color: "#15803d" }} />
-              <span style={{ fontWeight: 700, color: "#15803d" }}>Payment Approved</span>
+              <span style={{ fontWeight: 700, color: "#15803d" }}>
+                Payment Approved
+              </span>
             </CCardHeader>
             <CCardBody>
               <CRow className="g-3 small">
@@ -386,12 +396,16 @@ const BillingRequestView = ({
                 {detail.financeApprovedAt && (
                   <CCol sm={6} md={3}>
                     <div className="text-body-secondary mb-1">Approved on</div>
-                    <div className="fw-medium">{fmtDate(detail.financeApprovedAt)}</div>
+                    <div className="fw-medium">
+                      {fmtDate(detail.financeApprovedAt)}
+                    </div>
                   </CCol>
                 )}
                 {detail.financeRemark && (
                   <CCol xs={12}>
-                    <div className="text-body-secondary mb-1">Finance Remark</div>
+                    <div className="text-body-secondary mb-1">
+                      Finance Remark
+                    </div>
                     <div className="fw-medium">{detail.financeRemark}</div>
                   </CCol>
                 )}
@@ -404,12 +418,17 @@ const BillingRequestView = ({
                       disabled={!!docLoadingKey}
                       onClick={() =>
                         openDocWithAuth(String(detail.paymentProofDocId), (k) =>
-                          setDocLoadingKey(k ? `proof-${detail.paymentProofDocId}` : null),
+                          setDocLoadingKey(
+                            k ? `proof-${detail.paymentProofDocId}` : null,
+                          ),
                         )
                       }
                     >
                       {docLoadingKey === `proof-${detail.paymentProofDocId}` ? (
-                        <><CSpinner size="sm" className="me-1" />Opening…</>
+                        <>
+                          <CSpinner size="sm" className="me-1" />
+                          Opening…
+                        </>
                       ) : (
                         "View Payment Proof"
                       )}
@@ -457,9 +476,7 @@ const BillingRequestView = ({
                     const imgDocId = p.productImageDocId
                       ? String(p.productImageDocId)
                       : null;
-                    const billDocId = p.billDocId
-                      ? String(p.billDocId)
-                      : null;
+                    const billDocId = p.billDocId ? String(p.billDocId) : null;
                     const imgKey = imgDocId ? `img-${imgDocId}` : null;
                     const billKey = billDocId ? `bill-${billDocId}` : null;
                     return (
@@ -668,9 +685,7 @@ const BillingRequestView = ({
         </COffcanvasHeader>
         <COffcanvasBody className="p-3 d-flex flex-column gap-3">
           <div>
-            <CFormLabel className="fw-medium mb-1">
-              Remark
-            </CFormLabel>
+            <CFormLabel className="fw-medium mb-1">Remark</CFormLabel>
             <CFormTextarea
               rows={3}
               placeholder="Add a remark (optional)"
@@ -681,9 +696,7 @@ const BillingRequestView = ({
           </div>
 
           <div>
-            <CFormLabel className="fw-medium mb-1">
-              Paid Amount
-            </CFormLabel>
+            <CFormLabel className="fw-medium mb-1">Paid Amount</CFormLabel>
             <CFormInput
               type="number"
               min={0}
@@ -696,9 +709,7 @@ const BillingRequestView = ({
           </div>
 
           <div>
-            <CFormLabel className="fw-medium mb-1">
-              Payment Proof
-            </CFormLabel>
+            <CFormLabel className="fw-medium mb-1">Payment Proof</CFormLabel>
             <input
               ref={fileInputRef}
               type="file"

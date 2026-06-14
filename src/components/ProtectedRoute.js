@@ -128,9 +128,10 @@ const ProtectedRoute = ({
 
   if (allowedRolePrefix) {
     const prefix = String(allowedRolePrefix).trim().toLowerCase();
-    const roleAllowed = prefix === "purchase"
-      ? isPurchaseFamilyRole(userRole)
-      : userRole.startsWith(prefix);
+    const roleAllowed =
+      prefix === "purchase"
+        ? isPurchaseFamilyRole(userRole)
+        : userRole.startsWith(prefix);
     if (roleAllowed) {
       return children;
     }

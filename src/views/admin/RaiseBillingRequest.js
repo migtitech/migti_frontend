@@ -34,7 +34,9 @@ const fmt = (v) => (v == null || v === "" ? "—" : String(v));
 const assetUrl = (path) => {
   if (!path) return "";
   if (/^https?:\/\//i.test(path)) return path;
-  const base = (import.meta.env.VITE_API_BASE_URL || "http://localhost:7200/api")
+  const base = (
+    import.meta.env.VITE_API_BASE_URL || "http://localhost:7200/api"
+  )
     .replace(/\/api\/?$/i, "")
     .replace(/\/$/, "");
   return `${base}/assets/${path}`;
@@ -67,7 +69,12 @@ const blankForm = () => ({
 
 /** Horizontal numbered step indicator */
 const StepBar = ({ current }) => {
-  const labels = ["Find Product", "Add Details", "Payment Info", "Review & Submit"];
+  const labels = [
+    "Find Product",
+    "Add Details",
+    "Payment Info",
+    "Review & Submit",
+  ];
   return (
     <div className="d-flex align-items-center justify-content-center mb-4 px-2">
       {labels.map((label, i) => {
@@ -76,7 +83,10 @@ const StepBar = ({ current }) => {
         const active = current === n;
         return (
           <React.Fragment key={n}>
-            <div className="d-flex flex-column align-items-center" style={{ minWidth: 64 }}>
+            <div
+              className="d-flex flex-column align-items-center"
+              style={{ minWidth: 64 }}
+            >
               <div
                 style={{
                   width: 32,
@@ -127,7 +137,14 @@ const StepBar = ({ current }) => {
 };
 
 /** Upload button with icon + label */
-const UploadBtn = ({ icon, label, color = "primary", onClick, disabled, loading }) => (
+const UploadBtn = ({
+  icon,
+  label,
+  color = "primary",
+  onClick,
+  disabled,
+  loading,
+}) => (
   <CButton
     color={color}
     variant="outline"
@@ -136,18 +153,24 @@ const UploadBtn = ({ icon, label, color = "primary", onClick, disabled, loading 
     onClick={onClick}
     disabled={disabled || loading}
   >
-    {loading
-      ? <CSpinner size="sm" />
-      : <CIcon icon={icon} style={{ fontSize: 24 }} />}
-    <span style={{ fontSize: 12, fontWeight: 500 }}>{loading ? "Uploading…" : label}</span>
+    {loading ? (
+      <CSpinner size="sm" />
+    ) : (
+      <CIcon icon={icon} style={{ fontSize: 24 }} />
+    )}
+    <span style={{ fontSize: 12, fontWeight: 500 }}>
+      {loading ? "Uploading…" : label}
+    </span>
   </CButton>
 );
-
 
 /** Inline field error */
 const FieldError = ({ msg }) =>
   msg ? (
-    <div className="d-flex align-items-center gap-1 mt-1" style={{ color: "#dc3545", fontSize: 12 }}>
+    <div
+      className="d-flex align-items-center gap-1 mt-1"
+      style={{ color: "#dc3545", fontSize: 12 }}
+    >
       <CIcon icon={cilWarning} style={{ fontSize: 13 }} />
       {msg}
     </div>
@@ -159,7 +182,9 @@ const ProductCard = ({ row, inCart, onSelect }) => (
     role={inCart ? undefined : "button"}
     tabIndex={inCart ? undefined : 0}
     onClick={() => !inCart && onSelect(row)}
-    onKeyDown={(e) => !inCart && (e.key === "Enter" || e.key === " ") && onSelect(row)}
+    onKeyDown={(e) =>
+      !inCart && (e.key === "Enter" || e.key === " ") && onSelect(row)
+    }
     style={{
       border: `1.5px solid ${inCart ? "#198754" : "#dee2e6"}`,
       borderRadius: 10,
@@ -188,11 +213,15 @@ const ProductCard = ({ row, inCart, onSelect }) => (
       </div>
       <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
         Sales Order: <strong>{fmt(row.poCode)}</strong>
-        {row.quantity ? ` · Qty: ${row.quantity}${row.unit ? " " + row.unit : ""}` : ""}
+        {row.quantity
+          ? ` · Qty: ${row.quantity}${row.unit ? " " + row.unit : ""}`
+          : ""}
       </div>
     </div>
     {inCart ? (
-      <CBadge color="success" style={{ flexShrink: 0 }}>Added ✓</CBadge>
+      <CBadge color="success" style={{ flexShrink: 0 }}>
+        Added ✓
+      </CBadge>
     ) : (
       <CButton color="primary" size="sm" style={{ flexShrink: 0 }}>
         Select →
@@ -237,12 +266,26 @@ const CartCard = ({ item, idx, onRemove }) => (
                 key={i}
                 src={p.url}
                 alt=""
-                style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 6, border: "1px solid #dee2e6" }}
+                style={{
+                  width: 44,
+                  height: 44,
+                  objectFit: "cover",
+                  borderRadius: 6,
+                  border: "1px solid #dee2e6",
+                }}
               />
             ))}
           </div>
         )}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 6, fontSize: 13 }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: "6px 16px",
+            marginTop: 6,
+            fontSize: 13,
+          }}
+        >
           <span>
             <span style={{ color: "#6c757d" }}>Amount: </span>
             <strong>₹{Number(item.amount).toLocaleString("en-IN")}</strong>
@@ -309,15 +352,26 @@ const RaiseBillingRequest = () => {
   // fetch product search
   useEffect(() => {
     const q = searchDebounced.trim();
-    if (!q) { setResults([]); return; }
+    if (!q) {
+      setResults([]);
+      return;
+    }
     let dead = false;
     setSearching(true);
     purchaseBucketService
-      .list({ search: q, pageSize: 30, status: 'open' })
-      .then((res) => { if (!dead) setResults(res?.data?.data ?? []); })
-      .catch(() => { if (!dead) setResults([]); })
-      .finally(() => { if (!dead) setSearching(false); });
-    return () => { dead = true; };
+      .list({ search: q, pageSize: 30, status: "open" })
+      .then((res) => {
+        if (!dead) setResults(res?.data?.data ?? []);
+      })
+      .catch(() => {
+        if (!dead) setResults([]);
+      })
+      .finally(() => {
+        if (!dead) setSearching(false);
+      });
+    return () => {
+      dead = true;
+    };
   }, [searchDebounced]);
 
   const patchForm = (patch) => setForm((f) => ({ ...f, ...patch }));
@@ -375,8 +429,12 @@ const RaiseBillingRequest = () => {
   // ── step 2: validate photos → go to payment step
   const nextToPayment = () => {
     if (form.photos.length === 0) {
-      patchForm({ errors: { photo: "At least one product photo is required." } });
-      document.getElementById("rbr-field-photo")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      patchForm({
+        errors: { photo: "At least one product photo is required." },
+      });
+      document
+        .getElementById("rbr-field-photo")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
     patchForm({ errors: {} });
@@ -431,7 +489,10 @@ const RaiseBillingRequest = () => {
       scrollTop();
     } catch (e) {
       setSubmitErrors([
-        { name: "Request", msg: e?.message || "Failed to create billing request" },
+        {
+          name: "Request",
+          msg: e?.message || "Failed to create billing request",
+        },
       ]);
       toastError(e?.message || "Failed to create billing request");
     } finally {
@@ -447,16 +508,21 @@ const RaiseBillingRequest = () => {
     <div ref={topRef}>
       <CRow>
         <CCol xs={12}>
-
           {/* breadcrumb bar */}
           <CCard className="mb-3">
             <CCardBody className="d-flex flex-wrap align-items-center justify-content-between gap-2 py-2">
               <CBreadcrumb className="mb-0">
                 <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
-                <CBreadcrumbItem href="#/purchase-bucket">Purchase Bucket</CBreadcrumbItem>
+                <CBreadcrumbItem href="#/purchase-bucket">
+                  Purchase Bucket
+                </CBreadcrumbItem>
                 <CBreadcrumbItem active>Raise Billing Request</CBreadcrumbItem>
               </CBreadcrumb>
-              <CButton color="secondary" variant="ghost" onClick={() => navigate("/purchase-bucket")}>
+              <CButton
+                color="secondary"
+                variant="ghost"
+                onClick={() => navigate("/purchase-bucket")}
+              >
                 <CIcon icon={cilArrowLeft} className="me-1" size="sm" />
                 Back
               </CButton>
@@ -488,13 +554,19 @@ const RaiseBillingRequest = () => {
                     {submittedCode}
                   </div>
                 )}
-                <p className="text-body-secondary mb-4" style={{ fontSize: 14 }}>
+                <p
+                  className="text-body-secondary mb-4"
+                  style={{ fontSize: 14 }}
+                >
                   All products have been submitted for HOD approval. The
                   po_products status has been updated to{" "}
                   <strong>hod_approval_pending</strong>.
                 </p>
                 <div className="d-flex flex-column flex-sm-row gap-2 justify-content-center">
-                  <CButton color="primary" onClick={() => navigate("/purchase-bucket")}>
+                  <CButton
+                    color="primary"
+                    onClick={() => navigate("/purchase-bucket")}
+                  >
                     Go to Purchase Bucket
                   </CButton>
                   <CButton
@@ -518,8 +590,9 @@ const RaiseBillingRequest = () => {
           {!submitted && step === STEP.SEARCH && (
             <CCard>
               <CCardBody style={{ paddingBottom: 24 }}>
-                <h6 className="mb-1" style={{ fontWeight: 700 }}>Search for a product</h6>
-
+                <h6 className="mb-1" style={{ fontWeight: 700 }}>
+                  Search for a product
+                </h6>
 
                 <div className="position-relative mb-3">
                   <CIcon
@@ -562,7 +635,10 @@ const RaiseBillingRequest = () => {
 
                 {/* no results */}
                 {!searching && search.trim() && results.length === 0 && (
-                  <div className="text-center py-4 text-body-secondary" style={{ fontSize: 13 }}>
+                  <div
+                    className="text-center py-4 text-body-secondary"
+                    style={{ fontSize: 13 }}
+                  >
                     <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
                     No products found for "{search}"
                   </div>
@@ -586,12 +662,20 @@ const RaiseBillingRequest = () => {
                 {cart.length > 0 && (
                   <div
                     className="d-flex align-items-center justify-content-between mt-4 p-3 rounded"
-                    style={{ background: "#edf2ff", border: "1.5px solid #0d6efd30" }}
+                    style={{
+                      background: "#edf2ff",
+                      border: "1.5px solid #0d6efd30",
+                    }}
                   >
                     <span style={{ fontSize: 13, fontWeight: 600 }}>
-                      {cart.length} product{cart.length > 1 ? "s" : ""} ready to submit
+                      {cart.length} product{cart.length > 1 ? "s" : ""} ready to
+                      submit
                     </span>
-                    <CButton color="primary" size="sm" onClick={() => goTo(STEP.REVIEW)}>
+                    <CButton
+                      color="primary"
+                      size="sm"
+                      onClick={() => goTo(STEP.REVIEW)}
+                    >
                       Review & Submit →
                     </CButton>
                   </div>
@@ -606,22 +690,38 @@ const RaiseBillingRequest = () => {
               {/* selected product header */}
               <div
                 className="d-flex align-items-center gap-3 p-3 mb-3 rounded"
-                style={{ background: "#edf2ff", border: "1.5px solid #0d6efd40" }}
+                style={{
+                  background: "#edf2ff",
+                  border: "1.5px solid #0d6efd40",
+                }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 15,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {fmt(product.productName)}
                   </div>
                   <div style={{ fontSize: 12, color: "#0d6efd", marginTop: 2 }}>
                     Sales Order: {fmt(product.poCode)}
-                    {product.quantity ? ` · Qty: ${product.quantity}${product.unit ? " " + product.unit : ""}` : ""}
+                    {product.quantity
+                      ? ` · Qty: ${product.quantity}${product.unit ? " " + product.unit : ""}`
+                      : ""}
                   </div>
                 </div>
                 <CButton
                   color="secondary"
                   variant="ghost"
                   size="sm"
-                  onClick={() => { setProduct(null); goTo(STEP.SEARCH); }}
+                  onClick={() => {
+                    setProduct(null);
+                    goTo(STEP.SEARCH);
+                  }}
                 >
                   Change
                 </CButton>
@@ -633,10 +733,17 @@ const RaiseBillingRequest = () => {
                   <div className="d-flex align-items-center gap-2 mb-3">
                     <div
                       style={{
-                        width: 24, height: 24, borderRadius: "50%",
-                        background: form.photos.length > 0 ? "#198754" : "#0d6efd",
-                        color: "#fff", fontSize: 12, fontWeight: 700,
-                        display: "flex", alignItems: "center", justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background:
+                          form.photos.length > 0 ? "#198754" : "#0d6efd",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         flexShrink: 0,
                       }}
                     >
@@ -644,7 +751,8 @@ const RaiseBillingRequest = () => {
                     </div>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>
-                        Product Photos <span style={{ color: "#dc3545" }}>*</span>
+                        Product Photos{" "}
+                        <span style={{ color: "#dc3545" }}>*</span>
                       </div>
                       <div style={{ fontSize: 12, color: "#6c757d" }}>
                         Upload one or more clear photos of the product
@@ -660,7 +768,8 @@ const RaiseBillingRequest = () => {
                             src={p.url}
                             alt=""
                             style={{
-                              width: 80, height: 80,
+                              width: 80,
+                              height: 80,
                               objectFit: "cover",
                               borderRadius: 8,
                               border: "1.5px solid #dee2e6",
@@ -670,15 +779,21 @@ const RaiseBillingRequest = () => {
                             type="button"
                             onClick={() => removePhoto(i)}
                             style={{
-                              position: "absolute", top: -6, right: -6,
-                              width: 20, height: 20,
+                              position: "absolute",
+                              top: -6,
+                              right: -6,
+                              width: 20,
+                              height: 20,
                               borderRadius: "50%",
                               background: "#dc3545",
                               color: "#fff",
                               border: "none",
                               cursor: "pointer",
-                              display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 12, fontWeight: 700,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 12,
+                              fontWeight: 700,
                               lineHeight: 1,
                             }}
                           >
@@ -689,10 +804,22 @@ const RaiseBillingRequest = () => {
                     </div>
                   )}
 
-                  <input type="file" accept="image/*" multiple ref={photoGalleryRef} className="d-none"
-                    onChange={onMultiFileChange(uploadPhoto)} />
-                  <input type="file" accept="image/*" capture="environment" ref={photoCameraRef} className="d-none"
-                    onChange={onFileChange(photoCameraRef, uploadPhoto)} />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    ref={photoGalleryRef}
+                    className="d-none"
+                    onChange={onMultiFileChange(uploadPhoto)}
+                  />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    ref={photoCameraRef}
+                    className="d-none"
+                    onChange={onFileChange(photoCameraRef, uploadPhoto)}
+                  />
 
                   <CRow className="g-2">
                     <CCol xs={6}>
@@ -715,9 +842,14 @@ const RaiseBillingRequest = () => {
                     </CCol>
                   </CRow>
                   {form.photos.length > 0 && (
-                    <div className="d-flex align-items-center gap-1 mt-2" style={{ color: "#198754", fontSize: 12 }}>
+                    <div
+                      className="d-flex align-items-center gap-1 mt-2"
+                      style={{ color: "#198754", fontSize: 12 }}
+                    >
                       <CIcon icon={cilCheckCircle} style={{ fontSize: 13 }} />
-                      {form.photos.length} photo{form.photos.length !== 1 ? "s" : ""} added — tap above to add more
+                      {form.photos.length} photo
+                      {form.photos.length !== 1 ? "s" : ""} added — tap above to
+                      add more
                     </div>
                   )}
                   <FieldError msg={form.errors.photo} />
@@ -742,7 +874,10 @@ const RaiseBillingRequest = () => {
                       color="secondary"
                       variant="outline"
                       className="w-100"
-                      onClick={() => { setProduct(null); goTo(STEP.SEARCH); }}
+                      onClick={() => {
+                        setProduct(null);
+                        goTo(STEP.SEARCH);
+                      }}
                     >
                       ← Back to Search
                     </CButton>
@@ -774,14 +909,26 @@ const RaiseBillingRequest = () => {
               {/* selected product header */}
               <div
                 className="d-flex align-items-center gap-3 p-3 mb-3 rounded"
-                style={{ background: "#edf2ff", border: "1.5px solid #0d6efd40" }}
+                style={{
+                  background: "#edf2ff",
+                  border: "1.5px solid #0d6efd40",
+                }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 15,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {fmt(product.productName)}
                   </div>
                   <div style={{ fontSize: 12, color: "#0d6efd", marginTop: 2 }}>
-                    Sales Order: {fmt(product.poCode)} · {form.photos.length} photo{form.photos.length !== 1 ? "s" : ""} attached
+                    Sales Order: {fmt(product.poCode)} · {form.photos.length}{" "}
+                    photo{form.photos.length !== 1 ? "s" : ""} attached
                   </div>
                 </div>
                 <CButton
@@ -800,10 +947,19 @@ const RaiseBillingRequest = () => {
                   <div className="d-flex align-items-center gap-2 mb-3">
                     <div
                       style={{
-                        width: 24, height: 24, borderRadius: "50%",
-                        background: form.amount && Number(form.amount) > 0 ? "#198754" : "#0d6efd",
-                        color: "#fff", fontSize: 12, fontWeight: 700,
-                        display: "flex", alignItems: "center", justifyContent: "center",
+                        width: 24,
+                        height: 24,
+                        borderRadius: "50%",
+                        background:
+                          form.amount && Number(form.amount) > 0
+                            ? "#198754"
+                            : "#0d6efd",
+                        color: "#fff",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         flexShrink: 0,
                       }}
                     >
@@ -816,9 +972,13 @@ const RaiseBillingRequest = () => {
                   <div className="position-relative">
                     <div
                       style={{
-                        position: "absolute", left: 12, top: "50%",
+                        position: "absolute",
+                        left: 12,
+                        top: "50%",
                         transform: "translateY(-50%)",
-                        fontWeight: 700, color: "#495057", fontSize: 16,
+                        fontWeight: 700,
+                        color: "#495057",
+                        fontSize: 16,
                         pointerEvents: "none",
                       }}
                     >
@@ -830,7 +990,12 @@ const RaiseBillingRequest = () => {
                       step="0.01"
                       placeholder="0.00"
                       value={form.amount}
-                      onChange={(e) => patchForm({ amount: e.target.value, errors: { ...form.errors, amount: undefined } })}
+                      onChange={(e) =>
+                        patchForm({
+                          amount: e.target.value,
+                          errors: { ...form.errors, amount: undefined },
+                        })
+                      }
                       style={{ paddingLeft: 28, fontSize: 18, fontWeight: 600 }}
                     />
                   </div>
@@ -862,7 +1027,11 @@ const RaiseBillingRequest = () => {
                     </CButton>
                   </CCol>
                   <CCol xs={6}>
-                    <CButton color="success" className="w-100" onClick={addToCart}>
+                    <CButton
+                      color="success"
+                      className="w-100"
+                      onClick={addToCart}
+                    >
                       Add to List →
                     </CButton>
                   </CCol>
@@ -892,7 +1061,9 @@ const RaiseBillingRequest = () => {
                 <div>
                   <h6 className="mb-0" style={{ fontWeight: 700 }}>
                     Review your list
-                    <CBadge color="primary" className="ms-2">{cart.length}</CBadge>
+                    <CBadge color="primary" className="ms-2">
+                      {cart.length}
+                    </CBadge>
                   </h6>
                   <div style={{ fontSize: 12, color: "#6c757d", marginTop: 2 }}>
                     Check everything below before submitting
@@ -910,7 +1081,10 @@ const RaiseBillingRequest = () => {
 
               {cart.length === 0 ? (
                 <CCard>
-                  <CCardBody className="text-center py-5 text-body-secondary" style={{ fontSize: 13 }}>
+                  <CCardBody
+                    className="text-center py-5 text-body-secondary"
+                    style={{ fontSize: 13 }}
+                  >
                     <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
                     No products added yet.{" "}
                     <span
@@ -938,16 +1112,21 @@ const RaiseBillingRequest = () => {
                 </div>
               )}
 
-
               {/* total summary */}
               {cart.length > 0 && (
                 <div
                   className="d-flex align-items-center justify-content-between p-3 rounded mb-3"
-                  style={{ background: "#f8f9fa", border: "1.5px solid #dee2e6" }}
+                  style={{
+                    background: "#f8f9fa",
+                    border: "1.5px solid #dee2e6",
+                  }}
                 >
                   <span style={{ fontWeight: 600 }}>Total amount</span>
                   <span style={{ fontWeight: 700, fontSize: 18 }}>
-                    ₹{cart.reduce((s, i) => s + i.amount, 0).toLocaleString("en-IN")}
+                    ₹
+                    {cart
+                      .reduce((s, i) => s + i.amount, 0)
+                      .toLocaleString("en-IN")}
                   </span>
                 </div>
               )}
@@ -995,7 +1174,6 @@ const RaiseBillingRequest = () => {
               </div>
             </div>
           )}
-
         </CCol>
       </CRow>
     </div>

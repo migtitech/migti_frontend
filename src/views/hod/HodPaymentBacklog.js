@@ -19,12 +19,7 @@ import {
   CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilMoney,
-  cilBuilding,
-  cilReload,
-  cilX,
-} from "@coreui/icons";
+import { cilMoney, cilBuilding, cilReload, cilX } from "@coreui/icons";
 import poPaymentBacklogService from "../../services/poPaymentBacklogService";
 import { toastError } from "../../utils/toast";
 import { Loader } from "../../components";
@@ -185,7 +180,10 @@ const HodPaymentBacklog = () => {
                   backgroundColor: "rgba(220, 53, 69, 0.1)",
                 }}
               >
-                <CIcon icon={cilMoney} style={{ color: "#dc3545", width: 22, height: 22 }} />
+                <CIcon
+                  icon={cilMoney}
+                  style={{ color: "#dc3545", width: 22, height: 22 }}
+                />
               </div>
               <div>
                 <div className="text-body-secondary small fw-medium text-uppercase tracking-wide">
@@ -210,7 +208,10 @@ const HodPaymentBacklog = () => {
                   backgroundColor: "rgba(13, 110, 253, 0.1)",
                 }}
               >
-                <CIcon icon={cilBuilding} style={{ color: "#0d6efd", width: 22, height: 22 }} />
+                <CIcon
+                  icon={cilBuilding}
+                  style={{ color: "#0d6efd", width: 22, height: 22 }}
+                />
               </div>
               <div>
                 <div className="text-body-secondary small fw-medium text-uppercase tracking-wide">
@@ -232,7 +233,8 @@ const HodPaymentBacklog = () => {
             <div>
               <h4 className="mb-1">Payment Backlog</h4>
               <p className="text-body-secondary small mb-0">
-                All HOD-approved Sales Order payment obligations pending settlement.
+                All HOD-approved Sales Order payment obligations pending
+                settlement.
               </p>
             </div>
             <CButton
@@ -252,7 +254,9 @@ const HodPaymentBacklog = () => {
             <CCardBody className="py-3">
               <CRow className="g-3 align-items-end">
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">Sales Order Number</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">
+                    Sales Order Number
+                  </CFormLabel>
                   <CFormInput
                     size="sm"
                     placeholder="Search Sales Order number…"
@@ -262,7 +266,9 @@ const HodPaymentBacklog = () => {
                 </CCol>
 
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">Sales Person</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">
+                    Sales Person
+                  </CFormLabel>
                   <CFormInput
                     size="sm"
                     placeholder="Search sales person name…"
@@ -274,7 +280,9 @@ const HodPaymentBacklog = () => {
                 </CCol>
 
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">Client Name</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">
+                    Client Name
+                  </CFormLabel>
                   <CFormInput
                     size="sm"
                     placeholder="Search client name…"
@@ -286,7 +294,9 @@ const HodPaymentBacklog = () => {
                 </CCol>
 
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">Status</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">
+                    Status
+                  </CFormLabel>
                   <select
                     className="form-select form-select-sm"
                     value={filters.is_settled}
@@ -301,19 +311,21 @@ const HodPaymentBacklog = () => {
                 </CCol>
 
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">Date From</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">
+                    Date From
+                  </CFormLabel>
                   <CFormInput
                     size="sm"
                     type="date"
                     value={filters.dateFrom}
-                    onChange={(e) =>
-                      onFilterChange("dateFrom", e.target.value)
-                    }
+                    onChange={(e) => onFilterChange("dateFrom", e.target.value)}
                   />
                 </CCol>
 
                 <CCol sm={6} lg={3}>
-                  <CFormLabel className="small fw-medium mb-1">Date To</CFormLabel>
+                  <CFormLabel className="small fw-medium mb-1">
+                    Date To
+                  </CFormLabel>
                   <CFormInput
                     size="sm"
                     type="date"
@@ -376,10 +388,7 @@ const HodPaymentBacklog = () => {
               )}
               {loading && rows.length === 0 && (
                 <CTableRow>
-                  <CTableDataCell
-                    colSpan={7}
-                    className="text-center py-5"
-                  >
+                  <CTableDataCell colSpan={7} className="text-center py-5">
                     <CSpinner size="sm" className="me-2" />
                     Loading…
                   </CTableDataCell>
@@ -387,13 +396,9 @@ const HodPaymentBacklog = () => {
               )}
               {rows.map((row) => {
                 const poCode =
-                  row.po_snapshot?.poCode ||
-                  row.po_snapshot?.po_number ||
-                  "—";
-                const clientName =
-                  row.clients_snapshot?.name || "—";
-                const salesPerson =
-                  row.employeeId?.name || "—";
+                  row.po_snapshot?.poCode || row.po_snapshot?.po_number || "—";
+                const clientName = row.clients_snapshot?.name || "—";
+                const salesPerson = row.employeeId?.name || "—";
                 const badge = getDueBadge(row.due_date, row.is_settled);
 
                 return (
@@ -448,7 +453,11 @@ const HodPaymentBacklog = () => {
           {/* Pagination */}
           {totalPages > 1 && (
             <div className="d-flex justify-content-end mt-3">
-              <CPagination align="end" className="mb-0" aria-label="Backlog pages">
+              <CPagination
+                align="end"
+                className="mb-0"
+                aria-label="Backlog pages"
+              >
                 <CPaginationItem
                   disabled={page <= 1}
                   onClick={() => page > 1 && setPage((p) => p - 1)}

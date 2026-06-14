@@ -180,7 +180,9 @@ const BranchSettings = () => {
                       }}
                     />
                   ) : (
-                    <span className="text-muted">No signature uploaded yet</span>
+                    <span className="text-muted">
+                      No signature uploaded yet
+                    </span>
                   )}
                 </div>
 

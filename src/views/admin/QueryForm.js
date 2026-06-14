@@ -69,7 +69,8 @@ const INITIAL_COMPANY = {
   area: "",
   subZoneId: "",
   location: "",
-  address: "",
+  billingAddress: "",
+  shippingAddress: "",
   purchaseManagers: [],
 };
 
@@ -146,7 +147,8 @@ const QueryForm = () => {
   const [formProduct, setFormProduct] = useState({ ...INITIAL_PRODUCT });
   const [editingProductIndex, setEditingProductIndex] = useState(null);
   const [findProductSidebarOpen, setFindProductSidebarOpen] = useState(false);
-  const [findProductCatalogSidebarOpen, setFindProductCatalogSidebarOpen] = useState(false);
+  const [findProductCatalogSidebarOpen, setFindProductCatalogSidebarOpen] =
+    useState(false);
 
   const quantityInputRef = useRef(null);
   const [imagesModal, setImagesModal] = useState({
@@ -297,7 +299,9 @@ const QueryForm = () => {
       const sc = p?.subcategoryId;
       if (sc == null || sc === "") continue;
       if (typeof sc === "object" && sc?.name) continue;
-      const ssid = String(typeof sc === "object" && sc?._id ? sc._id : sc).trim();
+      const ssid = String(
+        typeof sc === "object" && sc?._id ? sc._id : sc,
+      ).trim();
       if (!/^[a-f0-9]{24}$/i.test(ssid)) continue;
       if (inLists(ssid)) continue;
       ids.add(ssid);
@@ -433,7 +437,8 @@ const QueryForm = () => {
         area: getAreaId(areaVal) || "",
         subZoneId: getSubZoneId(data?.subZoneId) || "",
         location: data?.location || "",
-        address: data?.address || "",
+        billingAddress: data?.billingAddress || data?.address || "",
+        shippingAddress: data?.shippingAddress || data?.address || "",
         purchaseManagers: mapPurchaseManagers(data?.purchaseManagers),
       });
     } catch {
@@ -442,11 +447,8 @@ const QueryForm = () => {
         area: getAreaId(industry?.area) || "",
         subZoneId: getSubZoneId(industry?.subZoneId) || "",
         location: industry?.location || "",
-        address:
-          industry?.shippingAddress ||
-          industry?.billingAddress ||
-          industry?.address ||
-          "",
+        billingAddress: industry?.billingAddress || industry?.address || "",
+        shippingAddress: industry?.shippingAddress || industry?.address || "",
         purchaseManagers: mapPurchaseManagers(industry?.purchaseManagers),
       });
     }
@@ -557,8 +559,7 @@ const QueryForm = () => {
       productCode: product.productCode || "",
       rawProductCode: product.productCode || "",
       query_tracking_code: "",
-      groupId:
-        (product.group && (product.group._id || product.group)) || "",
+      groupId: (product.group && (product.group._id || product.group)) || "",
       categoryId:
         (product.category && (product.category._id || product.category)) || "",
       subcategoryId:
@@ -949,7 +950,8 @@ const QueryForm = () => {
           area: getAreaId(ci.area) || ci.area || "",
           subZoneId: (ci.subZoneId && String(ci.subZoneId).trim()) || "",
           location: ci.location || "",
-          address: ci.address || "",
+          billingAddress: ci.billingAddress || ci.address || "",
+          shippingAddress: ci.shippingAddress || ci.address || "",
           purchaseManagers: managers,
         });
         setIndustryId(q.industry_id?._id || q.industry_id || null);
@@ -981,8 +983,7 @@ const QueryForm = () => {
               categoryId:
                 (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
               subcategoryId:
-                (p.subcategoryId &&
-                  (p.subcategoryId._id || p.subcategoryId)) ||
+                (p.subcategoryId && (p.subcategoryId._id || p.subcategoryId)) ||
                 "",
               isNewProduct: p.isNewProduct ?? !p.productCode,
               images: Array.isArray(p.images) ? p.images : [],
@@ -1034,8 +1035,12 @@ const QueryForm = () => {
         return;
       }
     }
-    if ((companyInfo.address || "").length > 500) {
-      toastError("Address must be at most 500 characters");
+    if ((companyInfo.billingAddress || "").length > 500) {
+      toastError("Billing address must be at most 500 characters");
+      return;
+    }
+    if ((companyInfo.shippingAddress || "").length > 500) {
+      toastError("Shipping address must be at most 500 characters");
       return;
     }
     goToStep(2);
@@ -1181,8 +1186,12 @@ const QueryForm = () => {
         return;
       }
     }
-    if ((companyInfo.address || "").length > 500) {
-      toastError("Address must be at most 500 characters");
+    if ((companyInfo.billingAddress || "").length > 500) {
+      toastError("Billing address must be at most 500 characters");
+      return;
+    }
+    if ((companyInfo.shippingAddress || "").length > 500) {
+      toastError("Shipping address must be at most 500 characters");
       return;
     }
     const validProducts = products.filter((p) => (p.productName || "").trim());
@@ -1520,10 +1529,9 @@ const QueryForm = () => {
                       <CFormInput
                         value={
                           companyInfo.area
-                            ? (areas.find(
-                                (a) =>
-                                  (a._id || a.id) === companyInfo.area
-                              )?.name || companyInfo.area)
+                            ? areas.find(
+                                (a) => (a._id || a.id) === companyInfo.area,
+                              )?.name || companyInfo.area
                             : ""
                         }
                         readOnly
@@ -1543,7 +1551,7 @@ const QueryForm = () => {
                             ? (() => {
                                 const sz = querySubZones.find(
                                   (s) =>
-                                    (s._id || s.id) === companyInfo.subZoneId
+                                    (s._id || s.id) === companyInfo.subZoneId,
                                 );
                                 return sz
                                   ? (sz.subZoneCode
@@ -1702,12 +1710,28 @@ const QueryForm = () => {
                   ) : null}
                 </div>
                 <CRow>
-                  <CCol xs={12}>
+                  <CCol md={6}>
                     <div className="mb-3">
-                      <CFormLabel>Address (max 500 characters)</CFormLabel>
+                      <CFormLabel>
+                        Billing address (max 500 characters)
+                      </CFormLabel>
                       <CFormTextarea
                         rows={2}
-                        value={companyInfo.address}
+                        value={companyInfo.billingAddress}
+                        readOnly
+                        className="bg-light"
+                        placeholder="Auto-filled from selected client"
+                      />
+                    </div>
+                  </CCol>
+                  <CCol md={6}>
+                    <div className="mb-3">
+                      <CFormLabel>
+                        Shipping address (max 500 characters)
+                      </CFormLabel>
+                      <CFormTextarea
+                        rows={2}
+                        value={companyInfo.shippingAddress}
                         readOnly
                         className="bg-light"
                         placeholder="Auto-filled from selected client"
@@ -2516,13 +2540,27 @@ const QueryForm = () => {
                         scope="row"
                         className="bg-transparent text-body-secondary fw-normal border-0 py-3 align-top"
                       >
-                        Address
+                        Billing address
                       </CTableHeaderCell>
                       <CTableDataCell
                         className="bg-transparent border-0 py-3 text-break"
                         style={{ whiteSpace: "pre-wrap" }}
                       >
-                        {companyInfo.address?.trim() || "—"}
+                        {companyInfo.billingAddress?.trim() || "—"}
+                      </CTableDataCell>
+                    </CTableRow>
+                    <CTableRow>
+                      <CTableHeaderCell
+                        scope="row"
+                        className="bg-transparent text-body-secondary fw-normal border-0 py-3 align-top"
+                      >
+                        Shipping address
+                      </CTableHeaderCell>
+                      <CTableDataCell
+                        className="bg-transparent border-0 py-3 text-break"
+                        style={{ whiteSpace: "pre-wrap" }}
+                      >
+                        {companyInfo.shippingAddress?.trim() || "—"}
                       </CTableDataCell>
                     </CTableRow>
                   </CTableBody>

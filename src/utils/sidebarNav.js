@@ -55,16 +55,15 @@ export const ADMIN_ALLOWED_PATHS = new Set([
   "/po-payment-backlog",
 ]);
 
-const PURCHASE_ROLE_KEYS = new Set([
-  "purchase_exicutive",
-  "procurement",
-]);
+const PURCHASE_ROLE_KEYS = new Set(["purchase_exicutive", "procurement"]);
 
 export const roleMatchesNavPrefix = (role, rolePrefix) => {
   const prefix = String(rolePrefix || "").toLowerCase();
   if (!prefix) return true;
   if (prefix === "purchase") return isPurchaseFamilyRole(role);
-  return String(role || "").toLowerCase().startsWith(prefix);
+  return String(role || "")
+    .toLowerCase()
+    .startsWith(prefix);
 };
 
 const isProBucketRoute = (pathname) =>
@@ -140,14 +139,8 @@ const hasExplicitModulePermission = (permissions, module) =>
  * Core visibility check for a single nav item. Role strategy selects which rules apply.
  */
 export const isNavItemVisible = (item, ctx) => {
-  const {
-    role,
-    strategy,
-    isHod,
-    isFullAccess,
-    hasAnyPermission,
-    permissions,
-  } = ctx;
+  const { role, strategy, isHod, isFullAccess, hasAnyPermission, permissions } =
+    ctx;
 
   if (item.to && UNIVERSAL_NAV_PATHS.has(item.to)) {
     return true;
@@ -162,15 +155,11 @@ export const isNavItemVisible = (item, ctx) => {
   }
 
   if (strategy === "dispatch_manager") {
-    return Boolean(
-      item.to && DISPATCH_MANAGER_ALLOWED_PATHS.has(item.to),
-    );
+    return Boolean(item.to && DISPATCH_MANAGER_ALLOWED_PATHS.has(item.to));
   }
 
   if (strategy === "inventory_manager") {
-    return Boolean(
-      item.to && INVENTORY_MANAGER_ALLOWED_PATHS.has(item.to),
-    );
+    return Boolean(item.to && INVENTORY_MANAGER_ALLOWED_PATHS.has(item.to));
   }
 
   if (item.roles?.length && !roleInList(role, item.roles)) {

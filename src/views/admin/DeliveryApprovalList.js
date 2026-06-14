@@ -390,7 +390,9 @@ const DeliveryApprovalList = () => {
                             {statusBadge(serverStatus(row))}
                           </CTableDataCell>
                           <CTableDataCell>
-                            <CBadge color="warning">HOD approval pending</CBadge>
+                            <CBadge color="warning">
+                              HOD approval pending
+                            </CBadge>
                           </CTableDataCell>
                           <CTableDataCell className="text-end text-nowrap">
                             <CButton
@@ -410,7 +412,10 @@ const DeliveryApprovalList = () => {
 
                 {totalPages > 1 && (
                   <div className="d-flex justify-content-center mt-4">
-                    <CPagination align="center" aria-label="Delivery approval pages">
+                    <CPagination
+                      align="center"
+                      aria-label="Delivery approval pages"
+                    >
                       <CPaginationItem
                         disabled={page <= 1}
                         onClick={() => page > 1 && setPage(page - 1)}
@@ -444,7 +449,9 @@ const DeliveryApprovalList = () => {
         scroll
       >
         <COffcanvasHeader className="d-flex align-items-center justify-content-between">
-          <COffcanvasTitle>Sales Order line — delivery approval</COffcanvasTitle>
+          <COffcanvasTitle>
+            Sales Order line — delivery approval
+          </COffcanvasTitle>
           <CCloseButton className="ms-2" onClick={closeDetail} />
         </COffcanvasHeader>
         <COffcanvasBody>

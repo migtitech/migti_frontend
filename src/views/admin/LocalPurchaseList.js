@@ -64,10 +64,7 @@ const formatDateTime = (value) => {
 const formatEmployee = (emp) => {
   if (!emp || typeof emp !== "object") return "—";
   return (
-    emp.email?.trim() ||
-    emp.companyEmail?.trim() ||
-    emp.name?.trim() ||
-    "—"
+    emp.email?.trim() || emp.companyEmail?.trim() || emp.name?.trim() || "—"
   );
 };
 
@@ -197,9 +194,8 @@ const LocalPurchaseList = () => {
       ? activeRow?.remark
       : "") ||
     "";
-  const productImages = (Array.isArray(activeRow?.productImages)
-    ? activeRow.productImages
-    : []
+  const productImages = (
+    Array.isArray(activeRow?.productImages) ? activeRow.productImages : []
   ).map((doc, idx) => ({
     doc,
     url: fileUrl(resolveDocPath(doc)),
@@ -599,7 +595,9 @@ const LocalPurchaseList = () => {
                         </div>
                       )
                     ) : (
-                      <span className="text-body-secondary small">No bill uploaded</span>
+                      <span className="text-body-secondary small">
+                        No bill uploaded
+                      </span>
                     )}
                   </div>
 

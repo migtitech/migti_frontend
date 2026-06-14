@@ -430,7 +430,14 @@ const HodDashboard = () => {
 
   const tableHeaders = {
     quotations: ["S No", "Quotation", "Company", "Amount", "Status", "Date"],
-    purchase_orders: ["S No", "Sales Order Code", "Company", "Amount", "Status", "Date"],
+    purchase_orders: [
+      "S No",
+      "Sales Order Code",
+      "Company",
+      "Amount",
+      "Status",
+      "Date",
+    ],
     pro_bucket: ["S No", "Query", "Product", "Qty", "Rates", "Status", "Date"],
     billing_requests: [
       "S No",

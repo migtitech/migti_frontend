@@ -1272,9 +1272,7 @@ const PoBucketView = () => {
                                 <CTableDataCell style={{ maxWidth: 220 }}>
                                   <CFormSelect
                                     size="sm"
-                                    value={normalizeProductPriority(
-                                      p.priority,
-                                    )}
+                                    value={normalizeProductPriority(p.priority)}
                                     disabled={poClosed}
                                     onChange={(e) =>
                                       updateProductField(
@@ -1346,7 +1344,9 @@ const PoBucketView = () => {
                             <CTableHeaderCell>Product image</CTableHeaderCell>
                             {!isSalesRole ? (
                               <>
-                                <CTableHeaderCell>Payment proof</CTableHeaderCell>
+                                <CTableHeaderCell>
+                                  Payment proof
+                                </CTableHeaderCell>
                                 <CTableHeaderCell>
                                   Receiving proof
                                 </CTableHeaderCell>

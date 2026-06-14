@@ -114,7 +114,11 @@ const QueryProductsList = () => {
     : allCategories;
 
   /* image preview modal */
-  const [imgModal, setImgModal] = useState({ visible: false, images: [], title: "" });
+  const [imgModal, setImgModal] = useState({
+    visible: false,
+    images: [],
+    title: "",
+  });
 
   /* ── debounce search ── */
   useEffect(() => {
@@ -134,20 +138,24 @@ const QueryProductsList = () => {
           groupService.getAll({ pageSize: 100 }),
           categoryService.getAllCategories(),
         ]);
-        setGroups(sortAlphabetically(
-          Array.isArray(grpRes?.data?.groups)
-            ? grpRes.data.groups
-            : Array.isArray(grpRes?.data)
-            ? grpRes.data
-            : [],
-        ));
-        setAllCategories(sortAlphabetically(
-          Array.isArray(catRes?.data?.categories)
-            ? catRes.data.categories
-            : Array.isArray(catRes?.data)
-            ? catRes.data
-            : [],
-        ));
+        setGroups(
+          sortAlphabetically(
+            Array.isArray(grpRes?.data?.groups)
+              ? grpRes.data.groups
+              : Array.isArray(grpRes?.data)
+                ? grpRes.data
+                : [],
+          ),
+        );
+        setAllCategories(
+          sortAlphabetically(
+            Array.isArray(catRes?.data?.categories)
+              ? catRes.data.categories
+              : Array.isArray(catRes?.data)
+                ? catRes.data
+                : [],
+          ),
+        );
       } catch {
         /* non-critical */
       }
@@ -179,7 +187,14 @@ const QueryProductsList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, searchDebounced, filterStatus, filterGroupId, filterCategoryId]);
+  }, [
+    page,
+    pageSize,
+    searchDebounced,
+    filterStatus,
+    filterGroupId,
+    filterCategoryId,
+  ]);
 
   useEffect(() => {
     fetchData();
@@ -294,8 +309,18 @@ const QueryProductsList = () => {
                   </CFormSelect>
                 </CCol>
 
-                <CCol xs={6} sm={4} md={2} lg={1} className="d-flex align-items-end">
-                  <CButton color="secondary" variant="outline" onClick={handleClear}>
+                <CCol
+                  xs={6}
+                  sm={4}
+                  md={2}
+                  lg={1}
+                  className="d-flex align-items-end"
+                >
+                  <CButton
+                    color="secondary"
+                    variant="outline"
+                    onClick={handleClear}
+                  >
                     Clear
                   </CButton>
                 </CCol>
@@ -310,15 +335,33 @@ const QueryProductsList = () => {
                     <CTable hover bordered className="mb-0" align="middle">
                       <CTableHead color="light">
                         <CTableRow>
-                          <CTableHeaderCell style={{ width: 50 }}>S.No</CTableHeaderCell>
-                          <CTableHeaderCell style={{ minWidth: 190 }}>Product Name</CTableHeaderCell>
-                          <CTableHeaderCell style={{ minWidth: 120 }}>Query Code</CTableHeaderCell>
-                          <CTableHeaderCell style={{ width: 70 }}>Unit</CTableHeaderCell>
-                          <CTableHeaderCell style={{ width: 70 }}>Qty</CTableHeaderCell>
-                          <CTableHeaderCell style={{ width: 110 }}>Images</CTableHeaderCell>
-                          <CTableHeaderCell style={{ minWidth: 160 }}>Group / Category</CTableHeaderCell>
-                          <CTableHeaderCell style={{ width: 130 }}>Status</CTableHeaderCell>
-                          <CTableHeaderCell style={{ width: 60 }}>Action</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 50 }}>
+                            S.No
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 190 }}>
+                            Product Name
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 120 }}>
+                            Query Code
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 70 }}>
+                            Unit
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 70 }}>
+                            Qty
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 110 }}>
+                            Images
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 160 }}>
+                            Group / Category
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 130 }}>
+                            Status
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 60 }}>
+                            Action
+                          </CTableHeaderCell>
                         </CTableRow>
                       </CTableHead>
 
@@ -339,11 +382,15 @@ const QueryProductsList = () => {
                                 ? row.groupId
                                 : null;
                             const category =
-                              row.categoryId && typeof row.categoryId === "object"
+                              row.categoryId &&
+                              typeof row.categoryId === "object"
                                 ? row.categoryId
                                 : null;
-                            const images = Array.isArray(row.images) ? row.images : [];
-                            const firstImgUrl = images.length > 0 ? resolveUrl(images[0]) : null;
+                            const images = Array.isArray(row.images)
+                              ? row.images
+                              : [];
+                            const firstImgUrl =
+                              images.length > 0 ? resolveUrl(images[0]) : null;
 
                             return (
                               <CTableRow key={row._id || row.id}>
@@ -354,7 +401,9 @@ const QueryProductsList = () => {
 
                                 {/* Product Name */}
                                 <CTableDataCell>
-                                  <div className="fw-semibold">{row.productName || "—"}</div>
+                                  <div className="fw-semibold">
+                                    {row.productName || "—"}
+                                  </div>
                                   {row.rawProductCode && (
                                     <div className="small font-monospace text-body-secondary">
                                       {row.rawProductCode}
@@ -362,7 +411,10 @@ const QueryProductsList = () => {
                                   )}
                                   {row.hsnNumber && (
                                     <div className="small text-body-secondary">
-                                      HSN: <span className="fw-medium">{row.hsnNumber}</span>
+                                      HSN:{" "}
+                                      <span className="fw-medium">
+                                        {row.hsnNumber}
+                                      </span>
                                     </div>
                                   )}
                                 </CTableDataCell>
@@ -410,15 +462,22 @@ const QueryProductsList = () => {
                                             borderRadius: 6,
                                             border: "1px solid #dee2e6",
                                           }}
-                                          onError={(e) => { e.target.style.display = "none"; }}
+                                          onError={(e) => {
+                                            e.target.style.display = "none";
+                                          }}
                                         />
                                       )}
-                                      <CBadge color="secondary" style={{ fontSize: "0.68rem" }}>
+                                      <CBadge
+                                        color="secondary"
+                                        style={{ fontSize: "0.68rem" }}
+                                      >
                                         {images.length} img
                                       </CBadge>
                                     </div>
                                   ) : (
-                                    <span className="text-body-secondary small">—</span>
+                                    <span className="text-body-secondary small">
+                                      —
+                                    </span>
                                   )}
                                 </CTableDataCell>
 
@@ -426,24 +485,36 @@ const QueryProductsList = () => {
                                 <CTableDataCell>
                                   <div className="d-flex flex-column gap-1">
                                     {group ? (
-                                      <CBadge color="primary" style={{ fontWeight: 500 }}>
+                                      <CBadge
+                                        color="primary"
+                                        style={{ fontWeight: 500 }}
+                                      >
                                         {group.name}
                                       </CBadge>
                                     ) : (
-                                      <span className="small text-body-secondary">No group</span>
+                                      <span className="small text-body-secondary">
+                                        No group
+                                      </span>
                                     )}
                                     {category ? (
-                                      <CBadge color="info" style={{ fontWeight: 500 }}>
+                                      <CBadge
+                                        color="info"
+                                        style={{ fontWeight: 500 }}
+                                      >
                                         {category.name}
                                       </CBadge>
                                     ) : (
-                                      <span className="small text-body-secondary">No category</span>
+                                      <span className="small text-body-secondary">
+                                        No category
+                                      </span>
                                     )}
                                   </div>
                                 </CTableDataCell>
 
                                 {/* Status */}
-                                <CTableDataCell>{statusBadge(row.status)}</CTableDataCell>
+                                <CTableDataCell>
+                                  {statusBadge(row.status)}
+                                </CTableDataCell>
 
                                 {/* Action */}
                                 <CTableDataCell className="text-center">
@@ -452,7 +523,9 @@ const QueryProductsList = () => {
                                     variant="ghost"
                                     size="sm"
                                     onClick={() =>
-                                      navigate(`/query-products/${row._id || row.id}`)
+                                      navigate(
+                                        `/query-products/${row._id || row.id}`,
+                                      )
                                     }
                                     title="View / Edit"
                                   >
@@ -474,28 +547,42 @@ const QueryProductsList = () => {
                         Showing {Math.min((page - 1) * pageSize + 1, total)}–
                         {Math.min(page * pageSize, total)} of {total}
                       </span>
-                      <CPagination align="center" className="mb-0" aria-label="Query Products pages">
+                      <CPagination
+                        align="center"
+                        className="mb-0"
+                        aria-label="Query Products pages"
+                      >
                         <CPaginationItem
                           disabled={page <= 1}
                           onClick={() => setPage((p) => Math.max(1, p - 1))}
                         >
                           Previous
                         </CPaginationItem>
-                        {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
-                          let p;
-                          if (totalPages <= 7) p = i + 1;
-                          else if (page <= 4) p = i + 1;
-                          else if (page >= totalPages - 3) p = totalPages - 6 + i;
-                          else p = page - 3 + i;
-                          return (
-                            <CPaginationItem key={p} active={p === page} onClick={() => setPage(p)}>
-                              {p}
-                            </CPaginationItem>
-                          );
-                        })}
+                        {Array.from(
+                          { length: Math.min(totalPages, 7) },
+                          (_, i) => {
+                            let p;
+                            if (totalPages <= 7) p = i + 1;
+                            else if (page <= 4) p = i + 1;
+                            else if (page >= totalPages - 3)
+                              p = totalPages - 6 + i;
+                            else p = page - 3 + i;
+                            return (
+                              <CPaginationItem
+                                key={p}
+                                active={p === page}
+                                onClick={() => setPage(p)}
+                              >
+                                {p}
+                              </CPaginationItem>
+                            );
+                          },
+                        )}
                         <CPaginationItem
                           disabled={page >= totalPages}
-                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          onClick={() =>
+                            setPage((p) => Math.min(totalPages, p + 1))
+                          }
                         >
                           Next
                         </CPaginationItem>
@@ -530,14 +617,25 @@ const QueryProductsList = () => {
                   ? img.name || `Image ${i + 1}`
                   : `Image ${i + 1}`;
               return (
-                <div key={i} className="border rounded overflow-hidden shadow-sm" style={{ width: 160 }}>
+                <div
+                  key={i}
+                  className="border rounded overflow-hidden shadow-sm"
+                  style={{ width: 160 }}
+                >
                   {url ? (
                     <a href={url} target="_blank" rel="noopener noreferrer">
                       <img
                         src={url}
                         alt={name}
-                        style={{ width: "100%", height: 140, objectFit: "cover", display: "block" }}
-                        onError={(e) => { e.target.style.display = "none"; }}
+                        style={{
+                          width: "100%",
+                          height: 140,
+                          objectFit: "cover",
+                          display: "block",
+                        }}
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                        }}
                       />
                     </a>
                   ) : (
@@ -548,7 +646,10 @@ const QueryProductsList = () => {
                       No preview
                     </div>
                   )}
-                  <div className="px-2 py-1 small text-truncate border-top bg-white" title={name}>
+                  <div
+                    className="px-2 py-1 small text-truncate border-top bg-white"
+                    title={name}
+                  >
                     {name}
                   </div>
                 </div>

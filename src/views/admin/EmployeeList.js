@@ -82,7 +82,8 @@ const EmployeeList = () => {
         employeeService.getAll(params),
       );
       const payload = response?.data ?? response;
-      const list = payload?.employees || (Array.isArray(payload) ? payload : []);
+      const list =
+        payload?.employees || (Array.isArray(payload) ? payload : []);
       const pag = payload?.pagination || {};
       setPagination(pag);
       setEmployees(list.map(normalizeId));

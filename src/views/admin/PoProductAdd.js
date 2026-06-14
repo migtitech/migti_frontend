@@ -77,26 +77,29 @@ const PoProductAdd = () => {
     doSearch(code);
   };
 
-  const doSearch = useCallback(async (code) => {
-    const term = (code ?? poCode).trim();
-    if (!term) return;
-    setLoading(true);
-    setSearched(false);
-    setSearchedCode(term);
-    try {
-      const res = await poProductsBucketService.list({
-        search: term,
-        deliverySubStatus: "all",
-        pageSize: 100,
-      });
-      setProducts(parseListResponse(res));
-      setSearched(true);
-    } catch (e) {
-      toastError(e?.message || "Failed to fetch products");
-    } finally {
-      setLoading(false);
-    }
-  }, [poCode]);
+  const doSearch = useCallback(
+    async (code) => {
+      const term = (code ?? poCode).trim();
+      if (!term) return;
+      setLoading(true);
+      setSearched(false);
+      setSearchedCode(term);
+      try {
+        const res = await poProductsBucketService.list({
+          search: term,
+          deliverySubStatus: "all",
+          pageSize: 100,
+        });
+        setProducts(parseListResponse(res));
+        setSearched(true);
+      } catch (e) {
+        toastError(e?.message || "Failed to fetch products");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [poCode],
+  );
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -110,7 +113,11 @@ const PoProductAdd = () => {
     <CRow>
       <CCol xs={12}>
         <div className="d-flex align-items-center gap-2 mb-3">
-          <CButton color="secondary" variant="ghost" onClick={() => navigate("/po-products")}>
+          <CButton
+            color="secondary"
+            variant="ghost"
+            onClick={() => navigate("/po-products")}
+          >
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back
           </CButton>
@@ -118,7 +125,9 @@ const PoProductAdd = () => {
         </div>
 
         <CCard className="mb-4">
-          <CCardHeader><strong>Search by Sales Order Code</strong></CCardHeader>
+          <CCardHeader>
+            <strong>Search by Sales Order Code</strong>
+          </CCardHeader>
           <CCardBody>
             <CRow className="g-3 align-items-end">
               <CCol xs={12} md={5}>
@@ -129,7 +138,9 @@ const PoProductAdd = () => {
                     value={poCode}
                     onChange={(e) => setPoCode(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    onFocus={() =>
+                      suggestions.length > 0 && setShowSuggestions(true)
+                    }
                     autoFocus
                     autoComplete="off"
                   />
@@ -155,8 +166,12 @@ const PoProductAdd = () => {
                           onMouseDown={() => handleSelectSuggestion(s)}
                           className="px-3 py-2 font-monospace small"
                           style={{ cursor: "pointer" }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#f0f4ff")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "")}
+                          onMouseEnter={(e) =>
+                            (e.currentTarget.style.background = "#f0f4ff")
+                          }
+                          onMouseLeave={(e) =>
+                            (e.currentTarget.style.background = "")
+                          }
                         >
                           {s}
                         </li>
@@ -169,7 +184,10 @@ const PoProductAdd = () => {
               <CCol xs="auto">
                 <CButton
                   color="primary"
-                  onClick={() => { setShowSuggestions(false); doSearch(); }}
+                  onClick={() => {
+                    setShowSuggestions(false);
+                    doSearch();
+                  }}
                   disabled={loading || !poCode.trim()}
                 >
                   {loading ? (
@@ -193,24 +211,36 @@ const PoProductAdd = () => {
             ) : (
               <>
                 <p className="text-body-secondary small mb-3">
-                  {products.length} product{products.length !== 1 ? "s" : ""} found for{" "}
-                  <strong>{searchedCode}</strong> — click one to add it.
+                  {products.length} product{products.length !== 1 ? "s" : ""}{" "}
+                  found for <strong>{searchedCode}</strong> — click one to add
+                  it.
                 </p>
                 <CRow className="g-3">
                   {products.map((p) => (
                     <CCol key={p._id} xs={12} sm={6} md={4} lg={3}>
                       <div
-                        onClick={() => navigate("/po-products/create", { state: { product: p } })}
+                        onClick={() =>
+                          navigate("/po-products/create", {
+                            state: { product: p },
+                          })
+                        }
                         className="border rounded p-3 h-100 d-flex flex-column gap-1"
-                        style={{ cursor: "pointer", transition: "box-shadow 0.15s" }}
+                        style={{
+                          cursor: "pointer",
+                          transition: "box-shadow 0.15s",
+                        }}
                         onMouseEnter={(e) =>
-                          (e.currentTarget.style.boxShadow = "0 0 0 2px #0d6efd")
+                          (e.currentTarget.style.boxShadow =
+                            "0 0 0 2px #0d6efd")
                         }
                         onMouseLeave={(e) =>
                           (e.currentTarget.style.boxShadow = "none")
                         }
                       >
-                        <div className="fw-semibold text-truncate" title={p.productName}>
+                        <div
+                          className="fw-semibold text-truncate"
+                          title={p.productName}
+                        >
                           {p.productName || "—"}
                         </div>
                         {p.rawProductCode && (

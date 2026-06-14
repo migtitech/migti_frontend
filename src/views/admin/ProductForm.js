@@ -96,8 +96,10 @@ const formatApiValidationErrors = (err) => {
     messages.push(...raw.map((item) => String(item)));
   } else if (raw && typeof raw === "object") {
     Object.values(raw).forEach((value) => {
-      if (Array.isArray(value)) messages.push(...value.map((item) => String(item)));
-      else if (value != null && String(value).trim()) messages.push(String(value));
+      if (Array.isArray(value))
+        messages.push(...value.map((item) => String(item)));
+      else if (value != null && String(value).trim())
+        messages.push(String(value));
     });
   } else if (typeof raw === "string" && raw.trim()) {
     messages.push(raw);
@@ -690,9 +692,8 @@ const ProductForm = () => {
     setSuccess("");
 
     try {
-      const companyCodeErrors = await validateCompanyProductCodeRows(
-        companyProductCodes,
-      );
+      const companyCodeErrors =
+        await validateCompanyProductCodeRows(companyProductCodes);
       if (companyCodeErrors.length > 0) {
         showValidationAlert(companyCodeErrors);
         setSubmitting(false);
@@ -1604,7 +1605,10 @@ const ProductForm = () => {
                                 <CIcon icon={cilPlus} />
                                 <span
                                   className="text-center mt-1"
-                                  style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+                                  style={{
+                                    fontSize: "0.65rem",
+                                    lineHeight: 1.2,
+                                  }}
                                 >
                                   Upload
                                 </span>
@@ -1891,9 +1895,7 @@ const ProductForm = () => {
                             key={indId}
                             className="px-2 py-1 small"
                             style={{ cursor: "pointer" }}
-                            onClick={() =>
-                              selectCompanyForRow(index, industry)
-                            }
+                            onClick={() => selectCompanyForRow(index, industry)}
                           >
                             {industry.name}
                           </div>

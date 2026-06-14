@@ -139,8 +139,7 @@ const PurchaseDashboard = () => {
             </CCardHeader>
             <CCardBody className="d-flex flex-column">
               <p className="text-body-secondary flex-grow-1 mb-3">
-                Track and manage follow-ups on queries, quotations, and
-                orders.
+                Track and manage follow-ups on queries, quotations, and orders.
               </p>
               <CButton
                 color="info"

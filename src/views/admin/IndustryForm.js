@@ -584,7 +584,9 @@ const IndustryForm = () => {
                             )}
                           </CCol>
                           <CCol md={3}>
-                            <CFormLabel className="small">Department</CFormLabel>
+                            <CFormLabel className="small">
+                              Department
+                            </CFormLabel>
                             <CFormInput
                               {...register(
                                 `purchaseManagers.${index}.department`,

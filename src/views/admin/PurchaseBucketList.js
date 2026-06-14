@@ -38,28 +38,81 @@ const queryCodeLast4 = (code) => {
 };
 
 const STATUS_CONFIG = {
-  open:                     { label: "Open",                  color: "#2563eb", bg: "#eff6ff", dot: "#2563eb" },
-  pending:                  { label: "Open",                  color: "#2563eb", bg: "#eff6ff", dot: "#2563eb" },
-  hod_approval_pending:     { label: "HOD Pending",           color: "#d97706", bg: "#fffbeb", dot: "#f59e0b" },
-  payment_request_raised:   { label: "Payment Requested",     color: "#0891b2", bg: "#ecfeff", dot: "#06b6d4" },
-  finance_approved:         { label: "Finance Approved",      color: "#7c3aed", bg: "#f5f3ff", dot: "#8b5cf6" },
-  billing_request_rejected: { label: "Rejected",              color: "#dc2626", bg: "#fef2f2", dot: "#ef4444" },
-  purchased:                { label: "Purchased",             color: "#16a34a", bg: "#f0fdf4", dot: "#22c55e" },
-  inventory_received:       { label: "Inventory Received",    color: "#0369a1", bg: "#e0f2fe", dot: "#0ea5e9" },
-  ready_for_dispatchment:   { label: "Ready to Dispatch",     color: "#15803d", bg: "#dcfce7", dot: "#22c55e" },
-  delivered:                { label: "Delivered",             color: "#15803d", bg: "#f0fdf4", dot: "#22c55e" },
-  po_closed:                { label: "Sales Order Closed",             color: "#64748b", bg: "#f1f5f9", dot: "#94a3b8" },
+  open: { label: "Open", color: "#2563eb", bg: "#eff6ff", dot: "#2563eb" },
+  pending: { label: "Open", color: "#2563eb", bg: "#eff6ff", dot: "#2563eb" },
+  hod_approval_pending: {
+    label: "HOD Pending",
+    color: "#d97706",
+    bg: "#fffbeb",
+    dot: "#f59e0b",
+  },
+  payment_request_raised: {
+    label: "Payment Requested",
+    color: "#0891b2",
+    bg: "#ecfeff",
+    dot: "#06b6d4",
+  },
+  finance_approved: {
+    label: "Finance Approved",
+    color: "#7c3aed",
+    bg: "#f5f3ff",
+    dot: "#8b5cf6",
+  },
+  billing_request_rejected: {
+    label: "Rejected",
+    color: "#dc2626",
+    bg: "#fef2f2",
+    dot: "#ef4444",
+  },
+  purchased: {
+    label: "Purchased",
+    color: "#16a34a",
+    bg: "#f0fdf4",
+    dot: "#22c55e",
+  },
+  inventory_received: {
+    label: "Inventory Received",
+    color: "#0369a1",
+    bg: "#e0f2fe",
+    dot: "#0ea5e9",
+  },
+  ready_for_dispatchment: {
+    label: "Ready to Dispatch",
+    color: "#15803d",
+    bg: "#dcfce7",
+    dot: "#22c55e",
+  },
+  delivered: {
+    label: "Delivered",
+    color: "#15803d",
+    bg: "#f0fdf4",
+    dot: "#22c55e",
+  },
+  po_closed: {
+    label: "Sales Order Closed",
+    color: "#64748b",
+    bg: "#f1f5f9",
+    dot: "#94a3b8",
+  },
 };
 
 const PRIORITY_CONFIG = {
-  high:   { label: "High",   color: "#dc2626", bg: "#fef2f2", dot: "#ef4444" },
+  high: { label: "High", color: "#dc2626", bg: "#fef2f2", dot: "#ef4444" },
   medium: { label: "Medium", color: "#d97706", bg: "#fffbeb", dot: "#f59e0b" },
-  low:    { label: "Low",    color: "#16a34a", bg: "#f0fdf4", dot: "#22c55e" },
+  low: { label: "Low", color: "#16a34a", bg: "#f0fdf4", dot: "#22c55e" },
 };
 
 const StatusPill = ({ status }) => {
-  const raw = status != null && String(status).trim() !== "" ? String(status).trim() : "pending";
-  const cfg = STATUS_CONFIG[raw] || { label: raw, color: "#64748b", bg: "#f1f5f9", dot: "#94a3b8" };
+  const raw =
+    status != null && String(status).trim() !== ""
+      ? String(status).trim()
+      : "pending";
+  const cfg = STATUS_CONFIG[raw] || {
+    label: raw,
+    color: "#64748b",
+    bg: "#f1f5f9",
+    dot: "#94a3b8",
+  };
   return (
     <span
       style={{
@@ -95,13 +148,12 @@ const PriorityPill = ({ priority }) => {
     priority != null && String(priority).trim() !== ""
       ? String(priority).trim().toLowerCase()
       : "medium";
-  const cfg =
-    PRIORITY_CONFIG[raw] || {
-      label: raw.charAt(0).toUpperCase() + raw.slice(1),
-      color: "#64748b",
-      bg: "#f1f5f9",
-      dot: "#94a3b8",
-    };
+  const cfg = PRIORITY_CONFIG[raw] || {
+    label: raw.charAt(0).toUpperCase() + raw.slice(1),
+    color: "#64748b",
+    bg: "#f1f5f9",
+    dot: "#94a3b8",
+  };
   return (
     <span
       style={{
@@ -144,7 +196,8 @@ const STATUS_OPTIONS = [
 
 const parseListResponse = (res) => {
   const block = res?.data;
-  if (!block || typeof block !== "object") return { list: [], total: 0, pendingCount: 0 };
+  if (!block || typeof block !== "object")
+    return { list: [], total: 0, pendingCount: 0 };
   return {
     list: Array.isArray(block.data) ? block.data : [],
     total: block.total ?? 0,
@@ -171,7 +224,9 @@ const PurchaseBucketList = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [searchDebounced, status]);
+  useEffect(() => {
+    setPage(1);
+  }, [searchDebounced, status]);
 
   const load = async () => {
     setLoading(true);
@@ -197,7 +252,9 @@ const PurchaseBucketList = () => {
     }
   };
 
-  useEffect(() => { load(); }, [page, pageSize, searchDebounced, status]);
+  useEffect(() => {
+    load();
+  }, [page, pageSize, searchDebounced, status]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
@@ -212,13 +269,19 @@ const PurchaseBucketList = () => {
       {/* Page header */}
       <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
         <div>
-          <h5 className="mb-0 fw-bold d-flex align-items-center gap-2" style={{ color: "#1e293b" }}>
+          <h5
+            className="mb-0 fw-bold d-flex align-items-center gap-2"
+            style={{ color: "#1e293b" }}
+          >
             <CIcon icon={cilBasket} style={{ color: "#2563eb" }} />
             Purchase Bucket
           </h5>
           {pendingCount > 0 && !loading && (
             <div className="mt-1" style={{ fontSize: 13, color: "#64748b" }}>
-              <span style={{ fontWeight: 600, color: "#2563eb" }}>{pendingCount}</span> open items
+              <span style={{ fontWeight: 600, color: "#2563eb" }}>
+                {pendingCount}
+              </span>{" "}
+              open items
             </div>
           )}
         </div>
@@ -270,7 +333,9 @@ const PurchaseBucketList = () => {
           style={{ flex: "0 0 170px", borderRadius: 7, fontSize: 13 }}
         >
           {STATUS_OPTIONS.map((o) => (
-            <option key={o.value || "all"} value={o.value}>{o.label}</option>
+            <option key={o.value || "all"} value={o.value}>
+              {o.label}
+            </option>
           ))}
         </CFormSelect>
         {(search || status) && (
@@ -278,7 +343,10 @@ const PurchaseBucketList = () => {
             size="sm"
             color="secondary"
             variant="ghost"
-            onClick={() => { setSearch(""); setStatus(""); }}
+            onClick={() => {
+              setSearch("");
+              setStatus("");
+            }}
             style={{ fontSize: 12, borderRadius: 7 }}
           >
             Clear
@@ -295,11 +363,25 @@ const PurchaseBucketList = () => {
       ) : rows.length === 0 ? (
         <div
           className="text-center py-5 rounded-3"
-          style={{ background: "#f8fafc", border: "1px dashed #cbd5e1", color: "#94a3b8" }}
+          style={{
+            background: "#f8fafc",
+            border: "1px dashed #cbd5e1",
+            color: "#94a3b8",
+          }}
         >
-          <CIcon icon={cilBasket} style={{ fontSize: 32, marginBottom: 8, display: "block", margin: "0 auto 8px" }} />
+          <CIcon
+            icon={cilBasket}
+            style={{
+              fontSize: 32,
+              marginBottom: 8,
+              display: "block",
+              margin: "0 auto 8px",
+            }}
+          />
           <div style={{ fontWeight: 600, fontSize: 14 }}>No items found</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>Try changing filters or search</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>
+            Try changing filters or search
+          </div>
         </div>
       ) : (
         <>
@@ -317,7 +399,10 @@ const PurchaseBucketList = () => {
                     role="button"
                     tabIndex={0}
                     onClick={() => navigate(`/purchase-bucket/${row._id}`)}
-                    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && navigate(`/purchase-bucket/${row._id}`)}
+                    onKeyDown={(e) =>
+                      (e.key === "Enter" || e.key === " ") &&
+                      navigate(`/purchase-bucket/${row._id}`)
+                    }
                     style={{
                       background: "#fff",
                       border: "1.5px solid #e2e8f0",
@@ -331,7 +416,8 @@ const PurchaseBucketList = () => {
                       height: "100%",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow = "0 4px 16px rgba(37,99,235,0.10)";
+                      e.currentTarget.style.boxShadow =
+                        "0 4px 16px rgba(37,99,235,0.10)";
                       e.currentTarget.style.borderColor = "#93c5fd";
                     }}
                     onMouseLeave={(e) => {
@@ -341,10 +427,27 @@ const PurchaseBucketList = () => {
                   >
                     {/* Top: product name + arrow */}
                     <div className="d-flex align-items-start justify-content-between gap-2">
-                      <div style={{ fontWeight: 700, fontSize: 14, color: "#1e293b", lineHeight: 1.3, flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 14,
+                          color: "#1e293b",
+                          lineHeight: 1.3,
+                          flex: 1,
+                          minWidth: 0,
+                        }}
+                      >
                         {fmt(row.productName)}
                       </div>
-                      <CIcon icon={cilArrowRight} style={{ color: "#cbd5e1", fontSize: 14, flexShrink: 0, marginTop: 2 }} />
+                      <CIcon
+                        icon={cilArrowRight}
+                        style={{
+                          color: "#cbd5e1",
+                          fontSize: 14,
+                          flexShrink: 0,
+                          marginTop: 2,
+                        }}
+                      />
                     </div>
 
                     {/* Query code (last 4 digits) */}
@@ -369,8 +472,18 @@ const PurchaseBucketList = () => {
                     {/* Meta chips */}
                     <div className="d-flex flex-wrap gap-2 align-items-center">
                       {row.quantity != null && (
-                        <span style={{ fontSize: 12, color: "#475569", fontWeight: 500 }}>
-                          Qty: <strong>{row.quantity}{row.unit ? ` ${row.unit}` : ""}</strong>
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: "#475569",
+                            fontWeight: 500,
+                          }}
+                        >
+                          Qty:{" "}
+                          <strong>
+                            {row.quantity}
+                            {row.unit ? ` ${row.unit}` : ""}
+                          </strong>
                         </span>
                       )}
                       {dispDate && (

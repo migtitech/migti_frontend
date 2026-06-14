@@ -166,7 +166,8 @@ const QUOTATION_ROW_RATE_HIGHLIGHT_BG = "#e0f2fe";
 
 const getSubmittedOrFulfilledRateRowBg = (quotation) => {
   if (!quotationHasQueryId(quotation)) return null;
-  const rated = Number(quotation.queryProductRateSubmittedOrFulfilledCount) || 0;
+  const rated =
+    Number(quotation.queryProductRateSubmittedOrFulfilledCount) || 0;
   if (rated > 1) return QUOTATION_ROW_RATE_HIGHLIGHT_BG;
   return null;
 };
@@ -380,7 +381,9 @@ const QuotationList = () => {
         dateTo: dateTo.trim() || undefined,
       };
       if (isSalesRole) {
-        const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+        const storedUser = JSON.parse(
+          localStorage.getItem("migticrm_user") || "{}",
+        );
         const userZoneIds = storedUser?.zoneIds;
         if (Array.isArray(userZoneIds) && userZoneIds.length) {
           params.zoneIds = userZoneIds.join(",");
@@ -388,9 +391,7 @@ const QuotationList = () => {
           params.zoneIds = userZoneIds;
         }
       }
-      const res = await withMinimumDelay(() =>
-        quotationService.getAll(params),
-      );
+      const res = await withMinimumDelay(() => quotationService.getAll(params));
       const data = res?.data || res;
       const result = data?.data ?? data;
       if (latestFetchIdRef.current !== fetchId) return;
@@ -522,26 +523,28 @@ const QuotationList = () => {
                   </CFormSelect>
                 </div>
               </CCol>
-              {!isSalesRole && <CCol xs={12} sm={6} md={6} lg={2}>
-                <CFormLabel className="mb-1 small text-body-secondary">
-                  Zones
-                </CFormLabel>
-                <CFormSelect
-                  value={selectedAreaId}
-                  onChange={(e) => setSelectedAreaId(e.target.value)}
-                >
-                  <option value="">All Zones</option>
-                  {areas.map((a) => {
-                    const id = String(a._id || a.id);
-                    return (
-                      <option key={id} value={id}>
-                        {a.name}
-                        {a.city ? ` - ${a.city}` : ""}
-                      </option>
-                    );
-                  })}
-                </CFormSelect>
-              </CCol>}
+              {!isSalesRole && (
+                <CCol xs={12} sm={6} md={6} lg={2}>
+                  <CFormLabel className="mb-1 small text-body-secondary">
+                    Zones
+                  </CFormLabel>
+                  <CFormSelect
+                    value={selectedAreaId}
+                    onChange={(e) => setSelectedAreaId(e.target.value)}
+                  >
+                    <option value="">All Zones</option>
+                    {areas.map((a) => {
+                      const id = String(a._id || a.id);
+                      return (
+                        <option key={id} value={id}>
+                          {a.name}
+                          {a.city ? ` - ${a.city}` : ""}
+                        </option>
+                      );
+                    })}
+                  </CFormSelect>
+                </CCol>
+              )}
               <CCol
                 xs={12}
                 sm={6}
@@ -768,7 +771,9 @@ const QuotationList = () => {
                             )}
                           </CTableDataCell>
                           <CTableDataCell>
-                            <small>{formatQuotationItemsLabel(quotation)}</small>
+                            <small>
+                              {formatQuotationItemsLabel(quotation)}
+                            </small>
                           </CTableDataCell>
                           <CTableDataCell>
                             <small>

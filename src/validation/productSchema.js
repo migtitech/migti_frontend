@@ -56,11 +56,7 @@ export const variantCombinationSchema = yup.object({
     .optional()
     .default("g"),
   dimensions: variantDimensionsSchema.optional(),
-  dimensionUnit: yup
-    .string()
-    .oneOf(["cm", "in", "m"])
-    .optional()
-    .default("cm"),
+  dimensionUnit: yup.string().oneOf(["cm", "in", "m"]).optional().default("cm"),
   images: yup
     .array()
     .of(yup.string().matches(OBJECT_ID_PATTERN))
@@ -128,7 +124,10 @@ export const createProductPayloadSchema = yup.object({
     .trim()
     .required('"name" is required')
     .min(2, '"name" length must be at least 2 characters long')
-    .max(200, '"name" length must be less than or equal to 200 characters long'),
+    .max(
+      200,
+      '"name" length must be less than or equal to 200 characters long',
+    ),
   description: yup.string().optional().default(""),
   shortDescription: yup.string().optional().default(""),
   sku: yup
@@ -163,7 +162,10 @@ export const createProductPayloadSchema = yup.object({
   weight: optionalNumber("weight"),
   weightUnit: yup
     .string()
-    .oneOf(["g", "kg", "lb", "oz"], '"weightUnit" must be one of [g, kg, lb, oz]')
+    .oneOf(
+      ["g", "kg", "lb", "oz"],
+      '"weightUnit" must be one of [g, kg, lb, oz]',
+    )
     .optional()
     .default("g"),
   dimensions: dimensionsSchema.optional(),
@@ -203,7 +205,10 @@ export const productFormSchema = yup.object({
     .trim()
     .required('"name" is required')
     .min(2, '"name" length must be at least 2 characters long')
-    .max(200, '"name" length must be less than or equal to 200 characters long'),
+    .max(
+      200,
+      '"name" length must be less than or equal to 200 characters long',
+    ),
   sku: yup
     .string()
     .trim()
@@ -230,7 +235,10 @@ export const productFormSchema = yup.object({
   hsnNumber: yup
     .string()
     .trim()
-    .max(50, '"hsnNumber" length must be less than or equal to 50 characters long')
+    .max(
+      50,
+      '"hsnNumber" length must be less than or equal to 50 characters long',
+    )
     .optional()
     .default(""),
   gstPercentage: yup
@@ -259,7 +267,10 @@ export const productFormSchema = yup.object({
     .optional(),
   weightUnit: yup
     .string()
-    .oneOf(["g", "kg", "lb", "oz"], '"weightUnit" must be one of [g, kg, lb, oz]')
+    .oneOf(
+      ["g", "kg", "lb", "oz"],
+      '"weightUnit" must be one of [g, kg, lb, oz]',
+    )
     .optional()
     .default("g"),
   dimensions: yup.object({

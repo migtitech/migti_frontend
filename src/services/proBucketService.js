@@ -64,7 +64,9 @@ const proBucketService = {
     return response;
   },
   listHodRateHistories: async (id, params = {}) => {
-    const response = await api.get(PRO_BUCKET.HOD_RATE_HISTORIES(id), { params });
+    const response = await api.get(PRO_BUCKET.HOD_RATE_HISTORIES(id), {
+      params,
+    });
     return response;
   },
 };

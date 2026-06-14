@@ -44,7 +44,9 @@ const unwrap = (res) => {
 const PoPaymentBacklog = () => {
   const { user } = useAuth();
   const isAdmin = FULL_ACCESS_ROLES.includes(
-    String(user?.role || "").trim().toLowerCase()
+    String(user?.role || "")
+      .trim()
+      .toLowerCase(),
   );
 
   const [items, setItems] = useState([]);
@@ -79,9 +81,7 @@ const PoPaymentBacklog = () => {
         const payload = unwrap(res);
         const data = payload?.data || payload;
         setItems(data?.items || []);
-        setSummary(
-          data?.summary || { totalCount: 0, totalAmount: 0 }
-        );
+        setSummary(data?.summary || { totalCount: 0, totalAmount: 0 });
       } catch (err) {
         toastError(err?.message || "Failed to load payment backlog");
         setItems([]);
@@ -89,7 +89,7 @@ const PoPaymentBacklog = () => {
         setLoading(false);
       }
     },
-    [isAdmin, user]
+    [isAdmin, user],
   );
 
   useEffect(() => {
@@ -176,11 +176,7 @@ const PoPaymentBacklog = () => {
                       Total Sales Order Payments Pending
                     </div>
                     <div className="fs-4 fw-bold">
-                      {loading ? (
-                        <CSpinner size="sm" />
-                      ) : (
-                        summary.totalCount
-                      )}
+                      {loading ? <CSpinner size="sm" /> : summary.totalCount}
                     </div>
                   </div>
                 </CCardBody>
@@ -220,7 +216,11 @@ const PoPaymentBacklog = () => {
           ) : items.length === 0 ? (
             <CCard className="border-0 shadow-sm">
               <CCardBody className="text-center py-5 text-body-secondary">
-                <CIcon icon={cilCheck} size="xl" className="mb-3 text-success" />
+                <CIcon
+                  icon={cilCheck}
+                  size="xl"
+                  className="mb-3 text-success"
+                />
                 <div className="fs-5 fw-semibold mb-1">All caught up!</div>
                 <div className="small">No pending payment backlog entries.</div>
               </CCardBody>
@@ -230,8 +230,7 @@ const PoPaymentBacklog = () => {
               {items.map((item) => {
                 const id = item._id || item.id;
                 const overdue = isOverdue(item.due_date);
-                const poCode =
-                  item?.po_snapshot?.poCode || "—";
+                const poCode = item?.po_snapshot?.poCode || "—";
                 return (
                   <CCol key={id} sm={12} md={6} lg={4}>
                     <CCard
@@ -240,17 +239,29 @@ const PoPaymentBacklog = () => {
                       <CCardBody>
                         <div className="d-flex justify-content-between align-items-start mb-2">
                           <div>
-                            <div className="fw-semibold fs-6 text-truncate" style={{ maxWidth: 180 }}>
+                            <div
+                              className="fw-semibold fs-6 text-truncate"
+                              style={{ maxWidth: 180 }}
+                            >
                               {companyName(item)}
                             </div>
-                            <div className="text-body-secondary small">{poCode}</div>
+                            <div className="text-body-secondary small">
+                              {poCode}
+                            </div>
                           </div>
                           {overdue ? (
-                            <CBadge color="danger" className="ms-2 flex-shrink-0">
+                            <CBadge
+                              color="danger"
+                              className="ms-2 flex-shrink-0"
+                            >
                               Overdue
                             </CBadge>
                           ) : (
-                            <CBadge color="warning" className="ms-2 flex-shrink-0" textColor="dark">
+                            <CBadge
+                              color="warning"
+                              className="ms-2 flex-shrink-0"
+                              textColor="dark"
+                            >
                               Pending
                             </CBadge>
                           )}
@@ -266,7 +277,10 @@ const PoPaymentBacklog = () => {
                           <div className="d-flex align-items-center gap-2 text-body-secondary small">
                             <CIcon icon={cilClock} size="sm" />
                             <span>
-                              Due: <strong className={overdue ? "text-danger" : ""}>{formatDate(item.due_date)}</strong>
+                              Due:{" "}
+                              <strong className={overdue ? "text-danger" : ""}>
+                                {formatDate(item.due_date)}
+                              </strong>
                             </span>
                           </div>
                           {isAdmin && (

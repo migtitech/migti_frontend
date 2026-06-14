@@ -210,8 +210,7 @@ const EmployeeTable = ({
             {!loading && totalItems > 0 && onPageChange && (
               <div className="d-flex flex-column flex-md-row justify-content-between align-items-center gap-2 mt-3 px-2 pb-2">
                 <div className="small text-medium-emphasis">
-                  Showing{" "}
-                  {Math.min((page - 1) * pageSize + 1, totalItems)}-
+                  Showing {Math.min((page - 1) * pageSize + 1, totalItems)}-
                   {Math.min(page * pageSize, totalItems)} of {totalItems}
                 </div>
                 {totalPages > 1 && (

@@ -43,8 +43,7 @@ const normalizeId = (v) => {
 const formatAmount = (v) =>
   `₹${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
-const formatDate = (v) =>
-  v ? new Date(v).toLocaleDateString("en-IN") : "-";
+const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "-");
 
 const getPeriodRange = (period) => {
   const now = new Date();
@@ -61,7 +60,7 @@ const getPeriodRange = (period) => {
   }
   const fmt = (d) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-      d.getDate()
+      d.getDate(),
     ).padStart(2, "0")}`;
   return { from: fmt(start), to: fmt(end) };
 };
@@ -73,7 +72,7 @@ const decodeTokenPayload = (token) => {
     const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
     const padded = base64.padEnd(
       base64.length + ((4 - (base64.length % 4)) % 4),
-      "="
+      "=",
     );
     return JSON.parse(atob(padded));
   } catch {
@@ -153,14 +152,14 @@ const TargetDashboard = () => {
       extractList(branchesRes, ["branches"]).map((b) => ({
         ...b,
         id: b._id || b.id,
-      }))
+      })),
     );
     const zoneData = zonesRes?.data?.data || zonesRes?.data || zonesRes;
     setZones(
       (zoneData?.areas || zoneData || []).map((z) => ({
         ...z,
         id: z._id || z.id,
-      }))
+      })),
     );
   }, []);
 
@@ -202,9 +201,9 @@ const TargetDashboard = () => {
   const zoneOptions = useMemo(
     () =>
       zones.filter(
-        (z) => !branchId || normalizeId(z.branchId) === String(branchId)
+        (z) => !branchId || normalizeId(z.branchId) === String(branchId),
       ),
-    [zones, branchId]
+    [zones, branchId],
   );
 
   const displayedTargets = useMemo(() => {
@@ -377,9 +376,7 @@ const TargetDashboard = () => {
                           <CTableDataCell>
                             {formatAmount(row.targetAmount)}
                           </CTableDataCell>
-                          <CTableDataCell>
-                            {row.remark || "-"}
-                          </CTableDataCell>
+                          <CTableDataCell>{row.remark || "-"}</CTableDataCell>
                           <CTableDataCell>
                             {statusBadge(row.status)}
                           </CTableDataCell>

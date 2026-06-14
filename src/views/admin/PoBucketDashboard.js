@@ -129,16 +129,18 @@ const PoBucketDashboard = () => {
             pageSize,
             search: searchDebounced.trim() || undefined,
             status: statusFilter || undefined,
-            ...((() => {
+            ...(() => {
               if (!isSalesRole) return {};
-              const storedUser = JSON.parse(localStorage.getItem("migticrm_user") || "{}");
+              const storedUser = JSON.parse(
+                localStorage.getItem("migticrm_user") || "{}",
+              );
               const userZoneIds = storedUser?.zoneIds;
               if (Array.isArray(userZoneIds) && userZoneIds.length)
                 return { zoneIds: userZoneIds.join(",") };
               if (typeof userZoneIds === "string" && userZoneIds)
                 return { zoneIds: userZoneIds };
               return {};
-            })()),
+            })(),
           }),
         );
         const data = res?.data || res;
@@ -236,8 +238,8 @@ const PoBucketDashboard = () => {
             {poCloseStep === "confirm" ? (
               <p className="mb-0">
                 This sales order will be marked closed and all product lines
-                will be set to Sales Order closed. Click Continue, then enter the secret
-                PIN to confirm.
+                will be set to Sales Order closed. Click Continue, then enter
+                the secret PIN to confirm.
               </p>
             ) : (
               <>
