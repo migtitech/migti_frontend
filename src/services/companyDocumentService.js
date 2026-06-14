@@ -7,11 +7,12 @@ const companyDocumentService = {
     return response;
   },
 
-  create: async ({ name, doc_type, remark, file }) => {
+  create: async ({ name, doc_type, remark, file, groupId }) => {
     const formData = new FormData();
     formData.append("name", name);
     formData.append("doc_type", doc_type);
     if (remark) formData.append("remark", remark);
+    if (groupId) formData.append("groupId", groupId);
     formData.append("catalog", file);
     const response = await api.post(COMPANY_DOCUMENTS.CREATE, formData, {
       headers: { "Content-Type": "multipart/form-data" },

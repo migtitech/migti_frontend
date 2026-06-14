@@ -30,11 +30,13 @@ import { cilCloudUpload, cilPlus, cilTrash } from "@coreui/icons";
 import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
 import companyDocumentService from "../../services/companyDocumentService";
+import groupService from "../../services/groupService";
 import { Loader, ConfirmDialog } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { buildCatalogSections } from "../../utils/companyCatalogUtils";
 import { toastSuccess, toastError } from "../../utils/toast";
 
-const DOC_TYPE_OPTIONS = ["Catalog", "Policy", "Certificate", "Other"];
+const DOC_TYPE_OPTIONS = ["Policy", "Certificate", "Other"];
 
 const getId = (row) => row?._id || row?.id;
 
@@ -49,20 +51,32 @@ const formatDate = (value) => {
 
 const CompanyDocumentList = () => {
   const fileInputRef = useRef(null);
+  const catalogFileInputRef = useRef(null);
   const [documents, setDocuments] = useState([]);
+  const [catalogs, setCatalogs] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [catalogLoading, setCatalogLoading] = useState(false);
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
   const [docTypeFilter, setDocTypeFilter] = useState("");
   const [pagination, setPagination] = useState({});
   const [uploadModal, setUploadModal] = useState(false);
+  const [catalogUploadModal, setCatalogUploadModal] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [catalogUploading, setCatalogUploading] = useState(false);
   const [openingDocId, setOpeningDocId] = useState(null);
   const [form, setForm] = useState({
     name: "",
-    doc_type: "Catalog",
+    doc_type: "Policy",
     remark: "",
+    file: null,
+  });
+  const [catalogForm, setCatalogForm] = useState({
+    name: "",
+    remark: "",
+    groupId: "",
     file: null,
   });
   const [confirmDelete, setConfirmDelete] = useState({
@@ -80,6 +94,7 @@ const CompanyDocumentList = () => {
           pageSize: 10,
           search: searchTerm || undefined,
           doc_type: docTypeFilter || undefined,
+          exclude_doc_type: docTypeFilter ? undefined : "Catalog",
         }),
       );
       const data = res?.data?.data || res?.data || res;
@@ -93,6 +108,36 @@ const CompanyDocumentList = () => {
     }
   }, [page, searchTerm, docTypeFilter]);
 
+  const fetchCatalogs = useCallback(async () => {
+    setCatalogLoading(true);
+    try {
+      const res = await withMinimumDelay(() =>
+        companyDocumentService.list({
+          pageNumber: 1,
+          pageSize: 200,
+          doc_type: "Catalog",
+        }),
+      );
+      const data = res?.data?.data || res?.data || res;
+      setCatalogs(data?.companyDocuments || []);
+    } catch (err) {
+      setError(err?.message || "Failed to load catalog information");
+      setCatalogs([]);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  const fetchGroups = useCallback(async () => {
+    try {
+      const res = await groupService.getAll({ pageNumber: 1, pageSize: 200 });
+      const data = res?.data?.data || res?.data || res;
+      setGroups(data?.groups || []);
+    } catch {
+      setGroups([]);
+    }
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchDocuments();
@@ -100,9 +145,24 @@ const CompanyDocumentList = () => {
     return () => clearTimeout(timer);
   }, [fetchDocuments]);
 
+  useEffect(() => {
+    fetchCatalogs();
+    fetchGroups();
+  }, [fetchCatalogs, fetchGroups]);
+
+  const catalogSections = React.useMemo(
+    () => buildCatalogSections(catalogs, groups),
+    [catalogs, groups],
+  );
+
   const resetForm = () => {
-    setForm({ name: "", doc_type: "Catalog", remark: "", file: null });
+    setForm({ name: "", doc_type: "Policy", remark: "", file: null });
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const resetCatalogForm = () => {
+    setCatalogForm({ name: "", remark: "", groupId: "", file: null });
+    if (catalogFileInputRef.current) catalogFileInputRef.current.value = "";
   };
 
   const openUploadModal = () => {
@@ -110,9 +170,19 @@ const CompanyDocumentList = () => {
     setUploadModal(true);
   };
 
+  const openCatalogUploadModal = () => {
+    resetCatalogForm();
+    setCatalogUploadModal(true);
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files?.[0] || null;
     setForm((prev) => ({ ...prev, file }));
+  };
+
+  const handleCatalogFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    setCatalogForm((prev) => ({ ...prev, file }));
   };
 
   const handleUpload = async () => {
@@ -155,6 +225,42 @@ const CompanyDocumentList = () => {
     }
   };
 
+  const handleCatalogUpload = async () => {
+    const name = (catalogForm.name || "").trim();
+    const remark = (catalogForm.remark || "").trim();
+    if (!name) {
+      toastError("Catalog name is required");
+      return;
+    }
+    if (!catalogForm.file) {
+      toastError("Please select a catalog file to upload");
+      return;
+    }
+
+    setCatalogUploading(true);
+    try {
+      await companyDocumentService.create({
+        name,
+        doc_type: "Catalog",
+        remark,
+        groupId: catalogForm.groupId || undefined,
+        file: catalogForm.file,
+      });
+      toastSuccess("Catalog uploaded");
+      setCatalogUploadModal(false);
+      resetCatalogForm();
+      fetchCatalogs();
+    } catch (err) {
+      toastError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to upload catalog",
+      );
+    } finally {
+      setCatalogUploading(false);
+    }
+  };
+
   const openDocument = async (row) => {
     const docId = row?.documentId?._id || row?.documentId;
     if (!docId) {
@@ -185,6 +291,7 @@ const CompanyDocumentList = () => {
       await companyDocumentService.delete(id);
       toastSuccess("Company document deleted");
       fetchDocuments();
+      fetchCatalogs();
     } catch (err) {
       toastError(err?.message || "Delete failed");
     }
@@ -305,7 +412,7 @@ const CompanyDocumentList = () => {
                     {documents.length === 0 && (
                       <CTableRow>
                         <CTableDataCell colSpan={7} className="text-center">
-                          No company documents found. Upload a catalog or other
+                          No company documents found. Upload a policy or other
                           document to get started.
                         </CTableDataCell>
                       </CTableRow>
@@ -354,6 +461,100 @@ const CompanyDocumentList = () => {
                   </div>
                 )}
               </>
+            )}
+          </CCardBody>
+        </CCard>
+      </CCol>
+
+      <CCol xs={12}>
+        <CCard className="mb-4">
+          <CCardHeader className="d-flex justify-content-between align-items-center">
+            <strong>Catalog information</strong>
+            <CButton color="primary" onClick={openCatalogUploadModal}>
+              <CIcon icon={cilPlus} className="me-2" />
+              Upload catalog
+            </CButton>
+          </CCardHeader>
+          <CCardBody>
+            {catalogLoading ? (
+              <Loader message="Loading catalog information..." />
+            ) : (
+              catalogSections.map((section) => (
+                <CCard key={section.key} className="mb-3 border">
+                  <CCardHeader className="py-2">
+                    <strong>{section.title}</strong>
+                  </CCardHeader>
+                  <CCardBody>
+                    {section.catalogs.length === 0 ? (
+                      <div className="text-medium-emphasis">
+                        No catalog uploaded for this group yet.
+                      </div>
+                    ) : (
+                      <CTable hover responsive bordered className="mb-0">
+                        <CTableHead>
+                          <CTableRow>
+                            <CTableHeaderCell>S No</CTableHeaderCell>
+                            <CTableHeaderCell>Name</CTableHeaderCell>
+                            <CTableHeaderCell>Remark</CTableHeaderCell>
+                            <CTableHeaderCell>File</CTableHeaderCell>
+                            <CTableHeaderCell>Uploaded</CTableHeaderCell>
+                            <CTableHeaderCell>Actions</CTableHeaderCell>
+                          </CTableRow>
+                        </CTableHead>
+                        <CTableBody>
+                          {section.catalogs.map((catalog, index) => {
+                            const docFileId =
+                              catalog?.documentId?._id || catalog?.documentId;
+                            return (
+                              <CTableRow key={getId(catalog)}>
+                                <CTableDataCell>{index + 1}</CTableDataCell>
+                                <CTableDataCell>
+                                  <strong>{catalog.name || "-"}</strong>
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {catalog.remark || "-"}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <CButton
+                                    color="link"
+                                    className="p-0 text-decoration-none"
+                                    disabled={
+                                      !docFileId ||
+                                      openingDocId === String(docFileId)
+                                    }
+                                    onClick={() => openDocument(catalog)}
+                                  >
+                                    {getFileName(catalog)}
+                                  </CButton>
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {formatDate(catalog.createdAt)}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <CButton
+                                    color="danger"
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Delete"
+                                    onClick={() =>
+                                      setConfirmDelete({
+                                        visible: true,
+                                        id: getId(catalog),
+                                      })
+                                    }
+                                  >
+                                    <CIcon icon={cilTrash} />
+                                  </CButton>
+                                </CTableDataCell>
+                              </CTableRow>
+                            );
+                          })}
+                        </CTableBody>
+                      </CTable>
+                    )}
+                  </CCardBody>
+                </CCard>
+              ))
             )}
           </CCardBody>
         </CCard>
@@ -432,6 +633,96 @@ const CompanyDocumentList = () => {
           <CButton color="primary" onClick={handleUpload} disabled={uploading}>
             <CIcon icon={cilCloudUpload} className="me-2" />
             {uploading ? "Uploading..." : "Upload"}
+          </CButton>
+        </CModalFooter>
+      </CModal>
+
+      <CModal
+        visible={catalogUploadModal}
+        onClose={() => setCatalogUploadModal(false)}
+      >
+        <CModalHeader>
+          <CModalTitle>Upload catalog</CModalTitle>
+        </CModalHeader>
+        <CModalBody>
+          <div className="mb-3">
+            <CFormLabel htmlFor="catalog-name">Name</CFormLabel>
+            <CFormInput
+              id="catalog-name"
+              value={catalogForm.name}
+              onChange={(e) =>
+                setCatalogForm((prev) => ({ ...prev, name: e.target.value }))
+              }
+              placeholder="Catalog name"
+            />
+          </div>
+          <div className="mb-3">
+            <CFormLabel htmlFor="catalog-group">Catalog group</CFormLabel>
+            <CFormSelect
+              id="catalog-group"
+              value={catalogForm.groupId}
+              onChange={(e) =>
+                setCatalogForm((prev) => ({
+                  ...prev,
+                  groupId: e.target.value,
+                }))
+              }
+            >
+              <option value="">Main catalog</option>
+              {groups.map((group) => (
+                <option key={getId(group)} value={getId(group)}>
+                  {group.name}
+                </option>
+              ))}
+            </CFormSelect>
+          </div>
+          <div className="mb-3">
+            <CFormLabel htmlFor="catalog-remark">Remark</CFormLabel>
+            <CFormTextarea
+              id="catalog-remark"
+              rows={3}
+              value={catalogForm.remark}
+              onChange={(e) =>
+                setCatalogForm((prev) => ({ ...prev, remark: e.target.value }))
+              }
+              placeholder="Optional notes"
+            />
+          </div>
+          <div className="mb-2">
+            <CFormLabel htmlFor="catalog-file">File</CFormLabel>
+            <CFormInput
+              id="catalog-file"
+              type="file"
+              accept=".pdf,.xls,.xlsx,image/*"
+              ref={catalogFileInputRef}
+              onChange={handleCatalogFileChange}
+            />
+            <small className="text-muted">
+              PDF, Excel, or image files up to 15MB
+            </small>
+          </div>
+          {catalogForm.file && (
+            <div className="small text-muted">
+              Selected: {catalogForm.file.name}
+            </div>
+          )}
+        </CModalBody>
+        <CModalFooter>
+          <CButton
+            color="secondary"
+            variant="outline"
+            onClick={() => setCatalogUploadModal(false)}
+            disabled={catalogUploading}
+          >
+            Cancel
+          </CButton>
+          <CButton
+            color="primary"
+            onClick={handleCatalogUpload}
+            disabled={catalogUploading}
+          >
+            <CIcon icon={cilCloudUpload} className="me-2" />
+            {catalogUploading ? "Uploading..." : "Upload"}
           </CButton>
         </CModalFooter>
       </CModal>

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CAlert,
   CButton,
@@ -7,7 +7,6 @@ import {
   CCardHeader,
   CCol,
   CFormInput,
-  CFormSelect,
   CRow,
   CTable,
   CTableBody,
@@ -15,19 +14,17 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilCloudDownload, cilMagnifyingGlass } from "@coreui/icons";
 import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
 import companyDocumentService from "../../services/companyDocumentService";
+import groupService from "../../services/groupService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
+import { buildCatalogSections } from "../../utils/companyCatalogUtils";
 import { toastError } from "../../utils/toast";
-
-const DOC_TYPE_OPTIONS = ["Catalog", "Policy", "Certificate", "Other"];
 
 const getId = (row) => row?._id || row?.id;
 
@@ -35,49 +32,57 @@ const getFileName = (row) =>
   row?.documentId?.originalName || row?.name || "document";
 
 const SidebarDocs = () => {
-  const [documents, setDocuments] = useState([]);
+  const [catalogs, setCatalogs] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [docTypeFilter, setDocTypeFilter] = useState("");
-  const [pagination, setPagination] = useState({});
   const [actionKey, setActionKey] = useState(null);
 
-  const fetchDocuments = useCallback(async () => {
+  const fetchCatalogData = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const res = await withMinimumDelay(() =>
-        companyDocumentService.list({
-          pageNumber: page,
-          pageSize: 10,
-          search: searchTerm || undefined,
-          doc_type: docTypeFilter || undefined,
-        }),
+      const [catalogRes, groupRes] = await withMinimumDelay(() =>
+        Promise.all([
+          companyDocumentService.list({
+            pageNumber: 1,
+            pageSize: 200,
+            doc_type: "Catalog",
+            search: searchTerm || undefined,
+          }),
+          groupService.getAll({ pageNumber: 1, pageSize: 200 }),
+        ]),
       );
-      const data = res?.data?.data || res?.data || res;
-      setDocuments(data?.companyDocuments || []);
-      setPagination(data?.pagination || {});
+      const catalogData =
+        catalogRes?.data?.data || catalogRes?.data || catalogRes;
+      const groupData = groupRes?.data?.data || groupRes?.data || groupRes;
+      setCatalogs(catalogData?.companyDocuments || []);
+      setGroups(groupData?.groups || []);
     } catch (err) {
-      setError(err?.message || "Failed to load documents");
-      setDocuments([]);
+      setError(err?.message || "Failed to load company catalogs");
+      setCatalogs([]);
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, docTypeFilter]);
+  }, [searchTerm]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchDocuments();
+      fetchCatalogData();
     }, 300);
     return () => clearTimeout(timer);
-  }, [fetchDocuments]);
+  }, [fetchCatalogData]);
+
+  const catalogSections = useMemo(
+    () => buildCatalogSections(catalogs, groups),
+    [catalogs, groups],
+  );
 
   const fetchDocBlob = async (row) => {
     const docId = row?.documentId?._id || row?.documentId;
     if (!docId) {
-      toastError("No file attached to this document");
+      toastError("No file attached to this catalog");
       return null;
     }
     const response = await axiosClient.get(DOCUMENTS.SERVE(docId), {
@@ -89,7 +94,7 @@ const SidebarDocs = () => {
   const viewDocument = async (row) => {
     const docId = row?.documentId?._id || row?.documentId;
     if (!docId) {
-      toastError("No file attached to this document");
+      toastError("No file attached to this catalog");
       return;
     }
     setActionKey(`view-${docId}`);
@@ -100,7 +105,7 @@ const SidebarDocs = () => {
       window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 30000);
     } catch {
-      toastError("Could not open document");
+      toastError("Could not open catalog");
     } finally {
       setActionKey(null);
     }
@@ -109,7 +114,7 @@ const SidebarDocs = () => {
   const downloadDocument = async (row) => {
     const docId = row?.documentId?._id || row?.documentId;
     if (!docId) {
-      toastError("No file attached to this document");
+      toastError("No file attached to this catalog");
       return;
     }
     setActionKey(`download-${docId}`);
@@ -125,18 +130,97 @@ const SidebarDocs = () => {
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch {
-      toastError("Could not download document");
+      toastError("Could not download catalog");
     } finally {
       setActionKey(null);
     }
   };
+
+  const renderCatalogActions = (catalog) => {
+    const docFileId = catalog?.documentId?._id || catalog?.documentId;
+    const viewLoading = actionKey === `view-${String(docFileId)}`;
+    const downloadLoading = actionKey === `download-${String(docFileId)}`;
+
+    return (
+      <div className="d-flex gap-1">
+        <CButton
+          color="primary"
+          variant="ghost"
+          size="sm"
+          title="View"
+          disabled={!docFileId || viewLoading || downloadLoading}
+          onClick={() => viewDocument(catalog)}
+        >
+          <CIcon icon={cilMagnifyingGlass} />
+        </CButton>
+        <CButton
+          color="primary"
+          variant="ghost"
+          size="sm"
+          title="Download"
+          disabled={!docFileId || viewLoading || downloadLoading}
+          onClick={() => downloadDocument(catalog)}
+        >
+          <CIcon icon={cilCloudDownload} />
+        </CButton>
+      </div>
+    );
+  };
+
+  const renderCatalogTable = (sectionCatalogs) => (
+    <>
+      <div className="d-none d-md-block">
+        <CTable hover responsive bordered className="mb-0">
+          <CTableHead>
+            <CTableRow>
+              <CTableHeaderCell>S No</CTableHeaderCell>
+              <CTableHeaderCell>Name</CTableHeaderCell>
+              <CTableHeaderCell>Remark</CTableHeaderCell>
+              <CTableHeaderCell>Actions</CTableHeaderCell>
+            </CTableRow>
+          </CTableHead>
+          <CTableBody>
+            {sectionCatalogs.map((catalog, index) => (
+              <CTableRow key={getId(catalog)}>
+                <CTableDataCell>{index + 1}</CTableDataCell>
+                <CTableDataCell>
+                  <strong>{catalog.name || "-"}</strong>
+                </CTableDataCell>
+                <CTableDataCell>{catalog.remark || "-"}</CTableDataCell>
+                <CTableDataCell>{renderCatalogActions(catalog)}</CTableDataCell>
+              </CTableRow>
+            ))}
+          </CTableBody>
+        </CTable>
+      </div>
+
+      <div className="d-md-none">
+        {sectionCatalogs.map((catalog, index) => (
+          <CCard key={getId(catalog)} className="mb-3 border">
+            <CCardBody className="d-flex justify-content-between align-items-start gap-2">
+              <div className="flex-grow-1">
+                <div className="small text-medium-emphasis mb-1">
+                  #{index + 1}
+                </div>
+                <div className="fw-semibold">{catalog.name || "-"}</div>
+                <div className="small text-medium-emphasis">
+                  {catalog.remark || "-"}
+                </div>
+              </div>
+              {renderCatalogActions(catalog)}
+            </CCardBody>
+          </CCard>
+        ))}
+      </div>
+    </>
+  );
 
   return (
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader>
-            <strong>Docs</strong>
+            <strong>Company Catalog</strong>
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -146,208 +230,39 @@ const SidebarDocs = () => {
             )}
 
             <CRow className="mb-3">
-              <CCol md={6} className="mb-2 mb-md-0">
+              <CCol md={6}>
                 <CFormInput
                   type="text"
-                  placeholder="Search by name or remark..."
+                  placeholder="Search catalog by name or remark..."
                   value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setPage(1);
-                  }}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
-              </CCol>
-              <CCol md={3}>
-                <CFormSelect
-                  value={docTypeFilter}
-                  onChange={(e) => {
-                    setDocTypeFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  aria-label="Document type filter"
-                >
-                  <option value="">All types</option>
-                  {DOC_TYPE_OPTIONS.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </CFormSelect>
               </CCol>
             </CRow>
 
             {loading ? (
-              <Loader message="Loading documents..." />
+              <Loader message="Loading company catalogs..." />
+            ) : catalogSections.length === 0 ? (
+              <div className="text-center text-medium-emphasis py-3">
+                No catalogs found.
+              </div>
             ) : (
-              <>
-                <div className="d-none d-md-block">
-                  <CTable hover responsive bordered>
-                    <CTableHead>
-                      <CTableRow>
-                        <CTableHeaderCell>S No</CTableHeaderCell>
-                        <CTableHeaderCell>Name</CTableHeaderCell>
-                        <CTableHeaderCell>Type</CTableHeaderCell>
-                        <CTableHeaderCell>Actions</CTableHeaderCell>
-                      </CTableRow>
-                    </CTableHead>
-                    <CTableBody>
-                      {documents.map((doc, index) => {
-                        const docFileId =
-                          doc?.documentId?._id || doc?.documentId;
-                        const viewLoading =
-                          actionKey === `view-${String(docFileId)}`;
-                        const downloadLoading =
-                          actionKey === `download-${String(docFileId)}`;
-                        return (
-                          <CTableRow key={getId(doc)}>
-                            <CTableDataCell>
-                              {(page - 1) * 10 + index + 1}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <strong>{doc.name || "-"}</strong>
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              {doc.doc_type || "-"}
-                            </CTableDataCell>
-                            <CTableDataCell>
-                              <div className="d-flex gap-1">
-                                <CButton
-                                  color="primary"
-                                  variant="ghost"
-                                  size="sm"
-                                  title="View"
-                                  disabled={
-                                    !docFileId || viewLoading || downloadLoading
-                                  }
-                                  onClick={() => viewDocument(doc)}
-                                >
-                                  <CIcon icon={cilMagnifyingGlass} />
-                                </CButton>
-                                <CButton
-                                  color="primary"
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Download"
-                                  disabled={
-                                    !docFileId || viewLoading || downloadLoading
-                                  }
-                                  onClick={() => downloadDocument(doc)}
-                                >
-                                  <CIcon icon={cilCloudDownload} />
-                                </CButton>
-                              </div>
-                            </CTableDataCell>
-                          </CTableRow>
-                        );
-                      })}
-                      {documents.length === 0 && (
-                        <CTableRow>
-                          <CTableDataCell colSpan={4} className="text-center">
-                            No documents found.
-                          </CTableDataCell>
-                        </CTableRow>
-                      )}
-                    </CTableBody>
-                  </CTable>
-                </div>
-
-                <div className="d-md-none">
-                  {documents.map((doc, index) => {
-                    const docFileId = doc?.documentId?._id || doc?.documentId;
-                    const viewLoading =
-                      actionKey === `view-${String(docFileId)}`;
-                    const downloadLoading =
-                      actionKey === `download-${String(docFileId)}`;
-                    return (
-                      <CCard key={getId(doc)} className="mb-3 border">
-                        <CCardBody className="d-flex justify-content-between align-items-start gap-2">
-                          <div className="flex-grow-1">
-                            <div className="small text-medium-emphasis mb-1">
-                              #{(page - 1) * 10 + index + 1}
-                            </div>
-                            <div className="fw-semibold">{doc.name || "-"}</div>
-                            <div className="small text-medium-emphasis">
-                              {doc.doc_type || "-"}
-                            </div>
-                          </div>
-                          <div className="d-flex gap-1">
-                            <CButton
-                              color="primary"
-                              variant="ghost"
-                              size="sm"
-                              title="View"
-                              disabled={
-                                !docFileId || viewLoading || downloadLoading
-                              }
-                              onClick={() => viewDocument(doc)}
-                            >
-                              <CIcon icon={cilMagnifyingGlass} />
-                            </CButton>
-                            <CButton
-                              color="primary"
-                              variant="ghost"
-                              size="sm"
-                              title="Download"
-                              disabled={
-                                !docFileId || viewLoading || downloadLoading
-                              }
-                              onClick={() => downloadDocument(doc)}
-                            >
-                              <CIcon icon={cilCloudDownload} />
-                            </CButton>
-                          </div>
-                        </CCardBody>
-                      </CCard>
-                    );
-                  })}
-                  {documents.length === 0 && (
-                    <div className="text-center text-medium-emphasis py-3">
-                      No documents found.
-                    </div>
-                  )}
-                </div>
-
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
-              </>
+              catalogSections.map((section) => (
+                <CCard key={section.key} className="mb-3 border">
+                  <CCardHeader className="py-2">
+                    <strong>{section.title}</strong>
+                  </CCardHeader>
+                  <CCardBody>
+                    {section.catalogs.length === 0 ? (
+                      <div className="text-medium-emphasis">
+                        No catalog uploaded for this group yet.
+                      </div>
+                    ) : (
+                      renderCatalogTable(section.catalogs)
+                    )}
+                  </CCardBody>
+                </CCard>
+              ))
             )}
           </CCardBody>
         </CCard>

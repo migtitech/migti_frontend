@@ -1073,8 +1073,8 @@ const routes = [
     allowedRoles: ["head_of_department", "hod", "admin", "super_admin"],
   },
   {
-    path: "/sidebar-docs",
-    name: "Docs",
+    path: "/company-catalog",
+    name: "Company Catalog",
     element: SidebarDocs,
     module: null,
     action: "read",
