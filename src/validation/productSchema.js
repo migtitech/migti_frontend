@@ -109,11 +109,39 @@ export const companyProductCodeFormRowSchema = yup
   })
   .test(
     "complete-row",
-    "Each company product code row must have both company and code.",
+    "Each company vs client row must have both client and product code.",
     (row) => {
       const hasIndustry = Boolean(row?.industryId?.trim());
       const hasCode = Boolean(row?.code?.trim());
       return (!hasIndustry && !hasCode) || (hasIndustry && hasCode);
+    },
+  );
+
+export const supplierProductCodeSchema = yup.object({
+  supplier: yup
+    .string()
+    .matches(OBJECT_ID_PATTERN, '"supplier" must be a valid id')
+    .required('"supplier" is required'),
+  code: yup
+    .string()
+    .trim()
+    .required('"code" is required')
+    .min(1, '"code" is not allowed to be empty')
+    .max(100, '"code" must be at most 100 characters'),
+});
+
+export const supplierProductCodeFormRowSchema = yup
+  .object({
+    supplierId: yup.string().optional().default(""),
+    code: yup.string().trim().optional().default(""),
+  })
+  .test(
+    "complete-row",
+    "Each company vs supplier row must have both supplier and product code.",
+    (row) => {
+      const hasSupplier = Boolean(row?.supplierId?.trim());
+      const hasCode = Boolean(row?.code?.trim());
+      return (!hasSupplier && !hasCode) || (hasSupplier && hasCode);
     },
   );
 
@@ -194,6 +222,11 @@ export const createProductPayloadSchema = yup.object({
   companyProductCodes: yup
     .array()
     .of(companyProductCodeSchema)
+    .optional()
+    .default([]),
+  supplierProductCodes: yup
+    .array()
+    .of(supplierProductCodeSchema)
     .optional()
     .default([]),
 });
@@ -330,6 +363,18 @@ export const validateCompanyProductCodeRows = async (rows = []) => {
     await yup
       .array()
       .of(companyProductCodeFormRowSchema)
+      .validate(rows, { abortEarly: false });
+    return [];
+  } catch (err) {
+    return collectYupErrors(err);
+  }
+};
+
+export const validateSupplierProductCodeRows = async (rows = []) => {
+  try {
+    await yup
+      .array()
+      .of(supplierProductCodeFormRowSchema)
       .validate(rows, { abortEarly: false });
     return [];
   } catch (err) {

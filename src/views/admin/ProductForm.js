@@ -26,6 +26,7 @@ import categoryService from "../../services/categoryService";
 import brandService from "../../services/brandService";
 import groupService from "../../services/groupService";
 import industryService from "../../services/industryService";
+import supplierService from "../../services/supplierService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
@@ -34,6 +35,7 @@ import { toastSuccess, toastError } from "../../utils/toast";
 import {
   productFormSchema,
   validateCompanyProductCodeRows,
+  validateSupplierProductCodeRows,
   validateProductPayload,
 } from "../../validation/productSchema";
 
@@ -71,6 +73,13 @@ const PRODUCT_FORM_DRAFT_KEY = "product_form_draft";
 const EMPTY_COMPANY_PRODUCT_CODE = {
   industryId: "",
   industryLabel: "",
+  code: "",
+  search: "",
+};
+
+const EMPTY_SUPPLIER_PRODUCT_CODE = {
+  supplierId: "",
+  supplierLabel: "",
   code: "",
   search: "",
 };
@@ -150,7 +159,11 @@ const ProductForm = () => {
   const [companyProductCodes, setCompanyProductCodes] = useState([
     { ...EMPTY_COMPANY_PRODUCT_CODE },
   ]);
+  const [supplierProductCodes, setSupplierProductCodes] = useState([
+    { ...EMPTY_SUPPLIER_PRODUCT_CODE },
+  ]);
   const [industryResultsByRow, setIndustryResultsByRow] = useState({});
+  const [supplierResultsByRow, setSupplierResultsByRow] = useState({});
   const comboFileInputRefs = useRef({});
 
   const {
@@ -186,10 +199,20 @@ const ProductForm = () => {
         const raw = localStorage.getItem(PRODUCT_FORM_DRAFT_KEY);
         if (raw) {
           const stored = JSON.parse(raw);
-          const { companyProductCodes: storedCodes, ...formValues } = stored;
+          const {
+            companyProductCodes: storedCodes,
+            supplierProductCodes: storedSupplierCodes,
+            ...formValues
+          } = stored;
           reset({ ...defaultValues, ...formValues });
           if (Array.isArray(storedCodes) && storedCodes.length > 0) {
             setCompanyProductCodes(storedCodes);
+          }
+          if (
+            Array.isArray(storedSupplierCodes) &&
+            storedSupplierCodes.length > 0
+          ) {
+            setSupplierProductCodes(storedSupplierCodes);
           }
         } else {
           reset(defaultValues);
@@ -207,14 +230,18 @@ const ProductForm = () => {
       try {
         localStorage.setItem(
           PRODUCT_FORM_DRAFT_KEY,
-          JSON.stringify({ ...values, companyProductCodes }),
+          JSON.stringify({
+            ...values,
+            companyProductCodes,
+            supplierProductCodes,
+          }),
         );
       } catch {
         // ignore storage errors
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, isEdit, companyProductCodes]);
+  }, [watch, isEdit, companyProductCodes, supplierProductCodes]);
 
   useEffect(() => {
     if (!hasVariants) {
@@ -248,6 +275,32 @@ const ProductForm = () => {
     return () => Object.values(timers).forEach(clearTimeout);
   }, [companyProductCodes]);
 
+  useEffect(() => {
+    const timers = {};
+    supplierProductCodes.forEach((row, index) => {
+      if (!row.search?.trim() || row.supplierLabel === row.search) {
+        setSupplierResultsByRow((prev) => ({ ...prev, [index]: [] }));
+        return;
+      }
+      timers[index] = setTimeout(async () => {
+        try {
+          const res = await supplierService.getAll({
+            search: row.search.trim(),
+            pageSize: 10,
+          });
+          const data = res?.data?.data || res?.data || res;
+          setSupplierResultsByRow((prev) => ({
+            ...prev,
+            [index]: data?.suppliers || [],
+          }));
+        } catch {
+          setSupplierResultsByRow((prev) => ({ ...prev, [index]: [] }));
+        }
+      }, 300);
+    });
+    return () => Object.values(timers).forEach(clearTimeout);
+  }, [supplierProductCodes]);
+
   const fetchDropdownData = async () => {
     try {
       const [brandRes, groupRes] = await Promise.all([
@@ -271,7 +324,9 @@ const ProductForm = () => {
     }
     reset(defaultValues);
     setCompanyProductCodes([{ ...EMPTY_COMPANY_PRODUCT_CODE }]);
+    setSupplierProductCodes([{ ...EMPTY_SUPPLIER_PRODUCT_CODE }]);
     setIndustryResultsByRow({});
+    setSupplierResultsByRow({});
     toastSuccess("Saved product form data cleared");
   };
 
@@ -312,12 +367,51 @@ const ProductForm = () => {
       return prev.filter((_, i) => i !== index);
     });
     setIndustryResultsByRow((prev) => {
-      const next = {};
-      Object.entries(prev).forEach(([key, value]) => {
-        const idx = Number(key);
-        if (idx < index) next[idx] = value;
-        else if (idx > index) next[idx - 1] = value;
-      });
+      const next = { ...prev };
+      delete next[index];
+      return next;
+    });
+  };
+
+  const updateSupplierProductCodeRow = (index, field, value) => {
+    setSupplierProductCodes((prev) =>
+      prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)),
+    );
+  };
+
+  const selectSupplierForRow = (index, supplier) => {
+    const supplierId = supplier._id || supplier.id;
+    const label = supplier.name || supplier.shopname || "";
+    setSupplierProductCodes((prev) =>
+      prev.map((row, i) =>
+        i === index
+          ? {
+              ...row,
+              supplierId: supplierId || "",
+              supplierLabel: label,
+              search: label,
+            }
+          : row,
+      ),
+    );
+    setSupplierResultsByRow((prev) => ({ ...prev, [index]: [] }));
+  };
+
+  const addSupplierProductCodeRow = () => {
+    setSupplierProductCodes((prev) => [
+      ...prev,
+      { ...EMPTY_SUPPLIER_PRODUCT_CODE },
+    ]);
+  };
+
+  const removeSupplierProductCodeRow = (index) => {
+    setSupplierProductCodes((prev) => {
+      if (prev.length <= 1) return [{ ...EMPTY_SUPPLIER_PRODUCT_CODE }];
+      return prev.filter((_, i) => i !== index);
+    });
+    setSupplierResultsByRow((prev) => {
+      const next = { ...prev };
+      delete next[index];
       return next;
     });
   };
@@ -455,6 +549,28 @@ const ProductForm = () => {
           loadedCompanyCodes.length > 0
             ? loadedCompanyCodes
             : [{ ...EMPTY_COMPANY_PRODUCT_CODE }],
+        );
+        const loadedSupplierCodes = (product.supplierProductCodes || []).map(
+          (item) => {
+            const supplier = item.supplier;
+            const supplierId =
+              (typeof supplier === "object" ? supplier?._id : supplier) || "";
+            const label =
+              typeof supplier === "object"
+                ? supplier?.name || supplier?.shopname || ""
+                : "";
+            return {
+              supplierId,
+              supplierLabel: label,
+              code: item.code || "",
+              search: label,
+            };
+          },
+        );
+        setSupplierProductCodes(
+          loadedSupplierCodes.length > 0
+            ? loadedSupplierCodes
+            : [{ ...EMPTY_SUPPLIER_PRODUCT_CODE }],
         );
         if (product.category?._id || product.category) {
           fetchSubcategories(product.category?._id || product.category);
@@ -694,8 +810,10 @@ const ProductForm = () => {
     try {
       const companyCodeErrors =
         await validateCompanyProductCodeRows(companyProductCodes);
-      if (companyCodeErrors.length > 0) {
-        showValidationAlert(companyCodeErrors);
+      const supplierCodeErrors =
+        await validateSupplierProductCodeRows(supplierProductCodes);
+      if (companyCodeErrors.length > 0 || supplierCodeErrors.length > 0) {
+        showValidationAlert([...companyCodeErrors, ...supplierCodeErrors]);
         setSubmitting(false);
         return;
       }
@@ -758,6 +876,12 @@ const ProductForm = () => {
           .filter((row) => row.industryId && row.code?.trim())
           .map((row) => ({
             industry: row.industryId,
+            code: row.code.trim(),
+          })),
+        supplierProductCodes: supplierProductCodes
+          .filter((row) => row.supplierId && row.code?.trim())
+          .map((row) => ({
+            supplier: row.supplierId,
             code: row.code.trim(),
           })),
       };
@@ -1849,19 +1973,18 @@ const ProductForm = () => {
 
       <CCard className="mb-4">
         <CCardHeader style={sectionHeaderStyle}>
-          <strong>Company Product Codes</strong>
+          <strong>Company vs Client</strong>
         </CCardHeader>
         <CCardBody style={sectionBodyStyle}>
           <p className="text-muted small mb-3">
-            Map this product to a company (client) using their internal product
-            code.
+            Map this product to a client using their internal product code.
           </p>
           {companyProductCodes.map((row, index) => (
             <CRow key={index} className="align-items-end mb-3">
               <CCol md={5}>
-                <CFormLabel>Company (Client)</CFormLabel>
+                <CFormLabel>Client</CFormLabel>
                 <CFormInput
-                  placeholder="Type to search company..."
+                  placeholder="Type to search client..."
                   value={row.search}
                   onChange={(e) => {
                     const value = e.target.value;
@@ -1905,9 +2028,9 @@ const ProductForm = () => {
                   )}
               </CCol>
               <CCol md={5}>
-                <CFormLabel>Company Product Code</CFormLabel>
+                <CFormLabel>Client Product Code</CFormLabel>
                 <CFormInput
-                  placeholder="Enter company product code"
+                  placeholder="Enter client product code"
                   value={row.code}
                   onChange={(e) =>
                     updateCompanyProductCodeRow(index, "code", e.target.value)
@@ -1929,7 +2052,95 @@ const ProductForm = () => {
           ))}
           <CButton color="light" onClick={addCompanyProductCodeRow}>
             <CIcon icon={cilPlus} className="me-1" />
-            Add Company Product Code
+            Add Client Product Code
+          </CButton>
+        </CCardBody>
+      </CCard>
+
+      <CCard className="mb-4">
+        <CCardHeader style={sectionHeaderStyle}>
+          <strong>Company vs Supplier</strong>
+        </CCardHeader>
+        <CCardBody style={sectionBodyStyle}>
+          <p className="text-muted small mb-3">
+            Map this product to a supplier using their internal product code.
+          </p>
+          {supplierProductCodes.map((row, index) => (
+            <CRow key={index} className="align-items-end mb-3">
+              <CCol md={5}>
+                <CFormLabel>Supplier</CFormLabel>
+                <CFormInput
+                  placeholder="Type to search supplier..."
+                  value={row.search}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSupplierProductCodes((prev) =>
+                      prev.map((item, i) =>
+                        i === index
+                          ? {
+                              ...item,
+                              search: value,
+                              ...(item.supplierLabel &&
+                              value !== item.supplierLabel
+                                ? { supplierId: "", supplierLabel: "" }
+                                : {}),
+                            }
+                          : item,
+                      ),
+                    );
+                  }}
+                />
+                {row.search &&
+                  row.search !== row.supplierLabel &&
+                  (supplierResultsByRow[index] || []).length > 0 && (
+                    <div
+                      className="border rounded mt-1 bg-white"
+                      style={{ maxHeight: "200px", overflowY: "auto" }}
+                    >
+                      {(supplierResultsByRow[index] || []).map((supplier) => {
+                        const supplierId = supplier._id || supplier.id;
+                        return (
+                          <div
+                            key={supplierId}
+                            className="px-2 py-1 small"
+                            style={{ cursor: "pointer" }}
+                            onClick={() =>
+                              selectSupplierForRow(index, supplier)
+                            }
+                          >
+                            {supplier.name || supplier.shopname || "-"}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+              </CCol>
+              <CCol md={5}>
+                <CFormLabel>Supplier Product Code</CFormLabel>
+                <CFormInput
+                  placeholder="Enter supplier product code"
+                  value={row.code}
+                  onChange={(e) =>
+                    updateSupplierProductCodeRow(index, "code", e.target.value)
+                  }
+                />
+              </CCol>
+              <CCol md={2}>
+                <CButton
+                  color="danger"
+                  variant="outline"
+                  className="w-100"
+                  onClick={() => removeSupplierProductCodeRow(index)}
+                  title="Remove row"
+                >
+                  <CIcon icon={cilTrash} />
+                </CButton>
+              </CCol>
+            </CRow>
+          ))}
+          <CButton color="light" onClick={addSupplierProductCodeRow}>
+            <CIcon icon={cilPlus} className="me-1" />
+            Add Supplier Product Code
           </CButton>
         </CCardBody>
       </CCard>
