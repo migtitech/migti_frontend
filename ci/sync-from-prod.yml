@@ -11,4 +11,4 @@ sync-from-prod:
   variables:
     GIT_STRATEGY: none
   script:
-    - bash /migti/ci-scripts/sync-branches.sh prod migti_indore migti_noida develop dev_indore dev_noida
+    - bash /migti/ci-scripts/sync-branches.sh prod dev_indore dev_noida
