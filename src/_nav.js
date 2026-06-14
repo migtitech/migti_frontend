@@ -263,7 +263,7 @@ const _nav = [
   },
   {
     component: CNavGroup,
-    name: "Vendor",
+    name: "Business Partner",
     to: "/industries",
     icon: <CIcon icon={cilIndustry} customClassName="nav-icon" />,
     module: null,
