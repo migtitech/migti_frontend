@@ -27,6 +27,7 @@ import {
   cilTruck,
   cilClock,
   cilCheckCircle,
+  cilSettings,
 } from "@coreui/icons";
 import { CNavItem, CNavGroup } from "@coreui/react";
 
@@ -180,6 +181,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "My Salary",
+    to: "/my-salary",
+    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
+    module: null,
+  },
+  {
+    component: CNavItem,
     name: "Pro Dashboard",
     to: "/pro-dashboard",
     icon: <CIcon icon={cilSpeedometer} customClassName="nav-icon" />,
@@ -245,6 +253,14 @@ const _nav = [
       },
       {
         component: CNavItem,
+        name: "Settings",
+        to: "/branch-settings",
+        icon: <CIcon icon={cilSettings} customClassName="nav-icon" />,
+        module: null,
+        roles: ["head_of_department", "hod", "admin", "super_admin"],
+      },
+      {
+        component: CNavItem,
         name: "Branch Analytics",
         to: "/branch-analytics",
         icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
@@ -255,6 +271,24 @@ const _nav = [
         name: "Target Dashboard",
         to: "/target-dashboard",
         icon: <CIcon icon={cilChartLine} customClassName="nav-icon" />,
+        roles: ["head_of_department", "hod"],
+      },
+    ],
+  },
+  {
+    component: CNavGroup,
+    name: "HR Management",
+    to: "/salary-management",
+    icon: <CIcon icon={cilPeople} customClassName="nav-icon" />,
+    module: null,
+    roles: ["head_of_department", "hod"],
+    items: [
+      {
+        component: CNavItem,
+        name: "Salary Management",
+        to: "/salary-management",
+        icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
+        module: "salary_management",
         roles: ["head_of_department", "hod"],
       },
     ],

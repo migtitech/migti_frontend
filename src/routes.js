@@ -87,6 +87,11 @@ const HodPaymentBacklog = React.lazy(
   () => import("./views/hod/HodPaymentBacklog"),
 );
 const HodDashboard = React.lazy(() => import("./views/hod/HodDashboard"));
+const SalaryManagement = React.lazy(
+  () => import("./views/hod/SalaryManagement"),
+);
+const SalarySlipForm = React.lazy(() => import("./views/hod/SalarySlipForm"));
+const MySalary = React.lazy(() => import("./views/employee/MySalary"));
 const QuotationFollowupDashboard = React.lazy(
   () => import("./views/admin/QuotationFollowupDashboard"),
 );
@@ -214,6 +219,9 @@ const SubZoneList = React.lazy(() => import("./views/admin/SubZoneList"));
 const SubZoneForm = React.lazy(() => import("./views/admin/SubZoneForm"));
 const CompanyDocumentList = React.lazy(
   () => import("./views/admin/CompanyDocumentList"),
+);
+const BranchSettings = React.lazy(
+  () => import("./views/admin/BranchSettings"),
 );
 const SidebarDocs = React.lazy(() => import("./views/admin/SidebarDocs"));
 
@@ -552,6 +560,29 @@ const routes = [
     name: "HOD Dashboard",
     element: HodDashboard,
     allowedRoles: ["head_of_department", "hod", "super_admin", "admin"],
+  },
+  {
+    path: "/salary-management",
+    name: "Salary Management",
+    element: SalaryManagement,
+    allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/salary-management/generate",
+    name: "Generate Salary Slip",
+    element: SalarySlipForm,
+    allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/salary-management/edit/:id",
+    name: "Edit Salary Slip",
+    element: SalarySlipForm,
+    allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/my-salary",
+    name: "My Salary",
+    element: MySalary,
   },
   {
     path: "/target-dashboard",
@@ -1042,6 +1073,14 @@ const routes = [
     module: null,
     action: "read",
     allowedRoles: ["head_of_department", "hod"],
+  },
+  {
+    path: "/branch-settings",
+    name: "Settings",
+    element: BranchSettings,
+    module: null,
+    action: "read",
+    allowedRoles: ["head_of_department", "hod", "admin", "super_admin"],
   },
   {
     path: "/sidebar-docs",

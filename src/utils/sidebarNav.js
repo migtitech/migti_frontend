@@ -2,7 +2,7 @@ import navigation, { PURCHASE_ROLE_NAV } from "../_nav";
 import { isPurchaseFamilyRole, normalizeRole } from "../hooks/usePermissions";
 
 /** Routes visible in the sidebar and open to every authenticated role. */
-export const UNIVERSAL_NAV_PATHS = new Set(["/sidebar-docs"]);
+export const UNIVERSAL_NAV_PATHS = new Set(["/sidebar-docs", "/my-salary"]);
 
 /** Modules where HOD must have explicit permission (no full-access bypass). */
 export const HOD_PERMISSION_REQUIRED_MODULES = new Set(["po_payment_backlog"]);
@@ -42,6 +42,7 @@ export const ADMIN_ALLOWED_PATHS = new Set([
   "/companies",
   "/branches",
   "/zones",
+  "/branch-settings",
   "/industries",
   "/branch-analytics",
   "/target-analytics",

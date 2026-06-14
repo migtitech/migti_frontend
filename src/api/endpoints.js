@@ -112,6 +112,14 @@ export const EMPLOYEES = {
   DELETE: "/employees/delete",
 };
 
+export const EMPLOYEE_SALARY = {
+  CREATE: "/employee-salary/create",
+  LIST: "/employee-salary/list",
+  GET_BY_ID: "/employee-salary/get-by-id",
+  UPDATE: "/employee-salary/update",
+  EXPORT_PDF: "/employee-salary/export-pdf",
+};
+
 export const RAW_QUERIES = {
   CREATE: "/raw-queries/create",
   LIST: "/raw-queries/list",
@@ -467,6 +475,7 @@ export default {
   COMPANIES,
   BRANCHES,
   EMPLOYEES,
+  EMPLOYEE_SALARY,
   RAW_QUERIES,
   DASHBOARD,
   CATEGORIES,
