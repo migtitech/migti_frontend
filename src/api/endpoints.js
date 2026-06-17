@@ -1,6 +1,19 @@
 
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4545/api'
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://crm.migti.com/api'
+
+/** Base URL for assets (no /api). Use for image src: getAssetsUrl(document.path) */
+export const getAssetsBaseUrl = () => {
+  const base = BASE_URL.replace(/\/api\/?$/, '')
+  return base || (typeof window !== 'undefined' ? window.location.origin : '')
+}
+/** If path is full URL (e.g. S3), return as-is; else build local /assets/ URL */
+export const getAssetsUrl = (path) => {
+  if (!path) return ''
+  if (typeof path === 'string' && (path.startsWith('http://') || path.startsWith('https://')))
+    return path
+  return `${getAssetsBaseUrl()}/assets/${path}`
+}
 
 export const API_VERSION = '/v1'
 
@@ -74,6 +87,14 @@ export const CATEGORIES = {
   DELETE: '/categories/delete',
 }
 
+export const GROUPS = {
+  CREATE: '/groups/create',
+  LIST: '/groups/list',
+  GET_BY_ID: '/groups/get-by-id',
+  UPDATE: '/groups/update',
+  DELETE: '/groups/delete',
+}
+
 export const BRANDS = {
   CREATE: '/brands/create',
   LIST: '/brands/list',
@@ -91,6 +112,10 @@ export const PRODUCTS = {
   UPLOAD_IMAGES: '/products/upload-images',
 }
 
+export const DOCUMENTS = {
+  UPLOAD: '/documents/upload',
+}
+
 export const SUPPLIERS = {
   CREATE: '/suppliers/create',
   LIST: '/suppliers/list',
@@ -101,14 +126,12 @@ export const SUPPLIERS = {
 }
 
 export const RATE_CARDS = {
-  CREATE: '/rate-cards/create',
-  LIST: '/rate-cards/list',
-  GET_BY_ID: '/rate-cards/get-by-id',
-  UPDATE: '/rate-cards/update',
+  UPSERT_RATE: '/rate-cards/upsert-rate',
+  BY_PRODUCT: '/rate-cards/by-product',
+  BY_SUPPLIER: '/rate-cards/by-supplier',
   DELETE: '/rate-cards/delete',
-  ADD_SUPPLIER: '/rate-cards/add-supplier',
-  UPDATE_SUPPLIER: '/rate-cards/update-supplier',
-  DELETE_SUPPLIER: '/rate-cards/delete-supplier',
+  SEARCH_PRODUCTS: '/rate-cards/search-products',
+  SEARCH_SUPPLIERS: '/rate-cards/search-suppliers',
 }
 
 export const AREAS = {
@@ -127,6 +150,28 @@ export const INDUSTRIES = {
   DELETE: '/industries/delete',
 }
 
+export const INDUSTRY_BRANCHES = {
+  CREATE: '/industry-branches/create',
+  LIST: '/industry-branches/list',
+  GET_BY_ID: '/industry-branches/get-by-id',
+  UPDATE: '/industry-branches/update',
+  DELETE: '/industry-branches/delete',
+}
+
+export const QUERIES = {
+  CREATE: '/queries/create',
+  LIST: '/queries/list',
+  GET_BY_ID: '/queries/get-by-id',
+  UPDATE: '/queries/update',
+  DELETE: '/queries/delete',
+  ACTIVITIES: '/queries/activities',
+  RECORD_ACTIVITY: '/queries/record-activity',
+}
+
+export const ADMIN = {
+  PERMISSIONS_MODULES: '/admin/permissions/modules',
+}
+
 // Export all endpoints
 export default {
   BASE_URL,
@@ -139,10 +184,13 @@ export default {
   RAW_QUERIES,
   DASHBOARD,
   CATEGORIES,
+  GROUPS,
   BRANDS,
   PRODUCTS,
   SUPPLIERS,
   RATE_CARDS,
   AREAS,
   INDUSTRIES,
+  INDUSTRY_BRANCHES,
+  QUERIES,
 }

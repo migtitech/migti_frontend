@@ -29,6 +29,8 @@ const EmployeeTable = ({
   onView,
   onEdit,
   onDelete,
+  canUpdate,
+  canDelete,
 }) => {
   const branchById = useMemo(() => {
     const map = new Map()
@@ -113,24 +115,28 @@ const EmployeeTable = ({
                           >
                             <CIcon icon={cilZoom} />
                           </CButton>
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onEdit(employee)}
-                            title="Edit"
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => onDelete(employee.id)}
-                            title="Delete"
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canUpdate && canUpdate('employees') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(employee)}
+                              title="Edit"
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
+                          {canDelete && canDelete('employees') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onDelete(employee.id)}
+                              title="Delete"
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     )

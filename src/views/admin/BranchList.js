@@ -146,13 +146,12 @@ const BranchList = () => {
         name: editingBranch.name || '',
         email: editingBranch.email || '',
         phone: editingBranch.phone || '',
-        location: editingBranch.location || '',
         companyId: editingBranch.companyId || '',
         address: editingBranch.address || '',
         branchcode: editingBranch.branchcode || '',
         gstNumber: editingBranch.gstNumber || '',
         fullAddress: editingBranch.fullAddress || '',
-        officeImages: editingBranch.officeImages || '',
+        mapLocationUrl: editingBranch.mapLocationUrl || '',
       }
     }
 
@@ -160,13 +159,12 @@ const BranchList = () => {
       name: '',
       email: '',
       phone: '',
-      location: '',
       companyId: companies.length > 0 ? companies[0].id : '',
       address: '',
       branchcode: '',
       gstNumber: '',
       fullAddress: '',
-      officeImages: '',
+      mapLocationUrl: '',
     }
   }, [companies, editingBranch])
 

@@ -1,10 +1,12 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import usePermissions from '../hooks/usePermissions'
 import Loader from './Loader/Loader'
 
-const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { user, loading, isAuthenticated } = useAuth()
+const ProtectedRoute = ({ children, module, action = 'read' }) => {
+  const { loading, isAuthenticated } = useAuth()
+  const { hasPermission, isFullAccess } = usePermissions()
 
   if (loading) {
     return (
@@ -18,7 +20,18 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
     return <Navigate to="/login" replace />
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+  // If no module specified, allow all authenticated users (e.g., dashboard)
+  if (!module) {
+    return children
+  }
+
+  // Full-access roles bypass permission checks
+  if (isFullAccess) {
+    return children
+  }
+
+  // Check specific permission
+  if (!hasPermission(module, action)) {
     return <Navigate to="/unauthorized" replace />
   }
 

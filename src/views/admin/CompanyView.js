@@ -121,7 +121,7 @@ const CompanyView = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Company Details</strong>
-              <CButton color="warning" size="sm" onClick={() => navigate(`/companies/${id}/edit`)}>
+              <CButton color="warning" size="sm" onClick={() => navigate(`/companies/edit/${id}`)}>
                 <CIcon icon={cilPencil} className="me-2" />
                 Edit
               </CButton>
@@ -133,36 +133,16 @@ const CompanyView = () => {
                   <span>{company.name}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
+                  <strong>Brand Name:</strong>
+                  <span>{company.brandName || '-'}</span>
+                </CListGroupItem>
+                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Email:</strong>
                   <span>{company.email}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Phone:</strong>
-                  <span>{company.phone || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Location:</strong>
-                  <span>{company.location}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
                   <strong>GST Number:</strong>
                   <span>{company.gst || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Website:</strong>
-                  <span>{company.website || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Address:</strong>
-                  <span>{company.address || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Status:</strong>
-                  <CBadge color="success">Active</CBadge>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Created At:</strong>
-                  <span>{company.createdAt ? new Date(company.createdAt).toLocaleDateString() : '-'}</span>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>

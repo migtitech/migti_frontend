@@ -28,9 +28,11 @@ import areaService from '../../services/areaService'
 import { Loader, ConfirmDialog, SearchableDropdown } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const SupplierList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -171,10 +173,12 @@ const SupplierList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Suppliers</strong>
-            <CButton color="primary" onClick={() => navigate('/suppliers/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Supplier
-            </CButton>
+            {canCreate('suppliers') && (
+              <CButton color="primary" onClick={() => navigate('/suppliers/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Supplier
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody style={{ overflow: 'visible' }}>
             {error && (
@@ -225,11 +229,11 @@ const SupplierList = () => {
                   </CCol>
                   <CCol xs={12} sm={4}>
                     <SearchableDropdown
-                      label="Area"
+                      label="Zone"
                       options={areas}
                       value={filterArea}
                       onChange={handleFilterAreaChange}
-                      placeholder="Select area"
+                      placeholder="Select zone"
                       maxDisplayCount={5}
                       getOptionLabel={(opt) => opt?.name ?? ''}
                       getOptionValue={(opt) => opt?._id ?? opt?.id ?? ''}
@@ -245,43 +249,46 @@ const SupplierList = () => {
                 <CTable hover responsive>
                   <CTableHead>
                     <CTableRow>
-                      <CTableHeaderCell>S No</CTableHeaderCell>
+                      <CTableHeaderCell>SNo</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>Shop Name</CTableHeaderCell>
                       <CTableHeaderCell>Phone 1</CTableHeaderCell>
-                      <CTableHeaderCell>Phone 2</CTableHeaderCell>
+                      {/* <CTableHeaderCell>Phone 2</CTableHeaderCell> */}
                       <CTableHeaderCell>Email</CTableHeaderCell>
                       <CTableHeaderCell>Other Contact</CTableHeaderCell>
                       <CTableHeaderCell>Label</CTableHeaderCell>
                       <CTableHeaderCell>Shop Location</CTableHeaderCell>
                       <CTableHeaderCell>Categories</CTableHeaderCell>
-                      <CTableHeaderCell>Remark</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {suppliers.map((supplier, index) => (
-                      <CTableRow key={supplier._id}>
+                      <CTableRow key={supplier._id}
+                        onClick={() => navigate(`/suppliers/${supplier._id}`)}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
                           <strong>{supplier.name}</strong>
                         </CTableDataCell>
                         <CTableDataCell>{supplier.shopname || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.phone_1 || '-'}</CTableDataCell>
-                        <CTableDataCell>{supplier.phone_2 || '-'}</CTableDataCell>
+                        {/* <CTableDataCell>{supplier.phone_2 || '-'}</CTableDataCell> */}
                         <CTableDataCell>{supplier.email || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.other_contact || '-'}</CTableDataCell>
                         <CTableDataCell>{supplier.label || '-'}</CTableDataCell>
-                        <CTableDataCell>{supplier.shop_location || '-'}</CTableDataCell>
+                        <CTableDataCell
+                          style={{ maxWidth: "150px" }}>
+                          <div className="text-truncate"
+                            title={supplier.shop_location || '-'}
+                          >{supplier.shop_location || '-'}</div></CTableDataCell>
                         <CTableDataCell>
                           {supplier.categories?.length
                             ? supplier.categories
-                                .map((cat) => (typeof cat === 'string' ? cat : cat?.name))
-                                .filter(Boolean)
-                                .join(', ')
+                              .map((cat) => (typeof cat === 'string' ? cat : cat?.name))
+                              .filter(Boolean)
+                              .join(', ')
                             : '-'}
                         </CTableDataCell>
-                        <CTableDataCell>{supplier.remark || '-'}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
                             color="info"
@@ -292,24 +299,34 @@ const SupplierList = () => {
                           >
                             <CIcon icon={cilZoom} />
                           </CButton>
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/suppliers/edit/${supplier._id}`)}
-                            title="Edit"
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(supplier._id)}
-                            title="Delete"
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canUpdate('suppliers') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/suppliers/edit/${supplier._id}`)
+                              }}
+                              title="Edit"
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
+                          {canDelete('suppliers') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(supplier._id)
+                              }}
+                              title="Delete"
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     ))}

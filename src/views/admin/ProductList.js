@@ -15,13 +15,12 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CImage,
   CFormSelect,
   CPagination,
   CPaginationItem,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilPencil, cilTrash, cilZoom } from '@coreui/icons'
+import { cilPlus, cilPencil, cilTrash, cilZoom, cilX } from '@coreui/icons'
 import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
@@ -29,9 +28,11 @@ import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const ProductList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [products, setProducts] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -97,6 +98,16 @@ const ProductList = () => {
     return () => clearTimeout(timer)
   }, [searchTerm, page, filterCategory, filterBrand, filterStatus])
 
+  const hasActiveFilters = searchTerm || filterCategory || filterBrand || filterStatus
+
+  const handleClearFilters = () => {
+    setSearchTerm('')
+    setFilterCategory('')
+    setFilterBrand('')
+    setFilterStatus('')
+    setPage(1)
+  }
+
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id })
   }
@@ -127,34 +138,18 @@ const ProductList = () => {
     }
   }
 
-  const getTotalStock = (product) => {
-    if (product.hasVariants && product.variantCombinations?.length > 0) {
-      return product.variantCombinations.reduce((sum, vc) => sum + (vc.quantity || 0), 0)
-    }
-    return product.quantity || 0
-  }
-
-  const getDisplayPrice = (product) => {
-    if (product.hasVariants && product.variantCombinations?.length > 0) {
-      const prices = product.variantCombinations.map((vc) => vc.price)
-      const min = Math.min(...prices)
-      const max = Math.max(...prices)
-      if (min === max) return `₹${min.toLocaleString()}`
-      return `₹${min.toLocaleString()} - ₹${max.toLocaleString()}`
-    }
-    return `₹${product.price?.toLocaleString() || '0'}`
-  }
-
   return (
     <CRow>
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Products</strong>
-            <CButton color="primary" onClick={() => navigate('/products/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Product
-            </CButton>
+            {canCreate('products') && (
+              <CButton color="primary" onClick={() => navigate('/products/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Product
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -216,6 +211,19 @@ const ProductList = () => {
                   <option value="draft">Draft</option>
                 </CFormSelect>
               </CCol>
+              <CCol md={2} className="d-flex align-items-end">
+                <CButton
+                  color="secondary"
+                  variant="outline"
+                  size="sm"
+                  disabled={!hasActiveFilters}
+                  onClick={handleClearFilters}
+                  title="Clear all filters"
+                >
+                  <CIcon icon={cilX} className="me-1" />
+                  Clear filters
+                </CButton>
+              </CCol>
             </CRow>
 
             {loading ? (
@@ -226,38 +234,21 @@ const ProductList = () => {
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Image</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>SKU</CTableHeaderCell>
                       <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell>Brand</CTableHeaderCell>
-                      <CTableHeaderCell>Price</CTableHeaderCell>
-                      <CTableHeaderCell>Stock</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {products.map((product, index) => (
-                      <CTableRow key={product._id}>
+                      <CTableRow key={product._id}
+                      onClick={()=>navigate(`/products/${product._id}`)}
+                      style={{cursor:'pointer'}}
+                      >
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
-                        <CTableDataCell>
-                          {product.images?.length > 0 ? (
-                            <CImage
-                              src={product.images[0]}
-                              width={50}
-                              height={50}
-                              className="object-fit-cover rounded"
-                            />
-                          ) : (
-                            <div
-                              className="bg-light d-flex align-items-center justify-content-center rounded"
-                              style={{ width: 50, height: 50 }}
-                            >
-                              <small className="text-muted">N/A</small>
-                            </div>
-                          )}
-                        </CTableDataCell>
                         <CTableDataCell>
                           <strong>{product.name}</strong>
                           {product.hasVariants && (
@@ -271,8 +262,6 @@ const ProductList = () => {
                         <CTableDataCell>{product.sku}</CTableDataCell>
                         <CTableDataCell>{product.category?.name || '-'}</CTableDataCell>
                         <CTableDataCell>{product.brand?.name || '-'}</CTableDataCell>
-                        <CTableDataCell>{getDisplayPrice(product)}</CTableDataCell>
-                        <CTableDataCell>{getTotalStock(product)}</CTableDataCell>
                         <CTableDataCell>{getStatusBadge(product.status)}</CTableDataCell>
                         <CTableDataCell>
                           <CButton
@@ -284,30 +273,38 @@ const ProductList = () => {
                           >
                             <CIcon icon={cilZoom} />
                           </CButton>
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => navigate(`/products/edit/${product._id}`)}
-                            title="Edit"
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteClick(product._id)}
-                            title="Delete"
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canUpdate('products') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                navigate(`/products/edit/${product._id}`)}}
+                              title="Edit"
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
+                          {canDelete('products') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteClick(product._id)}}
+                              title="Delete"
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     ))}
                     {products.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={10} className="text-center">
+                        <CTableDataCell colSpan={7} className="text-center">
                           {searchTerm
                             ? `No products found matching "${searchTerm}"`
                             : 'No products found. Click "Add Product" to create one.'}

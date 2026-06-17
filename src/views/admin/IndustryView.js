@@ -56,7 +56,7 @@ const IndustryView = () => {
     return (
       <CAlert color="danger">
         {error}
-        <CButton color="link" onClick={() => navigate('/industries')}>
+        <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
           Back to Industries
         </CButton>
       </CAlert>
@@ -67,7 +67,7 @@ const IndustryView = () => {
     return (
       <CAlert color="warning">
         Industry not found.
-        <CButton color="link" onClick={() => navigate('/industries')}>
+        <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
           Back to Industries
         </CButton>
       </CAlert>
@@ -78,10 +78,12 @@ const IndustryView = () => {
     <>
       <CRow className="mb-3">
         <CCol className="d-flex gap-2">
-          <CButton color="light" onClick={() => navigate('/industries')}>
+          <CCardBody>
+            <CButton color="secondary" variant="outline" onClick={() => navigate('/industries')}>
             <CIcon icon={cilArrowLeft} className="me-1" />
-            Back
+            Back to Industries
           </CButton>
+          </CCardBody>
           <CButton color="warning" onClick={() => navigate(`/industries/edit/${id}`)}>
             <CIcon icon={cilPencil} className="me-1" />
             Edit
@@ -90,7 +92,7 @@ const IndustryView = () => {
       </CRow>
 
       <CRow>
-        <CCol md={8}>
+        <CCol>
           <CCard className="mb-4">
             <CCardHeader>
               <strong>{industry.name}</strong>
@@ -110,16 +112,28 @@ const IndustryView = () => {
                   <span>{industry.location || '-'}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Email:</strong>
-                  <span>{industry.email || '-'}</span>
+                  <strong>GST Number:</strong>
+                  <span>{industry.gstNumber || '-'}</span>
                 </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Purchase Manager:</strong>
-                  <span>{industry.purchase_manager_name || '-'}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Purchase Manager Phone:</strong>
-                  <span>{industry.purchase_manager_phone || '-'}</span>
+                <CListGroupItem>
+                  <strong>Purchase Managers:</strong>
+                  {(industry.purchaseManagers || []).length > 0 ? (
+                    <ul className="mb-0 mt-2 ps-3">
+                      {industry.purchaseManagers.map((pm) => (
+                        <li key={pm._id || pm.name}>
+                          {pm.name}
+                          {pm.phone ? ` · ${pm.phone}` : ''}
+                          {pm.email ? ` · ${pm.email}` : ''}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <span className="d-block mt-2">
+                      {industry.purchase_manager_name
+                        ? `${industry.purchase_manager_name}${industry.purchase_manager_phone ? ` · ${industry.purchase_manager_phone}` : ''}${industry.email ? ` · ${industry.email}` : ''}`
+                        : '-'}
+                    </span>
+                  )}
                 </CListGroupItem>
                 <CListGroupItem>
                   <strong>Address:</strong>

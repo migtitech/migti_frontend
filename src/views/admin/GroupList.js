@@ -19,16 +19,18 @@ import {
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilPlus, cilPencil, cilTrash } from '@coreui/icons'
-import brandService from '../../services/brandService'
-import Filtered from '../../filtered/Filtered'
 import { useNavigate } from 'react-router-dom'
+import groupService from '../../services/groupService'
+import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 import usePermissions from '../../hooks/usePermissions'
 
-const BrandList = () => {
-  const [brands, setBrands] = useState([])
+const GroupList = () => {
+  const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
+  const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -36,32 +38,31 @@ const BrandList = () => {
   const [pagination, setPagination] = useState({})
   const [confirmDelete, setConfirmDelete] = useState({ visible: false, id: null })
 
-  const navigate = useNavigate()
-  const { canCreate, canUpdate, canDelete } = usePermissions()
-
-  const fetchBrands = async () => {
+  const fetchGroups = async () => {
     setLoading(true)
     setError('')
     try {
       const res = await withMinimumDelay(() =>
-        brandService.getAll({
+        groupService.getAll({
           pageNumber: page,
           pageSize: 10,
           search: searchTerm,
         })
       )
       const data = res?.data || res
-      setBrands(data?.brands || [])
+      setGroups(data?.groups || [])
       setPagination(data?.pagination || {})
     } catch (err) {
-      setError(err?.message || 'Failed to fetch brands')
+      setError(err?.message || 'Failed to fetch groups')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    const timer = setTimeout(fetchBrands, 300)
+    const timer = setTimeout(() => {
+      fetchGroups()
+    }, 300)
     return () => clearTimeout(timer)
   }, [searchTerm, page])
 
@@ -70,91 +71,94 @@ const BrandList = () => {
   }
 
   const handleDeleteConfirm = async () => {
-    const id = confirmDelete.id
+    const { id } = confirmDelete
     setConfirmDelete({ visible: false, id: null })
     if (!id) return
     try {
-      await brandService.delete(id)
-      toastSuccess('Brand deleted successfully')
-      fetchBrands()
+      await groupService.delete(id)
+      toastSuccess('Group deleted successfully')
+      fetchGroups()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete brand')
+      toastError(err?.message || 'Failed to delete group')
     }
   }
 
-  const getStatusBadge = (status) =>
-    status === 'active' ? (
+  const getStatusBadge = (status) => {
+    return status === 'active' ? (
       <CBadge color="success">Active</CBadge>
     ) : (
       <CBadge color="secondary">Inactive</CBadge>
     )
+  }
 
   return (
     <CRow>
       <CCol xs={12}>
-        <CCard>
+        <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Brands</strong>
-            {canCreate('brands') && (
-              <CButton color="primary" onClick={() => navigate('/brands/new')}>
+            <strong>Groups</strong>
+            {canCreate('groups') && (
+              <CButton color="primary" onClick={() => navigate('/groups/new')}>
                 <CIcon icon={cilPlus} className="me-2" />
-                Add Brand
+                Add Group
               </CButton>
             )}
           </CCardHeader>
-
           <CCardBody>
             {error && (
               <CAlert color="danger" dismissible onClose={() => setError('')}>
                 {error}
               </CAlert>
             )}
-
             <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-
             {loading ? (
-              <Loader message="Loading brands..." />
+              <Loader message="Loading groups..." />
             ) : (
               <>
                 <CTable hover responsive>
                   <CTableHead>
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
+                      <CTableHeaderCell>Code</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell>Status</CTableHeaderCell>
                       <CTableHeaderCell>Actions</CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
-
                   <CTableBody>
-                    {brands.map((brand, index) => (
-                      <CTableRow key={brand._id}>
+                    {groups.map((grp, index) => (
+                      <CTableRow key={grp._id}>
                         <CTableDataCell>{(page - 1) * 10 + index + 1}</CTableDataCell>
                         <CTableDataCell>
-                          <strong>{brand.name}</strong>
+                          <code>{grp.code || '—'}</code>
                         </CTableDataCell>
                         <CTableDataCell>
-                          {getStatusBadge(brand.status)}
+                          <strong>{grp.name}</strong>
                         </CTableDataCell>
-
                         <CTableDataCell>
-                          {canUpdate('brands') && (
+                          {grp.description?.substring(0, 50) || '—'}
+                        </CTableDataCell>
+                        <CTableDataCell>{getStatusBadge(grp.status)}</CTableDataCell>
+                        <CTableDataCell>
+                          {canUpdate('groups') && (
                             <CButton
-                              size="sm"
                               color="warning"
                               variant="ghost"
-                              onClick={() => navigate(`/brands/edit/${brand._id}`)}
+                              size="sm"
+                              onClick={() => navigate(`/groups/edit/${grp._id}`)}
+                              title="Edit"
                             >
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
-
-                          {canDelete('brands') && (
+                          {canDelete('groups') && (
                             <CButton
-                              size="sm"
                               color="danger"
                               variant="ghost"
-                              onClick={() => handleDeleteClick(brand._id)}
+                              size="sm"
+                              onClick={() => handleDeleteClick(grp._id)}
+                              title="Delete"
                             >
                               <CIcon icon={cilTrash} />
                             </CButton>
@@ -162,36 +166,34 @@ const BrandList = () => {
                         </CTableDataCell>
                       </CTableRow>
                     ))}
-
-                    {brands.length === 0 && (
+                    {groups.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={4} className="text-center">
-                          No brands found
+                        <CTableDataCell colSpan={6} className="text-center">
+                          {searchTerm
+                            ? `No groups found matching "${searchTerm}"`
+                            : 'No groups found. Click "Add Group" to create one.'}
                         </CTableDataCell>
                       </CTableRow>
                     )}
                   </CTableBody>
                 </CTable>
-
                 {pagination.totalPages > 1 && (
-                  <CPagination className="justify-content-center mt-3">
+                  <CPagination className="justify-content-center">
                     <CPaginationItem
                       disabled={!pagination.hasPrevPage}
                       onClick={() => setPage(page - 1)}
                     >
-                      Prev
+                      Previous
                     </CPaginationItem>
-
-                    {Array.from({ length: pagination.totalPages }).map((_, i) => (
+                    {Array.from({ length: pagination.totalPages }, (_, i) => (
                       <CPaginationItem
-                        key={i}
+                        key={i + 1}
                         active={page === i + 1}
                         onClick={() => setPage(i + 1)}
                       >
                         {i + 1}
                       </CPaginationItem>
                     ))}
-
                     <CPaginationItem
                       disabled={!pagination.hasNextPage}
                       onClick={() => setPage(page + 1)}
@@ -210,8 +212,8 @@ const BrandList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Brand?"
-        message="Are you sure you want to delete this brand? This action cannot be undone."
+        title="Delete Group?"
+        message="Are you sure you want to delete this group? Categories linked to it will need to be updated first."
         confirmText="Delete"
         cancelText="Cancel"
       />
@@ -219,4 +221,4 @@ const BrandList = () => {
   )
 }
 
-export default BrandList
+export default GroupList

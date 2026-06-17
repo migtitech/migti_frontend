@@ -13,6 +13,7 @@ import {
   CForm,
   CFormInput,
   CRow,
+  CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
 import { cilArrowLeft } from '@coreui/icons'
@@ -22,28 +23,23 @@ import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
 
 // ✅ Schema mirrors CompanyList fields (no extra logic added)
-const companySchema = (isEdit = false) => yup.object({
+const companySchema = () => yup.object({
   name: yup.string().required('Company name is required').min(2).max(100),
   brandName: yup.string().required('Brand name is required').min(2).max(100),
   email: yup.string().email('Enter a valid email').required('Email is required'),
-//   password: yup.string().when('$isEdit', {
-//     is: false,
-//     then: (s) => s.required('Password is required').min(6),
-//     otherwise: (s) => s.optional(),
-//   }),
-password: isEdit
-      ? yup.string().optional()
-      : yup.string().required('Password is required').min(6),
-
-  logoUrl: yup.string().url('Enter a valid URL'),
+  gst: yup
+    .string()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === '' ? null : v))
+    .test('gst', 'GST number must be exactly 15 digits', (v) => v == null || v === '' || /^\d{15}$/.test(v)),
 })
 
 const defaultValues = {
   name: '',
   brandName: '',
   email: '',
-  password: '',
-  logoUrl: '',
+  gst: '',
 }
 
 const CompanyForm = () => {
@@ -62,7 +58,7 @@ console.log("edit id",isEdit)
     reset,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(companySchema(isEdit)),
+    resolver: yupResolver(companySchema()),
     defaultValues,
     mode: 'onBlur',
   })
@@ -85,8 +81,7 @@ console.log("edit id",isEdit)
           name: data.name || '',
           brandName: data.brandName || '',
           email: data.email || '',
-          password: '', // never prefill password
-          logoUrl: data.logoUrl || '',
+          gst: data.gst || '',
         })
         console.log("reset data", reset)
       } catch (err) {
@@ -104,7 +99,6 @@ console.log("edit id",isEdit)
     setError('')
     try {
       const payload = { ...values }
-      if (isEdit && !payload.password) delete payload.password
 
       if (isEdit) {
         await companyService.update(id, payload)
@@ -178,21 +172,9 @@ console.log("edit id",isEdit)
             </CCol>
             <CCol md={6}>
               <div className="mb-3">
-                <label className="form-label">
-                  Password {!isEdit && '*'}
-                </label>
-                <CFormInput type="password" {...register('password')} />
-                {errors.password && <div className="text-danger small">{errors.password.message}</div>}
-              </div>
-            </CCol>
-          </CRow>
-
-          <CRow>
-            <CCol md={12}>
-              <div className="mb-3">
-                <label className="form-label">Logo URL</label>
-                <CFormInput placeholder="https://example.com/logo.png" {...register('logoUrl')} />
-                {errors.logoUrl && <div className="text-danger small">{errors.logoUrl.message}</div>}
+                <label className="form-label">GST</label>
+                <CFormInput placeholder="e.g. 22AAAAA0000A1Z5" {...register('gst')} />
+                {errors.gst && <div className="text-danger small">{errors.gst.message}</div>}
               </div>
             </CCol>
           </CRow>

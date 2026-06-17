@@ -27,9 +27,11 @@ import Filtered from '../../filtered/Filtered'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const AreaList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
   const [areas, setAreas] = useState([])
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(false)
@@ -85,10 +87,10 @@ const AreaList = () => {
     if (!aid) return
     try {
       await areaService.delete(aid)
-      toastSuccess('Area deleted successfully')
+      toastSuccess('Zone deleted successfully')
       fetchAreas()
     } catch (err) {
-      toastError(err?.message || 'Failed to delete area')
+      toastError(err?.message || 'Failed to delete zone')
     }
   }
 
@@ -101,11 +103,13 @@ const AreaList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <strong>Areas</strong>
-            <CButton color="primary" onClick={() => navigate('/areas/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Area
-            </CButton>
+            <strong>Zones</strong>
+            {canCreate('zones') && (
+              <CButton color="primary" onClick={() => navigate('/areas/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Zone
+              </CButton>
+            )}
           </CCardHeader>
           <CCardBody>
             {error && (
@@ -152,7 +156,7 @@ const AreaList = () => {
               </CCol>
             </CRow>
             {loading ? (
-              <Loader message="Loading areas..." />
+              <Loader message="Loading zones..." />
             ) : (
               <>
                 <CTable responsive hover>
@@ -160,7 +164,7 @@ const AreaList = () => {
                     <CTableRow>
                       <CTableHeaderCell>Name</CTableHeaderCell>
                       <CTableHeaderCell>City</CTableHeaderCell>
-                      <CTableHeaderCell>Area Type</CTableHeaderCell>
+                      <CTableHeaderCell>Zone Type</CTableHeaderCell>
                       <CTableHeaderCell>Company</CTableHeaderCell>
                       <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell className="text-end">Actions</CTableHeaderCell>
@@ -170,12 +174,16 @@ const AreaList = () => {
                     {areas.length === 0 ? (
                       <CTableRow>
                         <CTableDataCell colSpan={6} className="text-center py-4 text-muted">
-                          No areas found
+                          No zones found
                         </CTableDataCell>
                       </CTableRow>
                     ) : (
                       areas.map((area) => (
-                        <CTableRow key={getId(area)}>
+                        <CTableRow key={getId(area)}
+                          onClick={() => navigate(`/areas/${getId(area)}`)}
+                          style={{ cursor: 'pointer' }}
+
+                        >
                           <CTableDataCell><strong>{area.name}</strong></CTableDataCell>
                           <CTableDataCell>{area.city}</CTableDataCell>
                           <CTableDataCell>{getAreaTypeBadge(area.areaType)}</CTableDataCell>
@@ -191,23 +199,31 @@ const AreaList = () => {
                             >
                               <CIcon icon={cilZoom} />
                             </CButton>
-                            <CButton
-                              color="primary"
-                              variant="ghost"
-                              size="sm"
-                              className="me-2"
-                              onClick={() => navigate(`/areas/edit/${getId(area)}`)}
-                            >
-                              <CIcon icon={cilPencil} />
-                            </CButton>
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteClick(getId(area))}
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
+                            {canUpdate('zones') && (
+                              <CButton
+                                color="primary"
+                                variant="ghost"
+                                size="sm"
+                                className="me-2"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/areas/edit/${getId(area)}`)}}
+                              >
+                                <CIcon icon={cilPencil} />
+                              </CButton>
+                            )}
+                            {canDelete('zones') && (
+                              <CButton
+                                color="danger"
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteClick(getId(area))}}
+                              >
+                                <CIcon icon={cilTrash} />
+                              </CButton>
+                            )}
                           </CTableDataCell>
                         </CTableRow>
                       ))
@@ -240,8 +256,8 @@ const AreaList = () => {
       </CCol>
       <ConfirmDialog
         visible={confirmDelete.visible}
-        title="Delete Area"
-        message="Are you sure you want to delete this area?"
+        title="Delete Zone"
+        message="Are you sure you want to delete this zone?"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConfirmDelete({ visible: false, id: null })}
       />

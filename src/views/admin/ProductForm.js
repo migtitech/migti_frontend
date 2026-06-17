@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { yupResolver } from '@hookform/resolvers/yup'
@@ -17,20 +17,16 @@ import {
   CFormSelect,
   CFormCheck,
   CAlert,
-  CTable,
-  CTableBody,
-  CTableDataCell,
-  CTableHead,
-  CTableHeaderCell,
-  CTableRow,
   CImage,
   CSpinner,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilPlus, cilTrash, cilArrowLeft, cilChevronBottom, cilChevronTop } from '@coreui/icons'
+import { cilPlus, cilTrash, cilArrowLeft, cilReload } from '@coreui/icons'
 import productService from '../../services/productService'
 import categoryService from '../../services/categoryService'
 import brandService from '../../services/brandService'
+import groupService from '../../services/groupService'
+import { getAssetsUrl } from '../../api/endpoints'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
@@ -65,10 +61,10 @@ const productSchema = yup.object({
   category: yup.string().required('Category is required'),
   subcategory: yup.string().optional(),
   brand: yup.string().optional(),
-  price: numberField('Selling price', true),
-  mrp: numberField('MRP'),
-  costPrice: numberField('Cost price'),
-  quantity: numberField('Quantity'),
+  group: yup.string().optional(),
+  hsnNumber: yup.string().optional().max(50),
+  gstPercentage: numberField('GST %').nullable(true),
+  defaultModelNumber: yup.string().optional().max(100),
   hasVariants: yup.boolean().default(false),
   weight: numberField('Weight'),
   weightUnit: yup.string().required('Weight unit is required'),
@@ -86,15 +82,14 @@ const productSchema = yup.object({
 const defaultValues = {
   name: '',
   sku: '',
-  description: '',
   shortDescription: '',
   category: '',
   subcategory: '',
   brand: '',
-  price: '',
-  mrp: '',
-  costPrice: '',
-  quantity: '',
+  group: '',
+  hsnNumber: '',
+  gstPercentage: '',
+  defaultModelNumber: '',
   hasVariants: false,
   weight: '',
   weightUnit: 'g',
@@ -118,15 +113,19 @@ const ProductForm = () => {
   const [categories, setCategories] = useState([])
   const [subcategories, setSubcategories] = useState([])
   const [brands, setBrands] = useState([])
+  const [groups, setGroups] = useState([])
+  const [categorySearch, setCategorySearch] = useState('')
+  const [subcategorySearch, setSubcategorySearch] = useState('')
+  const [brandSearch, setBrandSearch] = useState('')
 
   const [variants, setVariants] = useState([])
-  const [variantCombinations, setVariantCombinations] = useState([])
-  const [expandedSubVariants, setExpandedSubVariants] = useState({})
   const [customVariantInput, setCustomVariantInput] = useState({})
 
   const [imageFiles, setImageFiles] = useState([])
   const [imagePreviews, setImagePreviews] = useState([])
   const [existingImages, setExistingImages] = useState([])
+  const [variantCombinations, setVariantCombinations] = useState([])
+  const comboFileInputRefs = useRef({})
 
   const {
     register,
@@ -142,9 +141,6 @@ const ProductForm = () => {
   })
 
   const hasVariants = watch('hasVariants')
-  const priceValue = parseFloat(watch('price')) || 0
-  const mrpValue = parseFloat(watch('mrp')) || 0
-  const costPriceValue = parseFloat(watch('costPrice')) || 0
 
   useEffect(() => {
     fetchDropdownData()
@@ -158,20 +154,22 @@ const ProductForm = () => {
   useEffect(() => {
     if (!hasVariants) {
       setVariants([])
-      setVariantCombinations([])
     }
   }, [hasVariants])
 
   const fetchDropdownData = async () => {
     try {
-      const [catRes, brandRes] = await Promise.all([
+      const [catRes, brandRes, groupRes] = await Promise.all([
         categoryService.getAll({ pageNumber: 1, pageSize: 100, parent: 'null' }),
         brandService.getAll({ pageNumber: 1, pageSize: 100 }),
+        groupService.getAll({ pageNumber: 1, pageSize: 100 }),
       ])
       const catData = catRes?.data || catRes
       const brandData = brandRes?.data || brandRes
+      const groupData = groupRes?.data || groupRes
       setCategories(catData?.categories || [])
       setBrands(brandData?.brands || [])
+      setGroups(groupData?.groups || [])
     } catch (err) {
       console.error('Failed to fetch dropdown data', err)
     }
@@ -195,6 +193,55 @@ const ProductForm = () => {
     }
   }
 
+  const refreshCategories = async () => {
+    try {
+      const res = await categoryService.getAll({ pageNumber: 1, pageSize: 100, parent: 'null' })
+      const data = res?.data || res
+      setCategories(data?.categories || [])
+      setCategorySearch('')
+      toastSuccess('Categories refreshed')
+    } catch (err) {
+      toastError(err?.message || 'Failed to refresh categories')
+    }
+  }
+
+  const refreshSubcategories = async () => {
+    const parentId = watch('category')
+    if (!parentId) {
+      toastError('Select a category first')
+      return
+    }
+    try {
+      await fetchSubcategories(parentId)
+      setSubcategorySearch('')
+      toastSuccess('Subcategories refreshed')
+    } catch (err) {
+      toastError(err?.message || 'Failed to refresh subcategories')
+    }
+  }
+
+  const refreshBrands = async () => {
+    try {
+      const res = await brandService.getAll({ pageNumber: 1, pageSize: 100 })
+      const data = res?.data || res
+      setBrands(data?.brands || [])
+      setBrandSearch('')
+      toastSuccess('Brands refreshed')
+    } catch (err) {
+      toastError(err?.message || 'Failed to refresh brands')
+    }
+  }
+
+  const filteredCategories = categories.filter((c) =>
+    (c.name || '').toLowerCase().includes((categorySearch || '').toLowerCase())
+  )
+  const filteredSubcategories = subcategories.filter((s) =>
+    (s.name || '').toLowerCase().includes((subcategorySearch || '').toLowerCase())
+  )
+  const filteredBrands = brands.filter((b) =>
+    (b.name || '').toLowerCase().includes((brandSearch || '').toLowerCase())
+  )
+
   const fetchProduct = async () => {
     setLoading(true)
     try {
@@ -204,15 +251,14 @@ const ProductForm = () => {
         reset({
           name: product.name || '',
           sku: product.sku || '',
-          description: product.description || '',
           shortDescription: product.shortDescription || '',
           category: product.category?._id || product.category || '',
           subcategory: product.subcategory?._id || product.subcategory || '',
           brand: product.brand?._id || product.brand || '',
-          price: product.price ?? '',
-          mrp: product.mrp ?? '',
-          costPrice: product.costPrice ?? '',
-          quantity: product.quantity ?? '',
+          group: product.group?._id || product.group || '',
+          hsnNumber: product.hsnNumber || '',
+          gstPercentage: product.gstPercentage ?? '',
+          defaultModelNumber: product.defaultModelNumber || '',
           hasVariants: product.hasVariants || false,
           weight: product.weight ?? '',
           weightUnit: product.weightUnit || 'g',
@@ -224,7 +270,6 @@ const ProductForm = () => {
         })
         const loadedVariants = product.variants || []
         setVariants(loadedVariants)
-        setVariantCombinations(product.variantCombinations || [])
         const customInputMap = {}
         loadedVariants.forEach((v, i) => {
           if (v.name && !VARIANT_TYPE_OPTIONS.some((o) => o.value === v.name)) {
@@ -232,8 +277,10 @@ const ProductForm = () => {
           }
         })
         setCustomVariantInput(customInputMap)
-        setExistingImages(product.images || [])
-        setImagePreviews(product.images || [])
+        const imgs = product.images || []
+        setExistingImages(imgs.map((i) => (typeof i === 'object' && i?._id ? i._id : i)))
+        setImagePreviews(imgs.map((i) => (typeof i === 'object' && i?.path ? getAssetsUrl(i.path) : i)))
+        setVariantCombinations(product.variantCombinations || [])
         if (product.category?._id || product.category) {
           fetchSubcategories(product.category?._id || product.category)
         }
@@ -283,13 +330,6 @@ const ProductForm = () => {
 
   const removeVariant = (index) => {
     setVariants((prev) => prev.filter((_, i) => i !== index))
-    setVariantCombinations((prev) => {
-      const variantName = variants[index]?.name
-      if (!variantName) return []
-      return prev.filter(
-        (combo) => !combo.optionValues.some((ov) => ov.variantName === variantName),
-      )
-    })
   }
 
   const addSubVariant = (variantIndex) => {
@@ -310,9 +350,6 @@ const ProductForm = () => {
   }
 
   const updateSubVariantName = (variantIndex, optionIndex, value) => {
-    const oldVariant = variants[variantIndex]
-    const oldValue = oldVariant.options[optionIndex]
-
     setVariants((prev) => {
       const next = [...prev]
       const newOptions = [...next[variantIndex].options]
@@ -320,125 +357,15 @@ const ProductForm = () => {
       next[variantIndex] = { ...next[variantIndex], options: newOptions }
       return next
     })
-
-    if (oldValue) {
-      setVariantCombinations((prev) =>
-        prev.map((combo) => ({
-          ...combo,
-          optionValues: combo.optionValues.map((ov) =>
-            ov.variantName === oldVariant.name && ov.variantValue === oldValue
-              ? { ...ov, variantValue: value }
-              : ov,
-          ),
-        })),
-      )
-    }
   }
 
   const removeSubVariant = (variantIndex, optionIndex) => {
-    const variant = variants[variantIndex]
-    const removedValue = variant.options[optionIndex]
-
     setVariants((prev) => {
       const next = [...prev]
       const newOptions = next[variantIndex].options.filter((_, i) => i !== optionIndex)
       next[variantIndex] = { ...next[variantIndex], options: newOptions }
       return next
     })
-
-    setVariantCombinations((prev) =>
-      prev.filter(
-        (combo) =>
-          !combo.optionValues.some(
-            (ov) => ov.variantName === variant.name && ov.variantValue === removedValue,
-          ),
-      ),
-    )
-  }
-
-  const generateCombinations = () => {
-    if (variants.length === 0 || variants.some((v) => !v.name || v.options.length === 0)) {
-      toastError('Please fill in all variant names and add at least one sub-variant.')
-      return
-    }
-    if (variants.some((v) => v.options.some((o) => !o.trim()))) {
-      toastError('Please fill in all sub-variant names.')
-      return
-    }
-
-    const combine = (arrays) => {
-      if (arrays.length === 0) return [[]]
-      const [first, ...rest] = arrays
-      const restCombinations = combine(rest)
-      return first.flatMap((item) => restCombinations.map((combo) => [item, ...combo]))
-    }
-
-    const optionArrays = variants.map((v) =>
-      v.options.map((opt) => ({ variantName: v.name, variantValue: opt })),
-    )
-
-    const newCombinations = combine(optionArrays)
-
-    if (newCombinations.length > 100) {
-      toastError('Too many variant combinations (max 100). Please reduce the number of options.')
-      return
-    }
-
-    const merged = newCombinations.map((optionValues) => {
-      const existing = variantCombinations.find(
-        (combo) =>
-          combo.optionValues.length === optionValues.length &&
-          combo.optionValues.every(
-            (ov, i) =>
-              ov.variantName === optionValues[i].variantName &&
-              ov.variantValue === optionValues[i].variantValue,
-          ),
-      )
-      if (existing) return existing
-      return {
-        optionValues,
-        sku: '',
-        price: priceValue || 0,
-        mrp: mrpValue || 0,
-        costPrice: costPriceValue || 0,
-        quantity: 0,
-        weight: 0,
-        weightUnit: 'g',
-        dimensions: { length: 0, width: 0, height: 0 },
-        dimensionUnit: 'cm',
-        images: [],
-        isActive: true,
-      }
-    })
-
-    setVariantCombinations(merged)
-    setError('')
-  }
-
-  const updateCombinationField = (index, field, value) => {
-    setVariantCombinations((prev) => {
-      const next = [...prev]
-      next[index] = { ...next[index], [field]: value }
-      return next
-    })
-  }
-
-  const updateCombinationDimension = (index, dimField, value) => {
-    setVariantCombinations((prev) => {
-      const next = [...prev]
-      next[index] = {
-        ...next[index],
-        dimensions: {
-          ...next[index].dimensions,
-          [dimField]: parseFloat(value) || 0,
-        },
-      }
-      return next
-    })
-  }
-
-  const toggleSubVariantExpand = (index) => {
-    setExpandedSubVariants((prev) => ({ ...prev, [index]: !prev[index] }))
   }
 
   // Image handling
@@ -459,6 +386,104 @@ const ProductForm = () => {
     }
   }
 
+  const handleVariantComboImageUpload = async (comboIndex, files) => {
+    if (!files?.length) return
+    const fileList = Array.from(files)
+    try {
+      const combo = variantCombinations[comboIndex]
+      const opts = id ? { productId: id, variantUniqueId: combo?.uniqueId } : {}
+      const uploadRes = await productService.uploadImages(fileList, opts)
+      const uploadData = uploadRes?.data ?? uploadRes
+      const documents = uploadData?.documents ?? uploadData?.data?.documents ?? []
+      if (documents.length > 0) {
+        const newImages = documents.map((d) => ({
+          _id: d._id || d.id,
+          path: d.path || d.url || '',
+        }))
+        setVariantCombinations((prev) => {
+          const next = [...prev]
+          next[comboIndex] = {
+            ...next[comboIndex],
+            images: [...(next[comboIndex].images || []), ...newImages],
+          }
+          return next
+        })
+        toastSuccess(`${newImages.length} image(s) uploaded (S3)`)
+      } else {
+        toastError('No documents returned from upload')
+      }
+    } catch (err) {
+      toastError(err?.message || 'Image upload failed')
+    }
+  }
+
+  const removeVariantComboImage = (comboIndex, imageIndex) => {
+    setVariantCombinations((prev) => {
+      const next = [...prev]
+      next[comboIndex] = {
+        ...next[comboIndex],
+        images: (next[comboIndex].images || []).filter((_, i) => i !== imageIndex),
+      }
+      return next
+    })
+  }
+
+  /** Cartesian product of variant options -> array of { optionValues, uniqueId, sku, price, ... } */
+  const generateSubvariantsFromVariants = () => {
+    const varsWithOptions = variants.filter((v) => v?.name && v?.options?.length > 0)
+    if (varsWithOptions.length === 0) {
+      toastError('Add at least one variant with sub-variant options.')
+      return
+    }
+    const baseSku = watch('sku') || 'SKU'
+    const productHsn = watch('hsnNumber') || ''
+    const productDefaultModel = watch('defaultModelNumber') || ''
+    const productGst = watch('gstPercentage')
+    const productGstNum = productGst !== '' && productGst != null ? parseFloat(productGst) : 0
+
+    const optionArrays = varsWithOptions.map((v) =>
+      (v.options || []).filter(Boolean).map((val) => ({ variantName: v.name, variantValue: val })),
+    )
+    const combine = (arrs, i = 0) => {
+      if (i >= arrs.length) return [[]]
+      const rest = combine(arrs, i + 1)
+      return arrs[i].flatMap((opt) => rest.map((r) => [opt, ...r]))
+    }
+    const optionValueLists = combine(optionArrays)
+    const newCombos = optionValueLists.map((optionValues, idx) => {
+      const slug = optionValues.map((o) => `${o.variantValue}`).join('-').replace(/\s+/g, '-')
+      const uniqueId = `combo-${slug}-${Date.now()}-${idx}`
+      return {
+        uniqueId,
+        optionValues,
+        sku: `${baseSku}-${slug}`,
+        price: 0,
+        mrp: 0,
+        costPrice: 0,
+        quantity: 0,
+        weight: 0,
+        weightUnit: 'g',
+        dimensions: { length: 0, width: 0, height: 0 },
+        dimensionUnit: 'cm',
+        images: [],
+        modelNumber: productDefaultModel,
+        hsnNumber: productHsn,
+        gstPercentage: productGstNum,
+        isActive: true,
+      }
+    })
+    setVariantCombinations(newCombos)
+    toastSuccess(`Generated ${newCombos.length} subvariants. Upload images for each.`)
+  }
+
+  const updateVariantComboField = (comboIndex, field, value) => {
+    setVariantCombinations((prev) => {
+      const next = [...prev]
+      next[comboIndex] = { ...next[comboIndex], [field]: value }
+      return next
+    })
+  }
+
   const onSubmit = async (values) => {
     setSubmitting(true)
     setError('')
@@ -469,10 +494,11 @@ const ProductForm = () => {
 
       if (imageFiles.length > 0) {
         try {
-          const uploadRes = await productService.uploadImages(imageFiles)
+          const opts = isEdit && id ? { productId: id } : {}
+          const uploadRes = await productService.uploadImages(imageFiles, opts)
           const uploadData = uploadRes?.data || uploadRes
-          if (uploadData?.images) {
-            uploadedImages = [...uploadedImages, ...uploadData.images]
+          if (uploadData?.documents?.length) {
+            uploadedImages = [...uploadedImages, ...uploadData.documents.map((d) => d._id)]
           }
         } catch (uploadErr) {
           console.error('Image upload failed, continuing without images', uploadErr)
@@ -482,18 +508,16 @@ const ProductForm = () => {
       const payload = {
         name: values.name,
         sku: values.sku,
-        description: values.description || '',
         shortDescription: values.shortDescription || '',
         category: values.category,
         subcategory: values.subcategory || null,
         brand: values.brand || null,
-        price: parseFloat(values.price) || 0,
-        mrp: parseFloat(values.mrp) || 0,
-        costPrice: parseFloat(values.costPrice) || 0,
-        quantity: parseInt(values.quantity) || 0,
+        group: values.group || null,
+        hsnNumber: values.hsnNumber || '',
+        gstPercentage: values.gstPercentage !== '' && values.gstPercentage != null ? parseFloat(values.gstPercentage) : 0,
+        defaultModelNumber: values.defaultModelNumber || '',
         hasVariants: values.hasVariants,
         variants: values.hasVariants ? variants : [],
-        variantCombinations: values.hasVariants ? variantCombinations : [],
         images: uploadedImages,
         weight: parseFloat(values.weight) || 0,
         weightUnit: values.weightUnit,
@@ -511,6 +535,15 @@ const ProductForm = () => {
           : [],
         status: values.status,
         unit: values.unit,
+      }
+      if (values.hasVariants && variantCombinations.length > 0) {
+        payload.variantCombinations = variantCombinations.map((vc) => ({
+          ...vc,
+          modelNumber: vc.modelNumber || '',
+          hsnNumber: vc.hsnNumber ?? '',
+          gstPercentage: vc.gstPercentage !== undefined && vc.gstPercentage !== '' ? parseFloat(vc.gstPercentage) : null,
+          images: (vc.images || []).map((img) => (typeof img === 'object' && img?._id ? img._id : img)),
+        }))
       }
 
       if (isEdit) {
@@ -598,27 +631,28 @@ const ProductForm = () => {
             </CCol>
           </CRow>
           <CRow>
-            <CCol md={12}>
-              <div className="mb-3">
-                <CFormLabel>Full Description</CFormLabel>
-                <CFormTextarea rows={4} placeholder="Detailed product description" {...register('description')} />
-                {errors.description && (
-                  <div className="text-danger small mt-1">{errors.description.message}</div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
             <CCol md={4}>
               <div className="mb-3">
-                <CFormLabel>Category *</CFormLabel>
+                <div className="d-flex align-items-center justify-content-between mb-1">
+                  <CFormLabel className="mb-0">Category *</CFormLabel>
+                  <CButton color="light" size="sm" onClick={refreshCategories} title="Refresh categories">
+                    <CIcon icon={cilReload} />
+                  </CButton>
+                </div>
+                <CFormInput
+                  placeholder="Search category..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                  className="mb-1"
+                  size="sm"
+                />
                 <CFormSelect
                   {...register('category', {
                     onChange: (e) => handleCategoryChange(e.target.value),
                   })}
                 >
                   <option value="">Select Category</option>
-                  {categories.map((cat) => (
+                  {filteredCategories.map((cat) => (
                     <option key={cat._id} value={cat._id}>
                       {cat.name}
                     </option>
@@ -631,12 +665,25 @@ const ProductForm = () => {
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
-                <CFormLabel>Subcategory</CFormLabel>
+                <div className="d-flex align-items-center justify-content-between mb-1">
+                  <CFormLabel className="mb-0">Subcategory</CFormLabel>
+                  <CButton color="light" size="sm" onClick={refreshSubcategories} title="Refresh subcategories">
+                    <CIcon icon={cilReload} />
+                  </CButton>
+                </div>
+                <CFormInput
+                  placeholder="Search subcategory..."
+                  value={subcategorySearch}
+                  onChange={(e) => setSubcategorySearch(e.target.value)}
+                  className="mb-1"
+                  size="sm"
+                  disabled={subcategories.length === 0}
+                />
                 <CFormSelect {...register('subcategory')} disabled={subcategories.length === 0}>
                   <option value="">
                     {subcategories.length === 0 ? 'No subcategories' : 'Select Subcategory'}
                   </option>
-                  {subcategories.map((sub) => (
+                  {filteredSubcategories.map((sub) => (
                     <option key={sub._id} value={sub._id}>
                       {sub.name}
                     </option>
@@ -649,10 +696,22 @@ const ProductForm = () => {
             </CCol>
             <CCol md={4}>
               <div className="mb-3">
-                <CFormLabel>Brand</CFormLabel>
+                <div className="d-flex align-items-center justify-content-between mb-1">
+                  <CFormLabel className="mb-0">Brand</CFormLabel>
+                  <CButton color="light" size="sm" onClick={refreshBrands} title="Refresh brands">
+                    <CIcon icon={cilReload} />
+                  </CButton>
+                </div>
+                <CFormInput
+                  placeholder="Search brand..."
+                  value={brandSearch}
+                  onChange={(e) => setBrandSearch(e.target.value)}
+                  className="mb-1"
+                  size="sm"
+                />
                 <CFormSelect {...register('brand')}>
                   <option value="">Select Brand</option>
-                  {brands.map((b) => (
+                  {filteredBrands.map((b) => (
                     <option key={b._id} value={b._id}>
                       {b.name}
                     </option>
@@ -665,7 +724,49 @@ const ProductForm = () => {
             </CCol>
           </CRow>
           <CRow>
-            <CCol md={3}>
+            <CCol md={4}>
+              <div className="mb-3">
+                <CFormLabel>Group</CFormLabel>
+                <CFormSelect {...register('group')}>
+                  <option value="">Select Group</option>
+                  {groups.map((g) => (
+                    <option key={g._id} value={g._id}>
+                      {g.name}
+                    </option>
+                  ))}
+                </CFormSelect>
+              </div>
+            </CCol>
+            <CCol md={4}>
+              <div className="mb-3">
+                <CFormLabel>HSN Number</CFormLabel>
+                <CFormInput placeholder="e.g., 8471" {...register('hsnNumber')} />
+                {errors.hsnNumber && (
+                  <div className="text-danger small mt-1">{errors.hsnNumber.message}</div>
+                )}
+              </div>
+            </CCol>
+          </CRow>
+          <CRow>
+            <CCol md={4}>
+              <div className="mb-3">
+                <CFormLabel>Default Model Number</CFormLabel>
+                <CFormInput placeholder="Default for subvariants" {...register('defaultModelNumber')} />
+                {errors.defaultModelNumber && (
+                  <div className="text-danger small mt-1">{errors.defaultModelNumber.message}</div>
+                )}
+              </div>
+            </CCol>
+            <CCol md={4}>
+              <div className="mb-3">
+                <CFormLabel>GST %</CFormLabel>
+                <CFormInput type="number" min="0" max="100" step="0.01" placeholder="e.g., 18" {...register('gstPercentage')} />
+                {errors.gstPercentage && (
+                  <div className="text-danger small mt-1">{errors.gstPercentage.message}</div>
+                )}
+              </div>
+            </CCol>
+            <CCol md={4}>
               <div className="mb-3">
                 <CFormLabel>Unit *</CFormLabel>
                 <CFormInput placeholder="e.g., pcs, kg, ltr" {...register('unit')} />
@@ -696,54 +797,6 @@ const ProductForm = () => {
                 )}
               </div>
             </CCol>
-          </CRow>
-        </CCardBody>
-      </CCard>
-
-      <CCard className="mb-4">
-        <CCardHeader>
-          <strong>Pricing & Stock</strong>
-        </CCardHeader>
-        <CCardBody>
-          <CRow>
-            <CCol md={3}>
-              <div className="mb-3">
-                <CFormLabel>Selling Price *</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('price')} />
-                {errors.price && (
-                  <div className="text-danger small mt-1">{errors.price.message}</div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={3}>
-              <div className="mb-3">
-                <CFormLabel>MRP</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('mrp')} />
-                {errors.mrp && (
-                  <div className="text-danger small mt-1">{errors.mrp.message}</div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={3}>
-              <div className="mb-3">
-                <CFormLabel>Cost Price</CFormLabel>
-                <CFormInput type="number" min="0" step="0.01" {...register('costPrice')} />
-                {errors.costPrice && (
-                  <div className="text-danger small mt-1">{errors.costPrice.message}</div>
-                )}
-              </div>
-            </CCol>
-            {!hasVariants && (
-              <CCol md={3}>
-                <div className="mb-3">
-                  <CFormLabel>Quantity</CFormLabel>
-                  <CFormInput type="number" min="0" {...register('quantity')} />
-                  {errors.quantity && (
-                    <div className="text-danger small mt-1">{errors.quantity.message}</div>
-                  )}
-                </div>
-              </CCol>
-            )}
           </CRow>
         </CCardBody>
       </CCard>
@@ -884,247 +937,142 @@ const ProductForm = () => {
               </CCard>
             ))}
 
-            <div className="mb-3 d-flex gap-2">
+            <div className="mb-3">
               <CButton color="light" onClick={addVariant}>
                 <CIcon icon={cilPlus} className="me-1" />
                 Add Variant
               </CButton>
-              {variants.length > 0 &&
-                variants.some((v) => v.name && v.options.length > 0) && (
-                  <CButton color="primary" onClick={generateCombinations}>
-                    Generate Combinations
-                  </CButton>
-                )}
             </div>
 
-            {variantCombinations.length > 0 && (
-              <CCard className="border mt-3">
-                <CCardHeader className="bg-light">
-                  <strong>
-                    Sub-variant Combinations ({variantCombinations.length})
-                  </strong>
-                </CCardHeader>
-                <CCardBody className="p-2">
-                  {variantCombinations.map((combo, idx) => (
-                    <CCard
-                      key={idx}
-                      className="mb-2 border"
-                      style={{ backgroundColor: combo.isActive ? '#fff' : '#f8f8f8' }}
+            {/* Subvariants (combinations) – generate from variant options, then upload images for each */}
+            <CCard className="mt-3 border-primary">
+              <CCardHeader className="bg-light">
+                <strong>Subvariants (combinations)</strong>
+                <small className="text-muted ms-2">
+                  Generate combinations, then upload multiple images for each (stored on AWS S3).
+                </small>
+              </CCardHeader>
+              <CCardBody>
+                {variantCombinations.length === 0 ? (
+                  <div>
+                    <p className="text-muted mb-2">
+                      Add variant types and their options above (e.g. Color: Red, Blue; Size: S, M). Then click below to generate all subvariants.
+                    </p>
+                    <CButton
+                      color="primary"
+                      onClick={generateSubvariantsFromVariants}
+                      disabled={!variants.some((v) => v?.name && v?.options?.length > 0)}
                     >
-                      <div
-                        className="d-flex align-items-center justify-content-between p-2"
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => toggleSubVariantExpand(idx)}
-                      >
-                        <div className="d-flex align-items-center gap-2 flex-wrap">
-                          {combo.optionValues.map((ov, ovIdx) => (
-                            <span key={ovIdx}>
-                              <strong>{ov.variantName}:</strong>{' '}
-                              <span className="badge bg-primary-subtle text-primary-emphasis me-1">
-                                {ov.variantValue}
-                              </span>
-                            </span>
-                          ))}
-                          {combo.sku && (
-                            <span className="text-muted small ms-2">SKU: {combo.sku}</span>
-                          )}
-                        </div>
-                        <div className="d-flex align-items-center gap-2">
-                          <CFormCheck
-                            label="Active"
-                            checked={combo.isActive}
-                            onChange={(e) => {
-                              e.stopPropagation()
-                              updateCombinationField(idx, 'isActive', e.target.checked)
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                          <CIcon
-                            icon={
-                              expandedSubVariants[idx] ? cilChevronTop : cilChevronBottom
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      {expandedSubVariants[idx] && (
-                        <CCardBody className="pt-0 px-3 pb-3">
-                          <hr className="mt-0 mb-3" />
-                          <CRow className="mb-2">
-                            <CCol md={4}>
-                              <CFormLabel className="small mb-1">SKU *</CFormLabel>
+                      <CIcon icon={cilPlus} className="me-1" />
+                      Generate subvariants from variant options
+                    </CButton>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mb-2 d-flex justify-content-between align-items-center">
+                      <span className="text-muted">{variantCombinations.length} subvariant(s)</span>
+                      <CButton color="secondary" size="sm" onClick={generateSubvariantsFromVariants}>
+                        Regenerate
+                      </CButton>
+                    </div>
+                    {variantCombinations.map((combo, cIdx) => (
+                      <CCard key={combo.uniqueId || cIdx} className="mb-3 border">
+                        <CCardBody className="py-2">
+                          <div className="mb-2">
+                            <strong>
+                              {combo.optionValues?.map((o) => `${o.variantName}: ${o.variantValue}`).join(' · ') || 'Subvariant'}
+                            </strong>
+                          </div>
+                          <div className="row g-2 mb-2">
+                            <div className="col-md-4">
+                              <CFormLabel className="small text-muted">HSN Number</CFormLabel>
                               <CFormInput
-                                size="sm"
-                                value={combo.sku}
-                                onChange={(e) =>
-                                  updateCombinationField(idx, 'sku', e.target.value)
-                                }
-                                placeholder="Enter SKU"
+                                type="text"
+                                placeholder="Defaults to product HSN"
+                                value={combo.hsnNumber ?? ''}
+                                onChange={(e) => updateVariantComboField(cIdx, 'hsnNumber', e.target.value)}
+                                className="form-control form-control-sm"
+                                maxLength={50}
                               />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Price *</CFormLabel>
+                            </div>
+                            <div className="col-md-4">
+                              <CFormLabel className="small text-muted">Model Number</CFormLabel>
                               <CFormInput
-                                size="sm"
+                                type="text"
+                                placeholder="Defaults to product default"
+                                value={combo.modelNumber ?? ''}
+                                onChange={(e) => updateVariantComboField(cIdx, 'modelNumber', e.target.value)}
+                                className="form-control form-control-sm"
+                                maxLength={100}
+                              />
+                            </div>
+                            <div className="col-md-4">
+                              <CFormLabel className="small text-muted">GST %</CFormLabel>
+                              <CFormInput
                                 type="number"
                                 min="0"
+                                max="100"
                                 step="0.01"
-                                value={combo.price}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'price',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
+                                placeholder="Defaults to product %"
+                                value={combo.gstPercentage !== undefined && combo.gstPercentage !== '' ? combo.gstPercentage : ''}
+                                onChange={(e) => updateVariantComboField(cIdx, 'gstPercentage', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                                className="form-control form-control-sm"
                               />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">MRP</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.mrp}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'mrp',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
+                            </div>
+                          </div>
+                          <div className="d-flex flex-wrap gap-2 align-items-start">
+                            {(combo.images || []).map((img, iIdx) => (
+                              <div key={img?._id || iIdx} className="position-relative">
+                                <CImage
+                                  src={typeof img === 'object' && img?.path ? getAssetsUrl(img.path) : img}
+                                  width={80}
+                                  height={80}
+                                  className="object-fit-cover rounded border"
+                                />
+                                <CButton
+                                  color="danger"
+                                  size="sm"
+                                  className="position-absolute top-0 end-0"
+                                  style={{ transform: 'translate(50%, -50%)' }}
+                                  onClick={() => removeVariantComboImage(cIdx, iIdx)}
+                                >
+                                  &times;
+                                </CButton>
+                              </div>
+                            ))}
+                            <div className="mb-0">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                ref={(el) => { comboFileInputRefs.current[cIdx] = el }}
+                                className="d-none"
+                                onChange={(e) => {
+                                  const files = e.target.files
+                                  if (files?.length) handleVariantComboImageUpload(cIdx, files)
+                                  e.target.value = ''
+                                }}
                               />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Cost Price</CFormLabel>
-                              <CFormInput
+                              <CButton
+                                color="primary"
                                 size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.costPrice}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'costPrice',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Quantity</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                value={combo.quantity}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'quantity',
-                                    parseInt(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                          </CRow>
-
-                          <CRow>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Weight</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.weight || 0}
-                                onChange={(e) =>
-                                  updateCombinationField(
-                                    idx,
-                                    'weight',
-                                    parseFloat(e.target.value) || 0,
-                                  )
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Weight Unit</CFormLabel>
-                              <CFormSelect
-                                size="sm"
-                                value={combo.weightUnit || 'g'}
-                                onChange={(e) =>
-                                  updateCombinationField(idx, 'weightUnit', e.target.value)
-                                }
+                                type="button"
+                                className="mb-0"
+                                variant="outline"
+                                onClick={() => comboFileInputRefs.current[cIdx]?.click()}
                               >
-                                <option value="g">g</option>
-                                <option value="kg">kg</option>
-                                <option value="lb">lb</option>
-                                <option value="oz">oz</option>
-                              </CFormSelect>
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Length</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.dimensions?.length || 0}
-                                onChange={(e) =>
-                                  updateCombinationDimension(idx, 'length', e.target.value)
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Width</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.dimensions?.width || 0}
-                                onChange={(e) =>
-                                  updateCombinationDimension(idx, 'width', e.target.value)
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Height</CFormLabel>
-                              <CFormInput
-                                size="sm"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={combo.dimensions?.height || 0}
-                                onChange={(e) =>
-                                  updateCombinationDimension(idx, 'height', e.target.value)
-                                }
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormLabel className="small mb-1">Dim. Unit</CFormLabel>
-                              <CFormSelect
-                                size="sm"
-                                value={combo.dimensionUnit || 'cm'}
-                                onChange={(e) =>
-                                  updateCombinationField(idx, 'dimensionUnit', e.target.value)
-                                }
-                              >
-                                <option value="cm">cm</option>
-                                <option value="in">in</option>
-                                <option value="m">m</option>
-                              </CFormSelect>
-                            </CCol>
-                          </CRow>
+                                <CIcon icon={cilPlus} className="me-1" />
+                                Upload images
+                              </CButton>
+                            </div>
+                          </div>
                         </CCardBody>
-                      )}
-                    </CCard>
-                  ))}
-                </CCardBody>
-              </CCard>
-            )}
+                      </CCard>
+                    ))}
+                  </>
+                )}
+              </CCardBody>
+            </CCard>
           </CCardBody>
         )}
       </CCard>

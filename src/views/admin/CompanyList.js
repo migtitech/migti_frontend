@@ -13,7 +13,6 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CBadge,
   CAlert,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
@@ -24,9 +23,11 @@ import Badge from '../../badges/Badge'
 import { Loader, ConfirmDialog } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import usePermissions from '../../hooks/usePermissions'
 
 const CompanyList = () => {
   const navigate = useNavigate()
+  const { canCreate, canUpdate, canDelete } = usePermissions()
 
   const [companies, setCompanies] = useState([])
   const [loading, setLoading] = useState(false)
@@ -76,10 +77,12 @@ const CompanyList = () => {
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
             <strong>Companies</strong>
-            <CButton color="primary" onClick={() => navigate('/companies/new')}>
-              <CIcon icon={cilPlus} className="me-2" />
-              Add Company
-            </CButton>
+            {canCreate('companies') && (
+              <CButton color="primary" onClick={() => navigate('/companies/new')}>
+                <CIcon icon={cilPlus} className="me-2" />
+                Add Company
+              </CButton>
+            )}
           </CCardHeader>
 
           <CCardBody>
@@ -111,7 +114,10 @@ const CompanyList = () => {
                   {companies.map((company, index) => {
                     const id = company._id || company.id
                     return (
-                      <CTableRow key={id}>
+                      <CTableRow key={id} 
+                        onClick={() => navigate(`/companies/${id}`)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <CTableDataCell>{index + 1}</CTableDataCell>
                         <CTableDataCell>{company.name}</CTableDataCell>
                         <CTableDataCell>{company.brandName}</CTableDataCell>
@@ -132,35 +138,33 @@ const CompanyList = () => {
                             <CIcon icon={cilZoom} />
                           </CButton>
 
-                          <CButton
-                            color="primary"
-                            variant="ghost"
-                            size="sm"
-                            title="Branches"
-                            onClick={() => navigate(`/companies/${id}/branches`)}
-                          >
-                            <CIcon icon={cilLocationPin} />
-                          </CButton>
+                          {canUpdate('companies') && (
+                            <CButton
+                              color="warning"
+                              variant="ghost"
+                              size="sm"
+                              title="Edit"
+                              onClick={(e) =>{
+                                e.stopPropagation()
+                                navigate(`/companies/edit/${id}`)}}
+                            >
+                              <CIcon icon={cilPencil} />
+                            </CButton>
+                          )}
 
-                          <CButton
-                            color="warning"
-                            variant="ghost"
-                            size="sm"
-                            title="Edit"
-                            onClick={() => navigate(`/companies/edit/${id}`)}
-                          >
-                            <CIcon icon={cilPencil} />
-                          </CButton>
-
-                          <CButton
-                            color="danger"
-                            variant="ghost"
-                            size="sm"
-                            title="Delete"
-                            onClick={() => handleDeleteClick(id)}
-                          >
-                            <CIcon icon={cilTrash} />
-                          </CButton>
+                          {canDelete('companies') && (
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              title="Delete"
+                              onClick={(e) =>{
+                                e.stopPropagation()
+                                handleDeleteClick(id)}}
+                            >
+                              <CIcon icon={cilTrash} />
+                            </CButton>
+                          )}
                         </CTableDataCell>
                       </CTableRow>
                     )

@@ -34,12 +34,22 @@ const productService = {
     return response
   },
 
-  uploadImages: async (files) => {
+  /**
+   * Upload images to assets; creates document records. Returns { documents: [{ _id, path }] }.
+   * @param {File[]} files
+   * @param {{ productId?: string, variantUniqueId?: string }} options - optional, for folder path
+   */
+  uploadImages: async (files, options = {}) => {
     const formData = new FormData()
     files.forEach((file) => {
       formData.append('images', file)
     })
-    const response = await axiosClient.post(PRODUCTS.UPLOAD_IMAGES, formData, {
+    const params = new URLSearchParams()
+    if (options.productId) params.set('productId', options.productId)
+    if (options.variantUniqueId) params.set('variantUniqueId', options.variantUniqueId)
+    const query = params.toString()
+    const url = query ? `${PRODUCTS.UPLOAD_IMAGES}?${query}` : PRODUCTS.UPLOAD_IMAGES
+    const response = await axiosClient.post(url, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     return response
