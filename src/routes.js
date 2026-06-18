@@ -35,6 +35,7 @@ const QueryForm = React.lazy(() => import('./views/admin/QueryForm'))
 const RawQuery = React.lazy(() => import('./views/admin/RawQuery'))
 const RawQueryView = React.lazy(() => import('./views/admin/RawQueryView'))
 const RawQueryCreate = React.lazy(() => import('./views/admin/RawQueryCreate'))
+const Tracking = React.lazy(() => import('./views/admin/Tracking'))
 
 // Quotations
 const QuotationList = React.lazy(() => import('./views/admin/QuotationList'))
@@ -53,10 +54,10 @@ const SupplierView = React.lazy(() => import('./views/admin/SupplierView'))
 const SupplierForm = React.lazy(() => import('./views/admin/SupplierForm'))
 
 const FollowUpDashboard = React.lazy(() => import('./views/admin/FollowUpDashboard'))
+const FollowUpForm = React.lazy(() => import('./views/admin/FollowUpForm'))
 
 // Rate Cards
 const RateCardList = React.lazy(() => import('./views/admin/RateCardList'))
-const RateCardView = React.lazy(() => import('./views/admin/RateCardView'))
 
 // Employees
 const EmployeeList = React.lazy(() => import('./views/admin/EmployeeList'))
@@ -120,6 +121,7 @@ const routes = [
   { path: '/raw-query', name: 'Raw Query', element: RawQuery, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
   { path: '/raw-query/new', name: 'New Raw Query', element: RawQueryCreate, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
   { path: '/raw-query/:id', name: 'Raw Query Details', element: RawQueryView, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+  { path: '/tracking', name: 'Tracking', element: Tracking, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
 
   // Quotations - accessible by super_admin, admin, finance, sales, hod
   { path: '/quotations', name: 'Quotations', element: QuotationList, allowedRoles: ['super_admin', 'admin', 'finance', 'sales', 'hod'] },
@@ -142,11 +144,12 @@ const routes = [
 
   // Rate Cards - accessible by super_admin, admin, purchase, hod
   { path: '/rate-cards', name: 'Rate Cards', element: RateCardList, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
-  { path: '/rate-cards/:id', name: 'Rate Card Details', element: RateCardView, allowedRoles: ['super_admin', 'admin', 'purchase', 'hod'] },
 
   // Follow-up Dashboard - accessible by super_admin, admin, sales, hod
   { path: '/follow-up', name: 'Follow-up Dashboard', element: FollowUpDashboard, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
-
+  { path: '/followups/new', name: 'Add Follow-up', element: FollowUpForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+  { path : '/followups/edit/:id', name: 'Edit Follow-up', element: FollowUpForm, allowedRoles: ['super_admin', 'admin', 'sales', 'hod'] },
+ 
   // Employees - accessible by super_admin, admin, hod
   { path: '/employees', name: 'Employees', element: EmployeeList, allowedRoles: ['super_admin', 'admin', 'hod'] },
   { path: '/employees/new', name: 'Add Employee', element: EmployeeForm, allowedRoles: ['super_admin', 'admin', 'hod'] },
