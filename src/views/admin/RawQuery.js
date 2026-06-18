@@ -13,16 +13,6 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CModal,
-  CModalHeader,
-  CModalTitle,
-  CModalBody,
-  CModalFooter,
-  CForm,
-  CFormInput,
-  CFormLabel,
-  CFormTextarea,
-  CFormSelect,
   CBadge,
   CPagination,
   CPaginationItem,
@@ -210,7 +200,8 @@ const RawQuery = () => {
               <CTable hover responsive>
                 <CTableHead>
                   <CTableRow>
-                    <CTableHeaderCell>#</CTableHeaderCell>
+                    <CTableHeaderCell>SNo</CTableHeaderCell>
+                    <CTableHeaderCell>Query No.</CTableHeaderCell>
                     <CTableHeaderCell>Title</CTableHeaderCell>
                     <CTableHeaderCell>Industry</CTableHeaderCell>
                     <CTableHeaderCell>Priority</CTableHeaderCell>
@@ -222,7 +213,7 @@ const RawQuery = () => {
                 <CTableBody>
                   {loading ? (
                     <CTableRow>
-                      <CTableDataCell colSpan={6}>
+                      <CTableDataCell colSpan={7}>
                         <Loader message="Loading raw queries..." />
                       </CTableDataCell>
                     </CTableRow>
@@ -231,6 +222,9 @@ const RawQuery = () => {
                   {queries && queries?.map((query, index) => (
                     <CTableRow key={query._id || query.id}>
                       <CTableDataCell>{(pageNumber - 1) * pageSize + index + 1}</CTableDataCell>
+                      <CTableDataCell>
+                        <span className="badge bg-dark">{query.raw_query_number || query.rawQueryNumber || '-'}</span>
+                      </CTableDataCell>
                       <CTableDataCell>
                         <strong>{query.title || '-'}</strong>
                       </CTableDataCell>
@@ -257,7 +251,8 @@ const RawQuery = () => {
                           color="warning"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleOpenModal(query)}
+                          // onClick={() => handleOpenModal(query)}
+                          onClick={() => navigate(`/raw-query/edit/${query._id || query.id}`)}
                           title="Edit"
                         >
                           <CIcon icon={cilPencil} />
@@ -266,7 +261,7 @@ const RawQuery = () => {
                           color="danger"
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleDelete(query._id || query.id)}
+                          onClick={() => handleDeleteClick(query._id || query.id)}
                           title="Delete"
                         >
                           <CIcon icon={cilTrash} />
@@ -276,7 +271,7 @@ const RawQuery = () => {
                   ))}
                   {(!queries || queries.length === 0) && (
                     <CTableRow>
-                      <CTableDataCell colSpan={6} className="text-center">
+                      <CTableDataCell colSpan={7} className="text-center">
                         No raw queries found. Click "Add Raw Query" to create one.
                       </CTableDataCell>
                     </CTableRow>
@@ -314,87 +309,6 @@ const RawQuery = () => {
           </CCard>
         </CCol>
       </CRow>
-
-      {/* Add/Edit Modal */}
-      <CModal visible={showModal} onClose={handleCloseModal} size="lg">
-        <CModalHeader>
-          <CModalTitle>{editingQuery ? 'Edit Raw Query' : 'Add New Raw Query'}</CModalTitle>
-        </CModalHeader>
-        <CForm onSubmit={handleSubmit}>
-          <CModalBody>
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="title">Title</CFormLabel>
-                  <CFormInput
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Short title for the raw query"
-                  />
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="industryId">Industry</CFormLabel>
-                  <CFormSelect
-                    id="industryId"
-                    value={formData.industryId}
-                    onChange={(e) => setFormData({ ...formData, industryId: e.target.value })}
-                  >
-                    <option value="">Select industry</option>
-                    {industries.map((industry) => (
-                      <option key={industry._id || industry.id} value={industry._id || industry.id}>
-                        {industry.name}
-                        {industry.location ? ` (${industry.location})` : ''}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="priority">Priority</CFormLabel>
-                  <CFormSelect
-                    id="priority"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </CFormSelect>
-                </div>
-              </CCol>
-            </CRow>
-            <CRow>
-              <CCol md={12}>
-                <div className="mb-3">
-                  <CFormLabel htmlFor="description">Description</CFormLabel>
-                  <CFormTextarea
-                    id="description"
-                    rows={3}
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  />
-                </div>
-              </CCol>
-            </CRow>
-          </CModalBody>
-          <CModalFooter>
-            <CButton color="secondary" onClick={handleCloseModal}>
-              Cancel
-            </CButton>
-            <CButton color="primary" type="submit">
-              {editingQuery ? 'Update' : 'Create'}
-            </CButton>
-          </CModalFooter>
-        </CForm>
-      </CModal>
 
       <ConfirmDialog
         visible={confirmDelete.visible}

@@ -23,6 +23,8 @@ import { useData } from '../../context/DataContext'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastSuccess, toastError } from '../../utils/toast'
+import Product from './product/Product'
+import PaymentAddress from './product/PaymentAndDelivery'
 
 
 const quotationSchema = yup.object({
@@ -51,7 +53,7 @@ const defaultValues = {
   status: 'draft',
 }
 
-const QuotationForm = () => {
+const QuotationForm = ({ }) => {
   const navigate = useNavigate()
   const { id } = useParams()
   const isEdit = Boolean(id)
@@ -60,6 +62,18 @@ const QuotationForm = () => {
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [products, setProducts] = useState([])
+  const [editingProductIndex, setEditingProductIndex] = useState(null)
+  const saveProduct = (productData) => {
+    setProducts((prev) => [...prev, productData])
+  }
+
+  const updateProduct = (index, productData) => {
+    const update = [...products]
+    update[index] = productData
+    setProducts(update)
+    setEditingProductIndex(null)
+  }
 
   const {
     register,
@@ -226,6 +240,16 @@ const QuotationForm = () => {
           </CRow>
         </CCardBody>
       </CCard>
+
+
+      <Product
+        onSave={saveProduct}
+        onUpdate={updateProduct}
+        editingIndex={editingProductIndex}
+        setEditingIndex={setEditingProductIndex}>
+      </Product>
+
+      <PaymentAddress></PaymentAddress>
 
       <CCard>
         <CCardBody className="d-flex justify-content-end gap-2">

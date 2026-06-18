@@ -21,12 +21,135 @@ import {
   CFormTextarea,
 } from '@coreui/react'
 import CIcon from '@coreui/icons-react'
-import { cilArrowLeft, cilUser, cilAction, cilCheckAlt, cilZoom } from '@coreui/icons'
+import { cilArrowLeft, cilUser, cilPencil, cilCheckAlt, cilZoom, cilClock, cilEnvelopeClosed } from '@coreui/icons'
 import { useAuth } from '../../context/AuthContext'
 import rawQueryService from '../../services/rawQueryService'
+import employeeService from '../../services/employeeService'
+import userService from '../../services/userService'
 import { Loader } from '../../components'
 import { withMinimumDelay } from '../../utils/withMinimumDelay'
 import { toastError, toastSuccess } from '../../utils/toast'
+
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return '-'
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return '-'
+  return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true,
+  })
+}
+
+// Get the logged-in user from localStorage to resolve performer names
+const getStoredUser = () => {
+  try {
+    const stored = localStorage.getItem('migticrm_user')
+    return stored ? JSON.parse(stored) : null
+  } catch {
+    return null
+  }
+}
+
+const getUserDisplayName = (userObj) => {
+  if (!userObj) return null
+  return userObj.name || userObj.username ||
+    (userObj.firstName ? [userObj.firstName, userObj.lastName].filter(Boolean).join(' ') : null) ||
+    userObj.email || null
+}
+
+const getTimeAgo = (dateStr) => {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return ''
+  const now = new Date()
+  const diffMs = now - d
+  const diffSecs = Math.floor(diffMs / 1000)
+  const diffMins = Math.floor(diffSecs / 60)
+  const diffHrs = Math.floor(diffMins / 60)
+  const diffDays = Math.floor(diffHrs / 24)
+  if (diffSecs < 60) return 'just now'
+  if (diffMins < 60) return `${diffMins}m ago`
+  if (diffHrs < 24) return `${diffHrs}h ago`
+  if (diffDays < 30) return `${diffDays}d ago`
+  return ''
+}
+
+const getPerformerInfo = (act, cache = {}) => {
+  const performer = act.performedBy && typeof act.performedBy === 'object' ? act.performedBy : null
+  const performerAlt = act.performed_by && typeof act.performed_by === 'object' ? act.performed_by : null
+  const p = performer || performerAlt
+  if (p) {
+    return {
+      name: getUserDisplayName(p),
+      email: p.email || null,
+      role: p.role || p.designation || null,
+    }
+  }
+  // performedBy is just a string ID
+  const performerId = typeof act.performedBy === 'string' ? act.performedBy : (typeof act.performed_by === 'string' ? act.performed_by : null)
+  if (performerId) {
+    // Check user cache (fetched from employee/admin API)
+    const cached = cache[performerId]
+    if (cached) {
+      return {
+        name: getUserDisplayName(cached),
+        email: cached.email || null,
+        role: cached.role || cached.designation || null,
+      }
+    }
+    // Check if it matches the logged-in user
+    const storedUser = getStoredUser()
+    if (storedUser && (storedUser._id === performerId || storedUser.id === performerId)) {
+      return {
+        name: getUserDisplayName(storedUser),
+        email: storedUser.email || null,
+        role: storedUser.role || storedUser.designation || null,
+      }
+    }
+  }
+  return { name: null, email: null, role: null }
+}
+
+const getTimestamp = (act) => {
+  return act.createdAt || act.created_at || act.timestamp || null
+}
+
+// Fetch user details by ID - check employee table first, then admin/user table
+const fetchUserById = async (userId) => {
+  // 1. Try employee table first
+  let foundInEmployee = false
+  try {
+    const res = await employeeService.getById(userId)
+    const emp = res?.data?.employee || res?.data?.data || res?.data || null
+    if (emp && (emp.name || emp.email || emp.firstName)) {
+      foundInEmployee = true
+      return emp // return employee data as-is (has its own role)
+    }
+  } catch {
+    // not found in employee table
+  }
+
+  // 2. If not in employee table, check admin/user table
+  if (!foundInEmployee) {
+    try {
+      const res = await userService.getById(userId)
+      const usr = res?.data?.user || res?.data?.admin || res?.data?.superAdmin || res?.data?.data || res?.data || null
+      if (usr && (usr.name || usr.email || usr.firstName)) {
+        // Found in admin table - show role as "Admin"
+        return { ...usr, role: 'Admin' }
+      }
+    } catch {
+      // not found in admin table either
+    }
+  }
+  return null
+}
 
 const RawQueryView = () => {
   const { id } = useParams()
@@ -43,6 +166,7 @@ const RawQueryView = () => {
   const [actionForm, setActionForm] = useState({ action: '' })
   const [followUpForm, setFollowUpForm] = useState({ followUpStatus: 'pending', note: '' })
   const [submitting, setSubmitting] = useState(false)
+  const [userCache, setUserCache] = useState({}) // cache of userId -> user object
 
   const getPriorityBadge = (priority) => {
     switch (priority) {
@@ -108,6 +232,46 @@ const RawQueryView = () => {
       .catch(() => {})
   }, [query, user, id])
 
+  // Resolve unknown user IDs from activities and created_by
+  useEffect(() => {
+    if (!query && activities.length === 0) return
+    const storedUser = getStoredUser()
+    const idsToResolve = new Set()
+
+    // Check created_by
+    if (query?.created_by && typeof query.created_by === 'string') {
+      const cid = query.created_by
+      if (!userCache[cid] && !(storedUser && (storedUser._id === cid || storedUser.id === cid))) {
+        idsToResolve.add(cid)
+      }
+    }
+
+    // Check activity performers
+    activities.forEach((act) => {
+      const pid = typeof act.performedBy === 'string' ? act.performedBy : (typeof act.performed_by === 'string' ? act.performed_by : null)
+      if (pid && !userCache[pid] && !(storedUser && (storedUser._id === pid || storedUser.id === pid)) &&
+          !(act.performedBy && typeof act.performedBy === 'object') &&
+          !(act.performed_by && typeof act.performed_by === 'object')) {
+        idsToResolve.add(pid)
+      }
+    })
+
+    if (idsToResolve.size === 0) return
+
+    const resolveUsers = async () => {
+      const newCache = { ...userCache }
+      for (const uid of idsToResolve) {
+        if (newCache[uid]) continue
+        const userData = await fetchUserById(uid)
+        if (userData) {
+          newCache[uid] = userData
+        }
+      }
+      setUserCache(newCache)
+    }
+    resolveUsers()
+  }, [query, activities])
+
   if (loading) {
     return (
       <CCard>
@@ -147,7 +311,23 @@ const RawQueryView = () => {
   const files = Array.isArray(query.files) ? query.files : []
   const supplier = query.supplier_id && typeof query.supplier_id === 'object' ? query.supplier_id : null
   const industry = query.industry_id && typeof query.industry_id === 'object' ? query.industry_id : null
-  const creator = query.created_by && typeof query.created_by === 'object' ? query.created_by : null
+
+  // Resolve creator: populated object > userCache > stored user
+  let creator = query.created_by && typeof query.created_by === 'object' ? query.created_by : null
+  if (!creator && query.created_by) {
+    const creatorId = typeof query.created_by === 'string' ? query.created_by : null
+    if (creatorId) {
+      // Check cache first (fetched from employee/admin API)
+      if (userCache[creatorId]) {
+        creator = userCache[creatorId]
+      } else {
+        const storedUser = getStoredUser()
+        if (storedUser && (storedUser._id === creatorId || storedUser.id === creatorId)) {
+          creator = storedUser
+        }
+      }
+    }
+  }
 
   const handleRecordAction = async (e) => {
     e.preventDefault()
@@ -205,11 +385,11 @@ const RawQueryView = () => {
       case 'viewed':
         return cilZoom
       case 'action':
-        return cilAction
+        return cilPencil
       case 'follow_up':
         return cilCheckAlt
       default:
-        return cilAction
+        return cilPencil
     }
   }
 
@@ -261,6 +441,12 @@ const RawQueryView = () => {
             </CCardHeader>
             <CCardBody>
               <CListGroup flush>
+                {(query.raw_query_number || query.rawQueryNumber) && (
+                  <CListGroupItem className="d-flex justify-content-between align-items-center">
+                    <strong>Query Number:</strong>
+                    <span className="badge bg-dark fs-6">{query.raw_query_number || query.rawQueryNumber}</span>
+                  </CListGroupItem>
+                )}
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Title:</strong>
                   <span>{query.title || '-'}</span>
@@ -328,8 +514,38 @@ const RawQueryView = () => {
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
-                  <span>{new Date(query.createdAt).toLocaleString()}</span>
+                  <span>
+                    {formatDateTime(
+                      query.createdAt || query.created_at || query.date || query.createdDate || query.updatedAt || query.updated_at
+                    )}
+                  </span>
                 </CListGroupItem>
+                {creator && (
+                  <CListGroupItem>
+                    <strong>Created By:</strong>
+                    <div className="mt-1 d-flex align-items-center gap-2">
+                      <div
+                        className="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center"
+                        style={{ width: 32, height: 32, minWidth: 32 }}
+                      >
+                        <CIcon icon={cilUser} className="text-primary" size="sm" />
+                      </div>
+                      <div>
+                        <div className="fw-semibold">
+                          {getUserDisplayName(creator) || 'Unknown'}
+                        </div>
+                        {creator.email && (
+                          <div className="text-muted small">{creator.email}</div>
+                        )}
+                        {creator.role && (
+                          <CBadge color="light" textColor="dark" className="mt-1">
+                            {creator.role}
+                          </CBadge>
+                        )}
+                      </div>
+                    </div>
+                  </CListGroupItem>
+                )}
               </CListGroup>
             </CCardBody>
           </CCard>
@@ -341,7 +557,7 @@ const RawQueryView = () => {
               <strong>Query Tracking</strong>
               <div className="d-flex gap-1">
                 <CButton color="primary" size="sm" onClick={() => setShowActionModal(true)}>
-                  <CIcon icon={cilAction} className="me-1" />
+                  <CIcon icon={cilPencil} className="me-1" />
                   Action
                 </CButton>
                 <CButton color="success" size="sm" onClick={() => setShowFollowUpModal(true)}>
@@ -354,22 +570,36 @@ const RawQueryView = () => {
               <div className="query-tracking-timeline">
                 {/* Created by */}
                 <div className="d-flex align-items-start mb-3 pb-3 border-bottom">
-                  <div className="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style={{ width: 36, height: 36, minWidth: 36 }}>
-                    <CIcon icon={cilUser} className="text-primary" />
+                  <div className="rounded-circle bg-primary d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40 }}>
+                    <CIcon icon={cilUser} className="text-white" />
                   </div>
                   <div className="flex-grow-1">
                     <div className="d-flex align-items-center gap-2 flex-wrap">
                       <CBadge color="primary">Created</CBadge>
                       <span className="small text-muted">
-                        {new Date(query.createdAt).toLocaleString()}
+                        <CIcon icon={cilClock} size="sm" className="me-1" />
+                        {formatDateTime(query.createdAt || query.created_at)}
                       </span>
                     </div>
-                    <div className="mt-1 fw-semibold">
-                      {creator?.name || creator?.email || 'Unknown user'}
+                    <div className="mt-1">
+                      <div className="d-flex align-items-center gap-1">
+                        <CIcon icon={cilUser} size="sm" className="text-muted" />
+                        <span className="fw-semibold">
+                          {getUserDisplayName(creator) || 'Unknown user'}
+                        </span>
+                        {creator?.role && (
+                          <CBadge color="light" textColor="dark" size="sm" className="ms-1">
+                            {creator.role}
+                          </CBadge>
+                        )}
+                      </div>
+                      {creator?.email && (
+                        <div className="small text-muted ms-3">
+                          <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
+                          {creator.email}
+                        </div>
+                      )}
                     </div>
-                    {creator?.email && (
-                      <div className="small text-muted">{creator.email}</div>
-                    )}
                   </div>
                 </div>
 
@@ -379,13 +609,14 @@ const RawQueryView = () => {
                 ) : activities.length === 0 ? (
                   <div className="text-center py-3 text-muted small">No other activity yet.</div>
                 ) : (
-                  activities.map((act) => {
-                    const performer = act.performedBy && typeof act.performedBy === 'object' ? act.performedBy : null
-                    const name = performer?.name || performer?.email || 'Unknown'
+                  activities.map((act, index) => {
+                    const performer = getPerformerInfo(act, userCache)
+                    const timestamp = getTimestamp(act)
+                    const timeAgo = getTimeAgo(timestamp)
                     return (
-                      <div key={act._id} className="d-flex align-items-start mb-3">
-                        <div className="rounded-circle bg-opacity-10 d-flex align-items-center justify-content-center me-3" style={{ width: 36, height: 36, minWidth: 36, backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})` }}>
-                          <CIcon icon={getActivityIcon(act.type)} />
+                      <div key={act._id || act.id || index} className="d-flex align-items-start mb-3">
+                        <div className="rounded-circle d-flex align-items-center justify-content-center me-3" style={{ width: 40, height: 40, minWidth: 40, backgroundColor: `var(--cui-${getActivityBadgeColor(act.type)})` }}>
+                          <CIcon icon={getActivityIcon(act.type)} className="text-white" />
                         </div>
                         <div className="flex-grow-1">
                           <div className="d-flex align-items-center gap-2 flex-wrap">
@@ -393,19 +624,49 @@ const RawQueryView = () => {
                               {getActivityLabel(act.type)}
                             </CBadge>
                             <span className="small text-muted">
-                              {act.createdAt ? new Date(act.createdAt).toLocaleString() : ''}
+                              <CIcon icon={cilClock} size="sm" className="me-1" />
+                              {formatDateTime(timestamp)}
                             </span>
+                            {timeAgo && (
+                              <span className="small text-muted fst-italic">({timeAgo})</span>
+                            )}
                           </div>
-                          <div className="mt-1 fw-semibold">{name}</div>
-                          {act.type === 'action' && act.meta?.action && (
-                            <div className="small text-body-secondary mt-1">{act.meta.action}</div>
+                          <div className="mt-1">
+                            <div className="d-flex align-items-center gap-1">
+                              <CIcon icon={cilUser} size="sm" className="text-muted" />
+                              <span className="fw-semibold">{performer.name || 'Unknown user'}</span>
+                              {performer.role && (
+                                <CBadge color="light" textColor="dark" size="sm" className="ms-1">
+                                  {performer.role}
+                                </CBadge>
+                              )}
+                            </div>
+                            {performer.email && (
+                              <div className="small text-muted ms-3">
+                                <CIcon icon={cilEnvelopeClosed} size="sm" className="me-1" />
+                                {performer.email}
+                              </div>
+                            )}
+                          </div>
+                          {act.type === 'action' && (act.meta?.action || act.metadata?.action) && (
+                            <div className="small text-body-secondary mt-1 p-2 bg-light rounded">
+                              <strong>Action:</strong> {act.meta?.action || act.metadata?.action}
+                            </div>
                           )}
                           {act.type === 'follow_up' && (
-                            <div className="small mt-1">
-                              {act.meta?.followUpStatus && (
-                                <CBadge color="info" className="me-1">{act.meta.followUpStatus}</CBadge>
+                            <div className="small mt-1 p-2 bg-light rounded">
+                              {(act.meta?.followUpStatus || act.metadata?.followUpStatus) && (
+                                <CBadge color={
+                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'completed' ? 'success' :
+                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'in_progress' ? 'primary' :
+                                  (act.meta?.followUpStatus || act.metadata?.followUpStatus) === 'cancelled' ? 'danger' : 'warning'
+                                } className="me-1">
+                                  {act.meta?.followUpStatus || act.metadata?.followUpStatus}
+                                </CBadge>
                               )}
-                              {act.meta?.note && <span className="text-body-secondary">{act.meta.note}</span>}
+                              {(act.meta?.note || act.metadata?.note) && (
+                                <span className="text-body-secondary">{act.meta?.note || act.metadata?.note}</span>
+                              )}
                             </div>
                           )}
                         </div>
