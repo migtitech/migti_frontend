@@ -11,7 +11,11 @@ import { getSocketUrl } from "../api/endpoints";
 import { getAccessToken } from "../api/axiosClient";
 import { useAuth } from "./AuthContext";
 import { emitNotificationNew } from "./notificationSocketBridge";
-import { playSirenSound, playRateUpdateSound } from "../utils/sirenSound";
+import {
+  playNotificationSiren,
+  playSirenSound,
+  playRateUpdateSound,
+} from "../utils/sirenSound";
 import { toast } from "react-hot-toast";
 
 /** Set true when `wss://…/socket.io` is reachable; false skips all client socket usage (no WS errors in console/UI). */
@@ -100,6 +104,7 @@ export const SocketProvider = ({ children }) => {
       if (import.meta.env.DEV) {
         console.info("[socket] notification:new", payload?.title, payload?._id);
       }
+      playNotificationSiren();
       emitNotificationNew(payload);
     });
 

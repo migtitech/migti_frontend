@@ -1,5 +1,6 @@
 import React from "react";
-import { CCard, CCardBody, CCardHeader, CButton, CBadge } from "@coreui/react";
+import { TablePagination } from "..";
+import { CCard, CCardBody, CCardHeader, CBadge } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
   cilUser,
@@ -10,20 +11,7 @@ import {
   cilCheckAlt,
 } from "@coreui/icons";
 import EyeIcon from "../EyeIcon";
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  const pad = (n) => String(n).padStart(2, "0");
-  const dd = pad(d.getDate());
-  const mm = pad(d.getMonth() + 1);
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = pad(d.getHours());
-  const min = pad(d.getMinutes());
-  const ss = pad(d.getSeconds());
-  return `${dd}/${mm}/${yy} ${hh}:${min}:${ss}`;
-};
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const getActivityIcon = (type) => {
   switch (type) {
@@ -106,7 +94,6 @@ const TrackingTimeline = ({
   const totalItems = pagination?.totalItems ?? activities.length;
   const totalPages = pagination?.totalPages ?? 1;
   const currentPage = pagination?.currentPage ?? 1;
-  const hasPagination = totalPages > 1;
 
   return (
     <CCard className="mb-4">
@@ -117,29 +104,12 @@ const TrackingTimeline = ({
           <CBadge color="primary" shape="rounded-pill">
             {totalItems} {totalItems === 1 ? "activity" : "activities"}
           </CBadge>
-          {hasPagination && (
-            <div className="d-flex align-items-center gap-1">
-              <CButton
-                color="light"
-                size="sm"
-                disabled={!pagination?.hasPrevPage || loading}
-                onClick={() => onLoadPage && onLoadPage(currentPage - 1)}
-              >
-                Prev
-              </CButton>
-              <span className="small text-muted px-2">
-                Page {currentPage} of {totalPages}
-              </span>
-              <CButton
-                color="light"
-                size="sm"
-                disabled={!pagination?.hasNextPage || loading}
-                onClick={() => onLoadPage && onLoadPage(currentPage + 1)}
-              >
-                Next
-              </CButton>
-            </div>
-          )}
+          <TablePagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={onLoadPage}
+            disabled={loading}
+          />
         </div>
       </CCardHeader>
       <CCardBody>
@@ -156,7 +126,7 @@ const TrackingTimeline = ({
               <CBadge color="primary">Created</CBadge>
               <span className="small text-muted">
                 <CIcon icon={cilClock} size="sm" className="me-1" />
-                {formatDateTime(query?.createdAt || query?.created_at)}
+                {dateTimeFormatter(query?.createdAt || query?.created_at, "-")}
               </span>
             </div>
             <div className="mt-1">
@@ -234,7 +204,7 @@ const TrackingTimeline = ({
                     </CBadge>
                     <span className="small text-muted">
                       <CIcon icon={cilClock} size="sm" className="me-1" />
-                      {formatDateTime(timestamp)}
+                      {dateTimeFormatter(timestamp, "-")}
                     </span>
                   </div>
 

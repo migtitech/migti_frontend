@@ -12,8 +12,6 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
   CImage,
   CButton,
   CBadge,
@@ -21,7 +19,7 @@ import {
 import queryNewProductService from "../../services/queryNewProductService";
 import { getAssetsUrl } from "../../api/endpoints";
 import Filtered from "../../filtered/Filtered";
-import { Loader } from "../../components";
+import { Loader, TablePagination } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 
@@ -79,65 +77,6 @@ const ProductLead = () => {
     acc[combinedKey] = (acc[combinedKey] || 0) + 1;
     return acc;
   }, {});
-
-  const renderPageNumbers = () => {
-    const totalPages = pagination.totalPages || 0;
-    const currentPage = page;
-
-    if (!totalPages) return null;
-
-    const items = [];
-
-    const createPageItem = (pageNumber, label, key) => (
-      <CPaginationItem
-        key={key ?? `p-${pageNumber}`}
-        active={pageNumber === currentPage}
-        disabled={pageNumber == null}
-        onClick={
-          pageNumber != null
-            ? () => {
-                if (pageNumber !== currentPage) {
-                  setPage(pageNumber);
-                }
-              }
-            : undefined
-        }
-      >
-        {label}
-      </CPaginationItem>
-    );
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i += 1) {
-        items.push(createPageItem(i, i));
-      }
-      return items;
-    }
-
-    items.push(createPageItem(1, 1));
-
-    const showLeftEllipsis = currentPage > 3;
-    const showRightEllipsis = currentPage < totalPages - 2;
-
-    if (showLeftEllipsis) {
-      items.push(createPageItem(null, "…", "ellipsis-left"));
-    }
-
-    const startPage = Math.max(2, currentPage - 1);
-    const endPage = Math.min(totalPages - 1, currentPage + 1);
-
-    for (let i = startPage; i <= endPage; i += 1) {
-      items.push(createPageItem(i, i));
-    }
-
-    if (showRightEllipsis) {
-      items.push(createPageItem(null, "…", "ellipsis-right"));
-    }
-
-    items.push(createPageItem(totalPages, totalPages));
-
-    return items;
-  };
 
   const handleDeleteProduct = async (e, productId) => {
     e.stopPropagation();
@@ -315,65 +254,15 @@ const ProductLead = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination?.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination
-                      className="mb-0 flex-wrap"
-                      aria-label="Product Lead pages"
-                    >
-                      <CPaginationItem
-                        aria-label="Previous page"
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => {
-                          if (pagination.hasPrevPage)
-                            setPage((p) => Math.max(1, p - 1));
-                        }}
-                      >
-                        <span aria-hidden="true">«</span> Previous
-                      </CPaginationItem>
-                      {renderPageNumbers()}
-                      <CPaginationItem
-                        aria-label="Next page"
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => {
-                          if (pagination.hasNextPage) setPage((p) => p + 1);
-                        }}
-                      >
-                        Next <span aria-hidden="true">»</span>
-                      </CPaginationItem>
-                      <CPaginationItem
-                        aria-label="Last page"
-                        disabled={
-                          !pagination.hasNextPage ||
-                          page >= pagination.totalPages
-                        }
-                        onClick={() => {
-                          if (
-                            pagination.totalPages &&
-                            page !== pagination.totalPages
-                          ) {
-                            setPage(pagination.totalPages);
-                          }
-                        }}
-                      >
-                        Last <span aria-hidden="true">»</span>
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                  ariaLabel="Product Lead pages"
+                />
               </>
             )}
           </CCardBody>

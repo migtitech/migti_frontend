@@ -27,6 +27,7 @@ import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const getImageUrl = (img) => {
   if (!img) return "";
@@ -98,9 +99,7 @@ const ProductLeadView = () => {
     { key: "Unit", value: product.unit || "-" },
     {
       key: "Created At",
-      value: product.createdAt
-        ? new Date(product.createdAt).toLocaleString()
-        : "-",
+      value: dateTimeFormatter(product.createdAt, "-"),
     },
   ];
 

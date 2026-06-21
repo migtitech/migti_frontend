@@ -12,9 +12,13 @@ import {
 } from "@coreui/react";
 import taskManagementService from "../../services/taskManagementService";
 import Filtered from "../../filtered/Filtered";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const TASK_BUCKET_FILTER_DEFAULTS = { status: "assigned" };
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -38,11 +42,15 @@ const getStatusBadge = (status) => {
 
 const TaskBucket = () => {
   const navigate = useNavigate();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "task_bucket",
+    TASK_BUCKET_FILTER_DEFAULTS,
+  );
   const [tasks, setTasks] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [statusFilter, setStatusFilter] = useState("assigned");
+  const [statusFilter, setStatusFilter] = useState(initialValues.status);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -55,6 +63,14 @@ const TaskBucket = () => {
   useEffect(() => {
     setPageNumber(1);
   }, [searchDebounced, statusFilter]);
+
+  useFilterLockPersist("task_bucket", filtersLocked, {
+    status: statusFilter,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status: statusFilter });
+  };
 
   const fetchTasks = async () => {
     setLoading(true);
@@ -133,6 +149,13 @@ const TaskBucket = () => {
                   ))}
                 </CFormSelect>
               </CCol>
+              <CCol xs={12} sm={6} md={4} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Task Bucket"
+                />
+              </CCol>
             </CRow>
             {loading && <Loader />}
             <CRow className="g-3">
@@ -185,7 +208,7 @@ const TaskBucket = () => {
                               </div>
                               <div className="text-end">
                                 {task.dueDate
-                                  ? new Date(task.dueDate).toLocaleDateString()
+                                  ? dateFormatter(task.dueDate, "–")
                                   : "–"}
                               </div>
                             </div>
@@ -257,32 +280,16 @@ const TaskBucket = () => {
                     </CCol>
                   )}
             </CRow>
-            {pagination && pagination.totalPages > 1 && (
-              <div className="d-flex justify-content-between align-items-center mt-2">
-                <small className="text-muted">
-                  Page {pagination.currentPage} of {pagination.totalPages} (
-                  {pagination.totalItems} total)
-                </small>
-                <div className="d-flex gap-1">
-                  <CButton
-                    size="sm"
-                    color="secondary"
-                    disabled={!pagination.hasPrevPage}
-                    onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </CButton>
-                  <CButton
-                    size="sm"
-                    color="secondary"
-                    disabled={!pagination.hasNextPage}
-                    onClick={() => setPageNumber((p) => p + 1)}
-                  >
-                    Next
-                  </CButton>
-                </div>
-              </div>
-            )}
+            <TablePagination
+              currentPage={pagination.currentPage}
+              totalPages={pagination.totalPages}
+              onPageChange={setPageNumber}
+              disabled={loading}
+              showRange
+              totalItems={pagination.totalItems}
+              itemsPerPage={pageSize}
+              wrapperClassName="d-flex justify-content-between align-items-center mt-2"
+            />
           </CCardBody>
         </CCard>
       </CCol>

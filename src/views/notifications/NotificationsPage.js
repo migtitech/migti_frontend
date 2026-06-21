@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { TablePagination } from "../../components";
 import {
   CCard,
   CCardBody,
@@ -9,30 +10,19 @@ import {
   CSpinner,
   CAlert,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilCheck, cilCheckAlt } from "@coreui/icons";
 import * as notificationService from "../../services/notificationService";
 import { useNotifications } from "../../context/NotificationContext";
 import { registerNotificationNewHandler } from "../../context/notificationSocketBridge";
+import NotificationDescription from "../../components/notifications/NotificationDescription";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
-const formatDateTime = (value) => {
-  if (!value) return "";
-  try {
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return "";
-    return d.toLocaleString();
-  } catch {
-    return "";
-  }
-};
-
 const NotificationsPage = () => {
-  const { refreshUnread } = useNotifications();
+  const { markOneRead, markAllRead } = useNotifications();
   const [filter, setFilter] = useState("unread");
   const [items, setItems] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
@@ -75,26 +65,37 @@ const NotificationsPage = () => {
     load();
   }, [load]);
 
-  // Live updates: when a new notification arrives via socket, refresh page 1
+  // Live updates: prepend socket payload on page 1 (no API refetch).
   useEffect(() => {
-    const unregister = registerNotificationNewHandler(() => {
-      if (pageNumber === 1) load();
+    const unregister = registerNotificationNewHandler((payload) => {
+      if (pageNumber !== 1 || !payload?._id) return;
+      if (filter === "unread" && payload.isRead) return;
+      const id = String(payload._id);
+      setItems((prev) => {
+        if (prev.some((n) => String(n._id) === id)) return prev;
+        return [payload, ...prev].slice(0, pageSize);
+      });
+      setTotalItems((t) => t + 1);
     });
     return () => unregister();
-  }, [load, pageNumber]);
+  }, [filter, pageNumber, pageSize]);
 
   const handleMarkOne = async (id, isRead) => {
     if (!id || isRead) return;
     try {
-      await notificationService.markNotificationRead(id);
-      setItems((prev) =>
-        prev.map((n) =>
-          String(n._id) === String(id)
-            ? { ...n, isRead: true, readAt: new Date().toISOString() }
-            : n,
-        ),
-      );
-      refreshUnread();
+      await markOneRead(id);
+      if (filter === "unread") {
+        setItems((prev) => prev.filter((n) => String(n._id) !== String(id)));
+        setTotalItems((t) => Math.max(0, t - 1));
+      } else {
+        setItems((prev) =>
+          prev.map((n) =>
+            String(n._id) === String(id)
+              ? { ...n, isRead: true, readAt: new Date().toISOString() }
+              : n,
+          ),
+        );
+      }
     } catch {
       // silent
     }
@@ -103,16 +104,19 @@ const NotificationsPage = () => {
   const handleMarkAll = async () => {
     setMarking(true);
     try {
-      await notificationService.markAllNotificationsRead();
-      setItems((prev) =>
-        prev.map((n) => ({
-          ...n,
-          isRead: true,
-          readAt: n.readAt || new Date().toISOString(),
-        })),
-      );
-      refreshUnread();
-      if (filter === "unread") load();
+      await markAllRead();
+      if (filter === "unread") {
+        setItems([]);
+        setTotalItems(0);
+      } else {
+        setItems((prev) =>
+          prev.map((n) => ({
+            ...n,
+            isRead: true,
+            readAt: n.readAt || new Date().toISOString(),
+          })),
+        );
+      }
     } catch {
       // silent
     } finally {
@@ -132,42 +136,6 @@ const NotificationsPage = () => {
       setPageSize(parsed);
       setPageNumber(1);
     }
-  };
-
-  const renderPagination = () => {
-    if (totalPages <= 1) return null;
-    const pages = [];
-    const maxButtons = 5;
-    let start = Math.max(1, pageNumber - Math.floor(maxButtons / 2));
-    let end = Math.min(totalPages, start + maxButtons - 1);
-    start = Math.max(1, end - maxButtons + 1);
-    for (let i = start; i <= end; i += 1) pages.push(i);
-
-    return (
-      <CPagination className="mb-0" align="end">
-        <CPaginationItem
-          disabled={pageNumber <= 1}
-          onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-        >
-          Prev
-        </CPaginationItem>
-        {pages.map((p) => (
-          <CPaginationItem
-            key={p}
-            active={p === pageNumber}
-            onClick={() => setPageNumber(p)}
-          >
-            {p}
-          </CPaginationItem>
-        ))}
-        <CPaginationItem
-          disabled={pageNumber >= totalPages}
-          onClick={() => setPageNumber((p) => Math.min(totalPages, p + 1))}
-        >
-          Next
-        </CPaginationItem>
-      </CPagination>
-    );
   };
 
   return (
@@ -264,12 +232,13 @@ const NotificationsPage = () => {
                     )}
                   </div>
                   {n.description ? (
-                    <div className="small text-body-secondary mt-1">
-                      {n.description}
-                    </div>
+                    <NotificationDescription
+                      notification={n}
+                      className="small mt-1"
+                    />
                   ) : null}
                   <div className="small text-body-secondary mt-1">
-                    {formatDateTime(n.createdAt)}
+                    {dateTimeFormatter(n.createdAt, "")}
                   </div>
                 </div>
                 {!n.isRead ? (
@@ -307,7 +276,12 @@ const NotificationsPage = () => {
               ))}
             </CFormSelect>
           </div>
-          {renderPagination()}
+          <TablePagination
+            currentPage={pageNumber}
+            totalPages={totalPages}
+            onPageChange={setPageNumber}
+            align="end"
+          />
         </div>
       </CCardBody>
     </CCard>

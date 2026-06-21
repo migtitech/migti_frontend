@@ -18,6 +18,7 @@ import {
   CCol,
   CForm,
   CFormCheck,
+  CFormFeedback,
   CFormInput,
   CFormLabel,
   CFormSelect,
@@ -34,7 +35,9 @@ import branchService from "../../services/branchService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 import useBranchContext from "../../hooks/useBranchContext";
+import { IFSC_PATTERN, MSG } from "../../utils/validation";
 
 // Indian GSTIN: 15 chars - 2 digit state + 5 letter + 4 digit + 1 letter (PAN) + 1 entity + Z + 1 checksum
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -42,7 +45,37 @@ const GST_MESSAGE =
   "GST number must be valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)";
 const PHONE_MESSAGE = "Phone number must be 10 to 15 digits";
 
-function getSupplierSchema(isCreate) {
+const optionalBankDetailsSchema = yup.object({
+  accountNumber: yup.string().notRequired().default(""),
+  ifscCode: yup.string().notRequired().default(""),
+  bankName: yup.string().notRequired().default(""),
+  accountHolderName: yup.string().notRequired().default(""),
+  upiDetails: yup.string().notRequired().default(""),
+});
+
+const requiredBankDetailsSchema = yup.object({
+  accountHolderName: yup
+    .string()
+    .trim()
+    .required("Account holder name is required"),
+  accountNumber: yup
+    .string()
+    .trim()
+    .required("Account number is required")
+    .matches(/^\d{9,18}$/, "Enter a valid account number (9–18 digits)"),
+  bankName: yup.string().trim().required("Bank name is required"),
+  ifscCode: yup
+    .string()
+    .trim()
+    .transform((value) =>
+      typeof value === "string" ? value.toUpperCase() : value,
+    )
+    .required("IFSC code is required")
+    .matches(IFSC_PATTERN, MSG.ifsc),
+  upiDetails: yup.string().trim().required("UPI details is required"),
+});
+
+function getSupplierSchema() {
   return yup.object({
     name: yup
       .string()
@@ -81,7 +114,13 @@ function getSupplierSchema(isCreate) {
       .matches(GSTIN_REGEX, GST_MESSAGE),
     categories: yup.array().of(yup.string()).optional().default([]),
     remark: yup.string().notRequired().default(""),
-    branchId: yup.string().required("Please select a branch for the supplier."),
+    branchId: yup.string().optional().nullable(),
+    includeBankDetails: yup.boolean().default(false),
+    bankDetails: yup.mixed().when("includeBankDetails", {
+      is: true,
+      then: () => requiredBankDetailsSchema,
+      otherwise: () => optionalBankDetailsSchema.default({}),
+    }),
   });
 }
 
@@ -99,18 +138,50 @@ const defaultValues = {
   categories: [],
   remark: "",
   branchId: "",
+  includeBankDetails: false,
+  bankDetails: {
+    accountNumber: "",
+    ifscCode: "",
+    bankName: "",
+    accountHolderName: "",
+    upiDetails: "",
+  },
 };
 
 const SUPPLIER_FORM_DRAFT_KEY = "supplier_form_draft";
+
+const emptyBankDetails = defaultValues.bankDetails;
+
+const supplierHasBankDetails = (bankDetails = {}) =>
+  [
+    bankDetails.accountNumber,
+    bankDetails.ifscCode,
+    bankDetails.bankName,
+    bankDetails.accountHolderName,
+    bankDetails.upiDetails,
+  ].some((value) => String(value || "").trim());
+
+const buildBankDetailsPayload = (bankDetails, withBankDetails) => {
+  if (!withBankDetails) {
+    return { ...emptyBankDetails };
+  }
+  return {
+    accountNumber: bankDetails?.accountNumber || "",
+    ifscCode: bankDetails?.ifscCode || "",
+    bankName: bankDetails?.bankName || "",
+    accountHolderName: bankDetails?.accountHolderName || "",
+    upiDetails: bankDetails?.upiDetails || "",
+  };
+};
 
 const SupplierForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { branchId: userBranchId } = useBranchContext();
 
   const [categories, setCategories] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [defaultBranchId, setDefaultBranchId] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -126,14 +197,16 @@ const SupplierForm = () => {
     reset,
     setValue,
     watch,
+    clearErrors,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(getSupplierSchema(!isEdit)),
+    resolver: yupResolver(getSupplierSchema()),
     defaultValues,
     mode: "onBlur",
   });
 
   const selectedCategories = watch("categories") || [];
+  const includeBankDetails = watch("includeBankDetails");
 
   useEffect(() => {
     fetchCategories();
@@ -151,10 +224,16 @@ const SupplierForm = () => {
           response?.branches ??
           (Array.isArray(response?.data) ? response.data : []);
         const arr = Array.isArray(list) ? list : [];
-        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })));
+        const normalized = arr.map((b) => ({ ...b, id: b.id || b._id }));
+        const preferred =
+          userBranchId &&
+          normalized.some((b) => (b.id || b._id) === userBranchId)
+            ? userBranchId
+            : (normalized[0] && (normalized[0].id || normalized[0]._id)) || "";
+        if (preferred) setDefaultBranchId(String(preferred));
       } catch (err) {
         if (!cancelled) {
-          setBranches([]);
+          setDefaultBranchId("");
           toastError(err?.message || "Failed to load branches");
         }
       }
@@ -163,7 +242,7 @@ const SupplierForm = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userBranchId]);
 
   useEffect(() => {
     if (isEdit) {
@@ -183,16 +262,6 @@ const SupplierForm = () => {
       }
     }
   }, [id, isEdit, reset]);
-
-  const currentBranchId = watch("branchId");
-  useEffect(() => {
-    if (isEdit || branches.length === 0 || currentBranchId) return;
-    const defaultId =
-      userBranchId && branches.some((b) => (b.id || b._id) === userBranchId)
-        ? userBranchId
-        : (branches[0] && (branches[0].id || branches[0]._id)) || "";
-    if (defaultId) setValue("branchId", defaultId);
-  }, [branches, isEdit, userBranchId, setValue, currentBranchId]);
 
   // Autosave draft for new supplier
   useEffect(() => {
@@ -226,6 +295,13 @@ const SupplierForm = () => {
     try {
       const res = await supplierService.getById(id);
       const data = res?.data || res;
+      const existingBankDetails = {
+        accountNumber: data?.bankDetails?.accountNumber || "",
+        ifscCode: data?.bankDetails?.ifscCode || "",
+        bankName: data?.bankDetails?.bankName || "",
+        accountHolderName: data?.bankDetails?.accountHolderName || "",
+        upiDetails: data?.bankDetails?.upiDetails || "",
+      };
       reset({
         name: data?.name || "",
         shopname: data?.shopname || "",
@@ -241,6 +317,8 @@ const SupplierForm = () => {
           typeof cat === "string" ? cat : cat?._id,
         ),
         remark: data?.remark || "",
+        includeBankDetails: supplierHasBankDetails(existingBankDetails),
+        bankDetails: existingBankDetails,
       });
       if (data?.catalog?.url) {
         setCatalogPreview(data.catalog);
@@ -322,30 +400,56 @@ const SupplierForm = () => {
     toastSuccess("Saved supplier form data cleared");
   };
 
+  const handleIncludeBankDetailsChange = (checked) => {
+    setValue("includeBankDetails", checked, { shouldValidate: checked });
+    if (!checked) {
+      setValue("bankDetails", emptyBankDetails);
+      clearErrors("bankDetails");
+    }
+  };
+
   const onSubmit = async (values) => {
-    if (!isEdit && !values.branchId) {
-      setError("Please select a branch for the supplier.");
+    const branchId = defaultBranchId || values.branchId;
+    if (!isEdit && !branchId) {
+      setError("Unable to determine branch. Please contact admin.");
       return;
     }
     setSubmitting(true);
     setError("");
     try {
       if (isEdit) {
+        const {
+          bankDetails,
+          includeBankDetails: withBankDetails,
+          ...restValues
+        } = values;
         const payload = {
-          address: values.address || "",
-          phone_1: values.phone_1 || "",
-          phone_2: values.phone_2 || "",
-          categories: values.categories || [],
-          remark: values.remark || "",
+          address: restValues.address || "",
+          phone_1: restValues.phone_1 || "",
+          phone_2: restValues.phone_2 || "",
+          categories: restValues.categories || [],
+          remark: restValues.remark || "",
+          bankDetails: buildBankDetailsPayload(bankDetails, withBankDetails),
         };
         await supplierService.update(id, payload);
         toastSuccess("Supplier updated successfully");
       } else {
-        const { branchId: _branchId, ...rest } = values;
+        const {
+          bankDetails,
+          includeBankDetails: withBankDetails,
+          ...restValues
+        } = values;
         const payload = {
-          ...rest,
+          ...restValues,
+          branchId,
           categories: values.categories || [],
         };
+        if (withBankDetails) {
+          payload.bankDetails = buildBankDetailsPayload(
+            bankDetails,
+            withBankDetails,
+          );
+        }
         const res = await supplierService.create(payload);
         const created = res?.data?.data || res?.data || res;
         const supplierId = created?._id || created?.id;
@@ -421,15 +525,10 @@ const SupplierForm = () => {
         <CCardHeader className="d-flex justify-content-between align-items-center">
           <div>
             <strong>{isEdit ? "Edit Supplier" : "Add Supplier"}</strong>
-            {!isEdit && (
-              <small className="text-muted d-block mt-1">
-                Select the branch this supplier belongs to.
-              </small>
-            )}
             {isEdit && (
               <small className="text-muted d-block mt-1">
-                Only address, billing address, mobile numbers, categories and
-                remark can be updated.
+                Only address, mobile numbers, categories, remark and bank
+                details can be updated.
               </small>
             )}
           </div>
@@ -445,39 +544,6 @@ const SupplierForm = () => {
           )}
         </CCardHeader>
         <CCardBody>
-          {!isEdit && (
-            <CRow>
-              <CCol md={6}>
-                <div className="mb-3">
-                  <CFormLabel>Branch *</CFormLabel>
-                  <CFormSelect
-                    {...register("branchId")}
-                    disabled={!canSelectBranch && !!userBranchId}
-                    className={
-                      !canSelectBranch && userBranchId ? "bg-light" : ""
-                    }
-                  >
-                    <option value="">Select branch</option>
-                    {branches.map((b) => (
-                      <option key={b.id || b._id} value={b.id || b._id}>
-                        {b.name || b.branchcode || b.id}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                  {errors.branchId && (
-                    <div className="text-danger small mt-1">
-                      {errors.branchId.message}
-                    </div>
-                  )}
-                  {!canSelectBranch && userBranchId && (
-                    <small className="text-muted">
-                      Your branch is pre-selected.
-                    </small>
-                  )}
-                </div>
-              </CCol>
-            </CRow>
-          )}
           <CRow>
             <CCol md={6}>
               <div className="mb-3">
@@ -721,6 +787,100 @@ const SupplierForm = () => {
             </CCol>
           </CRow>
 
+          <CRow className="mb-2">
+            <CCol md={12}>
+              <CFormCheck
+                id="includeBankDetails"
+                label="Include bank details"
+                checked={Boolean(includeBankDetails)}
+                onChange={(e) =>
+                  handleIncludeBankDetailsChange(e.target.checked)
+                }
+              />
+            </CCol>
+          </CRow>
+
+          {includeBankDetails && (
+            <>
+              <CRow>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel htmlFor="accountHolderName">
+                      Account Holder Name *
+                    </CFormLabel>
+                    <CFormInput
+                      id="accountHolderName"
+                      {...register("bankDetails.accountHolderName")}
+                      invalid={!!errors.bankDetails?.accountHolderName}
+                    />
+                    <CFormFeedback invalid>
+                      {errors.bankDetails?.accountHolderName?.message}
+                    </CFormFeedback>
+                  </div>
+                </CCol>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel htmlFor="accountNumber">
+                      Account Number *
+                    </CFormLabel>
+                    <CFormInput
+                      id="accountNumber"
+                      inputMode="numeric"
+                      {...register("bankDetails.accountNumber")}
+                      invalid={!!errors.bankDetails?.accountNumber}
+                    />
+                    <CFormFeedback invalid>
+                      {errors.bankDetails?.accountNumber?.message}
+                    </CFormFeedback>
+                  </div>
+                </CCol>
+              </CRow>
+              <CRow>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel htmlFor="bankName">Bank Name *</CFormLabel>
+                    <CFormInput
+                      id="bankName"
+                      {...register("bankDetails.bankName")}
+                      invalid={!!errors.bankDetails?.bankName}
+                    />
+                    <CFormFeedback invalid>
+                      {errors.bankDetails?.bankName?.message}
+                    </CFormFeedback>
+                  </div>
+                </CCol>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel htmlFor="ifscCode">IFSC Code *</CFormLabel>
+                    <CFormInput
+                      id="ifscCode"
+                      {...register("bankDetails.ifscCode")}
+                      invalid={!!errors.bankDetails?.ifscCode}
+                    />
+                    <CFormFeedback invalid>
+                      {errors.bankDetails?.ifscCode?.message}
+                    </CFormFeedback>
+                  </div>
+                </CCol>
+              </CRow>
+              <CRow>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel htmlFor="upiDetails">UPI Details *</CFormLabel>
+                    <CFormInput
+                      id="upiDetails"
+                      {...register("bankDetails.upiDetails")}
+                      invalid={!!errors.bankDetails?.upiDetails}
+                    />
+                    <CFormFeedback invalid>
+                      {errors.bankDetails?.upiDetails?.message}
+                    </CFormFeedback>
+                  </div>
+                </CCol>
+              </CRow>
+            </>
+          )}
+
           <CRow>
             <CCol md={12}>
               <div className="mb-3">
@@ -755,13 +915,7 @@ const SupplierForm = () => {
                       {catalogPreview.uploadedAt && (
                         <span className="ms-2">
                           uploaded{" "}
-                          {new Date(catalogPreview.uploadedAt).toLocaleString(
-                            undefined,
-                            {
-                              dateStyle: "short",
-                              timeStyle: "short",
-                            },
-                          )}
+                          {dateTimeFormatter(catalogPreview.uploadedAt, "—")}
                         </span>
                       )}
                     </div>

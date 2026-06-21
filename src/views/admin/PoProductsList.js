@@ -10,8 +10,6 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -25,7 +23,21 @@ import { cilSearch, cilList, cilPlus } from "@coreui/icons";
 import { poProductsBucketService } from "../../services/deliveryApprovalService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
-import { Loader, EyeIcon } from "../../components";
+import {
+  EyeIcon,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+import { dateFormatter } from "../../utils/dateFormatter";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
+
+const PO_PRODUCTS_FILTER_DEFAULTS = {
+  deliverySubStatus: "all",
+  dateFrom: "",
+  dateTo: "",
+};
 
 const DELIVERY_SUB_STATUS_OPTIONS = [
   { value: "all", label: "All" },
@@ -37,6 +49,7 @@ const LINE_STATUS_OPTIONS = [
   { value: "", label: "All Status" },
   { value: "hod_approval_pending", label: "HOD Approval Pending" },
   { value: "pending", label: "Pending" },
+  { value: "billing_request_raised", label: "BR Raised" },
   { value: "purchased", label: "Purchased" },
   { value: "inventory_received", label: "Inventory Received" },
   { value: "ready_for_dispatchment", label: "Ready for Dispatchment" },
@@ -72,21 +85,18 @@ const lineStatusBadge = (s) => {
     finance_approved: "success",
     po_closed: "dark",
     payment_request_raised: "info",
+    billing_request_raised: "info",
     billing_request_rejected: "danger",
   };
-  const label = s
-    ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    : "—";
+  const labelMap = {
+    billing_request_raised: "BR Raised",
+  };
+  const label = labelMap[s]
+    ? labelMap[s]
+    : s
+      ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      : "—";
   return <CBadge color={map[s] || "secondary"}>{label}</CBadge>;
-};
-
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${dd}/${mm}/${d.getFullYear()}`;
 };
 
 const getPriorityRowBg = (priority) => {
@@ -117,6 +127,11 @@ const parseListResponse = (res) => {
 
 const PoProductsList = () => {
   const navigate = useNavigate();
+  const { formatArea } = useAreaNameLookup();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "po_products",
+    PO_PRODUCTS_FILTER_DEFAULTS,
+  );
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -126,9 +141,11 @@ const PoProductsList = () => {
 
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [filterDeliverySubStatus, setFilterDeliverySubStatus] = useState("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [filterDeliverySubStatus, setFilterDeliverySubStatus] = useState(
+    initialValues.deliverySubStatus,
+  );
+  const [from, setFrom] = useState(initialValues.dateFrom);
+  const [to, setTo] = useState(initialValues.dateTo);
 
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 400);
@@ -138,6 +155,20 @@ const PoProductsList = () => {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, filterDeliverySubStatus, from, to]);
+
+  useFilterLockPersist("po_products", filtersLocked, {
+    deliverySubStatus: filterDeliverySubStatus,
+    dateFrom: from,
+    dateTo: to,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      deliverySubStatus: filterDeliverySubStatus,
+      dateFrom: from,
+      dateTo: to,
+    });
+  };
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -241,6 +272,20 @@ const PoProductsList = () => {
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
+                />
+              </CCol>
+
+              <CCol
+                xs={6}
+                sm={4}
+                md={2}
+                lg={1}
+                className="d-flex align-items-end"
+              >
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Sales Order Products"
                 />
               </CCol>
 
@@ -380,16 +425,21 @@ const PoProductsList = () => {
                               <CTableDataCell>
                                 <div className="small">
                                   {row.companyInfo?.name || "—"}
-                                  {row.companyInfo?.area && (
-                                    <div className="text-body-secondary">
-                                      {row.companyInfo.area}
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    const areaLabel = formatArea(
+                                      row.companyInfo?.area,
+                                    );
+                                    return areaLabel ? (
+                                      <div className="text-body-secondary">
+                                        {areaLabel}
+                                      </div>
+                                    ) : null;
+                                  })()}
                                 </div>
                               </CTableDataCell>
 
                               <CTableDataCell className="text-center">
-                                {formatDateDdMmYyyy(row.dispatchmentDate)}
+                                {dateFormatter(row.dispatchmentDate, "—")}
                               </CTableDataCell>
 
                               <CTableDataCell>
@@ -420,52 +470,17 @@ const PoProductsList = () => {
                 </div>
 
                 {total > pageSize && (
-                  <div className="d-flex flex-column align-items-center mt-3 gap-2">
-                    <span className="small text-body-secondary">
-                      Showing {Math.min((page - 1) * pageSize + 1, total)}–
-                      {Math.min(page * pageSize, total)} of {total}
-                    </span>
-                    <CPagination
-                      align="center"
-                      className="mb-0"
-                      aria-label="Sales Order Products pages"
-                    >
-                      <CPaginationItem
-                        disabled={page <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from(
-                        { length: Math.min(totalPages, 7) },
-                        (_, i) => {
-                          let p;
-                          if (totalPages <= 7) p = i + 1;
-                          else if (page <= 4) p = i + 1;
-                          else if (page >= totalPages - 3)
-                            p = totalPages - 6 + i;
-                          else p = page - 3 + i;
-                          return (
-                            <CPaginationItem
-                              key={p}
-                              active={p === page}
-                              onClick={() => setPage(p)}
-                            >
-                              {p}
-                            </CPaginationItem>
-                          );
-                        },
-                      )}
-                      <CPaginationItem
-                        disabled={page >= totalPages}
-                        onClick={() =>
-                          setPage((p) => Math.min(totalPages, p + 1))
-                        }
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
+                  <TablePagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    showRange
+                    totalItems={total}
+                    itemsPerPage={pageSize}
+                    align="center"
+                    ariaLabel="Sales Order Products pages"
+                    wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+                  />
                 )}
               </>
             )}

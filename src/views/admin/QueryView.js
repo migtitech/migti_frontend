@@ -26,6 +26,8 @@ import {
   CSpinner,
   CImage,
   CAlert,
+  CCollapse,
+  CFormCheck,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
@@ -45,10 +47,64 @@ import queryService from "../../services/queryService";
 import employeeService from "../../services/employeeService";
 import userService from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
-import usePermissions, { normalizeRole } from "../../hooks/usePermissions";
+import usePermissions, {
+  normalizeRole,
+  canEditQuery,
+  isHodRole,
+} from "../../hooks/usePermissions";
 import { Loader, ConfirmDialog } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import {
+  QUERY_PRODUCT_QUOTATION_STATUS,
+  filterProductsReadyForQuotation,
+  isProductReadyForQuotation,
+  getProductSubStatusLabel,
+  isProductConvertedToQuotation,
+} from "../../utils/queryProductQuotationStatus";
+import { formatQueryReferenceByDisplay } from "../../utils/queryReferenceBy";
+
+const getCurrentMonthLabel = () =>
+  new Date().toLocaleDateString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+
+const createEmptyCompanyAnalytics = (companyName = "—") => ({
+  companyName: companyName || "—",
+  pendingQueries: 0,
+  totalQueries: 0,
+  convertedToQuotationThisMonth: 0,
+  monthLabel: getCurrentMonthLabel(),
+  hasCompanyLink: false,
+});
+
+const normalizeCompanyAnalytics = (raw, fallbackCompanyName = "—") => ({
+  companyName:
+    String(raw?.companyName || fallbackCompanyName || "—").trim() || "—",
+  pendingQueries: Number(raw?.pendingQueries) || 0,
+  totalQueries: Number(raw?.totalQueries) || 0,
+  convertedToQuotationThisMonth:
+    Number(raw?.convertedToQuotationThisMonth) || 0,
+  monthLabel: raw?.monthLabel || getCurrentMonthLabel(),
+  hasCompanyLink: Boolean(raw?.hasCompanyLink),
+});
+
+const extractAnalyticsFromResponse = (response) => {
+  const payload = response?.data ?? response;
+  if (!payload || typeof payload !== "object") return null;
+  if (
+    typeof payload.pendingQueries === "number" ||
+    typeof payload.totalQueries === "number" ||
+    typeof payload.convertedToQuotationThisMonth === "number"
+  ) {
+    return payload;
+  }
+  if (payload.data && typeof payload.data === "object") {
+    return payload.data;
+  }
+  return null;
+};
 
 const proBucketStatusBadge = (status) => {
   switch (status) {
@@ -69,6 +125,45 @@ const proBucketStatusBadge = (status) => {
         <span className="text-muted">—</span>
       );
   }
+};
+
+const parseLineProcurementRatesResponse = (res) => {
+  const block = res?.data?.data ?? res?.data ?? res;
+  const rates = Array.isArray(block?.rates) ? block.rates : [];
+  return {
+    rates,
+    status: block?.status ?? null,
+    productName: block?.productName?.trim() || "",
+  };
+};
+
+const ProcurementRateAvailabilityBadge = ({
+  loading,
+  available,
+  hasProductCode,
+}) => {
+  if (!hasProductCode) {
+    return (
+      <CBadge color="danger" className="small text-nowrap">
+        Rate not available
+      </CBadge>
+    );
+  }
+  if (loading) {
+    return <CSpinner size="sm" />;
+  }
+  if (available) {
+    return (
+      <CBadge color="success" className="small text-nowrap">
+        Rate available
+      </CBadge>
+    );
+  }
+  return (
+    <CBadge color="danger" className="small text-nowrap">
+      Rate not available
+    </CBadge>
+  );
 };
 
 const getStoredUser = () => {
@@ -192,6 +287,15 @@ const QueryView = () => {
     status: null,
     rates: [],
   });
+  /** Per line index: { loading, available } from query-line-procurement-rates API */
+  const [lineRateAvailability, setLineRateAvailability] = useState({});
+  const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
+  const [companyAnalytics, setCompanyAnalytics] = useState(null);
+  const [companyAnalyticsLoaded, setCompanyAnalyticsLoaded] = useState(false);
+  const [companyAnalyticsLoading, setCompanyAnalyticsLoading] = useState(false);
+  const [companyAnalyticsError, setCompanyAnalyticsError] = useState("");
+  const [togglingQuotationStatusIndex, setTogglingQuotationStatusIndex] =
+    useState(null);
 
   const getImageUrl = resolveProductImageUrl;
 
@@ -241,6 +345,95 @@ const QueryView = () => {
       }
     };
     load();
+  }, [id]);
+
+  useEffect(() => {
+    if (!id || !query?.products?.length) {
+      setLineRateAvailability({});
+      return;
+    }
+
+    let cancelled = false;
+    const products = query.products;
+
+    const loadLineRates = async () => {
+      const loadingState = {};
+      products.forEach((product, index) => {
+        loadingState[index] = {
+          loading: Boolean(String(product?.rawProductCode ?? "").trim()),
+          available: null,
+        };
+      });
+      setLineRateAvailability(loadingState);
+
+      const results = await Promise.all(
+        products.map(async (product, index) => {
+          const rawCode = String(product?.rawProductCode ?? "").trim();
+          if (!rawCode) {
+            return { index, loading: false, available: false };
+          }
+          try {
+            const res = await queryService.getLineProcurementRates(id, {
+              rawProductCode: rawCode,
+              lineIndex: index,
+            });
+            const { rates } = parseLineProcurementRatesResponse(res);
+            return { index, loading: false, available: rates.length > 0 };
+          } catch {
+            return { index, loading: false, available: false };
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      const next = {};
+      results.forEach(({ index, loading, available }) => {
+        next[index] = { loading, available };
+      });
+      setLineRateAvailability(next);
+    };
+
+    loadLineRates();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, query?.products]);
+
+  const loadCompanyAnalytics = async (fallbackCompanyName = "—") => {
+    if (!id || companyAnalyticsLoading) return;
+    setCompanyAnalyticsLoading(true);
+    setCompanyAnalyticsError("");
+    try {
+      const response = await queryService.getCompanyQueryAnalytics(id);
+      const analyticsPayload = extractAnalyticsFromResponse(response);
+      setCompanyAnalytics(
+        normalizeCompanyAnalytics(analyticsPayload, fallbackCompanyName),
+      );
+    } catch (err) {
+      setCompanyAnalytics(createEmptyCompanyAnalytics(fallbackCompanyName));
+      setCompanyAnalyticsError(
+        err?.message || "Failed to load company analytics",
+      );
+    } finally {
+      setCompanyAnalyticsLoading(false);
+      setCompanyAnalyticsLoaded(true);
+    }
+  };
+
+  const toggleAnalyticsPanel = (fallbackCompanyName = "—") => {
+    const nextExpanded = !analyticsExpanded;
+    setAnalyticsExpanded(nextExpanded);
+    if (nextExpanded && !companyAnalyticsLoaded && !companyAnalyticsLoading) {
+      loadCompanyAnalytics(fallbackCompanyName);
+    }
+  };
+
+  useEffect(() => {
+    setAnalyticsExpanded(false);
+    setCompanyAnalytics(null);
+    setCompanyAnalyticsLoaded(false);
+    setCompanyAnalyticsError("");
   }, [id]);
 
   useEffect(() => {
@@ -337,9 +530,17 @@ const QueryView = () => {
   };
 
   const handleConvertClick = () => {
-    const missingPhotoProducts = getProductsMissingPhotos(
+    const readyProducts = filterProductsReadyForQuotation(
       query?.products || [],
     );
+    if (readyProducts.length === 0) {
+      toastError(
+        "Select at least one product as ready for quotation before converting.",
+      );
+      return;
+    }
+
+    const missingPhotoProducts = getProductsMissingPhotos(readyProducts);
     if (missingPhotoProducts.length > 0) {
       const labels = missingPhotoProducts
         .map(
@@ -356,6 +557,37 @@ const QueryView = () => {
     }
 
     setConfirmConvert({ visible: true });
+  };
+
+  const handleQuotationStatusToggle = async (productIndex, checked) => {
+    if (!id || !query?.products?.length) return;
+    if (query.status === "closed") return;
+
+    const nextStatus = checked
+      ? QUERY_PRODUCT_QUOTATION_STATUS.READY_FOR_QUOTATION
+      : QUERY_PRODUCT_QUOTATION_STATUS.PENDING;
+    const updatedProducts = query.products.map((product, index) =>
+      index === productIndex
+        ? { ...product, quotation_status: nextStatus }
+        : product,
+    );
+
+    setTogglingQuotationStatusIndex(productIndex);
+    try {
+      const res = await queryService.update(id, { products: updatedProducts });
+      const data = res?.data || res;
+      const updatedQuery = data?.data ?? data;
+      setQuery(updatedQuery);
+      toastSuccess(
+        checked
+          ? "Product marked ready for quotation"
+          : "Product marked as pending",
+      );
+    } catch (err) {
+      toastError(err?.message || "Failed to update product status");
+    } finally {
+      setTogglingQuotationStatusIndex(null);
+    }
   };
 
   const handleConvertConfirm = () => {
@@ -375,19 +607,18 @@ const QueryView = () => {
       toastError("Query code is missing, cannot create re-quotation.");
       return;
     }
+    const readyProducts = filterProductsReadyForQuotation(
+      query?.products || [],
+    );
+    if (readyProducts.length === 0) {
+      toastError(
+        "Select at least one product as ready for quotation before creating a re-quotation.",
+      );
+      return;
+    }
     navigate(`/quotations/generate/${id}`, {
       state: { query, forceNewQuotation: true },
     });
-  };
-
-  const formatVariants = (variants) => {
-    if (!variants?.length) return "—";
-    return (
-      variants
-        .map((v) => v.variantName || "—")
-        .filter(Boolean)
-        .join(", ") || "—"
-    );
   };
 
   /** Populated group/category on query line items from get-by-id, or unpopulated id */
@@ -396,6 +627,24 @@ const QueryView = () => {
     if (typeof ref === "object" && ref != null) return ref.name || "—";
     return "—";
   };
+
+  const formatProductHierarchy = (product) => {
+    const parts = [
+      refDisplayName(product?.groupId) !== "—"
+        ? `Group: ${refDisplayName(product.groupId)}`
+        : null,
+      refDisplayName(product?.categoryId) !== "—"
+        ? `Category: ${refDisplayName(product.categoryId)}`
+        : null,
+      refDisplayName(product?.subcategoryId) !== "—"
+        ? `Subcategory: ${refDisplayName(product.subcategoryId)}`
+        : null,
+    ].filter(Boolean);
+    return parts.length ? parts.join(" · ") : null;
+  };
+
+  const getProductSubStatusBadgeColor = (product) =>
+    isProductConvertedToQuotation(product) ? "success" : "secondary";
 
   const openProcurementRatesModal = async (productRow, lineIndex) => {
     const rawCode = String(productRow?.rawProductCode ?? "").trim();
@@ -422,15 +671,14 @@ const QueryView = () => {
         rawProductCode: rawCode,
         lineIndex,
       });
-      const block = res?.data?.data ?? res?.data ?? res;
-      const rates = Array.isArray(block?.rates) ? block.rates : [];
+      const block = parseLineProcurementRatesResponse(res);
       setProcurementRatesModal((prev) => ({
         ...prev,
         loading: false,
         error: "",
-        status: block?.status ?? null,
-        rates,
-        productLabel: block?.productName?.trim() || productLabel,
+        status: block.status,
+        rates: block.rates,
+        productLabel: block.productName || productLabel,
       }));
     } catch (err) {
       const msg = err?.message || "Failed to load procurement rates";
@@ -593,6 +841,8 @@ const QueryView = () => {
 
   const ci = query.companyInfo || {};
   const prods = query.products || [];
+  const canToggleQuotationStatus =
+    canConvertToQuotation && query.status !== "closed";
   const companyName = ci.name || ci.companyName || "-";
   const companyLocation = ci.location || "-";
 
@@ -724,7 +974,11 @@ const QueryView = () => {
                       Create Re-Quotation
                     </CButton>
                   )}
-                {canUpdate("queries") && query.status !== "closed" && (
+                {canEditQuery(
+                  user?.role,
+                  query.status,
+                  canUpdate("queries"),
+                ) && (
                   <CButton
                     color="warning"
                     onClick={() => navigate(`/queries/edit/${id}`)}
@@ -794,6 +1048,12 @@ const QueryView = () => {
                   <strong>Company name</strong>
                   <span>{companyName}</span>
                 </CListGroupItem>
+                <CListGroupItem className="d-flex flex-column flex-md-row justify-content-between gap-1">
+                  <strong>Query reference by</strong>
+                  <span>
+                    {formatQueryReferenceByDisplay(query.queryReferenceBy)}
+                  </span>
+                </CListGroupItem>
                 <CListGroupItem className="d-flex flex-column flex-md-row justify-content-between gap-2 align-items-md-center">
                   <strong>Location</strong>
                   {isLocationUrl(companyLocation) ? (
@@ -830,8 +1090,22 @@ const QueryView = () => {
                   </div>
                 </CListGroupItem>
                 <CListGroupItem>
-                  <strong>Address</strong>
-                  <div className="mt-1">{ci.address || "-"}</div>
+                  <strong>Billing address</strong>
+                  <div
+                    className="mt-1 text-break"
+                    style={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {(ci.billingAddress || ci.address || "").trim() || "-"}
+                  </div>
+                </CListGroupItem>
+                <CListGroupItem>
+                  <strong>Shipping address</strong>
+                  <div
+                    className="mt-1 text-break"
+                    style={{ whiteSpace: "pre-wrap" }}
+                  >
+                    {(ci.shippingAddress || ci.address || "").trim() || "-"}
+                  </div>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>
@@ -855,10 +1129,12 @@ const QueryView = () => {
                       <CTableHeaderCell style={{ width: 60 }}>
                         #
                       </CTableHeaderCell>
-                      <CTableHeaderCell>Product name</CTableHeaderCell>
-                      <CTableHeaderCell>Group</CTableHeaderCell>
-                      <CTableHeaderCell>Category</CTableHeaderCell>
-                      <CTableHeaderCell>Subcategory</CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 280 }}>
+                        Product name
+                      </CTableHeaderCell>
+                      <CTableHeaderCell style={{ width: 130 }}>
+                        Status
+                      </CTableHeaderCell>
                       <CTableHeaderCell>Description</CTableHeaderCell>
                       <CTableHeaderCell style={{ width: 100 }}>
                         Quantity
@@ -866,13 +1142,19 @@ const QueryView = () => {
                       <CTableHeaderCell style={{ width: 80 }}>
                         Unit
                       </CTableHeaderCell>
-                      <CTableHeaderCell>Variants</CTableHeaderCell>
-                      <CTableHeaderCell>HSN Number</CTableHeaderCell>
                       <CTableHeaderCell>GST %</CTableHeaderCell>
                       <CTableHeaderCell>Remark</CTableHeaderCell>
+                      {canToggleQuotationStatus ? (
+                        <CTableHeaderCell
+                          className="text-center"
+                          style={{ width: 160 }}
+                        >
+                          Ready for quotation
+                        </CTableHeaderCell>
+                      ) : null}
                       <CTableHeaderCell
                         className="text-center"
-                        style={{ width: 140 }}
+                        style={{ width: 160 }}
                       >
                         Procurement rate
                       </CTableHeaderCell>
@@ -903,17 +1185,23 @@ const QueryView = () => {
                       return (
                         <CTableRow key={p._id || index}>
                           <CTableDataCell>{index + 1}</CTableDataCell>
+                          <CTableDataCell style={{ minWidth: 280 }}>
+                            <div className="fw-semibold">
+                              {p.productName || "—"}
+                            </div>
+                            {formatProductHierarchy(p) ? (
+                              <div className="small text-muted mt-1 text-break">
+                                {formatProductHierarchy(p)}
+                              </div>
+                            ) : null}
+                          </CTableDataCell>
                           <CTableDataCell>
-                            {p.productName || "—"}
-                          </CTableDataCell>
-                          <CTableDataCell className="small text-break">
-                            {refDisplayName(p.groupId)}
-                          </CTableDataCell>
-                          <CTableDataCell className="small text-break">
-                            {refDisplayName(p.categoryId)}
-                          </CTableDataCell>
-                          <CTableDataCell className="small text-break">
-                            {refDisplayName(p.subcategoryId)}
+                            <CBadge
+                              color={getProductSubStatusBadgeColor(p)}
+                              className="text-nowrap"
+                            >
+                              {getProductSubStatusLabel(p)}
+                            </CBadge>
                           </CTableDataCell>
                           <CTableDataCell className="small">
                             {productRef?.shortDescription ||
@@ -925,12 +1213,6 @@ const QueryView = () => {
                           </CTableDataCell>
                           <CTableDataCell>{p.unit || "—"}</CTableDataCell>
                           <CTableDataCell className="small">
-                            {formatVariants(p.variants)}
-                          </CTableDataCell>
-                          <CTableDataCell className="small">
-                            {productRef?.hsnNumber || p.hsnNumber || "—"}
-                          </CTableDataCell>
-                          <CTableDataCell className="small">
                             {productRef?.gstPercentage != null
                               ? `${productRef.gstPercentage}%`
                               : p.gstPercentage != null
@@ -940,25 +1222,51 @@ const QueryView = () => {
                           <CTableDataCell className="small">
                             {p.remark || "—"}
                           </CTableDataCell>
+                          {canToggleQuotationStatus ? (
+                            <CTableDataCell className="text-center align-middle">
+                              {togglingQuotationStatusIndex === index ? (
+                                <CSpinner size="sm" />
+                              ) : (
+                                <CFormCheck
+                                  id={`query-product-ready-${index}`}
+                                  checked={isProductReadyForQuotation(p)}
+                                  onChange={(event) =>
+                                    handleQuotationStatusToggle(
+                                      index,
+                                      event.target.checked,
+                                    )
+                                  }
+                                  aria-label={`Mark ${p.productName || "product"} ready for quotation`}
+                                />
+                              )}
+                            </CTableDataCell>
+                          ) : null}
                           <CTableDataCell className="text-center align-middle">
-                            {rawCode ? (
-                              <CButton
-                                type="button"
-                                color="secondary"
-                                variant="ghost"
-                                size="sm"
-                                className="p-1"
-                                title="View procurement rates"
-                                aria-label="View procurement rates"
-                                onClick={() =>
-                                  openProcurementRatesModal(p, index)
+                            <div className="d-flex flex-column align-items-center gap-1">
+                              <ProcurementRateAvailabilityBadge
+                                loading={lineRateAvailability[index]?.loading}
+                                available={
+                                  lineRateAvailability[index]?.available
                                 }
-                              >
-                                <CIcon icon={cilList} size="lg" />
-                              </CButton>
-                            ) : (
-                              <span className="text-muted small">—</span>
-                            )}
+                                hasProductCode={Boolean(rawCode)}
+                              />
+                              {rawCode ? (
+                                <CButton
+                                  type="button"
+                                  color="secondary"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-1"
+                                  title="View procurement rates"
+                                  aria-label="View procurement rates"
+                                  onClick={() =>
+                                    openProcurementRatesModal(p, index)
+                                  }
+                                >
+                                  <CIcon icon={cilList} size="lg" />
+                                </CButton>
+                              ) : null}
+                            </div>
                           </CTableDataCell>
                           <CTableDataCell>
                             {imageUrls.length > 0 ? (
@@ -1019,6 +1327,123 @@ const QueryView = () => {
               )}
             </CCardBody>
           </CCard>
+
+          {isHodRole(user?.role) ? (
+            <CCard className="mb-4 overflow-hidden">
+              <button
+                type="button"
+                className={`w-100 border-0 bg-transparent px-3 py-3 d-flex align-items-center justify-content-between text-start ${
+                  analyticsExpanded ? "" : "collapsed"
+                }`}
+                aria-expanded={analyticsExpanded}
+                onClick={() => toggleAnalyticsPanel(companyName)}
+              >
+                <span>
+                  <strong>3. Analytics</strong>
+                  <span className="text-muted small ms-2 fw-normal">
+                    {companyName !== "-" ? companyName : "Company insights"}
+                  </span>
+                </span>
+                <span className="text-muted small">
+                  {analyticsExpanded ? "Hide" : "Show"}
+                </span>
+              </button>
+              <CCollapse visible={analyticsExpanded}>
+                <CCardBody className="border-top pt-3">
+                  {companyAnalyticsLoading ? (
+                    <div className="text-center py-4">
+                      <CSpinner size="sm" />
+                      <div className="small text-muted mt-2">
+                        Loading company analytics…
+                      </div>
+                    </div>
+                  ) : companyAnalyticsLoaded ? (
+                    <>
+                      {companyAnalyticsError ? (
+                        <CAlert color="danger" className="mb-3">
+                          {companyAnalyticsError}
+                          <div className="mt-2">
+                            <CButton
+                              color="primary"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadCompanyAnalytics(companyName)}
+                            >
+                              Retry
+                            </CButton>
+                          </div>
+                        </CAlert>
+                      ) : null}
+                      {(() => {
+                        const analytics = normalizeCompanyAnalytics(
+                          companyAnalytics,
+                          companyName,
+                        );
+                        return (
+                          <>
+                            {!analytics.hasCompanyLink ? (
+                              <p className="text-muted small mb-3">
+                                Link this query to a company to view analytics.
+                              </p>
+                            ) : null}
+                            <p className="text-muted small mb-3">
+                              Summary for{" "}
+                              <strong>{analytics.companyName}</strong>
+                              {analytics.monthLabel
+                                ? ` · ${analytics.monthLabel}`
+                                : ""}
+                            </p>
+                            <CRow className="g-3">
+                              <CCol sm={6} md={4}>
+                                <div className="border rounded p-3 h-100 bg-light">
+                                  <div className="text-muted small">
+                                    Pending queries
+                                  </div>
+                                  <div className="fs-4 fw-semibold mb-0">
+                                    {analytics.pendingQueries}
+                                  </div>
+                                  <div className="text-muted small mt-1">
+                                    Draft queries not yet converted
+                                  </div>
+                                </div>
+                              </CCol>
+                              <CCol sm={6} md={4}>
+                                <div className="border rounded p-3 h-100 bg-light">
+                                  <div className="text-muted small">
+                                    Total queries
+                                  </div>
+                                  <div className="fs-4 fw-semibold mb-0">
+                                    {analytics.totalQueries}
+                                  </div>
+                                  <div className="text-muted small mt-1">
+                                    All queries for this company
+                                  </div>
+                                </div>
+                              </CCol>
+                              <CCol sm={12} md={4}>
+                                <div className="border rounded p-3 h-100 bg-light">
+                                  <div className="text-muted small">
+                                    Converted to quotation (this month)
+                                  </div>
+                                  <div className="fs-4 fw-semibold mb-0">
+                                    {analytics.convertedToQuotationThisMonth}
+                                  </div>
+                                  <div className="text-muted small mt-1">
+                                    Queries with a quotation created in{" "}
+                                    {analytics.monthLabel || "this month"}
+                                  </div>
+                                </div>
+                              </CCol>
+                            </CRow>
+                          </>
+                        );
+                      })()}
+                    </>
+                  ) : null}
+                </CCardBody>
+              </CCollapse>
+            </CCard>
+          ) : null}
         </CCol>
       </CRow>
 
@@ -1036,7 +1461,7 @@ const QueryView = () => {
         onClose={() => setConfirmConvert({ visible: false })}
         onConfirm={handleConvertConfirm}
         title="Convert to quotation?"
-        message="Are you sure to convert this query as quotation?"
+        message={`Convert ${filterProductsReadyForQuotation(prods).length} product(s) marked ready for quotation?`}
         confirmText="Yes, convert"
         cancelText="Cancel"
       />

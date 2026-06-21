@@ -7,7 +7,12 @@ import React, {
   useMemo,
 } from "react";
 import authService from "../services/authService";
-import { getAccessToken, clearTokens } from "../api/axiosClient";
+import {
+  getAccessToken,
+  getRefreshToken,
+  clearTokens,
+} from "../api/axiosClient";
+import { hasValidAccessSession, USER_STORAGE_KEY } from "../utils/authSession";
 
 const AuthContext = createContext(null);
 
@@ -57,14 +62,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session: require BOTH user and access token
-    const storedUser = localStorage.getItem("migticrm_user");
-    const token = getAccessToken();
-    if (storedUser && token) {
+    const storedUser = localStorage.getItem(USER_STORAGE_KEY);
+    const sessionValid = hasValidAccessSession(getAccessToken, getRefreshToken);
+
+    if (storedUser && sessionValid) {
       setUser(JSON.parse(storedUser));
-    } else if (storedUser && !token) {
-      // Token missing or cleared (e.g. expired) – clear stale user
-      localStorage.removeItem("migticrm_user");
+    } else if (storedUser || getAccessToken() || getRefreshToken()) {
+      clearTokens();
+      localStorage.removeItem(USER_STORAGE_KEY);
     }
     setLoading(false);
   }, []);
@@ -80,7 +85,7 @@ export const AuthProvider = ({ children }) => {
             role: ROLES.SUPER_ADMIN,
           };
           setUser(userData);
-          localStorage.setItem("migticrm_user", JSON.stringify(userData));
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
           return { success: true, user: userData };
         }
         return {
@@ -105,7 +110,7 @@ export const AuthProvider = ({ children }) => {
             role: ROLES.ADMIN,
           };
           setUser(userData);
-          localStorage.setItem("migticrm_user", JSON.stringify(userData));
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
           return { success: true, user: userData };
         }
         return {
@@ -145,7 +150,7 @@ export const AuthProvider = ({ children }) => {
             role: apiUser?.role || role,
           };
           setUser(userData);
-          localStorage.setItem("migticrm_user", JSON.stringify(userData));
+          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(userData));
           return { success: true, user: userData };
         }
         return {
@@ -165,7 +170,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = useCallback(() => {
     setUser(null);
-    localStorage.removeItem("migticrm_user");
+    localStorage.removeItem(USER_STORAGE_KEY);
     clearTokens();
   }, []);
 
@@ -175,7 +180,8 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       loading,
-      isAuthenticated: !!user && !!getAccessToken(),
+      isAuthenticated:
+        !!user && hasValidAccessSession(getAccessToken, getRefreshToken),
     }),
     [user, login, logout, loading],
   );

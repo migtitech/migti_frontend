@@ -14,15 +14,13 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
 import { useNavigate } from "react-router-dom";
 import groupService from "../../services/groupService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import { ConfirmDialog, Loader, TablePagination } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
@@ -194,46 +192,14 @@ const GroupList = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

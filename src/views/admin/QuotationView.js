@@ -1,5 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import {
   CCard,
   CCardBody,
@@ -37,15 +46,18 @@ import {
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
+  cilActionUndo,
   cilArrowLeft,
   cilArrowRight,
   cilCloudDownload,
+  cilHistory,
   cilList,
 } from "@coreui/icons";
 import quotationService from "../../services/quotationService";
-import purchaseOrderService from "../../services/purchaseOrderService";
 import usePermissions, {
+  canAddNewProductOnQuotation,
   canConvertQuotationToPo,
+  isHodRole,
   normalizeRole as normalizeUserRole,
 } from "../../hooks/usePermissions";
 import { useAuth } from "../../context/AuthContext";
@@ -61,19 +73,24 @@ import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { formatIstDisplayDate, formatIstDateKey } from "../../utils/istDate";
+import {
+  formatIstDisplayDate,
+  formatIstDisplayDateTime,
+  formatIstDateKey,
+} from "../../utils/istDate";
 import { ROLES, ROLE_LABELS } from "../../context/AuthContext";
 import QuoteLogsSidebar from "./QuoteLogsSidebar";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
+import {
+  getReadyQueryProductsMissingFromQuotation,
+  getProductSubStatusLabel,
+} from "../../utils/queryProductQuotationStatus";
 
 const PURCHASE_ROLES = [
   ROLES.PURCHASE_EXICUTIVE,
   ROLES.PROCUREMENT,
   "purchase_executive",
 ];
-
-/** Static gate for converting quotation → PO (replace with configurable auth later). */
-const PO_FROM_QUOTATION_SECRET_CODE = "2003";
 
 const getCurrentUserRole = () => {
   try {
@@ -135,6 +152,82 @@ const proBucketStatusBadge = (status) => {
         <span className="text-muted">—</span>
       );
   }
+};
+
+const parseLineProcurementRatesResponse = (res) => {
+  const block = res?.data?.data ?? res?.data ?? res;
+  const rates = Array.isArray(block?.rates) ? block.rates : [];
+  return {
+    rates,
+    status: block?.status ?? null,
+    productName: block?.productName?.trim() || "",
+  };
+};
+
+const computeProcurementRateBounds = (rates = []) => {
+  const minValues = rates
+    .map((rateRow) => rateRow?.minRate)
+    .filter((value) => value != null && !Number.isNaN(Number(value)))
+    .map(Number);
+  const maxValues = rates
+    .map((rateRow) => rateRow?.maxRate)
+    .filter((value) => value != null && !Number.isNaN(Number(value)))
+    .map(Number);
+
+  return {
+    minRate: minValues.length ? Math.min(...minValues) : null,
+    maxRate: maxValues.length ? Math.max(...maxValues) : null,
+  };
+};
+
+const formatProcurementBoundRate = (value) =>
+  value != null && !Number.isNaN(Number(value))
+    ? Number(value).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })
+    : "—";
+
+const PROCUREMENT_RATE_AVAILABLE_STYLE = {
+  backgroundColor: "#198754",
+  color: "#fff",
+};
+
+const PROCUREMENT_RATE_UNAVAILABLE_STYLE = {
+  backgroundColor: "#ff9933",
+  color: "#fff",
+};
+
+const ProcurementRateAvailabilityBadge = ({
+  loading,
+  available,
+  hasProductCode,
+}) => {
+  const labelStyle =
+    "small text-nowrap d-inline-block px-2 py-1 rounded fw-semibold";
+
+  if (!hasProductCode) {
+    return (
+      <span className={labelStyle} style={PROCUREMENT_RATE_UNAVAILABLE_STYLE}>
+        Rate not available
+      </span>
+    );
+  }
+  if (loading) {
+    return <CSpinner size="sm" />;
+  }
+  if (available) {
+    return (
+      <span className={labelStyle} style={PROCUREMENT_RATE_AVAILABLE_STYLE}>
+        Rate available
+      </span>
+    );
+  }
+  return (
+    <span className={labelStyle} style={PROCUREMENT_RATE_UNAVAILABLE_STYLE}>
+      Rate not available
+    </span>
+  );
 };
 
 const FREIGHT_AS_PER_ACTUAL_LABEL = "As per actual";
@@ -220,6 +313,56 @@ const DELIVERY_WITHIN_OPTIONS = [
 ];
 const DELIVERY_WITHIN_OTHERS = "others";
 const DEFAULT_GST_PERCENTAGE = 18;
+const MAX_PRODUCT_QUANTITY = 100000;
+
+const productQuantitySchema = yup.object({
+  quantity: yup
+    .number()
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue === null ? NaN : value,
+    )
+    .typeError("Quantity is required")
+    .required("Quantity is required")
+    .integer("Quantity must be a whole number")
+    .min(0, "Quantity must be 0 or more")
+    .max(MAX_PRODUCT_QUANTITY, "Quantity cannot exceed 1,00,000"),
+});
+
+const newProductQuantitySchema = yup.object({
+  quantity: yup
+    .number()
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue === null ? NaN : value,
+    )
+    .typeError("Quantity is required")
+    .required("Quantity is required")
+    .integer("Quantity must be a whole number")
+    .min(1, "Quantity must be greater than 0")
+    .max(MAX_PRODUCT_QUANTITY, "Quantity cannot exceed 1,00,000"),
+});
+
+const resolveGstDisplayValue = (gstPercentage) => {
+  if (gstPercentage === "" || gstPercentage == null) {
+    return String(DEFAULT_GST_PERCENTAGE);
+  }
+  return String(gstPercentage);
+};
+
+const isGstAboveStandardRate = (gstPercentage) => {
+  const raw =
+    gstPercentage === "" || gstPercentage == null
+      ? DEFAULT_GST_PERCENTAGE
+      : Number(gstPercentage);
+  return Number.isFinite(raw) && raw > DEFAULT_GST_PERCENTAGE;
+};
+
+const resolveGstSaveValue = (gstPercentage) => {
+  if (gstPercentage === "" || gstPercentage == null) {
+    return DEFAULT_GST_PERCENTAGE;
+  }
+  const parsedGst = Number(gstPercentage);
+  return Number.isFinite(parsedGst) ? parsedGst : DEFAULT_GST_PERCENTAGE;
+};
 
 const normalizeDeliveryWithinForApi = (value) => {
   if (value == null || value === "") return null;
@@ -376,6 +519,56 @@ const clearNotAvailableReasonDraft = (quotationId, productIndex) => {
   }
 };
 
+const formatClientPendingAmount = (value) =>
+  Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
+
+const getQuotationBillingAddress = (quotation, companyForm = {}) => {
+  const fromForm = String(companyForm.billingAddress || "").trim();
+  if (fromForm) return fromForm;
+
+  const companyInfo = quotation?.companyInfo || {};
+  const industry = quotation?.industry_id || {};
+  return (
+    String(companyInfo.billingAddress || "").trim() ||
+    String(industry.billingAddress || "").trim() ||
+    String(companyInfo.address || "").trim() ||
+    ""
+  );
+};
+
+const getQuotationShippingAddress = (quotation, companyForm = {}) => {
+  const fromForm = String(companyForm.shippingAddress || "").trim();
+  if (fromForm) return fromForm;
+
+  const companyInfo = quotation?.companyInfo || {};
+  const industry = quotation?.industry_id || {};
+  return (
+    String(companyInfo.shippingAddress || "").trim() ||
+    String(industry.shippingAddress || "").trim() ||
+    String(companyInfo.address || "").trim() ||
+    ""
+  );
+};
+
+const ClientPendingAmountBadge = ({ quotation }) => {
+  const isOverdue = !!quotation?.clientPaymentOverdue;
+
+  return (
+    <span
+      className={`text-nowrap fw-semibold px-2 py-1 rounded border${
+        isOverdue ? "" : " text-success"
+      }`}
+      style={{
+        color: isOverdue ? "#fd7e14" : undefined,
+        backgroundColor: "#ffffff",
+      }}
+    >
+      Pending amount: ₹
+      {formatClientPendingAmount(quotation?.clientPendingAmount)}
+    </span>
+  );
+};
+
 const QuotationView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -386,11 +579,7 @@ const QuotationView = () => {
   const [error, setError] = useState(null);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [approvingHod, setApprovingHod] = useState(false);
-  const [convertingPo, setConvertingPo] = useState(false);
-  /** Single modal, two steps — avoids CoreUI modal swap timing (second modal not opening). */
   const [convertPoModalVisible, setConvertPoModalVisible] = useState(false);
-  const [convertPoModalStep, setConvertPoModalStep] = useState("confirm");
-  const [convertPoSecretInput, setConvertPoSecretInput] = useState("");
   const [activeTab, setActiveTab] = useState("preview");
   const [productIndex, setProductIndex] = useState(0);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -428,6 +617,9 @@ const QuotationView = () => {
   });
   const [newProductImageFiles, setNewProductImageFiles] = useState([]);
   const [newProductImagePreviews, setNewProductImagePreviews] = useState([]);
+  const [newProductImagesError, setNewProductImagesError] = useState("");
+  const [editingProductImagesError, setEditingProductImagesError] =
+    useState("");
   const [newProductGroups, setNewProductGroups] = useState([]);
   const [newProductCategories, setNewProductCategories] = useState([]);
   const [createNewQueryProduct, setCreateNewQueryProduct] = useState(true);
@@ -444,11 +636,48 @@ const QuotationView = () => {
   const [imageGalleryIndex, setImageGalleryIndex] = useState(0);
   const [imageGalleryVisible, setImageGalleryVisible] = useState(false);
   const [uploadingProductImages, setUploadingProductImages] = useState(false);
+  const productQuantityInputRef = useRef(null);
+  const {
+    register: registerProductQuantityField,
+    reset: resetProductQuantityForm,
+    trigger: triggerProductQuantityField,
+    getValues: getProductQuantityFormValues,
+    formState: { errors: productQuantityFormErrors },
+  } = useForm({
+    resolver: yupResolver(productQuantitySchema),
+    defaultValues: { quantity: "" },
+    mode: "onChange",
+  });
+  const syncProductQuantityField = useCallback(
+    (quantity) => {
+      resetProductQuantityForm({ quantity: quantity ?? "" });
+    },
+    [resetProductQuantityForm],
+  );
+  const { ref: registerProductQuantityInputRef, ...productQuantityInputProps } =
+    registerProductQuantityField("quantity");
+  const {
+    register: registerNewProductQuantityField,
+    reset: resetNewProductQuantityForm,
+    trigger: triggerNewProductQuantityField,
+    getValues: getNewProductQuantityFormValues,
+    formState: { errors: newProductQuantityFormErrors },
+  } = useForm({
+    resolver: yupResolver(newProductQuantitySchema),
+    defaultValues: { quantity: 1 },
+    mode: "onChange",
+  });
+  const {
+    ref: registerNewProductQuantityInputRef,
+    ...newProductQuantityInputProps
+  } = registerNewProductQuantityField("quantity");
   const [companyForm, setCompanyForm] = useState({
     name: "",
     location: "",
     area: "",
     address: "",
+    billingAddress: "",
+    shippingAddress: "",
     purchaseManagerName: "",
     purchaseManagerPhone: "",
     purchaseManagerEmail: "",
@@ -464,6 +693,9 @@ const QuotationView = () => {
   const [quoteLogsRefreshKey, setQuoteLogsRefreshKey] = useState(0);
   const [quoteLogsOpen, setQuoteLogsOpen] = useState(false);
   const [snapshotPreview, setSnapshotPreview] = useState(null);
+  const [quotationSnapshots, setQuotationSnapshots] = useState([]);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+  const [snapshotsError, setSnapshotsError] = useState(null);
   const [procurementRatesModal, setProcurementRatesModal] = useState({
     visible: false,
     loading: false,
@@ -475,6 +707,9 @@ const QuotationView = () => {
     rates: [],
     imageUrls: [],
   });
+  const [importingQueryProductId, setImportingQueryProductId] = useState(null);
+  /** Per line index: { loading, available, minRate, maxRate } */
+  const [lineRateAvailability, setLineRateAvailability] = useState({});
   const OBJECT_ID_REGEX = /^[0-9a-fA-F]{24}$/;
 
   const displayQuotation = useMemo(() => {
@@ -535,6 +770,23 @@ const QuotationView = () => {
         : getAssetsUrl(branchSignature.path)
       : "";
   const queryId = quotation?.queryId?._id ?? quotation?.queryId;
+  const queryProductsFromLinkedQuery = useMemo(() => {
+    const raw =
+      quotation?.queryId &&
+      typeof quotation.queryId === "object" &&
+      Array.isArray(quotation.queryId.products)
+        ? quotation.queryId.products
+        : [];
+    return raw;
+  }, [quotation?.queryId]);
+  const queryProductsMissingFromQuotation = useMemo(
+    () =>
+      getReadyQueryProductsMissingFromQuotation(
+        queryProductsFromLinkedQuery,
+        products,
+      ),
+    [queryProductsFromLinkedQuery, products],
+  );
   const relatedQueryCode =
     quotation?.queryId &&
     typeof quotation.queryId === "object" &&
@@ -600,6 +852,16 @@ const QuotationView = () => {
         location: ci.location || "",
         area: ci.area || "",
         address: ci.address || "",
+        billingAddress:
+          ci.billingAddress ||
+          displayQuotation?.industry_id?.billingAddress ||
+          ci.address ||
+          "",
+        shippingAddress:
+          ci.shippingAddress ||
+          displayQuotation?.industry_id?.shippingAddress ||
+          ci.address ||
+          "",
         purchaseManagerName: pm.name || "",
         purchaseManagerPhone: pm.phone || "",
         purchaseManagerEmail: pm.email || "",
@@ -610,6 +872,14 @@ const QuotationView = () => {
         location: "",
         area: "",
         address: "",
+        billingAddress:
+          displayQuotation?.industry_id?.billingAddress ||
+          displayQuotation?.industry_id?.address ||
+          "",
+        shippingAddress:
+          displayQuotation?.industry_id?.shippingAddress ||
+          displayQuotation?.industry_id?.address ||
+          "",
         purchaseManagerName: "",
         purchaseManagerPhone: "",
         purchaseManagerEmail: "",
@@ -635,6 +905,44 @@ const QuotationView = () => {
     });
   }, [displayQuotation]);
 
+  useEffect(() => {
+    if (
+      !id ||
+      !OBJECT_ID_REGEX.test(id) ||
+      activeTab !== "history" ||
+      !isHodRole(user?.role)
+    ) {
+      return;
+    }
+    let cancelled = false;
+    setSnapshotsLoading(true);
+    setSnapshotsError(null);
+    quotationService
+      .listSnapshots(id)
+      .then((res) => {
+        if (cancelled) return;
+        const data = res?.data?.data ?? res?.data ?? res;
+        const list = Array.isArray(data?.snapshots) ? data.snapshots : [];
+        setQuotationSnapshots(list);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const msg =
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load quotation history";
+        setSnapshotsError(msg);
+        setQuotationSnapshots([]);
+        toastError(msg);
+      })
+      .finally(() => {
+        if (!cancelled) setSnapshotsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, activeTab, user?.role]);
+
   // Resolve zone ID to name for display in Company Information
   useEffect(() => {
     const areaVal = companyForm.area?.trim?.() || "";
@@ -653,7 +961,7 @@ const QuotationView = () => {
         if (cancelled) return;
         const data = res?.data?.data ?? res?.data ?? res;
         const name = data?.name ?? null;
-        setZoneNameDisplay(name || areaVal);
+        setZoneNameDisplay(name || "");
       })
       .catch(() => {
         if (!cancelled) setZoneNameDisplay(null);
@@ -690,6 +998,8 @@ const QuotationView = () => {
           location: companyForm.location || "",
           area: companyForm.area || "",
           address: companyForm.address || "",
+          billingAddress: companyForm.billingAddress || "",
+          shippingAddress: companyForm.shippingAddress || "",
           purchaseManagers,
         },
       });
@@ -708,6 +1018,8 @@ const QuotationView = () => {
               location: companyForm.location,
               area: companyForm.area,
               address: companyForm.address,
+              billingAddress: companyForm.billingAddress,
+              shippingAddress: companyForm.shippingAddress,
               purchaseManagers,
             },
           }),
@@ -801,10 +1113,96 @@ const QuotationView = () => {
               ? productRef.images
               : [],
       });
+      syncProductQuantityField(p.quantity ?? "");
+      setEditingProductImagesError("");
     } else {
       setEditingProduct(null);
+      syncProductQuantityField("");
+      setEditingProductImagesError("");
     }
-  }, [productIndex, products]);
+  }, [productIndex, products, syncProductQuantityField]);
+
+  useEffect(() => {
+    if (
+      !quotation?.id ||
+      !queryId ||
+      !Array.isArray(displayQuotation?.products) ||
+      displayQuotation.products.length === 0
+    ) {
+      setLineRateAvailability({});
+      return;
+    }
+
+    let cancelled = false;
+    const lineProducts = displayQuotation.products;
+
+    const loadLineRates = async () => {
+      const loadingState = {};
+      lineProducts.forEach((product, index) => {
+        loadingState[index] = {
+          loading: Boolean(String(product?.rawProductCode ?? "").trim()),
+          available: null,
+          minRate: null,
+          maxRate: null,
+        };
+      });
+      setLineRateAvailability(loadingState);
+
+      const results = await Promise.all(
+        lineProducts.map(async (product, index) => {
+          const rawCode = String(product?.rawProductCode ?? "").trim();
+          if (!rawCode) {
+            return {
+              index,
+              loading: false,
+              available: false,
+              minRate: null,
+              maxRate: null,
+            };
+          }
+          try {
+            const res = await quotationService.getLineProcurementRates(
+              quotation.id,
+              {
+                rawProductCode: rawCode,
+                lineIndex: index,
+              },
+            );
+            const { rates } = parseLineProcurementRatesResponse(res);
+            const { minRate, maxRate } = computeProcurementRateBounds(rates);
+            return {
+              index,
+              loading: false,
+              available: rates.length > 0,
+              minRate,
+              maxRate,
+            };
+          } catch {
+            return {
+              index,
+              loading: false,
+              available: false,
+              minRate: null,
+              maxRate: null,
+            };
+          }
+        }),
+      );
+
+      if (cancelled) return;
+
+      const next = {};
+      results.forEach(({ index, loading, available, minRate, maxRate }) => {
+        next[index] = { loading, available, minRate, maxRate };
+      });
+      setLineRateAvailability(next);
+    };
+
+    loadLineRates();
+    return () => {
+      cancelled = true;
+    };
+  }, [quotation?.id, queryId, displayQuotation?.products]);
 
   useEffect(() => {
     if (activeTab !== "productList") return;
@@ -946,6 +1344,15 @@ const QuotationView = () => {
     return Array.isArray(productRef?.images) ? productRef.images : [];
   };
 
+  const getEditingProductImageCount = (fallbackProduct = null) => {
+    const fromEditing = Array.isArray(editingProduct?.images)
+      ? editingProduct.images
+      : [];
+    if (fromEditing.length > 0) return fromEditing.length;
+    if (fallbackProduct) return getProductImagesForEdit(fallbackProduct).length;
+    return getProductImagesForEdit(editingProduct).length;
+  };
+
   const uploadEditingProductImages = async (files) => {
     if (!files?.length) return;
     setUploadingProductImages(true);
@@ -965,6 +1372,7 @@ const QuotationView = () => {
         const existing = Array.isArray(prev.images) ? prev.images : [];
         return { ...prev, images: [...existing, ...uploaded] };
       });
+      setEditingProductImagesError("");
       toastSuccess(`${uploaded.length} image(s) uploaded`);
     } catch (err) {
       toastError(
@@ -979,8 +1387,16 @@ const QuotationView = () => {
 
   const handleUpdateProduct = async () => {
     if (!quotation?.id || !editingProduct) return false;
+    const isQuantityValid = await triggerProductQuantityField("quantity");
+    if (!isQuantityValid) return false;
     const idx = Math.min(productIndex, products.length - 1);
-    const qty = Number(editingProduct.quantity);
+    if (getEditingProductImageCount(products[idx]) === 0) {
+      setEditingProductImagesError("At least one image is required");
+      toastError("Upload at least one image before updating");
+      return false;
+    }
+    setEditingProductImagesError("");
+    const qty = getProductQuantityFormValues("quantity");
     const rateVal =
       editingProduct.rate !== "" && !Number.isNaN(Number(editingProduct.rate))
         ? Number(editingProduct.rate)
@@ -999,11 +1415,7 @@ const QuotationView = () => {
         unit: editingProduct.unit ?? p.unit ?? "",
         hsnNumber: editingProduct.hsnNumber ?? p.hsnNumber ?? "",
         modelNumber: editingProduct.modelNumber ?? p.modelNumber ?? "",
-        gstPercentage:
-          editingProduct.gstPercentage !== "" &&
-          !Number.isNaN(Number(editingProduct.gstPercentage))
-            ? Number(editingProduct.gstPercentage)
-            : (p.gstPercentage ?? null),
+        gstPercentage: resolveGstSaveValue(editingProduct.gstPercentage),
         remark: editingProduct.remark ?? p.remark ?? "",
         product_id: pid ?? p.product_id,
         rate: rateVal,
@@ -1062,12 +1474,26 @@ const QuotationView = () => {
     const p = products[idx];
     const productRef = typeof p?.product_id === "object" ? p.product_id : null;
     const val = p?.gstPercentage ?? productRef?.gstPercentage;
-    return val != null ? String(val) : String(DEFAULT_GST_PERCENTAGE);
+    return val != null ? String(val) : "";
   };
   const setListGst = (idx, val) =>
     setProductListGstEdits((prev) => ({ ...prev, [idx]: val }));
   const setListRate = (idx, val) =>
     setProductListRateEdits((prev) => ({ ...prev, [idx]: val }));
+
+  const getLineProcurementBounds = (idx) => lineRateAvailability[idx] || {};
+
+  const isListRateBelowProcurementMin = (idx) => {
+    const { available, minRate } = getLineProcurementBounds(idx);
+    if (!available || minRate == null || Number.isNaN(Number(minRate))) {
+      return false;
+    }
+    const rateVal = getListRate(idx);
+    if (rateVal === "" || rateVal == null) return false;
+    const rateNum = Number(rateVal);
+    if (Number.isNaN(rateNum)) return false;
+    return rateNum < Number(minRate);
+  };
 
   const getListApplyDiscount = (idx) =>
     productListApplyDiscount[idx] !== undefined
@@ -1111,6 +1537,33 @@ const QuotationView = () => {
   };
   const getListDeliveryWithinApiValue = (idx) =>
     getDeliveryWithinApiValue(getListDeliveryWithin(idx));
+  const isListDeliveryWithinFilled = (idx) =>
+    getListDeliveryWithinApiValue(idx) != null;
+  const isListRateFilled = (idx) => {
+    const rateVal = getListRate(idx);
+    return rateVal !== "" && rateVal != null && !Number.isNaN(Number(rateVal));
+  };
+  const isListGstFilled = (idx) => {
+    const gstVal = getListGst(idx);
+    return gstVal !== "" && gstVal != null && !Number.isNaN(Number(gstVal));
+  };
+  const isListProductUpdateReady = (idx) => {
+    const p = products[idx];
+    if (p?.notAvailable) return true;
+    return (
+      isListDeliveryWithinFilled(idx) &&
+      isListRateFilled(idx) &&
+      isListGstFilled(idx)
+    );
+  };
+  const getListProductUpdateDisabledReason = (idx) => {
+    if (isListProductUpdateReady(idx)) return undefined;
+    const missing = [];
+    if (!isListDeliveryWithinFilled(idx)) missing.push("Delivery within");
+    if (!isListRateFilled(idx)) missing.push("Rate");
+    if (!isListGstFilled(idx)) missing.push("GST %");
+    return `Fill ${missing.join(", ")} to update`;
+  };
   const getListTotalBeforeDiscount = (idx) => {
     const p = products[idx];
     const qty = Number(p?.quantity) ?? 0;
@@ -1192,6 +1645,13 @@ const QuotationView = () => {
       }
       if (gstNum < 0 || gstNum > 100) {
         toastError("GST % must be between 0 and 100.");
+        return;
+      }
+      if (isListRateBelowProcurementMin(idx)) {
+        const { minRate } = getLineProcurementBounds(idx);
+        toastError(
+          `Rate cannot be below the minimum procurement rate (₹${formatProcurementBoundRate(minRate)}).`,
+        );
         return;
       }
     }
@@ -1532,21 +1992,27 @@ const QuotationView = () => {
       groupId: "",
       categoryId: "",
     });
+    resetNewProductQuantityForm({ quantity: 1 });
     setNewProductImageFiles([]);
     setNewProductImagePreviews([]);
+    setNewProductImagesError("");
   };
 
   const handleAddNewProduct = async () => {
-    if (!quotation?.id) return;
+    if (!quotation?.id || !canShowAddNewProductTab) return;
     if (!newProductForm.productName?.trim()) {
       toastError("Product name is required");
       return;
     }
-    const qty = Number(newProductForm.quantity);
-    if (!qty || qty <= 0 || Number.isNaN(qty)) {
-      toastError("Quantity must be greater than 0");
+    const isQuantityValid = await triggerNewProductQuantityField("quantity");
+    if (!isQuantityValid) return;
+    const qty = getNewProductQuantityFormValues("quantity");
+    if (newProductImageFiles.length === 0) {
+      setNewProductImagesError("At least one image is required");
+      toastError("Upload at least one image before adding the product");
       return;
     }
+    setNewProductImagesError("");
     const needsGroupCategory = !!createNewQueryProduct || !!queryId;
     if (needsGroupCategory) {
       if (!String(newProductForm.groupId || "").trim()) {
@@ -1607,11 +2073,7 @@ const QuotationView = () => {
         unit: newProductForm.unit || "",
         hsnNumber: newProductForm.hsnNumber || "",
         modelNumber: newProductForm.modelNumber || "",
-        gstPercentage:
-          newProductForm.gstPercentage !== "" &&
-          !Number.isNaN(Number(newProductForm.gstPercentage))
-            ? Number(newProductForm.gstPercentage)
-            : null,
+        gstPercentage: resolveGstSaveValue(newProductForm.gstPercentage),
         remark: newProductForm.remark || "",
         product_id: null,
         groupId: newProductForm.groupId || "",
@@ -1673,6 +2135,41 @@ const QuotationView = () => {
     }
   };
 
+  const handleImportQueryProduct = async (queryProduct) => {
+    const queryProductId = queryProduct?._id ?? queryProduct?.id;
+    if (
+      !quotation?.id ||
+      !queryProductId ||
+      !canUpdateQuotation ||
+      isSnapshotPreview
+    ) {
+      return;
+    }
+    setImportingQueryProductId(String(queryProductId));
+    try {
+      const res = await quotationService.importQueryProduct(
+        quotation.id,
+        queryProductId,
+      );
+      const data = res?.data?.data ?? res?.data ?? res;
+      if (data) {
+        setQuotation({ ...data, id: data._id ?? data.id ?? quotation.id });
+      }
+      setQuoteLogsRefreshKey((prev) => prev + 1);
+      toastSuccess(
+        "Product imported into quotation. HOD approval is required again.",
+      );
+    } catch (err) {
+      toastError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to import query product",
+      );
+    } finally {
+      setImportingQueryProductId(null);
+    }
+  };
+
   const currentUserRoleForPdf = normalizeRole(
     user?.role || getCurrentUserRole(),
   );
@@ -1717,15 +2214,25 @@ const QuotationView = () => {
         rawProductCode: rawCode,
         lineIndex,
       });
-      const block = res?.data?.data ?? res?.data ?? res;
-      const rates = Array.isArray(block?.rates) ? block.rates : [];
+      const { rates, status, productName } =
+        parseLineProcurementRatesResponse(res);
+      const { minRate, maxRate } = computeProcurementRateBounds(rates);
       setProcurementRatesModal((prev) => ({
         ...prev,
         loading: false,
         error: "",
-        status: block?.status ?? null,
+        status,
         rates,
-        productLabel: block?.productName?.trim() || productLabel,
+        productLabel: productName || productLabel,
+      }));
+      setLineRateAvailability((prev) => ({
+        ...prev,
+        [lineIndex]: {
+          loading: false,
+          available: rates.length > 0,
+          minRate,
+          maxRate,
+        },
       }));
     } catch (err) {
       const msg = err?.message || "Failed to load procurement rates";
@@ -1810,9 +2317,8 @@ const QuotationView = () => {
     hasPermission("quotations", "create") || isSalesRole;
   const canUpdateQuotation =
     hasPermission("quotations", "update") || isSalesRole;
-  const canDeleteQuotation =
-    hasPermission("quotations", "delete") || isSalesRole;
-  const canDeleteQuotationProduct = canDeleteQuotation;
+  const canDeleteQuotationProduct = isHodUser;
+  const canShowAddNewProductTab = canAddNewProductOnQuotation(userRole);
   const canApproveAsHod = isHodUser && hasPermission("quotations", "update");
   const canCreatePurchaseOrder =
     hasPermission("purchase_orders", "create") ||
@@ -1850,31 +2356,6 @@ const QuotationView = () => {
     }
   };
 
-  const performConvertToPo = async () => {
-    if (!quotation?.id) return;
-    setConvertingPo(true);
-    try {
-      const res = await purchaseOrderService.createFromQuotation(quotation.id, {
-        reuseExisting: true,
-      });
-      const data = res?.data?.data ?? res?.data ?? res;
-      const poId = data?._id || data?.id;
-      if (!poId) {
-        throw new Error("Sales order id not found in response");
-      }
-      toastSuccess("Sales order ready");
-      navigate(`/po-bucket/${poId}`);
-    } catch (err) {
-      toastError(
-        err?.response?.data?.message ||
-          err?.message ||
-          "Failed to convert quotation to sales order",
-      );
-    } finally {
-      setConvertingPo(false);
-    }
-  };
-
   const handleConvertToPoClick = () => {
     if (
       !quotation?.id ||
@@ -1889,31 +2370,16 @@ const QuotationView = () => {
       }
       return;
     }
-    setConvertPoModalStep("confirm");
-    setConvertPoSecretInput("");
     setConvertPoModalVisible(true);
   };
 
-  const closeConvertPoModals = () => {
+  const closeConvertPoModal = () => {
     setConvertPoModalVisible(false);
-    setConvertPoModalStep("confirm");
-    setConvertPoSecretInput("");
   };
 
   const onConvertPoConfirmYes = () => {
-    setConvertPoSecretInput("");
-    setConvertPoModalStep("secret");
-  };
-
-  const submitConvertPoSecret = () => {
-    if (convertingPo) return;
-    const entered = String(convertPoSecretInput ?? "").trim();
-    if (entered !== PO_FROM_QUOTATION_SECRET_CODE) {
-      toastError("Invalid code. Sales order was not created.");
-      return;
-    }
-    closeConvertPoModals();
-    performConvertToPo();
+    closeConvertPoModal();
+    navigate(`/quotations/${quotation.id}/finalize-sales-order`);
   };
 
   const openImageGallery = (images, startIndex = 0) => {
@@ -2091,12 +2557,11 @@ const QuotationView = () => {
               className="d-flex flex-wrap align-items-center justify-content-lg-end gap-2 gap-md-3"
               style={{ minWidth: 0 }}
             >
-              {getStatusBadge(displayQuotation?.status)}
               <span
-                className="text-nowrap fw-semibold text-secondary px-2 py-1 rounded border"
-                style={{ backgroundColor: "#ffffff" }}
+                className="text-nowrap fw-semibold px-2 py-1 rounded border"
+                style={{ color: "#fd7e14", backgroundColor: "#ffffff" }}
               >
-                Total: {products.length}
+                Without Rate: {productsWithoutRate.length}
               </span>
               <span
                 className="text-nowrap fw-semibold text-success px-2 py-1 rounded border"
@@ -2105,11 +2570,15 @@ const QuotationView = () => {
                 With Rate: {productsWithRate.length}
               </span>
               <span
-                className="text-nowrap fw-semibold px-2 py-1 rounded border"
-                style={{ color: "#fd7e14", backgroundColor: "#ffffff" }}
+                className="text-nowrap fw-semibold text-secondary px-2 py-1 rounded border"
+                style={{ backgroundColor: "#ffffff" }}
               >
-                Without Rate: {productsWithoutRate.length}
+                Total: {products.length}
               </span>
+              {isHodUser ? (
+                <ClientPendingAmountBadge quotation={quotation} />
+              ) : null}
+              {getStatusBadge(displayQuotation?.status)}
             </div>
           </div>
 
@@ -2160,9 +2629,7 @@ const QuotationView = () => {
                 <CButton
                   color="success"
                   variant="outline"
-                  disabled={
-                    convertingPo || isSnapshotPreview || !canConvertToPo
-                  }
+                  disabled={isSnapshotPreview || !canConvertToPo}
                   onClick={handleConvertToPoClick}
                   className="d-inline-flex align-items-center px-3"
                   style={{ height: 40 }}
@@ -2172,7 +2639,7 @@ const QuotationView = () => {
                       : "Convert to Sales Order is available after HOD approval"
                   }
                 >
-                  {convertingPo ? "Converting..." : "Convert to Sales Order"}
+                  Convert to Sales Order
                 </CButton>
               ) : null}
               {canApproveAsHod ? (
@@ -2313,25 +2780,28 @@ const QuotationView = () => {
                 Product
               </CNavLink>
             </CNavItem>
-            <CNavItem>
-              <CNavLink
-                active={activeTab === "addNewProduct"}
-                onClick={() => setActiveTab("addNewProduct")}
-                style={{
-                  cursor: "pointer",
-                  border: "none",
-                  borderBottom:
-                    activeTab === "addNewProduct"
-                      ? "2px solid #321fdb"
-                      : "2px solid transparent",
-                  color: activeTab === "addNewProduct" ? "#321fdb" : "#6c757d",
-                  fontWeight: 600,
-                  paddingInline: 10,
-                }}
-              >
-                Add New Product
-              </CNavLink>
-            </CNavItem>
+            {canShowAddNewProductTab ? (
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === "addNewProduct"}
+                  onClick={() => setActiveTab("addNewProduct")}
+                  style={{
+                    cursor: "pointer",
+                    border: "none",
+                    borderBottom:
+                      activeTab === "addNewProduct"
+                        ? "2px solid #321fdb"
+                        : "2px solid transparent",
+                    color:
+                      activeTab === "addNewProduct" ? "#321fdb" : "#6c757d",
+                    fontWeight: 600,
+                    paddingInline: 10,
+                  }}
+                >
+                  Add New Product
+                </CNavLink>
+              </CNavItem>
+            ) : null}
             <CNavItem>
               <CNavLink
                 active={activeTab === "productList"}
@@ -2351,6 +2821,51 @@ const QuotationView = () => {
                 Product List ({products.length})
               </CNavLink>
             </CNavItem>
+            {queryId ? (
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === "queryProducts"}
+                  onClick={() => setActiveTab("queryProducts")}
+                  style={{
+                    cursor: "pointer",
+                    border: "none",
+                    borderBottom:
+                      activeTab === "queryProducts"
+                        ? "2px solid #321fdb"
+                        : "2px solid transparent",
+                    color:
+                      activeTab === "queryProducts" ? "#321fdb" : "#6c757d",
+                    fontWeight: 600,
+                    paddingInline: 10,
+                  }}
+                >
+                  Pull Product from Query (
+                  {queryProductsMissingFromQuotation.length})
+                </CNavLink>
+              </CNavItem>
+            ) : null}
+            {isHodUser ? (
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === "history"}
+                  onClick={() => setActiveTab("history")}
+                  style={{
+                    cursor: "pointer",
+                    border: "none",
+                    borderBottom:
+                      activeTab === "history"
+                        ? "2px solid #321fdb"
+                        : "2px solid transparent",
+                    color: activeTab === "history" ? "#321fdb" : "#6c757d",
+                    fontWeight: 600,
+                    paddingInline: 10,
+                  }}
+                >
+                  <CIcon icon={cilHistory} className="me-1" />
+                  Quotation History
+                </CNavLink>
+              </CNavItem>
+            ) : null}
           </CNav>
         </CCardHeader>
         <CCardBody>
@@ -2426,14 +2941,15 @@ const QuotationView = () => {
                                 scope="row"
                                 className="bg-light"
                               >
-                                Address
+                                Billing address
                               </CTableHeaderCell>
                               <CTableDataCell
                                 style={{ whiteSpace: "pre-wrap" }}
                               >
-                                {companyForm.address ||
-                                  displayQuotation?.companyInfo?.address ||
-                                  "–"}
+                                {getQuotationBillingAddress(
+                                  displayQuotation,
+                                  companyForm,
+                                ) || "–"}
                               </CTableDataCell>
                             </CTableRow>
                             <CTableRow>
@@ -2519,6 +3035,22 @@ const QuotationView = () => {
                                   displayQuotation?.industry_id
                                     ?.purchase_manager_name ||
                                   "–"}
+                              </CTableDataCell>
+                            </CTableRow>
+                            <CTableRow>
+                              <CTableHeaderCell
+                                scope="row"
+                                className="bg-light"
+                              >
+                                Shipping Address
+                              </CTableHeaderCell>
+                              <CTableDataCell
+                                style={{ whiteSpace: "pre-wrap" }}
+                              >
+                                {getQuotationShippingAddress(
+                                  displayQuotation,
+                                  companyForm,
+                                ) || "–"}
                               </CTableDataCell>
                             </CTableRow>
                           </CTableBody>
@@ -3012,20 +3544,37 @@ const QuotationView = () => {
                         <CFormInput
                           disabled
                           className="bg-light"
-                          value={zoneNameDisplay ?? companyForm.area}
+                          value={
+                            zoneNameDisplay ??
+                            (OBJECT_ID_REGEX.test(
+                              String(companyForm.area || "").trim(),
+                            )
+                              ? ""
+                              : companyForm.area || "")
+                          }
                           placeholder="Zone"
                         />
                       </div>
                     </CCol>
                     <CCol md={4}>
                       <div className="mb-3">
-                        <CFormLabel>Address</CFormLabel>
+                        <CFormLabel>Billing address</CFormLabel>
                         <CFormTextarea
                           disabled
                           className="bg-light"
                           rows={3}
-                          value={companyForm.address}
-                          placeholder="Address"
+                          value={companyForm.billingAddress}
+                          placeholder="Billing address"
+                        />
+                      </div>
+                      <div className="mb-3">
+                        <CFormLabel>Shipping address</CFormLabel>
+                        <CFormTextarea
+                          disabled
+                          className="bg-light"
+                          rows={3}
+                          value={companyForm.shippingAddress}
+                          placeholder="Shipping address"
                         />
                       </div>
                     </CCol>
@@ -3234,16 +3783,30 @@ const QuotationView = () => {
                             <CFormInput
                               type="number"
                               min={0}
-                              value={editingProduct.quantity ?? ""}
-                              onChange={(e) =>
-                                updateFormField("quantity", e.target.value)
-                              }
+                              max={MAX_PRODUCT_QUANTITY}
+                              step={1}
+                              inputMode="numeric"
+                              invalid={!!productQuantityFormErrors.quantity}
+                              {...productQuantityInputProps}
+                              ref={(element) => {
+                                registerProductQuantityInputRef(element);
+                                productQuantityInputRef.current = element;
+                              }}
+                              onChange={(e) => {
+                                productQuantityInputProps.onChange(e);
+                                updateFormField("quantity", e.target.value);
+                              }}
                               placeholder="Quantity"
                               disabled={
                                 isSnapshotPreview ||
                                 isCurrentProductNotAvailable
                               }
                             />
+                            {productQuantityFormErrors.quantity && (
+                              <div className="text-danger small mt-1">
+                                {productQuantityFormErrors.quantity.message}
+                              </div>
+                            )}
                           </div>
                           <div className="mb-3">
                             <CFormLabel>Unit</CFormLabel>
@@ -3260,16 +3823,36 @@ const QuotationView = () => {
                               min={0}
                               max={100}
                               step="0.01"
-                              value={editingProduct.gstPercentage ?? ""}
+                              value={resolveGstDisplayValue(
+                                editingProduct.gstPercentage,
+                              )}
                               onChange={(e) =>
                                 updateFormField("gstPercentage", e.target.value)
                               }
-                              placeholder="GST %"
+                              placeholder={String(DEFAULT_GST_PERCENTAGE)}
+                              style={
+                                isGstAboveStandardRate(
+                                  editingProduct.gstPercentage,
+                                )
+                                  ? {
+                                      borderColor: "#dc3545",
+                                      boxShadow:
+                                        "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
+                                    }
+                                  : undefined
+                              }
                               disabled={
                                 isSnapshotPreview ||
                                 isCurrentProductNotAvailable
                               }
                             />
+                            {isGstAboveStandardRate(
+                              editingProduct.gstPercentage,
+                            ) ? (
+                              <div className="text-danger small mt-1">
+                                GST is above {DEFAULT_GST_PERCENTAGE}%
+                              </div>
+                            ) : null}
                           </div>
                         </CCol>
                         <CCol md={4}>
@@ -3309,7 +3892,12 @@ const QuotationView = () => {
                       </CRow>
                       <CRow className="mt-1">
                         <CCol md={12}>
-                          <CFormLabel>Uploaded Images</CFormLabel>
+                          <CFormLabel>
+                            Uploaded Images{" "}
+                            <span className="text-danger" aria-hidden="true">
+                              *
+                            </span>
+                          </CFormLabel>
                           {Array.isArray(editingProduct.images) &&
                           editingProduct.images.length > 0 ? (
                             <div className="d-flex flex-wrap gap-2 mb-3">
@@ -3347,6 +3935,7 @@ const QuotationView = () => {
                             type="file"
                             accept="image/*"
                             multiple
+                            invalid={!!editingProductImagesError}
                             disabled={
                               isSnapshotPreview ||
                               uploadingProductImages ||
@@ -3359,10 +3948,16 @@ const QuotationView = () => {
                               e.target.value = "";
                             }}
                           />
-                          <div className="small text-muted mt-1">
-                            Upload additional image(s). Existing images cannot
-                            be removed.
-                          </div>
+                          {editingProductImagesError ? (
+                            <div className="text-danger small mt-1">
+                              {editingProductImagesError}
+                            </div>
+                          ) : (
+                            <div className="small text-muted mt-1">
+                              Upload additional image(s). Existing images cannot
+                              be removed.
+                            </div>
+                          )}
                         </CCol>
                       </CRow>
                       <div className="mt-4 d-flex flex-wrap gap-2">
@@ -3423,8 +4018,10 @@ const QuotationView = () => {
               </CCard>
             </CTabPane>
 
-            {/* Tab: Add New Product */}
-            <CTabPane visible={activeTab === "addNewProduct"}>
+            {/* Tab: Add New Product — HOD and back office only */}
+            <CTabPane
+              visible={canShowAddNewProductTab && activeTab === "addNewProduct"}
+            >
               <CCard>
                 <CCardHeader>
                   <strong>Add New Product</strong>
@@ -3545,12 +4142,25 @@ const QuotationView = () => {
                         <CFormInput
                           type="number"
                           min={1}
-                          value={newProductForm.quantity}
-                          onChange={(e) =>
-                            updateNewProductForm("quantity", e.target.value)
-                          }
+                          max={MAX_PRODUCT_QUANTITY}
+                          step={1}
+                          inputMode="numeric"
+                          invalid={!!newProductQuantityFormErrors.quantity}
+                          {...newProductQuantityInputProps}
+                          ref={(element) => {
+                            registerNewProductQuantityInputRef(element);
+                          }}
+                          onChange={(e) => {
+                            newProductQuantityInputProps.onChange(e);
+                            updateNewProductForm("quantity", e.target.value);
+                          }}
                           placeholder="Quantity"
                         />
+                        {newProductQuantityFormErrors.quantity && (
+                          <div className="text-danger small mt-1">
+                            {newProductQuantityFormErrors.quantity.message}
+                          </div>
+                        )}
                       </div>
                     </CCol>
                     <CCol sm={6} md={4}>
@@ -3601,15 +4211,34 @@ const QuotationView = () => {
                           type="number"
                           min={0}
                           max={100}
-                          value={newProductForm.gstPercentage}
+                          step="0.01"
+                          value={resolveGstDisplayValue(
+                            newProductForm.gstPercentage,
+                          )}
                           onChange={(e) =>
                             updateNewProductForm(
                               "gstPercentage",
                               e.target.value,
                             )
                           }
-                          placeholder="GST %"
+                          placeholder={String(DEFAULT_GST_PERCENTAGE)}
+                          style={
+                            isGstAboveStandardRate(newProductForm.gstPercentage)
+                              ? {
+                                  borderColor: "#dc3545",
+                                  boxShadow:
+                                    "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
+                                }
+                              : undefined
+                          }
                         />
+                        {isGstAboveStandardRate(
+                          newProductForm.gstPercentage,
+                        ) ? (
+                          <div className="text-danger small mt-1">
+                            GST is above {DEFAULT_GST_PERCENTAGE}%
+                          </div>
+                        ) : null}
                       </div>
                     </CCol>
                   </CRow>
@@ -3631,11 +4260,17 @@ const QuotationView = () => {
                   <CRow className="g-3 align-items-start">
                     <CCol md={6}>
                       <div className="mb-3">
-                        <CFormLabel>Upload Images</CFormLabel>
+                        <CFormLabel>
+                          Upload Images{" "}
+                          <span className="text-danger" aria-hidden="true">
+                            *
+                          </span>
+                        </CFormLabel>
                         <CFormInput
                           type="file"
                           accept="image/*"
                           multiple
+                          invalid={!!newProductImagesError}
                           onChange={(e) => {
                             const files = Array.from(e.target.files || []);
                             if (!files.length) return;
@@ -3647,8 +4282,14 @@ const QuotationView = () => {
                               ...prev,
                               ...files.map((f) => URL.createObjectURL(f)),
                             ]);
+                            setNewProductImagesError("");
                           }}
                         />
+                        {newProductImagesError ? (
+                          <div className="text-danger small mt-1">
+                            {newProductImagesError}
+                          </div>
+                        ) : null}
                         {newProductImagePreviews.length > 0 && (
                           <div className="d-flex flex-wrap gap-2 mt-2">
                             {newProductImagePreviews.map((src, idx) => (
@@ -3828,6 +4469,14 @@ const QuotationView = () => {
                               : { backgroundColor: "#ffe8cc" };
                           const applyDiscount = getListApplyDiscount(idx);
                           const discountPctVal = getListDiscountPct(idx);
+                          const procurementBounds =
+                            getLineProcurementBounds(idx);
+                          const rateBelowProcurementMin =
+                            isListRateBelowProcurementMin(idx);
+                          const productListUpdateReady =
+                            isListProductUpdateReady(idx);
+                          const productListUpdateDisabledReason =
+                            getListProductUpdateDisabledReason(idx);
                           return (
                             <CTableRow key={idx} style={rowBg}>
                               <CTableDataCell className="text-center">
@@ -3969,13 +4618,20 @@ const QuotationView = () => {
                                     width: 109,
                                     minHeight: 28,
                                     fontSize: "0.75rem",
+                                    ...(isGstAboveStandardRate(getListGst(idx))
+                                      ? {
+                                          borderColor: "#dc3545",
+                                          boxShadow:
+                                            "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
+                                        }
+                                      : {}),
                                   }}
                                   value={getListGst(idx)}
                                   onChange={(e) =>
                                     setListGst(idx, e.target.value)
                                   }
-                                  placeholder="%"
-                                  title="GST % (required, 0–100)"
+                                  placeholder={String(DEFAULT_GST_PERCENTAGE)}
+                                  title={`GST % (default ${DEFAULT_GST_PERCENTAGE}%, 0–100)`}
                                   disabled={
                                     !!p.notAvailable || isSnapshotPreview
                                   }
@@ -3983,28 +4639,56 @@ const QuotationView = () => {
                               </CTableDataCell>
                               {queryId ? (
                                 <CTableDataCell className="text-center align-middle py-1">
-                                  {String(p.rawProductCode ?? "").trim() ? (
-                                    <CButton
-                                      type="button"
-                                      color="secondary"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="p-1"
-                                      title="View procurement rates"
-                                      aria-label="View procurement rates"
-                                      onClick={() =>
-                                        openProcurementRatesModal(
-                                          p,
-                                          idx,
-                                          imageUrls,
-                                        )
+                                  <div className="d-flex flex-column align-items-center gap-1">
+                                    <ProcurementRateAvailabilityBadge
+                                      loading={
+                                        lineRateAvailability[idx]?.loading
                                       }
-                                    >
-                                      <CIcon icon={cilList} size="lg" />
-                                    </CButton>
-                                  ) : (
-                                    <span className="text-muted small">—</span>
-                                  )}
+                                      available={
+                                        lineRateAvailability[idx]?.available
+                                      }
+                                      hasProductCode={Boolean(
+                                        String(p.rawProductCode ?? "").trim(),
+                                      )}
+                                    />
+                                    {procurementBounds.available &&
+                                    !procurementBounds.loading ? (
+                                      <div className="small text-muted text-center">
+                                        <div>
+                                          Min: ₹
+                                          {formatProcurementBoundRate(
+                                            procurementBounds.minRate,
+                                          )}
+                                        </div>
+                                        <div>
+                                          Max: ₹
+                                          {formatProcurementBoundRate(
+                                            procurementBounds.maxRate,
+                                          )}
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                    {String(p.rawProductCode ?? "").trim() ? (
+                                      <CButton
+                                        type="button"
+                                        color="secondary"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="p-1"
+                                        title="View procurement rates"
+                                        aria-label="View procurement rates"
+                                        onClick={() =>
+                                          openProcurementRatesModal(
+                                            p,
+                                            idx,
+                                            imageUrls,
+                                          )
+                                        }
+                                      >
+                                        <CIcon icon={cilList} size="lg" />
+                                      </CButton>
+                                    ) : null}
+                                  </div>
                                 </CTableDataCell>
                               ) : null}
                               <CTableDataCell className="text-center py-1">
@@ -4088,7 +4772,12 @@ const QuotationView = () => {
                               <CTableDataCell className="text-center py-1">
                                 <CFormInput
                                   type="number"
-                                  min={0}
+                                  min={
+                                    procurementBounds.available &&
+                                    procurementBounds.minRate != null
+                                      ? procurementBounds.minRate
+                                      : 0
+                                  }
                                   step="0.01"
                                   size="sm"
                                   className="form-control-sm"
@@ -4096,16 +4785,37 @@ const QuotationView = () => {
                                     width: 140,
                                     minHeight: 28,
                                     fontSize: "0.75rem",
+                                    ...(rateBelowProcurementMin
+                                      ? {
+                                          borderColor: "#dc3545",
+                                          boxShadow:
+                                            "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
+                                        }
+                                      : {}),
                                   }}
                                   value={rateVal}
                                   onChange={(e) =>
                                     setListRate(idx, e.target.value)
                                   }
                                   placeholder="Rate"
+                                  title={
+                                    procurementBounds.available &&
+                                    procurementBounds.minRate != null
+                                      ? `Minimum procurement rate: ₹${formatProcurementBoundRate(procurementBounds.minRate)}`
+                                      : "Rate"
+                                  }
                                   disabled={
                                     !!p.notAvailable || isSnapshotPreview
                                   }
                                 />
+                                {rateBelowProcurementMin ? (
+                                  <div className="small text-danger mt-1">
+                                    Rate cannot be below ₹
+                                    {formatProcurementBoundRate(
+                                      procurementBounds.minRate,
+                                    )}
+                                  </div>
+                                ) : null}
                               </CTableDataCell>
                               <CTableDataCell className="text-center py-1">
                                 <div className="d-flex align-items-center gap-1 justify-content-center flex-wrap">
@@ -4184,7 +4894,12 @@ const QuotationView = () => {
                                           className="w-100"
                                           style={{
                                             minWidth: 90,
-                                            fontSize: "0.75rem",
+                                            minHeight: 28,
+                                            fontSize: "0.65rem",
+                                            lineHeight: 1.2,
+                                            whiteSpace: "nowrap",
+                                            padding: "0.25rem 0.35rem",
+                                            fontWeight: 700,
                                           }}
                                           onClick={() => {
                                             setNotAvailableModalIndex(idx);
@@ -4213,13 +4928,25 @@ const QuotationView = () => {
                                           className="w-100"
                                           style={{
                                             minWidth: 90,
+                                            minHeight: 28,
                                             fontSize: "0.75rem",
+                                            lineHeight: 1.2,
+                                            padding: "0.25rem 0.35rem",
+                                            fontWeight: 700,
                                           }}
                                           onClick={() =>
                                             handleUpdateProductFromList(idx)
                                           }
                                           disabled={
-                                            updating || isSnapshotPreview
+                                            updating ||
+                                            isSnapshotPreview ||
+                                            rateBelowProcurementMin ||
+                                            !productListUpdateReady
+                                          }
+                                          title={
+                                            rateBelowProcurementMin
+                                              ? `Rate must be at least ₹${formatProcurementBoundRate(procurementBounds.minRate)}`
+                                              : productListUpdateDisabledReason
                                           }
                                         >
                                           Update
@@ -4232,7 +4959,11 @@ const QuotationView = () => {
                                           className="w-100"
                                           style={{
                                             minWidth: 90,
+                                            minHeight: 28,
                                             fontSize: "0.75rem",
+                                            lineHeight: 1.2,
+                                            padding: "0.25rem 0.35rem",
+                                            fontWeight: 700,
                                           }}
                                           onClick={() =>
                                             openDeleteProductModal(idx)
@@ -4254,7 +4985,10 @@ const QuotationView = () => {
                                           className="w-100"
                                           style={{
                                             minWidth: 90,
+                                            minHeight: 28,
                                             fontSize: "0.75rem",
+                                            lineHeight: 1.2,
+                                            padding: "0.25rem 0.35rem",
                                           }}
                                           onClick={() =>
                                             handleRevokeNotAvailable(idx)
@@ -4273,13 +5007,25 @@ const QuotationView = () => {
                                           className="w-100"
                                           style={{
                                             minWidth: 90,
+                                            minHeight: 28,
                                             fontSize: "0.75rem",
+                                            lineHeight: 1.2,
+                                            padding: "0.25rem 0.35rem",
+                                            fontWeight: 700,
                                           }}
                                           onClick={() =>
                                             handleUpdateProductFromList(idx)
                                           }
                                           disabled={
-                                            updating || isSnapshotPreview
+                                            updating ||
+                                            isSnapshotPreview ||
+                                            rateBelowProcurementMin ||
+                                            !productListUpdateReady
+                                          }
+                                          title={
+                                            rateBelowProcurementMin
+                                              ? `Rate must be at least ₹${formatProcurementBoundRate(procurementBounds.minRate)}`
+                                              : productListUpdateDisabledReason
                                           }
                                         >
                                           Update
@@ -4292,7 +5038,11 @@ const QuotationView = () => {
                                           className="w-100"
                                           style={{
                                             minWidth: 90,
+                                            minHeight: 28,
                                             fontSize: "0.75rem",
+                                            lineHeight: 1.2,
+                                            padding: "0.25rem 0.35rem",
+                                            fontWeight: 700,
                                           }}
                                           onClick={() =>
                                             openDeleteProductModal(idx)
@@ -4346,6 +5096,285 @@ const QuotationView = () => {
                 )}
               </div>
             </CTabPane>
+
+            {queryId ? (
+              <CTabPane visible={activeTab === "queryProducts"}>
+                <div style={{ fontSize: "0.9rem" }}>
+                  <p className="text-muted small mb-3">
+                    Products on the linked query marked{" "}
+                    <strong>Ready for quotation</strong> that are not included
+                    in this quotation.
+                    {relatedQueryCode ? (
+                      <>
+                        {" "}
+                        Query:{" "}
+                        <CButton
+                          color="link"
+                          className="p-0 align-baseline"
+                          onClick={() => navigate(`/queries/${queryId}`)}
+                        >
+                          {relatedQueryCode}
+                        </CButton>
+                      </>
+                    ) : null}
+                  </p>
+                  {queryProductsMissingFromQuotation.length > 0 ? (
+                    <CTable responsive hover bordered>
+                      <CTableHead>
+                        <CTableRow>
+                          <CTableHeaderCell style={{ width: 60 }}>
+                            #
+                          </CTableHeaderCell>
+                          <CTableHeaderCell>Product name</CTableHeaderCell>
+                          <CTableHeaderCell>Description</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 100 }}>
+                            Quantity
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 80 }}>
+                            Unit
+                          </CTableHeaderCell>
+                          <CTableHeaderCell>Variants</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 100 }}>
+                            Product code
+                          </CTableHeaderCell>
+                          <CTableHeaderCell>HSN</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 72 }}>
+                            GST %
+                          </CTableHeaderCell>
+                          <CTableHeaderCell>Remark</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 110 }}>
+                            Sub status
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 120 }}>
+                            Images
+                          </CTableHeaderCell>
+                          <CTableHeaderCell
+                            className="text-center"
+                            style={{ width: 90 }}
+                          >
+                            Import
+                          </CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {queryProductsMissingFromQuotation.map((p, index) => {
+                          const imageUrls = (
+                            Array.isArray(p.images) ? p.images : []
+                          )
+                            .map((img) => getImageUrl(img))
+                            .filter(Boolean);
+                          return (
+                            <CTableRow key={p._id || index}>
+                              <CTableDataCell>{index + 1}</CTableDataCell>
+                              <CTableDataCell>
+                                {p.productName || "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                {p.description || "–"}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {p.quantity != null ? p.quantity : "–"}
+                              </CTableDataCell>
+                              <CTableDataCell>{p.unit || "–"}</CTableDataCell>
+                              <CTableDataCell className="small">
+                                {formatVariants(p.variants)}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                {p.rawProductCode || "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                {p.hsnNumber || "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                {p.gstPercentage != null
+                                  ? `${p.gstPercentage}%`
+                                  : "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                {p.remark || "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="small">
+                                <CBadge color="info" className="fw-normal">
+                                  {getProductSubStatusLabel(p)}
+                                </CBadge>
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {imageUrls.length > 0 ? (
+                                  <div
+                                    role="button"
+                                    tabIndex={0}
+                                    className="d-inline-flex align-items-center gap-1 flex-wrap"
+                                    style={{ cursor: "pointer", maxWidth: 140 }}
+                                    onClick={() => {
+                                      setImageGalleryImages(imageUrls);
+                                      setImageGalleryIndex(0);
+                                      setImageGalleryVisible(true);
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        setImageGalleryImages(imageUrls);
+                                        setImageGalleryIndex(0);
+                                        setImageGalleryVisible(true);
+                                      }
+                                    }}
+                                    aria-label="View images"
+                                  >
+                                    {imageUrls.slice(0, 2).map((src, i) => (
+                                      <div
+                                        key={i}
+                                        className="rounded overflow-hidden border flex-shrink-0"
+                                        style={{ width: 40, height: 40 }}
+                                      >
+                                        <CImage
+                                          src={src}
+                                          alt=""
+                                          className="w-100 h-100"
+                                          style={{ objectFit: "cover" }}
+                                        />
+                                      </div>
+                                    ))}
+                                    {imageUrls.length > 2 ? (
+                                      <div
+                                        className="d-flex align-items-center justify-content-center rounded border bg-light flex-shrink-0 text-primary small fw-bold"
+                                        style={{
+                                          width: 40,
+                                          height: 40,
+                                          fontSize: "0.75rem",
+                                        }}
+                                      >
+                                        +{imageUrls.length - 2}
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                ) : (
+                                  <span className="text-muted small">–</span>
+                                )}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-center">
+                                {canUpdateQuotation && !isSnapshotPreview ? (
+                                  <CButton
+                                    color="primary"
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Import into quotation"
+                                    aria-label="Import into quotation"
+                                    disabled={
+                                      importingQueryProductId ===
+                                      String(p._id ?? p.id ?? "")
+                                    }
+                                    onClick={() => handleImportQueryProduct(p)}
+                                  >
+                                    {importingQueryProductId ===
+                                    String(p._id ?? p.id ?? "") ? (
+                                      <CSpinner size="sm" />
+                                    ) : (
+                                      <CIcon icon={cilCloudDownload} />
+                                    )}
+                                  </CButton>
+                                ) : (
+                                  <span className="text-muted small">–</span>
+                                )}
+                              </CTableDataCell>
+                            </CTableRow>
+                          );
+                        })}
+                      </CTableBody>
+                    </CTable>
+                  ) : (
+                    <p className="text-muted mb-0">
+                      No query products are ready for quotation and missing from
+                      this quotation.
+                    </p>
+                  )}
+                </div>
+              </CTabPane>
+            ) : null}
+
+            {isHodUser ? (
+              <CTabPane visible={activeTab === "history"}>
+                <CCard className="mb-0 border-0">
+                  <CCardBody>
+                    <p className="text-muted small mb-3">
+                      Versions saved when HOD approved this quotation. Restore
+                      loads that snapshot into Preview, Company, Freight &amp;
+                      Packing, Product, and Product List (read-only).
+                    </p>
+                    {snapshotsLoading ? (
+                      <div className="text-center py-4">
+                        <CSpinner />
+                      </div>
+                    ) : snapshotsError ? (
+                      <p className="text-danger mb-0">{snapshotsError}</p>
+                    ) : quotationSnapshots.length === 0 ? (
+                      <p className="text-muted mb-0">
+                        No snapshots yet. Mark the quotation as HOD Approved to
+                        create the first snapshot.
+                      </p>
+                    ) : (
+                      <CTable
+                        hover
+                        responsive
+                        bordered
+                        className="align-middle"
+                      >
+                        <CTableHead>
+                          <CTableRow>
+                            <CTableHeaderCell scope="col">
+                              Snapshot code
+                            </CTableHeaderCell>
+                            <CTableHeaderCell scope="col">
+                              Captured
+                            </CTableHeaderCell>
+                            <CTableHeaderCell
+                              scope="col"
+                              className="text-center"
+                              style={{ width: 96 }}
+                            >
+                              Restore
+                            </CTableHeaderCell>
+                          </CTableRow>
+                        </CTableHead>
+                        <CTableBody>
+                          {quotationSnapshots.map((row) => (
+                            <CTableRow key={row._id}>
+                              <CTableDataCell className="fw-semibold text-break">
+                                {row.snapshotCode}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {row.createdAt
+                                  ? formatIstDisplayDateTime(row.createdAt)
+                                  : "–"}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-center">
+                                <CButton
+                                  color="primary"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="p-1"
+                                  title="Show this snapshot in all tabs"
+                                  onClick={() => {
+                                    setSnapshotPreview({
+                                      _id: row._id,
+                                      snapshotCode: row.snapshotCode,
+                                      payload: row.payload,
+                                      capturedAt: row.createdAt,
+                                    });
+                                    setActiveTab("preview");
+                                    toastSuccess(`Showing ${row.snapshotCode}`);
+                                  }}
+                                >
+                                  <CIcon icon={cilActionUndo} size="lg" />
+                                </CButton>
+                              </CTableDataCell>
+                            </CTableRow>
+                          ))}
+                        </CTableBody>
+                      </CTable>
+                    )}
+                  </CCardBody>
+                </CCard>
+              </CTabPane>
+            ) : null}
           </CTabContent>
         </CCardBody>
       </CCard>
@@ -4358,95 +5387,32 @@ const QuotationView = () => {
 
       <CModal
         visible={convertPoModalVisible}
-        onClose={closeConvertPoModals}
+        onClose={closeConvertPoModal}
         alignment="center"
         backdrop="static"
       >
         <CModalHeader>
-          <CModalTitle>
-            {convertPoModalStep === "confirm"
-              ? "Create sales order?"
-              : "Authorization"}
-          </CModalTitle>
+          <CModalTitle>Create sales order?</CModalTitle>
         </CModalHeader>
-        {convertPoModalStep === "confirm" ? (
-          <>
-            <CModalBody>
-              Do you want to create a sales order from this quotation?
-            </CModalBody>
-            <CModalFooter>
-              <CButton
-                type="button"
-                color="secondary"
-                onClick={closeConvertPoModals}
-              >
-                No
-              </CButton>
-              <CButton
-                type="button"
-                color="success"
-                onClick={onConvertPoConfirmYes}
-              >
-                Yes
-              </CButton>
-            </CModalFooter>
-          </>
-        ) : (
-          <>
-            <CModalBody>
-              <p className="text-muted small mb-2">
-                Enter the secret code to create the sales order.
-              </p>
-              <CFormLabel htmlFor="convert-po-secret">Secret code</CFormLabel>
-              <CFormInput
-                id="convert-po-secret"
-                type="password"
-                autoComplete="off"
-                autoFocus
-                value={convertPoSecretInput}
-                onChange={(e) => setConvertPoSecretInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitConvertPoSecret();
-                }}
-              />
-            </CModalBody>
-            <CModalFooter>
-              <CButton
-                type="button"
-                color="secondary"
-                onClick={() => {
-                  setConvertPoModalStep("confirm");
-                  setConvertPoSecretInput("");
-                }}
-              >
-                Back
-              </CButton>
-              <CButton
-                type="button"
-                color="secondary"
-                variant="outline"
-                onClick={closeConvertPoModals}
-              >
-                Cancel
-              </CButton>
-              <CButton
-                type="button"
-                color="primary"
-                onClick={submitConvertPoSecret}
-                disabled={convertingPo}
-              >
-                {convertingPo ? (
-                  <>
-                    <CSpinner size="sm" className="me-2" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Sales Order"
-                )}
-              </CButton>
-            </CModalFooter>
-          </>
-        )}
+        <CModalBody>
+          Do you want to proceed to finalize a sales order from this quotation?
+        </CModalBody>
+        <CModalFooter>
+          <CButton
+            type="button"
+            color="secondary"
+            onClick={closeConvertPoModal}
+          >
+            No
+          </CButton>
+          <CButton
+            type="button"
+            color="success"
+            onClick={onConvertPoConfirmYes}
+          >
+            Yes
+          </CButton>
+        </CModalFooter>
       </CModal>
 
       <CModal

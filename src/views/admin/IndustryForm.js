@@ -131,10 +131,10 @@ const IndustryForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { branchId: userBranchId } = useBranchContext();
 
   const [loading, setLoading] = useState(false);
-  const [branches, setBranches] = useState([]);
+  const [defaultBranchId, setDefaultBranchId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [areas, setAreas] = useState([]);
@@ -187,10 +187,16 @@ const IndustryForm = () => {
           response?.branches ??
           (Array.isArray(response?.data) ? response.data : []);
         const arr = Array.isArray(list) ? list : [];
-        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })));
+        const normalized = arr.map((b) => ({ ...b, id: b.id || b._id }));
+        const preferred =
+          userBranchId &&
+          normalized.some((b) => (b.id || b._id) === userBranchId)
+            ? userBranchId
+            : (normalized[0] && (normalized[0].id || normalized[0]._id)) || "";
+        if (preferred) setDefaultBranchId(String(preferred));
       } catch (err) {
         if (!cancelled) {
-          setBranches([]);
+          setDefaultBranchId("");
           toastError(err?.message || "Failed to load branches");
         }
       }
@@ -199,17 +205,7 @@ const IndustryForm = () => {
     return () => {
       cancelled = true;
     };
-  }, [isEdit]);
-
-  const currentBranchId = watch("branchId");
-  useEffect(() => {
-    if (isEdit || branches.length === 0 || currentBranchId) return;
-    const defaultId =
-      userBranchId && branches.some((b) => (b.id || b._id) === userBranchId)
-        ? userBranchId
-        : (branches[0] && (branches[0].id || branches[0]._id)) || "";
-    if (defaultId) setValue("branchId", defaultId);
-  }, [branches, isEdit, userBranchId, setValue, currentBranchId]);
+  }, [isEdit, userBranchId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -301,8 +297,9 @@ const IndustryForm = () => {
   };
 
   const onSubmit = async (values) => {
-    if (!isEdit && !values.branchId) {
-      setError("Please select a branch for the client.");
+    const branchId = defaultBranchId || values.branchId;
+    if (!isEdit && !branchId) {
+      setError("Unable to determine branch. Please contact admin.");
       return;
     }
     setSubmitting(true);
@@ -332,7 +329,7 @@ const IndustryForm = () => {
           ...values,
           area: values.area || null,
           gstNumber: (values.gstNumber || "").trim().toUpperCase(),
-          branchId: values.branchId || undefined,
+          branchId: branchId || undefined,
           purchaseManagers: (values.purchaseManagers || [])
             .filter((pm) => (pm.name || "").trim())
             .map((pm) => ({
@@ -387,39 +384,11 @@ const IndustryForm = () => {
           <strong>{isEdit ? "Edit client" : "Add client"}</strong>
           <small className="text-muted d-block mt-1">
             {isEdit
-              ? "You can update branch, location, purchase managers and addresses."
-              : "Select the branch this client belongs to."}
+              ? "You can update location, purchase managers and addresses."
+              : "Fill in client details below."}
           </small>
         </CCardHeader>
         <CCardBody>
-          <CRow>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel>Branch {!isEdit ? "*" : ""}</CFormLabel>
-                <CFormSelect
-                  {...register("branchId")}
-                  disabled={isEdit || (!canSelectBranch && !!userBranchId)}
-                  className={
-                    isEdit || (!canSelectBranch && userBranchId)
-                      ? "bg-light"
-                      : ""
-                  }
-                >
-                  <option value="">Select branch</option>
-                  {branches.map((b) => (
-                    <option key={b.id || b._id} value={b.id || b._id}>
-                      {b.name || b.branchcode || b.id}
-                    </option>
-                  ))}
-                </CFormSelect>
-                {!isEdit && !canSelectBranch && userBranchId && (
-                  <small className="text-muted">
-                    Your branch is pre-selected.
-                  </small>
-                )}
-              </div>
-            </CCol>
-          </CRow>
           <CRow>
             <CCol md={6}>
               <div className="mb-3">

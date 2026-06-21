@@ -51,6 +51,10 @@ const LOGIN_FORM_SELECTABLE_ROLES = Object.values(ROLES).filter(
 
 const getPostLoginPath = (role) => {
   const normalized = String(role || "").toLowerCase();
+  if (normalized === ROLES.HEAD_OF_DEPARTMENT || normalized === "hod") {
+    return "/hod-dashboard";
+  }
+  if (normalized === ROLES.PROCUREMENT) return "/pro-dashboard";
   if (normalized === ROLES.LOCAL_PROCUREMENT) return "/local-pro";
   if (normalized === ROLES.LOCAL_PURCHASE) return "/my-purchase";
   if (normalized === ROLES.DISPATCH_MANAGER) return "/dispatchment";

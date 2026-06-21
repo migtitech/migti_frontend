@@ -265,6 +265,7 @@ export const QUERIES = {
   TARGET_ANALYTICS_EMPLOYEE_SUMMARY:
     "/queries/target-analytics/employee/summary",
   GET_BY_ID: "/queries/get-by-id",
+  COMPANY_QUERY_ANALYTICS: "/queries/company-query-analytics",
   QUERY_LINE_PROCUREMENT_RATES: "/queries/query-line-procurement-rates",
   UPDATE: "/queries/update",
   DELETE: "/queries/delete",
@@ -292,6 +293,7 @@ export const QUOTATIONS = {
   SNAPSHOTS_LIST: "/quotations/snapshots/list",
   UPDATE: "/quotations/update",
   UPDATE_STATUS: "/quotations/update-status",
+  IMPORT_QUERY_PRODUCT: "/quotations/import-query-product",
   EXPORT_PDF: "/quotations/export-pdf",
   RATE_LOGS_LIST: "/quotations/rate-logs/list",
   DELETE: "/quotations/delete",

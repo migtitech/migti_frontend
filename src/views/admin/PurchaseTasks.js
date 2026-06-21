@@ -39,10 +39,19 @@ import {
 } from "@coreui/icons";
 import purchaseTaskService from "../../services/purchaseTaskService";
 import employeeService from "../../services/employeeService";
-import { Loader } from "../../components";
+import { Loader, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { useAuth, ROLES } from "../../context/AuthContext";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const PURCHASE_TASKS_FILTER_DEFAULTS = {
+  status: "",
+  adminStatus: "",
+  adminRole: "",
+  adminEmployeeId: "",
+};
 
 const TASK_STATUS = {
   PENDING: "pending",
@@ -72,13 +81,6 @@ const getStatusBadge = (status) => {
     default:
       return <CBadge color="secondary">{status || "Pending"}</CBadge>;
   }
-};
-
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString();
 };
 
 const formatCurrency = (amount) => {
@@ -115,18 +117,28 @@ const PurchaseTasks = () => {
   }, [viewParam, isAdminLike]);
 
   const [activeTab, setActiveTab] = useState(initialTab);
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "purchase_tasks",
+    PURCHASE_TASKS_FILTER_DEFAULTS,
+  );
 
   const [tasks, setTasks] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialValues.status);
 
   const [adminTasks, setAdminTasks] = useState([]);
   const [adminPagination, setAdminPagination] = useState(null);
   const [adminLoading, setAdminLoading] = useState(false);
-  const [adminStatusFilter, setAdminStatusFilter] = useState("");
-  const [adminRoleFilter, setAdminRoleFilter] = useState("");
-  const [adminEmployeeFilter, setAdminEmployeeFilter] = useState("");
+  const [adminStatusFilter, setAdminStatusFilter] = useState(
+    initialValues.adminStatus,
+  );
+  const [adminRoleFilter, setAdminRoleFilter] = useState(
+    initialValues.adminRole,
+  );
+  const [adminEmployeeFilter, setAdminEmployeeFilter] = useState(
+    initialValues.adminEmployeeId,
+  );
   const [employees, setEmployees] = useState([]);
 
   const [remarkModalTask, setRemarkModalTask] = useState(null);
@@ -245,6 +257,22 @@ const PurchaseTasks = () => {
     adminRoleFilter,
     adminEmployeeFilter,
   ]);
+
+  useFilterLockPersist("purchase_tasks", filtersLocked, {
+    status: statusFilter,
+    adminStatus: adminStatusFilter,
+    adminRole: adminRoleFilter,
+    adminEmployeeId: adminEmployeeFilter,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      status: statusFilter,
+      adminStatus: adminStatusFilter,
+      adminRole: adminRoleFilter,
+      adminEmployeeId: adminEmployeeFilter,
+    });
+  };
 
   const handleStatusChange = async (task, newStatus) => {
     if (!newStatus || newStatus === task.status) return;
@@ -457,7 +485,7 @@ const PurchaseTasks = () => {
             Update Remark
           </CButton>
         </CTableDataCell>
-        <CTableDataCell>{formatDate(task.createdAt)}</CTableDataCell>
+        <CTableDataCell>{dateFormatter(task.createdAt, "-")}</CTableDataCell>
       </CTableRow>
     );
   };
@@ -578,7 +606,7 @@ const PurchaseTasks = () => {
         <CCardBody>
           <CTabContent>
             <CTabPane visible={activeTab === "purchase"}>
-              <CRow className="mb-3">
+              <CRow className="mb-3 align-items-end">
                 <CCol md={3}>
                   <CFormLabel>Status</CFormLabel>
                   <CFormSelect
@@ -593,6 +621,13 @@ const PurchaseTasks = () => {
                     ))}
                   </CFormSelect>
                 </CCol>
+                <CCol md="auto" className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Purchase Tasks"
+                  />
+                </CCol>
               </CRow>
               {loading ? (
                 <Loader message="Loading tasks..." />
@@ -602,7 +637,7 @@ const PurchaseTasks = () => {
             </CTabPane>
 
             <CTabPane visible={activeTab === "rate"}>
-              <CRow className="mb-3">
+              <CRow className="mb-3 align-items-end">
                 <CCol md={3}>
                   <CFormLabel>Status</CFormLabel>
                   <CFormSelect
@@ -616,6 +651,13 @@ const PurchaseTasks = () => {
                       </option>
                     ))}
                   </CFormSelect>
+                </CCol>
+                <CCol md="auto" className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Purchase Tasks"
+                  />
                 </CCol>
               </CRow>
               {loading ? (
@@ -672,6 +714,13 @@ const PurchaseTasks = () => {
                           </option>
                         ))}
                       </CFormSelect>
+                    </CCol>
+                    <CCol md="auto" className="d-flex align-items-end">
+                      <FilterLockButton
+                        filtersLocked={filtersLocked}
+                        onToggle={handleToggleFiltersLock}
+                        pageLabel="Purchase Tasks"
+                      />
                     </CCol>
                   </CRow>
                   {adminLoading ? (

@@ -11,8 +11,6 @@ import {
   CFormLabel,
   CFormSelect,
   CFormTextarea,
-  CPagination,
-  CPaginationItem,
   CRow,
   CSpinner,
   CTable,
@@ -38,29 +36,24 @@ import { useAuth } from "../../context/AuthContext";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { sortAlphabetically } from "../../utils/sort";
-import { Loader } from "../../components";
+import { Loader, TablePagination } from "../../components";
+import { dateTimeFormatter, dateFormatter } from "../../utils/dateFormatter";
 
 const isHodRole = (role) => {
   const r = String(role || "").toLowerCase();
   return r === "head_of_department" || r === "hod";
 };
 
+const MAX_HOD_RATE = 1_000_000;
+const MAX_QUANTITY = 100_000;
+const MAX_GST_PERCENTAGE = 100;
+const GST_HIGH_RATE_THRESHOLD = 18;
+
 const normalizeRateComparison = (value, { isDiscount = false } = {}) => {
   if (value === "" || value == null) return isDiscount ? 0 : null;
   const n = Number(value);
   if (!Number.isFinite(n)) return isDiscount ? 0 : null;
   return n;
-};
-
-const formatDateTime = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  })}`;
 };
 
 const formatRateValue = (value) =>
@@ -365,6 +358,31 @@ const QueryProductView = () => {
 
   /* ── update ── */
   const handleUpdate = async () => {
+    const quantity = form.quantity !== "" ? Number(form.quantity) : undefined;
+    if (quantity !== undefined) {
+      if (!Number.isFinite(quantity) || quantity < 0) {
+        toastError("Enter a valid quantity");
+        return;
+      }
+      if (quantity > MAX_QUANTITY) {
+        toastError("Quantity cannot exceed 1,00,000");
+        return;
+      }
+    }
+
+    const gstPercentage =
+      form.gstPercentage !== "" ? Number(form.gstPercentage) : null;
+    if (gstPercentage !== null) {
+      if (!Number.isFinite(gstPercentage) || gstPercentage < 0) {
+        toastError("Enter a valid GST percentage");
+        return;
+      }
+      if (gstPercentage > MAX_GST_PERCENTAGE) {
+        toastError("GST percentage cannot exceed 100");
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       let uploadedDocs = [];
@@ -417,6 +435,14 @@ const QueryProductView = () => {
     }
     if (minRate > maxRate) {
       toastError("Minimum rate cannot exceed maximum rate");
+      return;
+    }
+    if (minRate > MAX_HOD_RATE) {
+      toastError("Minimum rate cannot exceed 1,000,000");
+      return;
+    }
+    if (maxRate > MAX_HOD_RATE) {
+      toastError("Maximum rate cannot exceed 1,000,000");
       return;
     }
 
@@ -498,8 +524,18 @@ const QueryProductView = () => {
 
   const minRateValue = normalizeRateComparison(rateForm.minRate);
   const maxRateValue = normalizeRateComparison(rateForm.maxRate);
+  const rateMargin =
+    minRateValue != null && maxRateValue != null && maxRateValue >= minRateValue
+      ? maxRateValue - minRateValue
+      : null;
   const ratesMinExceedsMax =
     minRateValue != null && maxRateValue != null && minRateValue > maxRateValue;
+
+  const minRateExceedsLimit =
+    minRateValue != null && minRateValue > MAX_HOD_RATE;
+  const maxRateExceedsLimit =
+    maxRateValue != null && maxRateValue > MAX_HOD_RATE;
+  const ratesExceedLimit = minRateExceedsLimit || maxRateExceedsLimit;
 
   const ratesHaveZero = minRateValue === 0 || maxRateValue === 0;
 
@@ -513,6 +549,24 @@ const QueryProductView = () => {
   );
 
   const procurementRates = Array.isArray(doc?.rates) ? doc.rates : [];
+
+  const quantityValue = normalizeRateComparison(form.quantity);
+  const quantityExceedsLimit =
+    quantityValue != null && quantityValue > MAX_QUANTITY;
+
+  const gstPercentageValue =
+    form.gstPercentage === "" || form.gstPercentage == null
+      ? null
+      : Number(form.gstPercentage);
+  const gstExceedsMax =
+    gstPercentageValue != null &&
+    Number.isFinite(gstPercentageValue) &&
+    gstPercentageValue > MAX_GST_PERCENTAGE;
+  const gstAboveStandardRate =
+    gstPercentageValue != null &&
+    Number.isFinite(gstPercentageValue) &&
+    gstPercentageValue > GST_HIGH_RATE_THRESHOLD &&
+    !gstExceedsMax;
 
   if (loading) return <Loader />;
 
@@ -843,11 +897,18 @@ const QueryProductView = () => {
                     <CFormInput
                       type="number"
                       min={0}
+                      max={MAX_QUANTITY}
                       value={form.quantity}
                       onChange={(e) => setField("quantity", e.target.value)}
                       placeholder="0"
                       disabled={!canUpdate}
+                      invalid={quantityExceedsLimit}
                     />
+                    {quantityExceedsLimit && (
+                      <p className="small text-danger mb-0 mt-1">
+                        Quantity must not exceed 1,00,000.
+                      </p>
+                    )}
                   </CCol>
 
                   <CCol xs={6} md={3}>
@@ -871,18 +932,42 @@ const QueryProductView = () => {
                   </CCol>
 
                   <CCol xs={6} md={3}>
-                    <CFormLabel>GST %</CFormLabel>
+                    <CFormLabel
+                      className={
+                        gstAboveStandardRate
+                          ? "text-warning fw-semibold"
+                          : undefined
+                      }
+                    >
+                      GST %
+                    </CFormLabel>
                     <CFormInput
                       type="number"
                       min={0}
-                      max={100}
+                      max={MAX_GST_PERCENTAGE}
                       value={form.gstPercentage}
                       onChange={(e) =>
                         setField("gstPercentage", e.target.value)
                       }
                       placeholder="0"
                       disabled={!canUpdate}
+                      invalid={gstExceedsMax}
+                      className={
+                        gstAboveStandardRate
+                          ? "border-warning text-warning fw-semibold"
+                          : undefined
+                      }
                     />
+                    {gstAboveStandardRate && (
+                      <p className="small text-warning mb-0 mt-1">
+                        GST is more than 18%.
+                      </p>
+                    )}
+                    {gstExceedsMax && (
+                      <p className="small text-danger mb-0 mt-1">
+                        GST percentage must not exceed 100.
+                      </p>
+                    )}
                   </CCol>
 
                   <CCol xs={12} md={4}>
@@ -902,14 +987,7 @@ const QueryProductView = () => {
                   </CCol>
 
                   <CCol xs={12} md={5}>
-                    <CFormLabel>
-                      Category
-                      {form.groupId && (
-                        <span className="ms-1 small text-body-secondary">
-                          ({filteredCategories.length} in group)
-                        </span>
-                      )}
-                    </CFormLabel>
+                    <CFormLabel>Category</CFormLabel>
                     <CFormSelect
                       value={form.categoryId}
                       className="bg-light"
@@ -962,7 +1040,7 @@ const QueryProductView = () => {
                     <CButton
                       color="primary"
                       onClick={handleUpdate}
-                      disabled={saving}
+                      disabled={saving || quantityExceedsLimit || gstExceedsMax}
                     >
                       {saving ? (
                         <>
@@ -1004,7 +1082,7 @@ const QueryProductView = () => {
                 ) : (
                   <>
                     <CRow className="g-3">
-                      <CCol xs={12} md={6} lg={4}>
+                      <CCol xs={12} md={3}>
                         <CFormLabel>Submitted rate unit</CFormLabel>
                         <CFormInput
                           value={submittedRateUnit}
@@ -1013,33 +1091,46 @@ const QueryProductView = () => {
                         />
                       </CCol>
 
-                      <CCol xs={12} md={6} lg={4}>
+                      <CCol xs={12} md={3}>
                         <CFormLabel>Minimum rate</CFormLabel>
                         <CFormInput
                           type="number"
                           min={0}
+                          max={MAX_HOD_RATE}
                           value={rateForm.minRate}
                           onChange={(e) =>
                             setRateField("minRate", e.target.value)
                           }
                           placeholder="0"
                           disabled={!userIsHod}
-                          invalid={ratesMinExceedsMax}
+                          invalid={ratesMinExceedsMax || minRateExceedsLimit}
                         />
                       </CCol>
 
-                      <CCol xs={12} md={6} lg={4}>
+                      <CCol xs={12} md={3}>
                         <CFormLabel>Maximum rate</CFormLabel>
                         <CFormInput
                           type="number"
                           min={0}
+                          max={MAX_HOD_RATE}
                           value={rateForm.maxRate}
                           onChange={(e) =>
                             setRateField("maxRate", e.target.value)
                           }
                           placeholder="0"
                           disabled={!userIsHod}
-                          invalid={ratesMinExceedsMax}
+                          invalid={ratesMinExceedsMax || maxRateExceedsLimit}
+                        />
+                      </CCol>
+
+                      <CCol xs={12} md={3}>
+                        <CFormLabel className="text-info fw-semibold">
+                          Margin
+                        </CFormLabel>
+                        <CFormInput
+                          value={formatRateValue(rateMargin)}
+                          readOnly
+                          className="bg-light text-info fw-semibold"
                         />
                       </CCol>
                     </CRow>
@@ -1047,6 +1138,12 @@ const QueryProductView = () => {
                     {ratesMinExceedsMax && (
                       <p className="small text-danger mt-3 mb-0">
                         Minimum rate cannot be greater than maximum rate.
+                      </p>
+                    )}
+
+                    {ratesExceedLimit && (
+                      <p className="small text-danger mt-3 mb-0">
+                        Minimum and maximum rates must not exceed 1,000,000.
                       </p>
                     )}
 
@@ -1073,6 +1170,7 @@ const QueryProductView = () => {
                             updatingRate ||
                             !form.rawProductCode?.trim() ||
                             ratesMinExceedsMax ||
+                            ratesExceedLimit ||
                             ratesHaveZero ||
                             (ratesUnchanged && !ratesAwaitingHodApproval)
                           }
@@ -1177,7 +1275,7 @@ const QueryProductView = () => {
                             {submitterDisplayName(row.submittedBy)}
                           </CTableDataCell>
                           <CTableDataCell className="text-nowrap">
-                            {formatDateTime(row.submittedAt)}
+                            {dateTimeFormatter(row.submittedAt, "—")}
                           </CTableDataCell>
                         </CTableRow>
                       ))}
@@ -1308,14 +1406,14 @@ const QueryProductView = () => {
                                 <CTableHeaderCell>
                                   Maximum Rate
                                 </CTableHeaderCell>
-                                <CTableHeaderCell>Query ID</CTableHeaderCell>
+                                <CTableHeaderCell>Query Info</CTableHeaderCell>
                               </CTableRow>
                             </CTableHead>
                             <CTableBody>
                               {historyRows.map((row) => (
                                 <CTableRow key={row.id || row._id}>
                                   <CTableDataCell>
-                                    {formatDateTime(row.createdAt)}
+                                    {dateTimeFormatter(row.createdAt, "—")}
                                   </CTableDataCell>
                                   <CTableDataCell>
                                     {row.unit?.trim() || "—"}
@@ -1327,71 +1425,31 @@ const QueryProductView = () => {
                                     {formatRateValue(row.maxRate)}
                                   </CTableDataCell>
                                   <CTableDataCell>
-                                    <span className="font-monospace small">
-                                      {row.queryId ? String(row.queryId) : "—"}
-                                    </span>
-                                    {row.queryCode ? (
-                                      <div className="small text-body-secondary">
-                                        {row.queryCode}
-                                      </div>
-                                    ) : null}
+                                    <div className="fw-semibold">
+                                      {row.companyName?.trim() || "—"}
+                                    </div>
+                                    <div className="small font-monospace text-body-secondary">
+                                      {row.queryCode?.trim() || "—"}
+                                    </div>
+                                    <div className="small text-body-secondary">
+                                      Received:{" "}
+                                      {dateFormatter(row.queryReceivedAt, "—")}
+                                    </div>
                                   </CTableDataCell>
                                 </CTableRow>
                               ))}
                             </CTableBody>
                           </CTable>
 
-                          {historyTotalPages > 1 && (
-                            <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3 pt-3 border-top">
-                              <div className="small text-body-secondary">
-                                Showing {historyStartItem}-{historyEndItem} of{" "}
-                                {historyTotal}
-                              </div>
-                              <CPagination className="mb-0">
-                                <CPaginationItem
-                                  disabled={historyLoading || historyPage <= 1}
-                                  onClick={() => setHistoryPage(1)}
-                                >
-                                  First
-                                </CPaginationItem>
-                                <CPaginationItem
-                                  disabled={historyLoading || historyPage <= 1}
-                                  onClick={() =>
-                                    setHistoryPage((p) => Math.max(1, p - 1))
-                                  }
-                                >
-                                  Previous
-                                </CPaginationItem>
-                                <CPaginationItem active>
-                                  {historyPage} / {historyTotalPages}
-                                </CPaginationItem>
-                                <CPaginationItem
-                                  disabled={
-                                    historyLoading ||
-                                    historyPage >= historyTotalPages
-                                  }
-                                  onClick={() =>
-                                    setHistoryPage((p) =>
-                                      Math.min(historyTotalPages, p + 1),
-                                    )
-                                  }
-                                >
-                                  Next
-                                </CPaginationItem>
-                                <CPaginationItem
-                                  disabled={
-                                    historyLoading ||
-                                    historyPage >= historyTotalPages
-                                  }
-                                  onClick={() =>
-                                    setHistoryPage(historyTotalPages)
-                                  }
-                                >
-                                  Last
-                                </CPaginationItem>
-                              </CPagination>
-                            </div>
-                          )}
+                          <TablePagination
+                            currentPage={historyPage}
+                            totalPages={historyTotalPages}
+                            onPageChange={setHistoryPage}
+                            showRange
+                            totalItems={historyTotal}
+                            itemsPerPage={historyPageSize}
+                            disabled={historyLoading}
+                          />
                         </>
                       )}
                     </>

@@ -17,19 +17,14 @@ import { FULL_ACCESS_ROLES, ROLE_LABELS } from "../../context/AuthContext";
 import poPaymentBacklogService from "../../services/poPaymentBacklogService";
 import employeeService from "../../services/employeeService";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
+import { FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+
+const PO_PAYMENT_FILTER_DEFAULTS = { employeeId: "" };
 
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
 
 const isOverdue = (due_date) => {
   if (!due_date) return false;
@@ -49,13 +44,20 @@ const PoPaymentBacklog = () => {
       .toLowerCase(),
   );
 
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "po_payment_backlog",
+    PO_PAYMENT_FILTER_DEFAULTS,
+  );
+
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState({ totalCount: 0, totalAmount: 0 });
   const [loading, setLoading] = useState(false);
   const [settling, setSettling] = useState(null);
 
   const [employees, setEmployees] = useState([]);
-  const [employeeFilter, setEmployeeFilter] = useState("");
+  const [employeeFilter, setEmployeeFilter] = useState(
+    initialValues.employeeId,
+  );
 
   const loadEmployees = useCallback(async () => {
     if (!isAdmin) return;
@@ -100,6 +102,14 @@ const PoPaymentBacklog = () => {
     loadBacklog(employeeFilter);
   }, [employeeFilter, loadBacklog]);
 
+  useFilterLockPersist("po_payment_backlog", filtersLocked, {
+    employeeId: employeeFilter,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ employeeId: employeeFilter });
+  };
+
   const handleSettle = async (backlogId) => {
     if (settling) return;
     setSettling(backlogId);
@@ -140,22 +150,29 @@ const PoPaymentBacklog = () => {
               </p>
             </div>
             {isAdmin && employees.length > 0 && (
-              <div style={{ minWidth: 220 }}>
-                <CFormLabel className="mb-1 small text-body-secondary">
-                  Filter by employee
-                </CFormLabel>
-                <CFormSelect
-                  size="sm"
-                  value={employeeFilter}
-                  onChange={(e) => setEmployeeFilter(e.target.value)}
-                >
-                  <option value="">All employees</option>
-                  {employees.map((e) => (
-                    <option key={e._id || e.id} value={e._id || e.id}>
-                      {e.name || e.email || String(e._id || e.id)}
-                    </option>
-                  ))}
-                </CFormSelect>
+              <div className="d-flex align-items-end gap-2">
+                <div style={{ minWidth: 220 }}>
+                  <CFormLabel className="mb-1 small text-body-secondary">
+                    Filter by employee
+                  </CFormLabel>
+                  <CFormSelect
+                    size="sm"
+                    value={employeeFilter}
+                    onChange={(e) => setEmployeeFilter(e.target.value)}
+                  >
+                    <option value="">All employees</option>
+                    {employees.map((e) => (
+                      <option key={e._id || e.id} value={e._id || e.id}>
+                        {e.name || e.email || String(e._id || e.id)}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </div>
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Pending Payments"
+                />
               </div>
             )}
           </div>
@@ -279,7 +296,7 @@ const PoPaymentBacklog = () => {
                             <span>
                               Due:{" "}
                               <strong className={overdue ? "text-danger" : ""}>
-                                {formatDate(item.due_date)}
+                                {dateFormatter(item.due_date, "—")}
                               </strong>
                             </span>
                           </div>

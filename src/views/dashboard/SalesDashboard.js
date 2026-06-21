@@ -20,33 +20,10 @@ import { cilBasket, cilCart, cilDollar, cilNotes } from "@coreui/icons";
 import { useAuth } from "../../context/AuthContext";
 import queryService from "../../services/queryService";
 import employeeLocationService from "../../services/employeeLocationService";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-/** dd/mm/yy from ISO — for target period labels */
-const formatDdMmYy = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
-};
-
-const formatDateTime = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
 
 const formatQueryStatus = (s) => {
   const v = String(s || "").trim();
@@ -255,8 +232,8 @@ const SalesDashboard = () => {
   }, []);
 
   const targetPeriodLabel = (fromIso, toIso) => {
-    const a = formatDdMmYy(fromIso);
-    const b = formatDdMmYy(toIso);
+    const a = dateFormatter(fromIso, "");
+    const b = dateFormatter(toIso, "");
     if (!a && !b) return "";
     return `From ${a || "—"} to ${b || "—"}`;
   };
@@ -482,7 +459,7 @@ const SalesDashboard = () => {
                               {formatQueryStatus(row.status)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDateTime(row.createdAt)}
+                              {dateTimeFormatter(row.createdAt, "—")}
                             </CTableDataCell>
                             <CTableDataCell className="text-end">
                               <CButton
@@ -549,7 +526,7 @@ const SalesDashboard = () => {
                               {formatQuotationStatus(row.status)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDateTime(row.createdAt)}
+                              {dateTimeFormatter(row.createdAt, "—")}
                             </CTableDataCell>
                             <CTableDataCell className="text-end">
                               <CButton
@@ -620,7 +597,7 @@ const SalesDashboard = () => {
                               {formatAmount(row.remainingAmount)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDateTime(row.createdAt)}
+                              {dateTimeFormatter(row.createdAt, "—")}
                             </CTableDataCell>
                             <CTableDataCell className="text-end">
                               {row.quotationId ? (

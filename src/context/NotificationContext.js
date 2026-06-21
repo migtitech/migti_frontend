@@ -11,7 +11,7 @@ import React, {
 import { useAuth } from "./AuthContext";
 import { registerNotificationNewHandler } from "./notificationSocketBridge";
 import * as notificationService from "../services/notificationService";
-import { playNotificationSiren } from "../utils/sirenSound";
+import { installNotificationAudioUnlock } from "../utils/sirenSound";
 
 const NotificationContext = createContext(null);
 
@@ -21,6 +21,7 @@ export const NotificationProvider = ({ children }) => {
   const [unreadList, setUnreadList] = useState([]);
   const [flash, setFlash] = useState(null);
   const flashTimerRef = useRef(null);
+  const alertedIdsRef = useRef(new Set());
 
   const clearFlashTimer = useCallback(() => {
     if (flashTimerRef.current) {
@@ -29,14 +30,27 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  const showFlash = useCallback(
+  const deliverLiveNotification = useCallback(
     (payload) => {
+      const id = String(payload?._id || "");
+      if (!id || alertedIdsRef.current.has(id)) return;
+      alertedIdsRef.current.add(id);
+
+      setUnreadCount((c) => c + 1);
+      setUnreadList((prev) => {
+        const next = [payload, ...prev.filter((p) => String(p?._id) !== id)];
+        return next;
+      });
+
       clearFlashTimer();
       setFlash({
         title: payload?.title || "Notification",
         description: payload?.description || "",
+        metadata:
+          payload?.metadata && typeof payload.metadata === "object"
+            ? payload.metadata
+            : {},
       });
-      playNotificationSiren();
       flashTimerRef.current = setTimeout(() => {
         setFlash(null);
         flashTimerRef.current = null;
@@ -50,53 +64,30 @@ export const NotificationProvider = ({ children }) => {
     setFlash(null);
   }, [clearFlashTimer]);
 
-  const refreshUnread = useCallback(async () => {
-    if (!isAuthenticated || !user) return;
-    try {
-      const res = await notificationService.fetchNotifications({
-        unreadOnly: true,
-        pageNumber: 1,
-        pageSize: 100,
-      });
-      const data = res?.data;
-      const items = Array.isArray(data?.items) ? data.items : [];
-      const total =
-        typeof data?.totalItems === "number" ? data.totalItems : items.length;
-      setUnreadList(items);
-      setUnreadCount(total);
-    } catch {
-      // silent
-    }
-  }, [isAuthenticated, user]);
-
   useEffect(() => {
     if (!isAuthenticated || !user) {
       setUnreadCount(0);
       setUnreadList([]);
       setFlash(null);
+      alertedIdsRef.current = new Set();
       clearFlashTimer();
       return undefined;
     }
-    refreshUnread();
+    installNotificationAudioUnlock();
     return undefined;
-  }, [isAuthenticated, user, refreshUnread, clearFlashTimer]);
+  }, [isAuthenticated, user, clearFlashTimer]);
 
   // useLayoutEffect so the bridge is registered before SocketProvider's useEffect
   // opens the connection (avoids missing the first notification:new).
   useLayoutEffect(() => {
     const unregister = registerNotificationNewHandler((payload) => {
-      setUnreadCount((c) => c + 1);
-      setUnreadList((prev) => {
-        const next = [payload, ...prev.filter((p) => p?._id !== payload?._id)];
-        return next;
-      });
-      showFlash(payload);
+      deliverLiveNotification(payload);
     });
     return () => {
       unregister();
       clearFlashTimer();
     };
-  }, [showFlash, clearFlashTimer]);
+  }, [deliverLiveNotification, clearFlashTimer]);
 
   const markOneRead = useCallback(async (id) => {
     if (!id) return;
@@ -125,19 +116,10 @@ export const NotificationProvider = ({ children }) => {
       unreadList,
       flash,
       clearFlash,
-      refreshUnread,
       markOneRead,
       markAllRead,
     }),
-    [
-      unreadCount,
-      unreadList,
-      flash,
-      clearFlash,
-      refreshUnread,
-      markOneRead,
-      markAllRead,
-    ],
+    [unreadCount, unreadList, flash, clearFlash, markOneRead, markAllRead],
   );
 
   return (

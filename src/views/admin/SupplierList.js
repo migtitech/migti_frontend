@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CCard,
@@ -14,8 +14,6 @@ import {
   CTableRow,
   CButton,
   CAlert,
-  CPagination,
-  CPaginationItem,
   CFormInput,
   CFormSelect,
   CInputGroup,
@@ -27,17 +25,27 @@ import { EyeIcon } from "../../components";
 import supplierService from "../../services/supplierService";
 import categoryService from "../../services/categoryService";
 import areaService from "../../services/areaService";
-import branchService from "../../services/branchService";
-import { Loader, ConfirmDialog, SearchableDropdown } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  SearchableDropdown,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
-import useBranchContext from "../../hooks/useBranchContext";
+
+const SUPPLIER_FILTER_DEFAULTS = { category: "", subcategory: "", area: "" };
 
 const SupplierList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "supplier_list",
+    SUPPLIER_FILTER_DEFAULTS,
+  );
   const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -49,52 +57,14 @@ const SupplierList = () => {
     id: null,
   });
 
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterSubcategory, setFilterSubcategory] = useState("");
-  const [filterArea, setFilterArea] = useState("");
-  const [branchFilterId, setBranchFilterId] = useState("");
-  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false);
-  const [companyBranches, setCompanyBranches] = useState([]);
+  const [filterCategory, setFilterCategory] = useState(initialValues.category);
+  const [filterSubcategory, setFilterSubcategory] = useState(
+    initialValues.subcategory,
+  );
+  const [filterArea, setFilterArea] = useState(initialValues.area);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [areas, setAreas] = useState([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadBranches = async () => {
-      try {
-        const response = await branchService.getAll({
-          pageNumber: 1,
-          pageSize: 100,
-        });
-        if (cancelled) return;
-        const list =
-          response?.data?.branches ??
-          response?.data?.data?.branches ??
-          response?.branches ??
-          (Array.isArray(response?.data) ? response.data : []);
-        const arr = Array.isArray(list) ? list : [];
-        setCompanyBranches(arr.map((b) => ({ ...b, id: b.id || b._id })));
-      } catch {
-        if (!cancelled) setCompanyBranches([]);
-      }
-    };
-    loadBranches();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Branch isolation: default to user's branch so list shows only that branch's data
-  useEffect(() => {
-    if (branchDefaultApplied || !userBranchId || companyBranches.length === 0)
-      return;
-    const id = String(userBranchId);
-    if (companyBranches.some((b) => String(b.id || b._id) === id)) {
-      setBranchFilterId(id);
-      setBranchDefaultApplied(true);
-    }
-  }, [userBranchId, companyBranches, branchDefaultApplied]);
 
   const fetchSuppliers = useCallback(async () => {
     setLoading(true);
@@ -114,9 +84,6 @@ const SupplierList = () => {
         const areaObj = areas.find((a) => (a._id || a.id) === filterArea);
         if (areaObj?.name) params.area = areaObj.name;
       }
-      // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
-      const effectiveBranchId = branchFilterId || userBranchId;
-      if (effectiveBranchId) params.branchId = effectiveBranchId;
       const res = await withMinimumDelay(() => supplierService.getAll(params));
       const data = res?.data || res;
       setSuppliers(data?.suppliers || []);
@@ -126,16 +93,7 @@ const SupplierList = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    page,
-    searchTerm,
-    filterCategory,
-    filterSubcategory,
-    filterArea,
-    areas,
-    branchFilterId,
-    userBranchId,
-  ]);
+  }, [page, searchTerm, filterCategory, filterSubcategory, filterArea, areas]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -143,6 +101,20 @@ const SupplierList = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [fetchSuppliers]);
+
+  useFilterLockPersist("supplier_list", filtersLocked, {
+    category: filterCategory,
+    subcategory: filterSubcategory,
+    area: filterArea,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      category: filterCategory,
+      subcategory: filterSubcategory,
+      area: filterArea,
+    });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -219,15 +191,6 @@ const SupplierList = () => {
     setPage(1);
   };
 
-  const branchById = useMemo(() => {
-    const map = new Map();
-    companyBranches.forEach((b) => {
-      const id = b.id || b._id;
-      if (id) map.set(String(id), b.name || b.branchcode || id);
-    });
-    return map;
-  }, [companyBranches]);
-
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id });
   };
@@ -293,27 +256,6 @@ const SupplierList = () => {
                   />
                 </CInputGroup>
               </CCol>
-              <CCol xs={12} sm={6} md={2} lg={2}>
-                <label className="form-label small text-body-secondary mb-1">
-                  Branch
-                </label>
-                <CFormSelect
-                  value={branchFilterId}
-                  onChange={(e) => {
-                    setBranchFilterId(e.target.value);
-                    setPage(1);
-                  }}
-                  aria-label="Branch filter"
-                  className="w-100"
-                >
-                  <option value="">All branches</option>
-                  {companyBranches.map((b) => (
-                    <option key={b.id || b._id} value={b.id || b._id}>
-                      {b.name || b.branchcode || b.id}
-                    </option>
-                  ))}
-                </CFormSelect>
-              </CCol>
               <CCol
                 xs={12}
                 sm={6}
@@ -369,6 +311,19 @@ const SupplierList = () => {
                   getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
                 />
               </CCol>
+              <CCol
+                xs={12}
+                sm={6}
+                md={2}
+                lg={2}
+                className="d-flex align-items-end"
+              >
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Suppliers"
+                />
+              </CCol>
             </CRow>
             {loading ? (
               <Loader message="Loading suppliers..." />
@@ -379,7 +334,6 @@ const SupplierList = () => {
                     <CTableRow>
                       <CTableHeaderCell>SNo</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
-                      <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell>Shop Name</CTableHeaderCell>
                       <CTableHeaderCell>Phone 1</CTableHeaderCell>
                       <CTableHeaderCell>Email</CTableHeaderCell>
@@ -401,15 +355,6 @@ const SupplierList = () => {
                         </CTableDataCell>
                         <CTableDataCell>
                           <strong>{supplier.name}</strong>
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {typeof supplier.branchId === "object" &&
-                          supplier.branchId?.name
-                            ? supplier.branchId.name
-                            : supplier.branchId
-                              ? branchById.get(String(supplier.branchId)) ||
-                                supplier.branchId
-                              : "-"}
                         </CTableDataCell>
                         <CTableDataCell>
                           {supplier.shopname || "-"}
@@ -469,7 +414,7 @@ const SupplierList = () => {
                     ))}
                     {suppliers.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={10} className="text-center">
+                        <CTableDataCell colSpan={9} className="text-center">
                           {searchTerm ||
                           filterCategory ||
                           filterSubcategory ||
@@ -481,46 +426,14 @@ const SupplierList = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

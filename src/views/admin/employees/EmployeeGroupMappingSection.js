@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   CFormCheck,
+  CFormFeedback,
   CFormLabel,
   CFormSelect,
   CButton,
@@ -27,6 +28,7 @@ const EmployeeGroupMappingSection = ({
   onChange,
   mapEnabled = false,
   onMapEnabledChange,
+  errors = {},
 }) => {
   const [rowIds, setRowIds] = useState(() => {
     const v = (value || []).map(String).filter(Boolean);
@@ -101,6 +103,21 @@ const EmployeeGroupMappingSection = ({
     setRowsAndNotify([...rowIds, ""]);
   };
 
+  const allGroupIds = groups.map((g) => String(normalizeId(g))).filter(Boolean);
+
+  const selectedIds = emitIds(rowIds);
+  const allSelected =
+    allGroupIds.length > 0 &&
+    allGroupIds.every((id) => selectedIds.includes(id));
+
+  const onSelectAll = (checked) => {
+    if (checked) {
+      setRowsAndNotify(allGroupIds.length ? [...allGroupIds] : [""]);
+      return;
+    }
+    setRowsAndNotify([""]);
+  };
+
   const optionsForIndex = (index) => {
     const current = rowIds[index] || "";
     const used = new Set(
@@ -128,6 +145,15 @@ const EmployeeGroupMappingSection = ({
       {mapEnabled && (
         <CCol xs={12}>
           <CFormLabel className="d-block">Assigned groups</CFormLabel>
+          {groups.length > 0 ? (
+            <CFormCheck
+              id="selectAllGroups"
+              className="mb-2"
+              label="Select all groups"
+              checked={allSelected}
+              onChange={(e) => onSelectAll(e.target.checked)}
+            />
+          ) : null}
           {rowIds.map((rowVal, index) => (
             <CInputGroup className="mb-2" key={`group-row-${index}`}>
               <CFormSelect
@@ -173,6 +199,11 @@ const EmployeeGroupMappingSection = ({
             <CIcon icon={cilPlus} className="me-1" />
             Add more
           </CButton>
+          {errors.assigned_groups?.message ? (
+            <CFormFeedback className="d-block" invalid>
+              {errors.assigned_groups.message}
+            </CFormFeedback>
+          ) : null}
         </CCol>
       )}
     </CRow>

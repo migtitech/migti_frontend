@@ -1,33 +1,39 @@
 import React, { useEffect, useState } from "react";
+import {
+  EyeIcon,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { useNavigate } from "react-router-dom";
 import {
+  CBadge,
   CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
   CCol,
   CFormInput,
+  CFormLabel,
   CFormSelect,
   CRow,
-  CSpinner,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilBasket,
-  cilMagnifyingGlass,
-  cilPlus,
-  cilArrowRight,
-} from "@coreui/icons";
+import { cilBasket, cilPlus, cilSearch } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBucketService from "../../services/purchaseBucketService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-const fmtDate = (iso) => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return null;
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-};
 
 const fmt = (v) => (v == null || v === "" ? "—" : String(v));
 
@@ -35,6 +41,20 @@ const queryCodeLast4 = (code) => {
   const s = code != null ? String(code).trim() : "";
   if (!s) return null;
   return s.length <= 4 ? s : s.slice(-4);
+};
+
+const getPriorityRowBg = (priority) => {
+  const p = String(priority || "medium").toLowerCase();
+  switch (p) {
+    case "low":
+      return "#d4edda";
+    case "medium":
+      return "#ffe8cc";
+    case "high":
+      return "#f8d7da";
+    default:
+      return null;
+  }
 };
 
 const STATUS_CONFIG = {
@@ -45,6 +65,12 @@ const STATUS_CONFIG = {
     color: "#d97706",
     bg: "#fffbeb",
     dot: "#f59e0b",
+  },
+  billing_request_raised: {
+    label: "BR Raised",
+    color: "#0891b2",
+    bg: "#ecfeff",
+    dot: "#06b6d4",
   },
   payment_request_raised: {
     label: "Payment Requested",
@@ -184,14 +210,13 @@ const PriorityPill = ({ priority }) => {
   );
 };
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
-  { value: "open", label: "Open" },
-  { value: "hod_approval_pending", label: "HOD Pending" },
-  { value: "payment_request_raised", label: "Payment Requested" },
-  { value: "finance_approved", label: "Finance Approved" },
-  { value: "purchased", label: "Purchased" },
-  { value: "billing_request_rejected", label: "Rejected" },
+const PURCHASE_BUCKET_FILTER_DEFAULTS = { priority: "" };
+
+const PRIORITY_OPTIONS = [
+  { value: "", label: "All priorities" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
 ];
 
 const parseListResponse = (res) => {
@@ -209,6 +234,10 @@ const parseListResponse = (res) => {
 
 const PurchaseBucketList = () => {
   const navigate = useNavigate();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "purchase_bucket",
+    PURCHASE_BUCKET_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -216,7 +245,7 @@ const PurchaseBucketList = () => {
   const [pageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [status, setStatus] = useState("open");
+  const [priority, setPriority] = useState(initialValues.priority);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -226,7 +255,15 @@ const PurchaseBucketList = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, status]);
+  }, [searchDebounced, priority]);
+
+  useFilterLockPersist("purchase_bucket", filtersLocked, {
+    priority,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ priority });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -236,7 +273,7 @@ const PurchaseBucketList = () => {
           page,
           pageSize,
           search: searchDebounced.trim() || undefined,
-          status: status.trim() || undefined,
+          priority: priority.trim() || undefined,
         }),
       );
       const p = parseListResponse(res);
@@ -254,287 +291,276 @@ const PurchaseBucketList = () => {
 
   useEffect(() => {
     load();
-  }, [page, pageSize, searchDebounced, status]);
+  }, [page, pageSize, searchDebounced, priority]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
+  const handleClearFilters = () => {
+    setSearch("");
+    setPriority("");
+    setPage(1);
+  };
+
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto" }}>
-      {/* Breadcrumb */}
-      <CBreadcrumb className="mb-3" style={{ fontSize: 13 }}>
+    <>
+      <CBreadcrumb className="mb-3">
         <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
         <CBreadcrumbItem active>Purchase Bucket</CBreadcrumbItem>
       </CBreadcrumb>
 
-      {/* Page header */}
-      <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
-        <div>
-          <h5
-            className="mb-0 fw-bold d-flex align-items-center gap-2"
-            style={{ color: "#1e293b" }}
-          >
-            <CIcon icon={cilBasket} style={{ color: "#2563eb" }} />
-            Purchase Bucket
-          </h5>
-          {pendingCount > 0 && !loading && (
-            <div className="mt-1" style={{ fontSize: 13, color: "#64748b" }}>
-              <span style={{ fontWeight: 600, color: "#2563eb" }}>
-                {pendingCount}
-              </span>{" "}
-              open items
-            </div>
-          )}
-        </div>
-        <CButton
-          color="primary"
-          onClick={() => navigate("/purchase-bucket/raise-billing-request")}
-          style={{ borderRadius: 8, fontWeight: 600, fontSize: 13 }}
-        >
-          <CIcon icon={cilPlus} className="me-2" />
-          Raise Billing Request
-        </CButton>
-      </div>
+      <CRow>
+        <CCol xs={12}>
+          <CCard className="mb-4">
+            <CCardHeader className="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div className="d-flex align-items-center gap-2">
+                <CIcon icon={cilBasket} className="text-primary" />
+                <strong>Purchase Bucket</strong>
+                {pendingCount > 0 && !loading && (
+                  <CBadge color="primary" shape="rounded-pill">
+                    {pendingCount} open
+                  </CBadge>
+                )}
+              </div>
+              <div className="d-flex align-items-center gap-2">
+                <span className="small text-body-secondary">
+                  Total: <strong>{total}</strong>
+                </span>
+                <CButton
+                  color="primary"
+                  size="sm"
+                  onClick={() =>
+                    navigate("/purchase-bucket/raise-billing-request")
+                  }
+                >
+                  <CIcon icon={cilPlus} className="me-1" />
+                  Raise Billing Request
+                </CButton>
+              </div>
+            </CCardHeader>
 
-      {/* Filter bar */}
-      <div
-        className="d-flex gap-2 mb-4 flex-wrap"
-        style={{
-          padding: "12px 14px",
-          background: "#f8fafc",
-          border: "1px solid #e2e8f0",
-          borderRadius: 10,
-        }}
-      >
-        <div style={{ flex: "1 1 180px", position: "relative" }}>
-          <CIcon
-            icon={cilMagnifyingGlass}
-            style={{
-              position: "absolute",
-              left: 10,
-              top: "50%",
-              transform: "translateY(-50%)",
-              color: "#94a3b8",
-              fontSize: 15,
-              pointerEvents: "none",
-            }}
-          />
-          <CFormInput
-            size="sm"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search product or Sales Order code…"
-            style={{ paddingLeft: 32, borderRadius: 7, fontSize: 13 }}
-          />
-        </div>
-        <CFormSelect
-          size="sm"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          style={{ flex: "0 0 170px", borderRadius: 7, fontSize: 13 }}
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value || "all"} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </CFormSelect>
-        {(search || status) && (
-          <CButton
-            size="sm"
-            color="secondary"
-            variant="ghost"
-            onClick={() => {
-              setSearch("");
-              setStatus("");
-            }}
-            style={{ fontSize: 12, borderRadius: 7 }}
-          >
-            Clear
-          </CButton>
-        )}
-      </div>
-
-      {/* Content */}
-      {loading ? (
-        <div className="text-center py-5" style={{ color: "#94a3b8" }}>
-          <CSpinner size="sm" className="me-2" />
-          Loading…
-        </div>
-      ) : rows.length === 0 ? (
-        <div
-          className="text-center py-5 rounded-3"
-          style={{
-            background: "#f8fafc",
-            border: "1px dashed #cbd5e1",
-            color: "#94a3b8",
-          }}
-        >
-          <CIcon
-            icon={cilBasket}
-            style={{
-              fontSize: 32,
-              marginBottom: 8,
-              display: "block",
-              margin: "0 auto 8px",
-            }}
-          />
-          <div style={{ fontWeight: 600, fontSize: 14 }}>No items found</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>
-            Try changing filters or search
-          </div>
-        </div>
-      ) : (
-        <>
-          <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 10 }}>
-            {total} item{total !== 1 ? "s" : ""} · page {page} of {totalPages}
-          </div>
-
-          <CRow className="g-2">
-            {rows.map((row, idx) => {
-              const dispDate = fmtDate(row.dispatchmentDate);
-              const queryCodeDisplay = queryCodeLast4(row.queryCode);
-              return (
-                <CCol key={row._id || idx} xs={12} sm={6} lg={4}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/purchase-bucket/${row._id}`)}
-                    onKeyDown={(e) =>
-                      (e.key === "Enter" || e.key === " ") &&
-                      navigate(`/purchase-bucket/${row._id}`)
-                    }
-                    style={{
-                      background: "#fff",
-                      border: "1.5px solid #e2e8f0",
-                      borderRadius: 12,
-                      padding: "14px 14px 12px",
-                      cursor: "pointer",
-                      transition: "box-shadow 0.15s, border-color 0.15s",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 8,
-                      height: "100%",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.boxShadow =
-                        "0 4px 16px rgba(37,99,235,0.10)";
-                      e.currentTarget.style.borderColor = "#93c5fd";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.boxShadow = "none";
-                      e.currentTarget.style.borderColor = "#e2e8f0";
-                    }}
-                  >
-                    {/* Top: product name + arrow */}
-                    <div className="d-flex align-items-start justify-content-between gap-2">
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: 14,
-                          color: "#1e293b",
-                          lineHeight: 1.3,
-                          flex: 1,
-                          minWidth: 0,
-                        }}
-                      >
-                        {fmt(row.productName)}
-                      </div>
-                      <CIcon
-                        icon={cilArrowRight}
-                        style={{
-                          color: "#cbd5e1",
-                          fontSize: 14,
-                          flexShrink: 0,
-                          marginTop: 2,
-                        }}
-                      />
-                    </div>
-
-                    {/* Query code (last 4 digits) */}
-                    {queryCodeDisplay && (
-                      <div
-                        style={{
-                          display: "inline-block",
-                          fontFamily: "monospace",
-                          fontSize: 11,
-                          padding: "2px 7px",
-                          background: "#f1f5f9",
-                          color: "#2563eb",
-                          borderRadius: 5,
-                          alignSelf: "flex-start",
-                        }}
-                        title={row.queryCode || undefined}
-                      >
-                        {queryCodeDisplay}
-                      </div>
-                    )}
-
-                    {/* Meta chips */}
-                    <div className="d-flex flex-wrap gap-2 align-items-center">
-                      {row.quantity != null && (
-                        <span
-                          style={{
-                            fontSize: 12,
-                            color: "#475569",
-                            fontWeight: 500,
-                          }}
-                        >
-                          Qty:{" "}
-                          <strong>
-                            {row.quantity}
-                            {row.unit ? ` ${row.unit}` : ""}
-                          </strong>
-                        </span>
-                      )}
-                      {dispDate && (
-                        <span style={{ fontSize: 12, color: "#64748b" }}>
-                          📅 {dispDate}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Status & priority */}
-                    <div className="mt-auto d-flex flex-wrap gap-2 align-items-center">
-                      <StatusPill status={row.status} />
-                      <PriorityPill priority={row.priority} />
-                    </div>
+            <CCardBody>
+              <CRow className="g-3 mb-3">
+                <CCol xs={12} md={5} lg={4}>
+                  <CFormLabel className="mb-1">Search</CFormLabel>
+                  <div className="position-relative">
+                    <CFormInput
+                      placeholder="Product name or Sales Order code…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <CIcon
+                      icon={cilSearch}
+                      className="position-absolute"
+                      style={{ right: 10, top: 10, opacity: 0.4 }}
+                      size="sm"
+                    />
                   </div>
                 </CCol>
-              );
-            })}
-          </CRow>
+                <CCol xs={12} sm={6} md={3} lg={2}>
+                  <CFormLabel className="mb-1">Priority</CFormLabel>
+                  <CFormSelect
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                  >
+                    {PRIORITY_OPTIONS.map((o) => (
+                      <option key={o.value || "all"} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </CCol>
+                <CCol xs={12} sm="auto" className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Purchase Bucket"
+                  />
+                </CCol>
+                <CCol xs={12} sm="auto" className="d-flex align-items-end">
+                  {(search || priority) && (
+                    <CButton
+                      color="secondary"
+                      variant="outline"
+                      onClick={handleClearFilters}
+                    >
+                      Clear filters
+                    </CButton>
+                  )}
+                </CCol>
+              </CRow>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="d-flex align-items-center justify-content-center gap-2 mt-4">
-              <CButton
-                size="sm"
-                color="secondary"
-                variant="outline"
-                disabled={page <= 1}
-                onClick={() => page > 1 && setPage(page - 1)}
-                style={{ borderRadius: 7, minWidth: 72 }}
-              >
-                ← Prev
-              </CButton>
-              <span style={{ fontSize: 13, color: "#64748b", fontWeight: 500 }}>
-                {page} / {totalPages}
-              </span>
-              <CButton
-                size="sm"
-                color="secondary"
-                variant="outline"
-                disabled={page >= totalPages}
-                onClick={() => page < totalPages && setPage(page + 1)}
-                style={{ borderRadius: 7, minWidth: 72 }}
-              >
-                Next →
-              </CButton>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+              {loading ? (
+                <Loader message="Loading purchase bucket…" />
+              ) : (
+                <>
+                  <div className="table-responsive">
+                    <CTable hover bordered className="mb-0" align="middle">
+                      <CTableHead color="light">
+                        <CTableRow>
+                          <CTableHeaderCell style={{ width: 50 }}>
+                            S.No
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 200 }}>
+                            Product Name
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 120 }}>
+                            Sales Order Code
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 90 }}>
+                            Query Code
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 70 }}>
+                            Unit
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 70 }}>
+                            Qty
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 120 }}>
+                            Dispatch Date
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ minWidth: 140 }}>
+                            Status
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 100 }}>
+                            Priority
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 60 }}>
+                            Action
+                          </CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {rows.length === 0 ? (
+                          <CTableRow>
+                            <CTableDataCell
+                              colSpan={10}
+                              className="text-center text-body-secondary py-4"
+                            >
+                              No items found. Try changing filters or search.
+                            </CTableDataCell>
+                          </CTableRow>
+                        ) : (
+                          rows.map((row, idx) => {
+                            const rowBg = getPriorityRowBg(row.priority);
+                            const salesOrderCodeDisplay = queryCodeLast4(
+                              row.poCode,
+                            );
+                            const queryCodeDisplay = queryCodeLast4(
+                              row.queryCode,
+                            );
+                            return (
+                              <CTableRow
+                                key={row._id || idx}
+                                style={
+                                  rowBg
+                                    ? {
+                                        "--cui-table-bg": rowBg,
+                                        backgroundColor: rowBg,
+                                      }
+                                    : undefined
+                                }
+                              >
+                                <CTableDataCell className="text-center fw-semibold text-body-secondary">
+                                  {(page - 1) * pageSize + idx + 1}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <div className="fw-semibold">
+                                    {fmt(row.productName)}
+                                  </div>
+                                  {row.rawProductCode && (
+                                    <div className="small font-monospace text-body-secondary">
+                                      {row.rawProductCode}
+                                    </div>
+                                  )}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {salesOrderCodeDisplay ? (
+                                    <span
+                                      className="badge bg-dark font-monospace"
+                                      title={
+                                        row.poCode
+                                          ? String(row.poCode).trim()
+                                          : undefined
+                                      }
+                                    >
+                                      {salesOrderCodeDisplay}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  {queryCodeDisplay ? (
+                                    <span
+                                      className="badge bg-secondary font-monospace"
+                                      title={
+                                        row.queryCode
+                                          ? String(row.queryCode).trim()
+                                          : undefined
+                                      }
+                                    >
+                                      {queryCodeDisplay}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center">
+                                  {row.unit || "—"}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center fw-semibold">
+                                  {row.quantity ?? "—"}
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center">
+                                  {dateFormatter(row.dispatchmentDate, "—")}
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <StatusPill status={row.status} />
+                                </CTableDataCell>
+                                <CTableDataCell>
+                                  <PriorityPill priority={row.priority} />
+                                </CTableDataCell>
+                                <CTableDataCell className="text-center">
+                                  <CButton
+                                    color="info"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      navigate(`/purchase-bucket/${row._id}`)
+                                    }
+                                    title="View details"
+                                  >
+                                    <EyeIcon />
+                                  </CButton>
+                                </CTableDataCell>
+                              </CTableRow>
+                            );
+                          })
+                        )}
+                      </CTableBody>
+                    </CTable>
+                  </div>
+
+                  {total > pageSize && (
+                    <TablePagination
+                      currentPage={page}
+                      totalPages={totalPages}
+                      onPageChange={setPage}
+                      showRange
+                      totalItems={total}
+                      itemsPerPage={pageSize}
+                      align="center"
+                      ariaLabel="Purchase Bucket pages"
+                      wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+                    />
+                  )}
+                </>
+              )}
+            </CCardBody>
+          </CCard>
+        </CCol>
+      </CRow>
+    </>
   );
 };
 

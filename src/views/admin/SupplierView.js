@@ -18,28 +18,7 @@ import supplierService from "../../services/supplierService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
-
-const formatDate = (value) => {
-  if (value == null || value === "") return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? "-"
-    : d.toLocaleDateString(undefined, { dateStyle: "medium" });
-};
-
-// DD/MM/YY HH:MM:SS
-const formatCreatedAt = (value) => {
-  if (value == null || value === "") return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-  return `${dd}/${mm}/${yy} ${hh}:${min}:${ss}`;
-};
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const SupplierView = () => {
   const { id } = useParams();
@@ -220,12 +199,10 @@ const SupplierView = () => {
                           {supplier.catalog.uploadedAt && (
                             <small className="d-block text-muted mt-2">
                               Uploaded:{" "}
-                              {new Date(
+                              {dateTimeFormatter(
                                 supplier.catalog.uploadedAt,
-                              ).toLocaleString(undefined, {
-                                dateStyle: "medium",
-                                timeStyle: "short",
-                              })}
+                                "-",
+                              )}
                             </small>
                           )}
                         </div>

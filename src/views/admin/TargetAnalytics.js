@@ -28,9 +28,11 @@ import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import employeeService from "../../services/employeeService";
 import targetAnalyticsService from "../../services/targetAnalyticsService";
-import { Loader } from "../../components";
+import { Loader, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError, toastSuccess } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const PERIOD_OPTIONS = [
   { value: "weekly", label: "Weekly" },
@@ -39,6 +41,13 @@ const PERIOD_OPTIONS = [
 const SIDEBAR_WIDTH = 380;
 const TABLE_TAB = { active: "active", history: "history" };
 const VIEW_TAB = { branch: "branch", zone: "zone", employee: "employee" };
+
+const TARGET_ANALYTICS_FILTER_DEFAULTS = {
+  period: "weekly",
+  branchId: "",
+  zoneId: "",
+  employeeId: "",
+};
 
 const extractListFromResponse = (response, keys = []) => {
   const data = response?.data || response;
@@ -63,8 +72,6 @@ const getEmployeePrimaryZoneId = (employee) => {
 };
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-const formatDate = (value) =>
-  value ? new Date(value).toLocaleDateString() : "-";
 const clamp = (value, min = 0, max = 100) =>
   Math.max(min, Math.min(max, value));
 const getPeriodRange = (period) => {
@@ -122,15 +129,23 @@ const decodeTokenPayload = (token) => {
 const TargetAnalytics = () => {
   const { canCreate } = usePermissions();
   const canCreateTargetAnalytics = canCreate("target_analytics");
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "target_analytics",
+    TARGET_ANALYTICS_FILTER_DEFAULTS,
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [viewTab, setViewTab] = useState(VIEW_TAB.branch);
   const [tableTab, setTableTab] = useState(TABLE_TAB.active);
-  const [summaryPeriod, setSummaryPeriod] = useState("weekly");
-  const [summaryBranchId, setSummaryBranchId] = useState("");
-  const [summaryZoneId, setSummaryZoneId] = useState("");
-  const [summaryEmployeeId, setSummaryEmployeeId] = useState("");
+  const [summaryPeriod, setSummaryPeriod] = useState(initialValues.period);
+  const [summaryBranchId, setSummaryBranchId] = useState(
+    initialValues.branchId,
+  );
+  const [summaryZoneId, setSummaryZoneId] = useState(initialValues.zoneId);
+  const [summaryEmployeeId, setSummaryEmployeeId] = useState(
+    initialValues.employeeId,
+  );
   const [summary, setSummary] = useState({
     targetAmount: 0,
     achievedAmount: 0,
@@ -224,8 +239,12 @@ const TargetAnalytics = () => {
     setBranches(branchList);
     setZones(zoneList);
     setEmployees(empList);
-    if (!summaryBranchId && branchList.length)
-      setSummaryBranchId(String(branchList[0].id));
+    const preferredBranchId =
+      summaryBranchId || (branchList[0]?.id ? String(branchList[0].id) : "");
+    if (preferredBranchId) {
+      setSummaryBranchId(preferredBranchId);
+      setFormBranchId(preferredBranchId);
+    }
   };
 
   const loadTargetLists = async () => {
@@ -319,24 +338,8 @@ const TargetAnalytics = () => {
     summaryPeriod,
   ]);
 
-  const zoneOptions = useMemo(
-    () =>
-      zones.filter(
-        (z) =>
-          !summaryBranchId ||
-          normalizeId(z.branchId) === String(summaryBranchId),
-      ),
-    [zones, summaryBranchId],
-  );
-  const employeeOptions = useMemo(
-    () =>
-      employees.filter(
-        (e) =>
-          !summaryBranchId ||
-          normalizeId(e.branchId) === String(summaryBranchId),
-      ),
-    [employees, summaryBranchId],
-  );
+  const zoneOptions = useMemo(() => zones, [zones]);
+  const employeeOptions = useMemo(() => employees, [employees]);
 
   useEffect(() => {
     if (!isSalesRole || !employees.length) return;
@@ -363,8 +366,25 @@ const TargetAnalytics = () => {
     setIsSidebarOpen(true);
   };
 
+  useFilterLockPersist("target_analytics", filtersLocked, {
+    period: summaryPeriod,
+    branchId: summaryBranchId,
+    zoneId: summaryZoneId,
+    employeeId: summaryEmployeeId,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      period: summaryPeriod,
+      branchId: summaryBranchId,
+      zoneId: summaryZoneId,
+      employeeId: summaryEmployeeId,
+    });
+  };
+
   const onSave = async () => {
-    if (!formBranchId) return toastError("Please select branch");
+    const effectiveBranchId = formBranchId || summaryBranchId;
+    if (!effectiveBranchId) return toastError("Unable to determine branch");
     if (!formDateFrom || !formDateTo)
       return toastError("Please select date range");
     if (formTargetAmount === "" || Number(formTargetAmount) < 0)
@@ -373,7 +393,7 @@ const TargetAnalytics = () => {
     try {
       if (viewTab === VIEW_TAB.branch) {
         await targetAnalyticsService.upsertTarget({
-          branchId: formBranchId,
+          branchId: effectiveBranchId,
           period: formPeriod,
           dateFrom: formDateFrom,
           dateTo: formDateTo,
@@ -382,7 +402,7 @@ const TargetAnalytics = () => {
       } else if (viewTab === VIEW_TAB.zone) {
         if (!formZoneId) throw new Error("Please select zone");
         await targetAnalyticsService.upsertZoneTarget({
-          branchId: formBranchId,
+          branchId: effectiveBranchId,
           zoneId: formZoneId,
           period: formPeriod,
           dateFrom: formDateFrom,
@@ -395,7 +415,7 @@ const TargetAnalytics = () => {
           (e) => String(e.id) === String(formEmployeeId),
         );
         await targetAnalyticsService.upsertEmployeeTarget({
-          branchId: formBranchId,
+          branchId: effectiveBranchId,
           zoneId: getEmployeePrimaryZoneId(emp) || null,
           employeeId: formEmployeeId,
           period: formPeriod,
@@ -479,25 +499,6 @@ const TargetAnalytics = () => {
                 </CNav>
 
                 <CRow className="mb-3 g-3 align-items-end">
-                  {!isSalesRole && (
-                    <CCol md={4}>
-                      <CFormLabel className="small text-muted mb-1">
-                        Branch
-                      </CFormLabel>
-                      <CFormSelect
-                        value={summaryBranchId}
-                        disabled={isHod}
-                        onChange={(e) => setSummaryBranchId(e.target.value)}
-                      >
-                        <option value="">Select branch</option>
-                        {branches.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name || b.branchcode || b.id}
-                          </option>
-                        ))}
-                      </CFormSelect>
-                    </CCol>
-                  )}
                   {viewTab === VIEW_TAB.zone && (
                     <CCol md={4}>
                       <CFormLabel className="small text-muted mb-1">
@@ -550,6 +551,13 @@ const TargetAnalytics = () => {
                         </option>
                       ))}
                     </CFormSelect>
+                  </CCol>
+                  <CCol md="auto" className="d-flex align-items-end">
+                    <FilterLockButton
+                      filtersLocked={filtersLocked}
+                      onToggle={handleToggleFiltersLock}
+                      pageLabel="Target Analytics"
+                    />
                   </CCol>
                 </CRow>
 
@@ -651,10 +659,10 @@ const TargetAnalytics = () => {
                           </CTableDataCell>
                           <CTableDataCell>{row.period || "-"}</CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(row.dateFrom)}
+                            {dateFormatter(row.dateFrom, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(row.dateTo)}
+                            {dateFormatter(row.dateTo, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
                             {formatAmount(row.targetAmount)}
@@ -720,21 +728,6 @@ const TargetAnalytics = () => {
             >
               <CIcon icon={cilX} size="sm" />
             </CButton>
-          </div>
-          <div className="mb-3">
-            <CFormLabel className="small text-muted mb-1">Branch</CFormLabel>
-            <CFormSelect
-              value={formBranchId}
-              disabled={isHod || isSalesRole}
-              onChange={(e) => setFormBranchId(e.target.value)}
-            >
-              <option value="">Select branch</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name || b.branchcode || b.id}
-                </option>
-              ))}
-            </CFormSelect>
           </div>
           {viewTab === VIEW_TAB.zone && (
             <div className="mb-3">

@@ -22,8 +22,6 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilCloudUpload, cilPlus, cilTrash } from "@coreui/icons";
@@ -31,27 +29,33 @@ import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
 import companyDocumentService from "../../services/companyDocumentService";
 import groupService from "../../services/groupService";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { buildCatalogSections } from "../../utils/companyCatalogUtils";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const DOC_TYPE_OPTIONS = ["Policy", "Certificate", "Other"];
+const COMPANY_DOCUMENT_FILTER_DEFAULTS = { docType: "" };
 
 const getId = (row) => row?._id || row?.id;
 
 const getFileName = (row) =>
   row?.documentId?.originalName || row?.documentId?.path || "-";
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleString();
-};
-
 const CompanyDocumentList = () => {
   const fileInputRef = useRef(null);
   const catalogFileInputRef = useRef(null);
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "company_document_list",
+    COMPANY_DOCUMENT_FILTER_DEFAULTS,
+  );
   const [documents, setDocuments] = useState([]);
   const [catalogs, setCatalogs] = useState([]);
   const [groups, setGroups] = useState([]);
@@ -60,7 +64,7 @@ const CompanyDocumentList = () => {
   const [error, setError] = useState("");
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [docTypeFilter, setDocTypeFilter] = useState("");
+  const [docTypeFilter, setDocTypeFilter] = useState(initialValues.docType);
   const [pagination, setPagination] = useState({});
   const [uploadModal, setUploadModal] = useState(false);
   const [catalogUploadModal, setCatalogUploadModal] = useState(false);
@@ -114,7 +118,7 @@ const CompanyDocumentList = () => {
       const res = await withMinimumDelay(() =>
         companyDocumentService.list({
           pageNumber: 1,
-          pageSize: 200,
+          pageSize: 100,
           doc_type: "Catalog",
         }),
       );
@@ -130,8 +134,8 @@ const CompanyDocumentList = () => {
 
   const fetchGroups = useCallback(async () => {
     try {
-      const res = await groupService.getAll({ pageNumber: 1, pageSize: 200 });
-      const data = res?.data?.data || res?.data || res;
+      const res = await groupService.getAll({ pageNumber: 1, pageSize: 100 });
+      const data = res?.data || res;
       setGroups(data?.groups || []);
     } catch {
       setGroups([]);
@@ -144,6 +148,14 @@ const CompanyDocumentList = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [fetchDocuments]);
+
+  useFilterLockPersist("company_document_list", filtersLocked, {
+    docType: docTypeFilter,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ docType: docTypeFilter });
+  };
 
   useEffect(() => {
     fetchCatalogs();
@@ -344,6 +356,13 @@ const CompanyDocumentList = () => {
                   ))}
                 </CFormSelect>
               </CCol>
+              <CCol md={3} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Company Documents"
+                />
+              </CCol>
             </CRow>
 
             {loading ? (
@@ -388,7 +407,7 @@ const CompanyDocumentList = () => {
                             </CButton>
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(doc.createdAt)}
+                            {dateTimeFormatter(doc.createdAt, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
                             <CButton
@@ -420,46 +439,14 @@ const CompanyDocumentList = () => {
                   </CTableBody>
                 </CTable>
 
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>
@@ -528,7 +515,7 @@ const CompanyDocumentList = () => {
                                   </CButton>
                                 </CTableDataCell>
                                 <CTableDataCell>
-                                  {formatDate(catalog.createdAt)}
+                                  {dateTimeFormatter(catalog.createdAt, "-")}
                                 </CTableDataCell>
                                 <CTableDataCell>
                                   <CButton

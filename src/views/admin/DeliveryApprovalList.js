@@ -20,18 +20,21 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
   CCloseButton,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilCheckCircle } from "@coreui/icons";
+import { cilCheckCircle, cilEye } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import deliveryApprovalService from "../../services/deliveryApprovalService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+import { dateFormatter } from "../../utils/dateFormatter";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
+
+const DELIVERY_APPROVAL_FILTER_DEFAULTS = { dateFrom: "", dateTo: "" };
 
 const serverStatus = (d) => d?.status ?? d?.inventoryStatus;
 
@@ -49,6 +52,11 @@ const STATUS_COLORS = {
   delivered: "info",
   pending: "warning",
   purchased: "info",
+};
+
+const dash = (value) => {
+  if (value == null || value === "") return "—";
+  return value;
 };
 
 const statusBadge = (s) => {
@@ -72,57 +80,13 @@ const statusBadge = (s) => {
   return <CBadge color="secondary">{readable}</CBadge>;
 };
 
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
-};
-
-const formatAddress = (c) => {
-  if (!c || typeof c !== "object") return "—";
-  const parts = [
-    c.name,
-    [c.area, c.location].filter(Boolean).join(", "),
-    c.address,
-  ].filter((p) => p && String(p).trim());
-  return parts.length ? parts.join(" · ") : "—";
-};
-
-const formatPm = (c) => {
-  const pms = c?.purchaseManagers;
-  if (!Array.isArray(pms) || !pms.length) return "—";
-  return pms
-    .map((pm) => {
-      const bits = [pm?.name, pm?.phone, pm?.email].filter(
-        (x) => x && String(x).trim(),
-      );
-      return bits.join(" · ");
-    })
-    .filter(Boolean)
-    .join(" | ");
-};
-
 const parseListResponse = (res) => {
   if (!res || typeof res !== "object") {
-    return {
-      list: [],
-      total: 0,
-      page: 1,
-      pageSize: 20,
-    };
+    return { list: [], total: 0, page: 1, pageSize: 20 };
   }
   const block = res.data;
   if (!block || typeof block !== "object") {
-    return {
-      list: [],
-      total: 0,
-      page: 1,
-      pageSize: 20,
-    };
+    return { list: [], total: 0, page: 1, pageSize: 20 };
   }
   return {
     list: Array.isArray(block.data) ? block.data : [],
@@ -138,6 +102,27 @@ const docOpenUrl = (doc) => {
   return p ? getAssetsUrl(p) : "";
 };
 
+const DetailField = ({ label, children, className = "" }) => (
+  <div className={className}>
+    <div
+      className="text-body-secondary text-uppercase fw-semibold mb-1"
+      style={{ fontSize: "0.68rem", letterSpacing: "0.04em" }}
+    >
+      {label}
+    </div>
+    <div className="text-break">{children ?? "—"}</div>
+  </div>
+);
+
+const DetailSection = ({ title, children, className = "" }) => (
+  <CCard className={`border shadow-sm ${className}`.trim()}>
+    <CCardHeader className="py-2 px-3 bg-light fw-semibold small">
+      {title}
+    </CCardHeader>
+    <CCardBody className="p-3">{children}</CCardBody>
+  </CCard>
+);
+
 const DocumentPreview = ({ doc, title }) => {
   if (!doc || typeof doc !== "object") return null;
   const url = docOpenUrl(doc);
@@ -146,21 +131,21 @@ const DocumentPreview = ({ doc, title }) => {
   const isImg = mime.startsWith("image/");
   const name = doc.originalName || "Open file";
   return (
-    <div className="mb-3">
-      <CFormLabel className="fw-semibold">{title}</CFormLabel>
+    <div className="mb-3 pb-3 border-bottom">
+      <div className="fw-semibold small mb-2">{title}</div>
       {isImg ? (
         <div className="mb-2">
           <img
             src={url}
             alt=""
             className="img-fluid rounded border"
-            style={{ maxHeight: 260 }}
+            style={{ maxHeight: 200 }}
           />
         </div>
       ) : null}
       <CButton
         color="link"
-        className="p-0 d-block"
+        className="p-0"
         onClick={() => window.open(url, "_blank", "noopener")}
       >
         {name}
@@ -169,15 +154,299 @@ const DocumentPreview = ({ doc, title }) => {
   );
 };
 
+const PurchaseManagerList = ({ managers = [] }) => {
+  if (!managers.length) {
+    return (
+      <p className="text-body-secondary small mb-0">No contacts listed.</p>
+    );
+  }
+  return (
+    <div className="d-flex flex-column gap-2">
+      {managers.map((pm, index) => (
+        <div
+          key={`${pm?.email || pm?.phone || pm?.name || "pm"}-${index}`}
+          className="rounded border bg-body-tertiary px-3 py-2"
+        >
+          <div className="fw-semibold">{dash(pm?.name)}</div>
+          {pm?.phone ? (
+            <div className="small text-body-secondary">{pm.phone}</div>
+          ) : null}
+          {pm?.email ? (
+            <div className="small text-body-secondary text-break">
+              {pm.email}
+            </div>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const DeliveryApprovalDetail = ({ detail, approving, onApprove }) => {
+  const { formatAreaOrDash } = useAreaNameLookup();
+  const itemCompany = detail?.companyInfo;
+  const purchaseManagers = Array.isArray(itemCompany?.purchaseManagers)
+    ? itemCompany.purchaseManagers
+    : [];
+  const pbr = detail?.purchaseBillingRequestId;
+  const lineStatus = serverStatus(detail);
+  const hasDocuments =
+    detail?.attachmentDocumentId ||
+    detail?.receivingDocumentId ||
+    (pbr &&
+      typeof pbr === "object" &&
+      (pbr.billDocumentId || pbr.proofDocumentId));
+
+  return (
+    <div className="d-flex flex-column gap-3 pb-2">
+      <CCard className="border-0 bg-warning-subtle">
+        <CCardBody className="p-3">
+          <div className="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
+            <div className="flex-grow-1 min-w-0">
+              <h5 className="mb-1 text-break">{dash(detail.productName)}</h5>
+              <div className="small text-body-secondary">
+                Sales Order{" "}
+                <span className="badge bg-dark font-monospace">
+                  {dash(detail.poCode)}
+                </span>
+              </div>
+            </div>
+            <CBadge color="warning" className="align-self-start">
+              Awaiting HOD approval
+            </CBadge>
+          </div>
+          <div className="d-flex flex-wrap gap-2">
+            {statusBadge(lineStatus)}
+            {detail.rawProductCode ? (
+              <CBadge color="light" textColor="dark" className="font-monospace">
+                {detail.rawProductCode}
+              </CBadge>
+            ) : null}
+          </div>
+        </CCardBody>
+      </CCard>
+
+      <DetailSection title="Product & sales order">
+        <CRow className="g-3">
+          <CCol xs={6}>
+            <DetailField label="Product name">
+              {dash(detail.productName)}
+            </DetailField>
+          </CCol>
+          <CCol xs={6}>
+            <DetailField label="Sales order code">
+              <span className="badge bg-dark font-monospace">
+                {dash(detail.poCode)}
+              </span>
+            </DetailField>
+          </CCol>
+          <CCol xs={6}>
+            <DetailField label="Raw product code">
+              {detail.rawProductCode ? (
+                <code>{detail.rawProductCode}</code>
+              ) : (
+                "—"
+              )}
+            </DetailField>
+          </CCol>
+          <CCol xs={6}>
+            <DetailField label="Line status">
+              {statusBadge(lineStatus)}
+            </DetailField>
+          </CCol>
+          <CCol xs={6}>
+            <DetailField label="Dispatch date">
+              {dateFormatter(detail.dispatchmentDate, "—")}
+            </DetailField>
+          </CCol>
+          {detail.effectiveGroupName ? (
+            <CCol xs={6}>
+              <DetailField label="Product group">
+                {detail.effectiveGroupName}
+              </DetailField>
+            </CCol>
+          ) : null}
+        </CRow>
+      </DetailSection>
+
+      <DetailSection title="Line details">
+        <CRow className="g-3">
+          <CCol xs={4} sm={3}>
+            <DetailField label="Quantity">{dash(detail.quantity)}</DetailField>
+          </CCol>
+          <CCol xs={4} sm={3}>
+            <DetailField label="Unit">{dash(detail.unit)}</DetailField>
+          </CCol>
+          <CCol xs={4} sm={3}>
+            <DetailField label="HSN">{dash(detail.hsnNumber)}</DetailField>
+          </CCol>
+          <CCol xs={6} sm={3}>
+            <DetailField label="GST %">
+              {detail.gstPercentage != null ? `${detail.gstPercentage}%` : "—"}
+            </DetailField>
+          </CCol>
+          <CCol xs={12} sm={6}>
+            <DetailField label="Model / part #">
+              {dash(detail.modelNumber)}
+            </DetailField>
+          </CCol>
+          {detail.description ? (
+            <CCol xs={12}>
+              <DetailField label="Description">
+                {detail.description}
+              </DetailField>
+            </CCol>
+          ) : null}
+          {detail.remark ? (
+            <CCol xs={12}>
+              <DetailField label="Line remark">{detail.remark}</DetailField>
+            </CCol>
+          ) : null}
+        </CRow>
+      </DetailSection>
+
+      <DetailSection title="Company & delivery location">
+        {itemCompany ? (
+          <CRow className="g-3">
+            <CCol xs={12}>
+              <DetailField label="Company name">
+                {dash(itemCompany.name)}
+              </DetailField>
+            </CCol>
+            <CCol xs={12} sm={6}>
+              <DetailField label="Area">
+                {formatAreaOrDash(itemCompany.area)}
+              </DetailField>
+            </CCol>
+            <CCol xs={12} sm={6}>
+              <DetailField label="Location">
+                {dash(itemCompany.location)}
+              </DetailField>
+            </CCol>
+            <CCol xs={12}>
+              <DetailField label="Address">
+                {dash(itemCompany.address)}
+              </DetailField>
+            </CCol>
+            {itemCompany.billingAddress ? (
+              <CCol xs={12}>
+                <DetailField label="Billing address">
+                  {itemCompany.billingAddress}
+                </DetailField>
+              </CCol>
+            ) : null}
+            {itemCompany.shippingAddress ? (
+              <CCol xs={12}>
+                <DetailField label="Shipping address">
+                  {itemCompany.shippingAddress}
+                </DetailField>
+              </CCol>
+            ) : null}
+          </CRow>
+        ) : (
+          <p className="text-body-secondary small mb-0">
+            No company information.
+          </p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="Purchase manager contacts">
+        <PurchaseManagerList managers={purchaseManagers} />
+      </DetailSection>
+
+      <DetailSection title="Delivery proof & remarks">
+        <CRow className="g-3 mb-0">
+          <CCol xs={12}>
+            <DetailField label="Receiving remark">
+              {detail.receivingRemark ? (
+                <span className="fst-italic">{detail.receivingRemark}</span>
+              ) : (
+                "—"
+              )}
+            </DetailField>
+          </CCol>
+        </CRow>
+        {detail.receivingDocumentId ? (
+          <div className="mt-3 pt-2 border-top">
+            <DocumentPreview
+              doc={detail.receivingDocumentId}
+              title="Receiving / delivery proof"
+            />
+          </div>
+        ) : (
+          <p className="text-body-secondary small mb-0 mt-2">
+            No delivery proof uploaded.
+          </p>
+        )}
+      </DetailSection>
+
+      {hasDocuments ? (
+        <DetailSection title="Documents">
+          <DocumentPreview
+            doc={detail.attachmentDocumentId}
+            title="Line attachment"
+          />
+          {pbr && typeof pbr === "object" ? (
+            <>
+              <div className="small text-body-secondary mb-3 pb-2 border-bottom">
+                Linked billing request:{" "}
+                <strong>{pbr.uniqueId || pbr._id || "—"}</strong>
+                {pbr.status ? (
+                  <>
+                    {" "}
+                    · <CBadge color="secondary">{pbr.status}</CBadge>
+                  </>
+                ) : null}
+              </div>
+              <DocumentPreview
+                doc={pbr.billDocumentId}
+                title="Billing — bill document"
+              />
+              <DocumentPreview
+                doc={pbr.proofDocumentId}
+                title="Billing — proof document"
+              />
+            </>
+          ) : null}
+        </DetailSection>
+      ) : null}
+
+      <div className="sticky-bottom pt-2 bg-body">
+        <CButton
+          color="success"
+          className="w-100"
+          disabled={approving}
+          onClick={onApprove}
+        >
+          {approving ? (
+            <>
+              <CSpinner size="sm" className="me-2" /> Approving…
+            </>
+          ) : (
+            <>
+              <CIcon icon={cilCheckCircle} className="me-2" />
+              Approve delivery (HOD)
+            </>
+          )}
+        </CButton>
+      </div>
+    </div>
+  );
+};
+
 const DeliveryApprovalList = () => {
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "delivery_approval",
+    DELIVERY_APPROVAL_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useState(initialValues.dateFrom);
+  const [to, setTo] = useState(initialValues.dateTo);
   const [loading, setLoading] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -194,6 +463,15 @@ const DeliveryApprovalList = () => {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, from, to]);
+
+  useFilterLockPersist("delivery_approval", filtersLocked, {
+    dateFrom: from,
+    dateTo: to,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ dateFrom: from, dateTo: to });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -269,8 +547,6 @@ const DeliveryApprovalList = () => {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
-  const itemCompany = detail?.companyInfo;
-  const pbr = detail?.purchaseBillingRequestId;
 
   return (
     <CRow>
@@ -289,18 +565,17 @@ const DeliveryApprovalList = () => {
             <CIcon icon={cilCheckCircle} className="text-primary" />
             <strong>Delivery approval</strong>
             <span className="text-body-secondary small">
-              Lines marked delivered and awaiting HOD sign-off (
-              <code>hod_approval_pending</code>)
+              Delivered lines awaiting HOD sign-off
             </span>
           </CCardHeader>
           <CCardBody>
-            <CRow className="g-3 mb-3">
+            <CRow className="g-3 mb-3 align-items-end">
               <CCol xs={12} md={4}>
                 <CFormLabel>Search</CFormLabel>
                 <CFormInput
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Product name, Sales Order number, or raw product code"
+                  placeholder="Product name, sales order number, or raw code"
                 />
               </CCol>
               <CCol xs={6} md={2}>
@@ -319,123 +594,101 @@ const DeliveryApprovalList = () => {
                   onChange={(e) => setTo(e.target.value)}
                 />
               </CCol>
+              <CCol xs={6} md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Delivery Approval"
+                />
+              </CCol>
             </CRow>
 
             {loading ? (
               <Loader />
             ) : (
               <>
-                <CTable responsive striped hover>
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell>Product</CTableHeaderCell>
-                      <CTableHeaderCell>Sales Order number</CTableHeaderCell>
-                      <CTableHeaderCell>Raw code</CTableHeaderCell>
-                      <CTableHeaderCell>Company & address</CTableHeaderCell>
-                      <CTableHeaderCell>Purchase manager</CTableHeaderCell>
-                      <CTableHeaderCell>Dispatch</CTableHeaderCell>
-                      <CTableHeaderCell>Status</CTableHeaderCell>
-                      <CTableHeaderCell>Delivery sub-status</CTableHeaderCell>
-                      <CTableHeaderCell className="text-end">
-                        Actions
-                      </CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {rows.length === 0 ? (
+                <div className="table-responsive">
+                  <CTable
+                    responsive
+                    striped
+                    hover
+                    className="mb-0 align-middle"
+                  >
+                    <CTableHead>
                       <CTableRow>
-                        <CTableDataCell
-                          colSpan={9}
-                          className="text-body-secondary"
-                        >
-                          No lines awaiting HOD delivery approval.
-                        </CTableDataCell>
+                        <CTableHeaderCell>Product</CTableHeaderCell>
+                        <CTableHeaderCell>Sales order</CTableHeaderCell>
+                        <CTableHeaderCell>Raw code</CTableHeaderCell>
+                        <CTableHeaderCell>Dispatch</CTableHeaderCell>
+                        <CTableHeaderCell>Status</CTableHeaderCell>
+                        <CTableHeaderCell className="text-end">
+                          Actions
+                        </CTableHeaderCell>
                       </CTableRow>
-                    ) : (
-                      rows.map((row) => (
-                        <CTableRow key={row._id}>
-                          <CTableDataCell>
-                            <span className="text-break">
-                              {row.productName || "—"}
-                            </span>
-                          </CTableDataCell>
-                          <CTableDataCell>{row.poCode || "—"}</CTableDataCell>
-                          <CTableDataCell>
-                            {row.rawProductCode ? (
-                              <code>{row.rawProductCode}</code>
-                            ) : (
-                              "—"
-                            )}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <small
-                              className="text-break d-block"
-                              style={{ maxWidth: 280 }}
-                            >
-                              {formatAddress(row.companyInfo)}
-                            </small>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <small
-                              className="text-break d-block"
-                              style={{ maxWidth: 220 }}
-                            >
-                              {formatPm(row.companyInfo)}
-                            </small>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {formatDateDdMmYyyy(row.dispatchmentDate)}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {statusBadge(serverStatus(row))}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <CBadge color="warning">
-                              HOD approval pending
-                            </CBadge>
-                          </CTableDataCell>
-                          <CTableDataCell className="text-end text-nowrap">
-                            <CButton
-                              size="sm"
-                              color="secondary"
-                              variant="ghost"
-                              onClick={() => openDetail(row._id)}
-                            >
-                              View
-                            </CButton>
+                    </CTableHead>
+                    <CTableBody>
+                      {rows.length === 0 ? (
+                        <CTableRow>
+                          <CTableDataCell
+                            colSpan={6}
+                            className="text-body-secondary text-center py-4"
+                          >
+                            No lines awaiting HOD delivery approval.
                           </CTableDataCell>
                         </CTableRow>
-                      ))
-                    )}
-                  </CTableBody>
-                </CTable>
+                      ) : (
+                        rows.map((row) => (
+                          <CTableRow key={row._id}>
+                            <CTableDataCell>
+                              <span className="fw-medium text-break d-block">
+                                {row.productName || "—"}
+                              </span>
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              <span className="badge bg-dark font-monospace">
+                                {row.poCode || "—"}
+                              </span>
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              {row.rawProductCode ? (
+                                <code className="small">
+                                  {row.rawProductCode}
+                                </code>
+                              ) : (
+                                "—"
+                              )}
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              {dateFormatter(row.dispatchmentDate, "—")}
+                            </CTableDataCell>
+                            <CTableDataCell>
+                              {statusBadge(serverStatus(row))}
+                            </CTableDataCell>
+                            <CTableDataCell className="text-end text-nowrap">
+                              <CButton
+                                size="sm"
+                                color="primary"
+                                variant="outline"
+                                onClick={() => openDetail(row._id)}
+                              >
+                                <CIcon icon={cilEye} className="me-1" />
+                                View
+                              </CButton>
+                            </CTableDataCell>
+                          </CTableRow>
+                        ))
+                      )}
+                    </CTableBody>
+                  </CTable>
+                </div>
 
-                {totalPages > 1 && (
-                  <div className="d-flex justify-content-center mt-4">
-                    <CPagination
-                      align="center"
-                      aria-label="Delivery approval pages"
-                    >
-                      <CPaginationItem
-                        disabled={page <= 1}
-                        onClick={() => page > 1 && setPage(page - 1)}
-                        style={{ cursor: page <= 1 ? "default" : "pointer" }}
-                      >
-                        Prev
-                      </CPaginationItem>
-                      <CPaginationItem active>{page}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={page >= totalPages}
-                        onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{
-                          cursor: page >= totalPages ? "default" : "pointer",
-                        }}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  wrapperClassName="d-flex justify-content-center mt-4"
+                  align="center"
+                />
               </>
             )}
           </CCardBody>
@@ -447,147 +700,25 @@ const DeliveryApprovalList = () => {
         visible={detailOpen}
         onHide={closeDetail}
         scroll
+        style={{ width: "min(100vw, 540px)" }}
       >
-        <COffcanvasHeader className="d-flex align-items-center justify-content-between">
-          <COffcanvasTitle>
-            Sales Order line — delivery approval
-          </COffcanvasTitle>
+        <COffcanvasHeader className="border-bottom">
+          <COffcanvasTitle className="h6 mb-0">Delivery review</COffcanvasTitle>
           <CCloseButton className="ms-2" onClick={closeDetail} />
         </COffcanvasHeader>
-        <COffcanvasBody>
+        <COffcanvasBody className="bg-body-tertiary">
           {detailLoading ? (
             <div className="text-center py-5">
               <CSpinner />
             </div>
           ) : !detail ? (
-            <p className="text-body-secondary">No data.</p>
+            <p className="text-body-secondary mb-0">No data available.</p>
           ) : (
-            <>
-              <h6 className="mb-3">Product &amp; Sales Order</h6>
-              <p className="mb-1">
-                <strong>Product:</strong> {detail.productName || "—"}
-              </p>
-              <p className="mb-1">
-                <strong>Sales Order number:</strong> {detail.poCode || "—"}
-              </p>
-              <p className="mb-1">
-                <strong>Raw product code:</strong>{" "}
-                {detail.rawProductCode ? (
-                  <code>{detail.rawProductCode}</code>
-                ) : (
-                  "—"
-                )}
-              </p>
-              <p className="mb-1">
-                <strong>Status:</strong> {statusBadge(serverStatus(detail))}
-              </p>
-              <p className="mb-1">
-                <strong>Delivery sub-status:</strong>{" "}
-                <CBadge color="warning">HOD approval pending</CBadge>
-              </p>
-              <p className="mb-3">
-                <strong>Dispatchment date:</strong>{" "}
-                {formatDateDdMmYyyy(detail.dispatchmentDate)}
-              </p>
-
-              <h6 className="mb-2">Company</h6>
-              {itemCompany ? (
-                <>
-                  <p className="mb-1">
-                    <strong>Name:</strong> {itemCompany.name || "—"}
-                  </p>
-                  <p className="mb-1">
-                    <strong>Area / location:</strong>{" "}
-                    {[itemCompany.area, itemCompany.location]
-                      .filter(Boolean)
-                      .join(", ") || "—"}
-                  </p>
-                  <p className="mb-1">
-                    <strong>Address:</strong> {itemCompany.address || "—"}
-                  </p>
-                </>
-              ) : (
-                <p className="text-body-secondary">—</p>
-              )}
-
-              <h6 className="mb-2 mt-3">Purchase manager contacts</h6>
-              {itemCompany &&
-              Array.isArray(itemCompany.purchaseManagers) &&
-              itemCompany.purchaseManagers.length ? (
-                <ul className="ps-3">
-                  {itemCompany.purchaseManagers.map((pm, i) => (
-                    <li key={i} className="mb-1">
-                      {[pm.name, pm.phone, pm.email]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-body-secondary">—</p>
-              )}
-
-              <h6 className="mb-2 mt-3">Line</h6>
-              <p className="mb-1 small text-body-secondary">
-                Qty: {detail.quantity ?? "—"} {detail.unit || ""}
-              </p>
-              {detail.description ? (
-                <p className="mb-0 small">
-                  <strong>Description:</strong> {detail.description}
-                </p>
-              ) : null}
-
-              <div className="mt-4 pt-3 border-top">
-                <h6 className="mb-3">Documents &amp; proof</h6>
-                <DocumentPreview
-                  doc={detail.attachmentDocumentId}
-                  title="Line attachment (product / line image)"
-                />
-                {detail.receivingRemark ? (
-                  <p className="mb-2 small">
-                    <strong>Receiving remark:</strong> {detail.receivingRemark}
-                  </p>
-                ) : null}
-                <DocumentPreview
-                  doc={detail.receivingDocumentId}
-                  title="Receiving / delivery proof"
-                />
-                {pbr && typeof pbr === "object" ? (
-                  <>
-                    <p className="small text-body-secondary mb-2">
-                      Linked purchase billing request:{" "}
-                      <strong>{pbr.uniqueId || pbr._id || "—"}</strong> (
-                      {pbr.status || "—"})
-                    </p>
-                    <DocumentPreview
-                      doc={pbr.billDocumentId}
-                      title="Billing — bill document"
-                    />
-                    <DocumentPreview
-                      doc={pbr.proofDocumentId}
-                      title="Billing — proof document"
-                    />
-                  </>
-                ) : null}
-              </div>
-
-              <div className="mt-4 pt-3 border-top">
-                <CButton
-                  color="success"
-                  className="w-100"
-                  disabled={approving}
-                  onClick={approve}
-                >
-                  {approving ? (
-                    <>
-                      <CSpinner size="sm" className="me-2" /> Saving…
-                    </>
-                  ) : (
-                    "Approve delivery (HOD)"
-                  )}
-                </CButton>
-              </div>
-            </>
+            <DeliveryApprovalDetail
+              detail={detail}
+              approving={approving}
+              onApprove={approve}
+            />
           )}
         </COffcanvasBody>
       </COffcanvas>

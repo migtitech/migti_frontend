@@ -11,6 +11,8 @@ import ErrorBoundary from "./ErrorBoundary/ErrorBoundary";
 import ErrorFallback from "./ErrorFallback/ErrorFallback";
 import EyeIcon from "./EyeIcon";
 import TrackingTimeline from "./TrackingTimeline/TrackingTimeline";
+import TablePagination from "./TablePagination/TablePagination";
+import FilterLockButton from "./FilterLockButton/FilterLockButton";
 
 export {
   AppBreadcrumb,
@@ -26,4 +28,6 @@ export {
   ErrorFallback,
   EyeIcon,
   TrackingTimeline,
+  TablePagination,
+  FilterLockButton,
 };

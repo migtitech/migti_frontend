@@ -21,6 +21,8 @@ import { useAuth } from "../../context/AuthContext";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
+import { dateFormatter } from "../../utils/dateFormatter";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
 import { getAssetsUrl } from "../../api/endpoints";
 
 const isHodRole = (role) => {
@@ -62,21 +64,18 @@ const lineStatusBadge = (s) => {
     finance_approved: "success",
     po_closed: "dark",
     payment_request_raised: "info",
+    billing_request_raised: "info",
     billing_request_rejected: "danger",
   };
-  const label = s
-    ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    : "—";
+  const labelMap = {
+    billing_request_raised: "BR Raised",
+  };
+  const label = labelMap[s]
+    ? labelMap[s]
+    : s
+      ? s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+      : "—";
   return <CBadge color={map[s] || "secondary"}>{label}</CBadge>;
-};
-
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${dd}/${mm}/${d.getFullYear()}`;
 };
 
 const DocumentPreview = ({ doc, title }) => {
@@ -122,6 +121,7 @@ const PoProductView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { formatAreaWithLocation } = useAreaNameLookup();
 
   const userCanApprove = isHodRole(user?.role);
   const isApprovalPending = (doc) =>
@@ -316,7 +316,7 @@ const PoProductView = () => {
                 />
                 <InfoRow
                   label="Dispatch Date"
-                  value={formatDateDdMmYyyy(doc?.dispatchmentDate)}
+                  value={dateFormatter(doc?.dispatchmentDate, "—")}
                 />
                 <InfoRow
                   label="Sales Order Rate"
@@ -344,9 +344,12 @@ const PoProductView = () => {
                   <InfoRow label="Name" value={companyInfo.name} />
                   <InfoRow
                     label="Area / Location"
-                    value={[companyInfo.area, companyInfo.location]
-                      .filter(Boolean)
-                      .join(", ")}
+                    value={
+                      formatAreaWithLocation(
+                        companyInfo.area,
+                        companyInfo.location,
+                      ) || "—"
+                    }
                   />
                   <InfoRow label="Address" value={companyInfo.address} />
                   {Array.isArray(companyInfo.purchaseManagers) &&

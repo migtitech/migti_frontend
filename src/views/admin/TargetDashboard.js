@@ -24,8 +24,16 @@ import { cilX, cilPlus } from "@coreui/icons";
 import areaService from "../../services/areaService";
 import branchService from "../../services/branchService";
 import targetAnalyticsService from "../../services/targetAnalyticsService";
-import { Loader } from "../../components";
+import { Loader, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const TARGET_DASHBOARD_FILTER_DEFAULTS = {
+  zoneId: "",
+  period: "",
+  status: "",
+};
 
 const PERIOD_OPTIONS = [
   { value: "weekly", label: "Weekly" },
@@ -42,8 +50,6 @@ const normalizeId = (v) => {
 
 const formatAmount = (v) =>
   `₹${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "-");
 
 const getPeriodRange = (period) => {
   const now = new Date();
@@ -98,15 +104,19 @@ const statusBadge = (status) => {
 };
 
 const TargetDashboard = () => {
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "target_dashboard",
+    TARGET_DASHBOARD_FILTER_DEFAULTS,
+  );
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [targets, setTargets] = useState([]);
   const [branches, setBranches] = useState([]);
   const [zones, setZones] = useState([]);
-  const [filterPeriod, setFilterPeriod] = useState("");
-  const [filterZoneId, setFilterZoneId] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPeriod, setFilterPeriod] = useState(initialValues.period);
+  const [filterZoneId, setFilterZoneId] = useState(initialValues.zoneId);
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
 
   const [branchId, setBranchId] = useState("");
   const [isHod, setIsHod] = useState(false);
@@ -165,7 +175,6 @@ const TargetDashboard = () => {
 
   const loadTargets = useCallback(async () => {
     const params = {};
-    if (branchId) params.branchId = branchId;
     if (filterPeriod) params.period = filterPeriod;
     if (filterZoneId) params.zoneId = filterZoneId;
     const res = await targetAnalyticsService.getZoneData(params);
@@ -177,7 +186,7 @@ const TargetDashboard = () => {
       ...history.map((t) => ({ ...t, status: t.status || "closed" })),
     ];
     setTargets(all);
-  }, [branchId, filterPeriod, filterZoneId]);
+  }, [filterPeriod, filterZoneId]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -196,20 +205,28 @@ const TargetDashboard = () => {
 
   useEffect(() => {
     if (!loading) loadTargets();
-  }, [branchId, filterPeriod, filterZoneId, loading]);
+  }, [filterPeriod, filterZoneId, loading]);
 
-  const zoneOptions = useMemo(
-    () =>
-      zones.filter(
-        (z) => !branchId || normalizeId(z.branchId) === String(branchId),
-      ),
-    [zones, branchId],
-  );
+  const zoneOptions = useMemo(() => zones, [zones]);
 
   const displayedTargets = useMemo(() => {
     if (!filterStatus) return targets;
     return targets.filter((t) => (t.status || "active") === filterStatus);
   }, [targets, filterStatus]);
+
+  useFilterLockPersist("target_dashboard", filtersLocked, {
+    zoneId: filterZoneId,
+    period: filterPeriod,
+    status: filterStatus,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      zoneId: filterZoneId,
+      period: filterPeriod,
+      status: filterStatus,
+    });
+  };
 
   const openSidebar = () => {
     const range = getPeriodRange("weekly");
@@ -234,11 +251,12 @@ const TargetDashboard = () => {
       return toastError("Please select a date range");
     if (formTargetAmount === "" || Number(formTargetAmount) < 0)
       return toastError("Enter a valid target amount");
-    if (!branchId) return toastError("Branch not determined from your profile");
+    const effectiveBranchId = branchId || String(branches[0]?.id || "");
+    if (!effectiveBranchId) return toastError("Unable to determine branch");
     setSaving(true);
     try {
       await targetAnalyticsService.upsertZoneTarget({
-        branchId,
+        branchId: effectiveBranchId,
         zoneId: formZoneId,
         period: formPeriod,
         dateFrom: formDateFrom,
@@ -278,24 +296,6 @@ const TargetDashboard = () => {
             ) : (
               <>
                 <CRow className="mb-3 g-2 align-items-end">
-                  {!isHod && (
-                    <CCol md={3}>
-                      <CFormLabel className="small text-muted mb-1">
-                        Branch
-                      </CFormLabel>
-                      <CFormSelect
-                        value={branchId}
-                        onChange={(e) => setBranchId(e.target.value)}
-                      >
-                        <option value="">All branches</option>
-                        {branches.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name || b.branchcode || b.id}
-                          </option>
-                        ))}
-                      </CFormSelect>
-                    </CCol>
-                  )}
                   <CCol md={3}>
                     <CFormLabel className="small text-muted mb-1">
                       Zone
@@ -341,6 +341,13 @@ const TargetDashboard = () => {
                       <option value="closed">Closed</option>
                     </CFormSelect>
                   </CCol>
+                  <CCol md={2} className="d-flex align-items-end">
+                    <FilterLockButton
+                      filtersLocked={filtersLocked}
+                      onToggle={handleToggleFiltersLock}
+                      pageLabel="Target Dashboard"
+                    />
+                  </CCol>
                 </CRow>
 
                 <CTable hover responsive bordered>
@@ -368,10 +375,10 @@ const TargetDashboard = () => {
                             {row.period || "-"}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(row.dateFrom)}
+                            {dateFormatter(row.dateFrom, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(row.dateTo)}
+                            {dateFormatter(row.dateTo, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
                             {formatAmount(row.targetAmount)}

@@ -21,8 +21,6 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
   CCloseButton,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -31,8 +29,16 @@ import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import inventoryBucketService from "../../services/inventoryBucketService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import usePermissions from "../../hooks/usePermissions";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const INVENTORY_BUCKET_FILTER_DEFAULTS = {
+  status: "",
+  dateFrom: "",
+  dateTo: "",
+};
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -94,16 +100,6 @@ const statusBadge = (s) => {
   return <CBadge color="secondary">{readable}</CBadge>;
 };
 
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
-};
-
 const parseListResponse = (res) => {
   if (!res || typeof res !== "object") {
     return {
@@ -136,6 +132,10 @@ const parseListResponse = (res) => {
 const InventoryBucketList = () => {
   const { canUpdate } = usePermissions();
   const canMark = canUpdate("inventory_bucket");
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "inventory_bucket",
+    INVENTORY_BUCKET_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -143,9 +143,9 @@ const InventoryBucketList = () => {
   const [pageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [status, setStatus] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [status, setStatus] = useState(initialValues.status);
+  const [from, setFrom] = useState(initialValues.dateFrom);
+  const [to, setTo] = useState(initialValues.dateTo);
   const [loading, setLoading] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -162,6 +162,16 @@ const InventoryBucketList = () => {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, status, from, to]);
+
+  useFilterLockPersist("inventory_bucket", filtersLocked, {
+    status,
+    dateFrom: from,
+    dateTo: to,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status, dateFrom: from, dateTo: to });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -297,7 +307,7 @@ const InventoryBucketList = () => {
             )}
           </CCardHeader>
           <CCardBody>
-            <CRow className="g-3 mb-3">
+            <CRow className="g-3 mb-3 align-items-end">
               <CCol xs={12} md={4}>
                 <CFormLabel>Search</CFormLabel>
                 <CFormInput
@@ -333,6 +343,13 @@ const InventoryBucketList = () => {
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
+                />
+              </CCol>
+              <CCol xs={6} md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Inventory bucket"
                 />
               </CCol>
             </CRow>
@@ -381,7 +398,7 @@ const InventoryBucketList = () => {
                             )}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDateDdMmYyyy(row.dispatchmentDate)}
+                            {dateFormatter(row.dispatchmentDate, "—")}
                           </CTableDataCell>
                           <CTableDataCell>
                             {statusBadge(serverStatus(row))}
@@ -402,32 +419,14 @@ const InventoryBucketList = () => {
                   </CTableBody>
                 </CTable>
 
-                {totalPages > 1 && (
-                  <div className="d-flex justify-content-center mt-4">
-                    <CPagination
-                      align="center"
-                      aria-label="Inventory bucket pages"
-                    >
-                      <CPaginationItem
-                        disabled={page <= 1}
-                        onClick={() => page > 1 && setPage(page - 1)}
-                        style={{ cursor: page <= 1 ? "default" : "pointer" }}
-                      >
-                        Prev
-                      </CPaginationItem>
-                      <CPaginationItem active>{page}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={page >= totalPages}
-                        onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{
-                          cursor: page >= totalPages ? "default" : "pointer",
-                        }}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  wrapperClassName="d-flex justify-content-center mt-4"
+                  ariaLabel="Inventory bucket pages"
+                  align="center"
+                />
               </>
             )}
           </CCardBody>
@@ -473,7 +472,7 @@ const InventoryBucketList = () => {
               </p>
               <p className="mb-3">
                 <strong>Dispatchment date:</strong>{" "}
-                {formatDateDdMmYyyy(detail.dispatchmentDate)}
+                {dateFormatter(detail.dispatchmentDate, "—")}
               </p>
 
               <h6 className="mb-2 mt-3">Line</h6>

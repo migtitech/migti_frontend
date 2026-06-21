@@ -32,6 +32,8 @@ import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { useAuth } from "../../context/AuthContext";
+import { isBackOfficeRole } from "../../hooks/usePermissions";
 
 const getImageUrl = (img) => {
   if (!img) return "";
@@ -42,6 +44,8 @@ const getImageUrl = (img) => {
 const ProductView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isBackOfficeUser = isBackOfficeRole(user?.role);
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -204,24 +208,31 @@ const ProductView = () => {
             <CIcon icon={cilArrowLeft} className="me-1" />
             Back to Products
           </CButton>
-          <CButton
-            color="warning"
-            onClick={() => navigate(`/products/edit/${id}`)}
-          >
-            <CIcon icon={cilPencil} className="me-1" />
-            Edit
-          </CButton>
-          {product?.status !== "hod_approved" && (
-            <CButton color="success" onClick={() => setShowConfirmModal(true)}>
-              <CIcon icon={cilCheckCircle} className="me-1" />
-              HOD Approve
-            </CButton>
-          )}
-          {product?.status === "hod_approved" && (
-            <CBadge color="success" className="px-3 py-2 fs-6">
-              HOD Approved
-            </CBadge>
-          )}
+          {!isBackOfficeUser ? (
+            <>
+              <CButton
+                color="warning"
+                onClick={() => navigate(`/products/edit/${id}`)}
+              >
+                <CIcon icon={cilPencil} className="me-1" />
+                Edit
+              </CButton>
+              {product?.status !== "hod_approved" && (
+                <CButton
+                  color="success"
+                  onClick={() => setShowConfirmModal(true)}
+                >
+                  <CIcon icon={cilCheckCircle} className="me-1" />
+                  HOD Approve
+                </CButton>
+              )}
+              {product?.status === "hod_approved" && (
+                <CBadge color="success" className="px-3 py-2 fs-6">
+                  HOD Approved
+                </CBadge>
+              )}
+            </>
+          ) : null}
         </CCol>
       </CRow>
 

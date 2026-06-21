@@ -8,8 +8,6 @@ import {
   CCol,
   CFormLabel,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -21,10 +19,14 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilClipboard, cilCloudDownload, cilX } from "@coreui/icons";
 import localPurchaseService from "../../services/localPurchaseService";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
 import { getAssetsUrl } from "../../api/endpoints";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
+
+const LOCAL_PURCHASE_FILTER_DEFAULTS = { status: "" };
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -43,29 +45,17 @@ const statusBadge = (status) => {
   }
 };
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
-};
-
 const formatEmployee = (emp) => {
   if (!emp || typeof emp !== "object") return "—";
   return (
     emp.email?.trim() || emp.companyEmail?.trim() || emp.name?.trim() || "—"
   );
+};
+
+const salesOrderCodeLast4 = (code) => {
+  const codeText = code != null ? String(code).trim() : "";
+  if (!codeText) return null;
+  return codeText.length <= 4 ? codeText : codeText.slice(-4);
 };
 
 const fileUrl = (path) => {
@@ -134,11 +124,15 @@ const DownloadButton = ({ url, filename, label = "Download" }) => {
 };
 
 const LocalPurchaseList = () => {
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "local_purchase",
+    LOCAL_PURCHASE_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(15);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialValues.status);
   const [loading, setLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeRow, setActiveRow] = useState(null);
@@ -172,6 +166,14 @@ const LocalPurchaseList = () => {
   useEffect(() => {
     setPage(1);
   }, [status]);
+
+  useFilterLockPersist("local_purchase", filtersLocked, {
+    status,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status });
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
@@ -216,7 +218,7 @@ const LocalPurchaseList = () => {
               <CBadge color="secondary">{total} total</CBadge>
             </CCardHeader>
             <CCardBody>
-              <CRow className="g-2 mb-3">
+              <CRow className="g-2 mb-3 align-items-end">
                 <CCol xs={12} sm={6} md={3}>
                   <CFormLabel className="mb-1">Status</CFormLabel>
                   <CFormSelect
@@ -229,6 +231,13 @@ const LocalPurchaseList = () => {
                       </option>
                     ))}
                   </CFormSelect>
+                </CCol>
+                <CCol xs={12} sm="auto" className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Local Purchase"
+                  />
                 </CCol>
                 <CCol xs={12} sm="auto" className="d-flex align-items-end">
                   <CButton
@@ -259,9 +268,6 @@ const LocalPurchaseList = () => {
                             Product
                           </CTableHeaderCell>
                           <CTableHeaderCell style={{ minWidth: 110 }}>
-                            Query Code
-                          </CTableHeaderCell>
-                          <CTableHeaderCell style={{ minWidth: 110 }}>
                             Sales Order Code
                           </CTableHeaderCell>
                           <CTableHeaderCell style={{ width: 90 }}>
@@ -288,7 +294,7 @@ const LocalPurchaseList = () => {
                         {rows.length === 0 ? (
                           <CTableRow>
                             <CTableDataCell
-                              colSpan={10}
+                              colSpan={9}
                               className="text-center text-body-secondary py-4"
                             >
                               No local purchase assignments found.
@@ -313,6 +319,9 @@ const LocalPurchaseList = () => {
                               ? row.productImages.length
                               : 0;
                             const hasBill = Boolean(row.bill?.path);
+                            const salesOrderCode = row.poCode || rowSnap.poCode;
+                            const salesOrderCodeDisplay =
+                              salesOrderCodeLast4(salesOrderCode);
 
                             return (
                               <CTableRow key={row._id}>
@@ -330,14 +339,20 @@ const LocalPurchaseList = () => {
                                   )}
                                 </CTableDataCell>
                                 <CTableDataCell>
-                                  <span className="font-monospace">
-                                    {row.queryCode || rowSnap.queryCode || "—"}
-                                  </span>
-                                </CTableDataCell>
-                                <CTableDataCell>
-                                  <span className="badge bg-dark font-monospace">
-                                    {row.poCode || rowSnap.poCode || "—"}
-                                  </span>
+                                  {salesOrderCodeDisplay ? (
+                                    <span
+                                      className="badge bg-dark font-monospace"
+                                      title={
+                                        salesOrderCode
+                                          ? String(salesOrderCode).trim()
+                                          : undefined
+                                      }
+                                    >
+                                      {salesOrderCodeDisplay}
+                                    </span>
+                                  ) : (
+                                    "—"
+                                  )}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center">
                                   {rowSnap.quantity ?? "—"}
@@ -380,7 +395,7 @@ const LocalPurchaseList = () => {
                                   {statusBadge(row.status)}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center">
-                                  {formatDate(row.createdAt)}
+                                  {dateFormatter(row.createdAt, "—")}
                                 </CTableDataCell>
                                 <CTableDataCell className="text-center">
                                   <CButton
@@ -401,54 +416,17 @@ const LocalPurchaseList = () => {
                     </CTable>
                   </div>
 
-                  {total > pageSize && (
-                    <div className="d-flex flex-column align-items-center mt-3 gap-2">
-                      <span className="small text-body-secondary">
-                        Showing {Math.min((page - 1) * pageSize + 1, total)}–
-                        {Math.min(page * pageSize, total)} of {total}
-                      </span>
-                      <CPagination
-                        align="center"
-                        className="mb-0"
-                        aria-label="Local purchase pages"
-                      >
-                        <CPaginationItem
-                          disabled={page <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                          Previous
-                        </CPaginationItem>
-                        {Array.from(
-                          { length: Math.min(totalPages, 7) },
-                          (_, i) => {
-                            let p;
-                            if (totalPages <= 7) p = i + 1;
-                            else if (page <= 4) p = i + 1;
-                            else if (page >= totalPages - 3)
-                              p = totalPages - 6 + i;
-                            else p = page - 3 + i;
-                            return (
-                              <CPaginationItem
-                                key={p}
-                                active={p === page}
-                                onClick={() => setPage(p)}
-                              >
-                                {p}
-                              </CPaginationItem>
-                            );
-                          },
-                        )}
-                        <CPaginationItem
-                          disabled={page >= totalPages}
-                          onClick={() =>
-                            setPage((p) => Math.min(totalPages, p + 1))
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    showRange
+                    totalItems={total}
+                    itemsPerPage={pageSize}
+                    align="center"
+                    ariaLabel="Local purchase pages"
+                    wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+                  />
                 </>
               )}
             </CCardBody>
@@ -535,7 +513,8 @@ const LocalPurchaseList = () => {
                       {submissionRemark || "—"}
                     </div>
                     <div className="small text-body-secondary mt-2">
-                      Submitted on {formatDateTime(activeRow.submittedAt)}
+                      Submitted on{" "}
+                      {dateTimeFormatter(activeRow.submittedAt, "—")}
                     </div>
                   </div>
 

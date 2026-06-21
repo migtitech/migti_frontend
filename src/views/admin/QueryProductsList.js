@@ -7,6 +7,7 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
+  CFormCheck,
   CFormInput,
   CFormLabel,
   CFormSelect,
@@ -14,8 +15,6 @@ import {
   CModalBody,
   CModalHeader,
   CModalTitle,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -32,7 +31,20 @@ import categoryService from "../../services/categoryService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
 import { sortAlphabetically } from "../../utils/sort";
-import { Loader, EyeIcon } from "../../components";
+import {
+  EyeIcon,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+import QuoteLogsSidebar from "./QuoteLogsSidebar";
+
+const QUERY_PRODUCTS_FILTER_DEFAULTS = {
+  status: "",
+  groupId: "",
+  categoryId: "",
+};
 
 const STATUS_OPTIONS = [
   { value: "", label: "All Status" },
@@ -83,8 +95,16 @@ const parseListResponse = (res) => {
   };
 };
 
+const normalizeQueryCode = (code) => String(code || "").trim();
+
+const QUERY_CODE_FILTER_PAGE_SIZE = 100;
+
 const QueryProductsList = () => {
   const navigate = useNavigate();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "query_products",
+    QUERY_PRODUCTS_FILTER_DEFAULTS,
+  );
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -95,9 +115,12 @@ const QueryProductsList = () => {
   /* filters */
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [filterGroupId, setFilterGroupId] = useState("");
-  const [filterCategoryId, setFilterCategoryId] = useState("");
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
+  const [filterGroupId, setFilterGroupId] = useState(initialValues.groupId);
+  const [filterCategoryId, setFilterCategoryId] = useState(
+    initialValues.categoryId,
+  );
+  const [selectedQueryCodes, setSelectedQueryCodes] = useState(() => new Set());
 
   /* dropdown meta */
   const [groups, setGroups] = useState([]);
@@ -120,15 +143,43 @@ const QueryProductsList = () => {
     title: "",
   });
 
+  const [quoteLogsOpen, setQuoteLogsOpen] = useState(false);
+
   /* ── debounce search ── */
   useEffect(() => {
     const t = setTimeout(() => setSearchDebounced(search), 400);
     return () => clearTimeout(t);
   }, [search]);
 
+  const selectedQueryCodesKey = [...selectedQueryCodes].sort().join(",");
+  const isQueryCodeFilterActive = selectedQueryCodesKey.length > 0;
+  const effectivePageSize = isQueryCodeFilterActive
+    ? QUERY_CODE_FILTER_PAGE_SIZE
+    : pageSize;
+
   useEffect(() => {
     setPage(1);
-  }, [searchDebounced, filterStatus, filterGroupId, filterCategoryId]);
+  }, [
+    searchDebounced,
+    filterStatus,
+    filterGroupId,
+    filterCategoryId,
+    selectedQueryCodesKey,
+  ]);
+
+  useFilterLockPersist("query_products", filtersLocked, {
+    status: filterStatus,
+    groupId: filterGroupId,
+    categoryId: filterCategoryId,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      status: filterStatus,
+      groupId: filterGroupId,
+      categoryId: filterCategoryId,
+    });
+  };
 
   /* ── load groups / categories once ── */
   useEffect(() => {
@@ -170,11 +221,14 @@ const QueryProductsList = () => {
       const res = await withMinimumDelay(() =>
         proBucketService.list({
           page,
-          pageSize,
+          pageSize: effectivePageSize,
           search: searchDebounced.trim() || undefined,
           status: filterStatus || undefined,
           groupId: filterGroupId || undefined,
           categoryId: filterCategoryId || undefined,
+          queryCodes: isQueryCodeFilterActive
+            ? selectedQueryCodesKey
+            : undefined,
         }),
       );
       const p = parseListResponse(res);
@@ -189,24 +243,42 @@ const QueryProductsList = () => {
     }
   }, [
     page,
-    pageSize,
+    effectivePageSize,
     searchDebounced,
     filterStatus,
     filterGroupId,
     filterCategoryId,
+    isQueryCodeFilterActive,
+    selectedQueryCodesKey,
   ]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalPages = Math.max(1, Math.ceil(total / effectivePageSize));
+
+  const toggleQueryCode = (code) => {
+    const normalized = normalizeQueryCode(code);
+    if (!normalized) return;
+    setSelectedQueryCodes((prev) => {
+      const next = new Set(prev);
+      if (next.has(normalized)) next.delete(normalized);
+      else next.add(normalized);
+      return next;
+    });
+  };
+
+  const clearQueryCodeFilter = () => {
+    setSelectedQueryCodes(new Set());
+  };
 
   const handleClear = () => {
     setSearch("");
     setFilterStatus("");
     setFilterGroupId("");
     setFilterCategoryId("");
+    setSelectedQueryCodes(new Set());
     setPage(1);
   };
 
@@ -220,9 +292,19 @@ const QueryProductsList = () => {
                 <CIcon icon={cilList} className="text-primary" />
                 <strong>Query Products</strong>
               </div>
-              <span className="small text-body-secondary">
-                Total: <strong>{total}</strong>
-              </span>
+              <div className="d-flex flex-wrap align-items-center gap-2">
+                <CButton
+                  color="dark"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuoteLogsOpen((prev) => !prev)}
+                >
+                  {quoteLogsOpen ? "Hide Quote Logs" : "Show Quote Logs"}
+                </CButton>
+                <span className="small text-body-secondary">
+                  Total: <strong>{total}</strong>
+                </span>
+              </div>
             </CCardHeader>
 
             <CCardBody>
@@ -316,6 +398,20 @@ const QueryProductsList = () => {
                   lg={1}
                   className="d-flex align-items-end"
                 >
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Query Products"
+                  />
+                </CCol>
+
+                <CCol
+                  xs={6}
+                  sm={4}
+                  md={2}
+                  lg={1}
+                  className="d-flex align-items-end"
+                >
                   <CButton
                     color="secondary"
                     variant="outline"
@@ -325,6 +421,33 @@ const QueryProductsList = () => {
                   </CButton>
                 </CCol>
               </CRow>
+
+              {isQueryCodeFilterActive && (
+                <div className="alert alert-info py-2 px-3 mb-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                  <span className="small mb-0">
+                    Showing all products for query code
+                    {selectedQueryCodesKey.split(",").length !== 1
+                      ? "s"
+                      : ""}:{" "}
+                    {selectedQueryCodesKey.split(",").map((code) => (
+                      <span
+                        key={code}
+                        className="badge bg-dark font-monospace ms-1"
+                      >
+                        {code}
+                      </span>
+                    ))}
+                  </span>
+                  <CButton
+                    color="info"
+                    variant="outline"
+                    size="sm"
+                    onClick={clearQueryCodeFilter}
+                  >
+                    Clear query filter
+                  </CButton>
+                </div>
+              )}
 
               {/* ── Table ── */}
               {loading ? (
@@ -391,12 +514,15 @@ const QueryProductsList = () => {
                               : [];
                             const firstImgUrl =
                               images.length > 0 ? resolveUrl(images[0]) : null;
+                            const queryCode = normalizeQueryCode(row.queryCode);
+                            const isQueryCodeSelected =
+                              queryCode && selectedQueryCodes.has(queryCode);
 
                             return (
                               <CTableRow key={row._id || row.id}>
                                 {/* S.No */}
                                 <CTableDataCell className="text-center fw-semibold text-body-secondary">
-                                  {(page - 1) * pageSize + idx + 1}
+                                  {(page - 1) * effectivePageSize + idx + 1}
                                 </CTableDataCell>
 
                                 {/* Product Name */}
@@ -421,9 +547,23 @@ const QueryProductsList = () => {
 
                                 {/* Query Code */}
                                 <CTableDataCell>
-                                  <span className="badge bg-dark font-monospace">
-                                    {row.queryCode || "—"}
-                                  </span>
+                                  <div className="d-flex align-items-center gap-2">
+                                    <CFormCheck
+                                      checked={Boolean(isQueryCodeSelected)}
+                                      disabled={!queryCode}
+                                      onChange={() =>
+                                        toggleQueryCode(queryCode)
+                                      }
+                                      aria-label={
+                                        queryCode
+                                          ? `Show all products for query code ${queryCode}`
+                                          : "No query code"
+                                      }
+                                    />
+                                    <span className="badge bg-dark font-monospace">
+                                      {queryCode || "—"}
+                                    </span>
+                                  </div>
                                 </CTableDataCell>
 
                                 {/* Unit */}
@@ -541,54 +681,18 @@ const QueryProductsList = () => {
                   </div>
 
                   {/* ── Pagination ── */}
-                  {total > pageSize && (
-                    <div className="d-flex flex-column align-items-center mt-3 gap-2">
-                      <span className="small text-body-secondary">
-                        Showing {Math.min((page - 1) * pageSize + 1, total)}–
-                        {Math.min(page * pageSize, total)} of {total}
-                      </span>
-                      <CPagination
-                        align="center"
-                        className="mb-0"
-                        aria-label="Query Products pages"
-                      >
-                        <CPaginationItem
-                          disabled={page <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                          Previous
-                        </CPaginationItem>
-                        {Array.from(
-                          { length: Math.min(totalPages, 7) },
-                          (_, i) => {
-                            let p;
-                            if (totalPages <= 7) p = i + 1;
-                            else if (page <= 4) p = i + 1;
-                            else if (page >= totalPages - 3)
-                              p = totalPages - 6 + i;
-                            else p = page - 3 + i;
-                            return (
-                              <CPaginationItem
-                                key={p}
-                                active={p === page}
-                                onClick={() => setPage(p)}
-                              >
-                                {p}
-                              </CPaginationItem>
-                            );
-                          },
-                        )}
-                        <CPaginationItem
-                          disabled={page >= totalPages}
-                          onClick={() =>
-                            setPage((p) => Math.min(totalPages, p + 1))
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    disabled={loading}
+                    showRange
+                    totalItems={total}
+                    itemsPerPage={effectivePageSize}
+                    align="center"
+                    ariaLabel="Query Products pages"
+                    wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+                  />
                 </>
               )}
             </CCardBody>
@@ -658,6 +762,12 @@ const QueryProductsList = () => {
           </div>
         </CModalBody>
       </CModal>
+
+      <QuoteLogsSidebar
+        isOpen={quoteLogsOpen}
+        onToggle={() => setQuoteLogsOpen((prev) => !prev)}
+        showFloatingToggle={false}
+      />
     </>
   );
 };

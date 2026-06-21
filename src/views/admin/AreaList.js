@@ -14,8 +14,6 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CPagination,
-  CPaginationItem,
   CFormSelect,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -25,14 +23,26 @@ import { useNavigate } from "react-router-dom";
 import areaService from "../../services/areaService";
 import companyService from "../../services/companyService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
 
+const AREA_FILTER_DEFAULTS = { companyId: "", areaType: "" };
+
 const AreaList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "area_list",
+    AREA_FILTER_DEFAULTS,
+  );
   const [areas, setAreas] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -40,8 +50,10 @@ const AreaList = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
-  const [filterCompanyId, setFilterCompanyId] = useState("");
-  const [filterAreaType, setFilterAreaType] = useState("");
+  const [filterCompanyId, setFilterCompanyId] = useState(
+    initialValues.companyId,
+  );
+  const [filterAreaType, setFilterAreaType] = useState(initialValues.areaType);
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
     id: null,
@@ -78,6 +90,18 @@ const AreaList = () => {
   useEffect(() => {
     fetchCompanies();
   }, []);
+
+  useFilterLockPersist("area_list", filtersLocked, {
+    companyId: filterCompanyId,
+    areaType: filterAreaType,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      companyId: filterCompanyId,
+      areaType: filterAreaType,
+    });
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => fetchAreas(), 300);
@@ -163,6 +187,13 @@ const AreaList = () => {
                   <option value="industry">Industry</option>
                 </CFormSelect>
               </CCol>
+              <CCol xs={12} md="auto" className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Zones"
+                />
+              </CCol>
             </CRow>
             {loading ? (
               <Loader message="Loading zones..." />
@@ -175,7 +206,6 @@ const AreaList = () => {
                       <CTableHeaderCell>City</CTableHeaderCell>
                       <CTableHeaderCell>Zone Type</CTableHeaderCell>
                       <CTableHeaderCell>Company</CTableHeaderCell>
-                      <CTableHeaderCell>Branch</CTableHeaderCell>
                       <CTableHeaderCell className="text-end">
                         Actions
                       </CTableHeaderCell>
@@ -185,7 +215,7 @@ const AreaList = () => {
                     {areas.length === 0 ? (
                       <CTableRow>
                         <CTableDataCell
-                          colSpan={6}
+                          colSpan={5}
                           className="text-center py-4 text-muted"
                         >
                           No zones found
@@ -207,9 +237,6 @@ const AreaList = () => {
                           </CTableDataCell>
                           <CTableDataCell>
                             {area.companyId?.name ?? "—"}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {area.branchId?.name ?? "—"}
                           </CTableDataCell>
                           <CTableDataCell
                             className="text-end"
@@ -260,42 +287,14 @@ const AreaList = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        style={{ cursor: "pointer" }}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active style={{ cursor: "pointer" }}>
-                        {pagination.currentPage} / {pagination.totalPages}
-                      </CPaginationItem>
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage((p) => p + 1)}
-                        style={{ cursor: "pointer" }}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

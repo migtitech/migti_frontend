@@ -10,6 +10,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import { DataProvider } from "./context/DataContext";
 import Loader from "./components/Loader/Loader";
 import RealtimeNotificationAlert from "./components/RealtimeNotificationAlert";
+import AuthRouteMiddleware from "./components/AuthRouteMiddleware";
 
 // Containers
 const DefaultLayout = React.lazy(() => import("./layout/DefaultLayout"));
@@ -45,36 +46,38 @@ const App = () => {
           <DataProvider>
             <Toaster containerStyle={{ zIndex: 20000 }} />
             <HashRouter>
-              <RealtimeNotificationAlert />
-              <Suspense
-                fallback={
-                  <div className="pt-3 min-vh-100 d-flex align-items-center justify-content-center">
-                    <Loader message="Loading..." />
-                  </div>
-                }
-              >
-                <Routes>
-                  <Route
-                    exact
-                    path="/login"
-                    name="Login Page"
-                    element={<Login />}
-                  />
-                  <Route
-                    exact
-                    path="/404"
-                    name="Page 404"
-                    element={<Page404 />}
-                  />
-                  <Route
-                    exact
-                    path="/500"
-                    name="Page 500"
-                    element={<Page500 />}
-                  />
-                  <Route path="*" name="Home" element={<DefaultLayout />} />
-                </Routes>
-              </Suspense>
+              <AuthRouteMiddleware>
+                <RealtimeNotificationAlert />
+                <Suspense
+                  fallback={
+                    <div className="pt-3 min-vh-100 d-flex align-items-center justify-content-center">
+                      <Loader message="Loading..." />
+                    </div>
+                  }
+                >
+                  <Routes>
+                    <Route
+                      exact
+                      path="/login"
+                      name="Login Page"
+                      element={<Login />}
+                    />
+                    <Route
+                      exact
+                      path="/404"
+                      name="Page 404"
+                      element={<Page404 />}
+                    />
+                    <Route
+                      exact
+                      path="/500"
+                      name="Page 500"
+                      element={<Page500 />}
+                    />
+                    <Route path="*" name="Home" element={<DefaultLayout />} />
+                  </Routes>
+                </Suspense>
+              </AuthRouteMiddleware>
             </HashRouter>
           </DataProvider>
         </NotificationProvider>

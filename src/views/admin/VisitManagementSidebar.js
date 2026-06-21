@@ -9,8 +9,6 @@ import {
   CFormLabel,
   CFormSelect,
   CFormTextarea,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -21,30 +19,28 @@ import {
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilX } from "@coreui/icons";
-import useBranchContext from "../../hooks/useBranchContext";
+import { useAuth } from "../../context/AuthContext";
+import { normalizeRole } from "../../hooks/usePermissions";
 import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import employeeService from "../../services/employeeService";
 import industryService from "../../services/industryService";
 import visitService from "../../services/visitService";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const unwrapResponse = (response) => {
   if (response?.data && typeof response.data === "object") return response.data;
   return response || {};
 };
 
-const formatDateTime = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yy} ${hh}:${min}`;
+const VISIT_MANAGEMENT_FILTER_DEFAULTS = {
+  period: "all",
+  dateFrom: "",
+  dateTo: "",
+  status: "",
 };
 
 const drawerWidth = 460;
@@ -59,6 +55,30 @@ const STATUS_OPTIONS = [
   { value: "active", label: "Active" },
   { value: "completed", label: "Completed" },
 ];
+
+const decodeTokenPayload = (token) => {
+  try {
+    const parts = String(token || "").split(".");
+    if (parts.length < 2) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(
+      base64.length + ((4 - (base64.length % 4)) % 4),
+      "=",
+    );
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+};
+
+const findIndoreBranchId = (branchList) => {
+  const match = (branchList || []).find((branch) =>
+    String(branch?.name || "")
+      .toLowerCase()
+      .includes("indore"),
+  );
+  return match ? String(match.id || match._id || "") : "";
+};
 
 const getPeriodRange = (period) => {
   if (!period || period === "all") return { from: "", to: "" };
@@ -78,16 +98,23 @@ const getPeriodRange = (period) => {
 };
 
 const VisitManagementSidebar = () => {
-  const { branchId } = useBranchContext();
+  const { user } = useAuth();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "visit_management",
+    VISIT_MANAGEMENT_FILTER_DEFAULTS,
+  );
 
   const [loadingInit, setLoadingInit] = useState(false);
+  const [indoreBranchId, setIndoreBranchId] = useState("");
+  const [isHod, setIsHod] = useState(false);
+  const [currentEmployeeId, setCurrentEmployeeId] = useState("");
+  const [currentEmployeeName, setCurrentEmployeeName] = useState("");
   const [loadingRows, setLoadingRows] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState(null);
 
-  const [branches, setBranches] = useState([]);
   const [zones, setZones] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [industries, setIndustries] = useState([]);
@@ -99,13 +126,13 @@ const VisitManagementSidebar = () => {
     itemsPerPage: 10,
   });
   const [page, setPage] = useState(1);
-  const [period, setPeriod] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [period, setPeriod] = useState(initialValues.period);
+  const [dateFrom, setDateFrom] = useState(initialValues.dateFrom);
+  const [dateTo, setDateTo] = useState(initialValues.dateTo);
+  const [statusFilter, setStatusFilter] = useState(initialValues.status);
 
   const [form, setForm] = useState({
-    branchId: branchId || "",
+    branchId: "",
     zoneId: "",
     employeeId: "",
     industryId: "",
@@ -114,8 +141,32 @@ const VisitManagementSidebar = () => {
   const [industrySearchText, setIndustrySearchText] = useState("");
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, branchId: branchId || prev.branchId || "" }));
-  }, [branchId]);
+    const token = localStorage.getItem("access_token");
+    const payload = decodeTokenPayload(token);
+    const role = normalizeRole(payload?.role || user?.role);
+    const hodMode = role === "head_of_department" || role === "hod";
+    setIsHod(hodMode);
+
+    const employeeId = String(
+      payload?.id || user?._id || user?.id || "",
+    ).trim();
+    const employeeName =
+      user?.name ||
+      user?.username ||
+      (user?.firstName
+        ? [user.firstName, user.lastName].filter(Boolean).join(" ")
+        : "") ||
+      user?.email ||
+      "Current user";
+
+    if (employeeId) {
+      setCurrentEmployeeId(employeeId);
+      setCurrentEmployeeName(employeeName);
+      if (!hodMode) {
+        setForm((prev) => ({ ...prev, employeeId }));
+      }
+    }
+  }, [user]);
 
   const loadRows = async (pageNumber = 1) => {
     setLoadingRows(true);
@@ -160,7 +211,15 @@ const VisitManagementSidebar = () => {
         branchesPayload?.data?.companyBranches ||
         branchesPayload?.companyBranches ||
         [];
-      setBranches((branchRows || []).map((b) => ({ ...b, id: b._id || b.id })));
+      const normalizedBranches = (branchRows || []).map((b) => ({
+        ...b,
+        id: b._id || b.id,
+      }));
+      const defaultBranchId = findIndoreBranchId(normalizedBranches);
+      setIndoreBranchId(defaultBranchId);
+      if (defaultBranchId) {
+        setForm((prev) => ({ ...prev, branchId: defaultBranchId }));
+      }
     } catch (err) {
       toastError(err?.message || "Failed to load branches");
     } finally {
@@ -184,43 +243,42 @@ const VisitManagementSidebar = () => {
     setPage(1);
   }, [dateFrom, dateTo, statusFilter]);
 
+  useFilterLockPersist("visit_management", filtersLocked, {
+    period,
+    dateFrom,
+    dateTo,
+    status: statusFilter,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      period,
+      dateFrom,
+      dateTo,
+      status: statusFilter,
+    });
+  };
+
   useEffect(() => {
     loadRows(page);
   }, [page, period, dateFrom, dateTo, statusFilter]);
 
   useEffect(() => {
-    const selectedBranchId = form.branchId;
-    if (!selectedBranchId) {
-      setZones([]);
-      setEmployees([]);
-      setIndustries([]);
-      setForm((prev) => ({
-        ...prev,
-        zoneId: "",
-        employeeId: "",
-        industryId: "",
-      }));
-      return;
-    }
-
-    const loadBranchScopedData = async () => {
+    const loadScopedData = async () => {
       try {
         const [zonesRes, employeesRes, industriesRes] = await Promise.all([
           areaService.getAll({
             pageNumber: 1,
             pageSize: 100,
-            branchId: selectedBranchId,
             areaType: "industry",
           }),
           employeeService.getAll({
             pageNumber: 1,
             pageSize: 100,
-            branchId: selectedBranchId,
           }),
           industryService.getAll({
             pageNumber: 1,
             pageSize: 100,
-            branchId: selectedBranchId,
           }),
         ]);
 
@@ -246,12 +304,12 @@ const VisitManagementSidebar = () => {
           (industryRows || []).map((i) => ({ ...i, id: i._id || i.id })),
         );
       } catch (err) {
-        toastError(err?.message || "Failed to load branch wise data");
+        toastError(err?.message || "Failed to load visit form data");
       }
     };
 
-    loadBranchScopedData();
-  }, [form.branchId]);
+    loadScopedData();
+  }, [isHod, currentEmployeeId]);
 
   const visibleIndustries = useMemo(() => {
     const q = industrySearchText.trim().toLowerCase();
@@ -264,17 +322,20 @@ const VisitManagementSidebar = () => {
   }, [industries, industrySearchText]);
 
   const onSaveVisit = async () => {
-    if (!form.branchId || !form.zoneId || !form.employeeId) {
-      toastError("Branch, zone and employee are required");
+    const branchId = indoreBranchId || form.branchId;
+    const employeeId = isHod ? form.employeeId : currentEmployeeId;
+
+    if (!branchId || !form.zoneId || !employeeId) {
+      toastError("Zone and employee are required");
       return;
     }
 
     setSubmitting(true);
     try {
       await visitService.create({
-        branchId: form.branchId,
+        branchId,
         zoneId: form.zoneId,
-        employeeId: form.employeeId,
+        employeeId,
         industryIds: form.industryId ? [form.industryId] : [],
         instructions: form.instructions || "",
       });
@@ -282,9 +343,9 @@ const VisitManagementSidebar = () => {
       toastSuccess("Visit created successfully");
       setIsDrawerOpen(false);
       setForm({
-        branchId: branchId || form.branchId || "",
+        branchId: indoreBranchId || form.branchId || "",
         zoneId: "",
-        employeeId: "",
+        employeeId: isHod ? "" : currentEmployeeId,
         industryId: "",
         instructions: "",
       });
@@ -311,8 +372,20 @@ const VisitManagementSidebar = () => {
           <CCard className="mb-4">
             <CCardHeader className="d-flex justify-content-between align-items-center">
               <strong>Visit Management</strong>
-              <CButton color="primary" onClick={() => setIsDrawerOpen(true)}>
-                Create Task
+              <CButton
+                color="primary"
+                onClick={() => {
+                  if (!isHod && currentEmployeeId) {
+                    setForm((prev) => ({
+                      ...prev,
+                      branchId: indoreBranchId || prev.branchId,
+                      employeeId: currentEmployeeId,
+                    }));
+                  }
+                  setIsDrawerOpen(true);
+                }}
+              >
+                Create Visit
               </CButton>
             </CCardHeader>
             <CCardBody>
@@ -367,6 +440,13 @@ const VisitManagementSidebar = () => {
                     ))}
                   </CFormSelect>
                 </CCol>
+                <CCol md={3} className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Visit Management"
+                  />
+                </CCol>
                 <CCol md={3}>
                   <CCard>
                     <CCardBody className="py-2">
@@ -389,7 +469,6 @@ const VisitManagementSidebar = () => {
                     <CTableHead>
                       <CTableRow>
                         <CTableHeaderCell>S No</CTableHeaderCell>
-                        <CTableHeaderCell>Branch</CTableHeaderCell>
                         <CTableHeaderCell>Zone</CTableHeaderCell>
                         <CTableHeaderCell>Employee</CTableHeaderCell>
                         <CTableHeaderCell>Industry</CTableHeaderCell>
@@ -407,9 +486,6 @@ const VisitManagementSidebar = () => {
                               {(page - 1) * 10 + index + 1}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {item.branchName || "-"}
-                            </CTableDataCell>
-                            <CTableDataCell>
                               {item.zoneName || "-"}
                             </CTableDataCell>
                             <CTableDataCell>
@@ -425,7 +501,7 @@ const VisitManagementSidebar = () => {
                               {item.status || "active"}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDateTime(item.createdAt)}
+                              {dateTimeFormatter(item.createdAt, "-")}
                             </CTableDataCell>
                             <CTableDataCell>
                               <CButton
@@ -447,7 +523,7 @@ const VisitManagementSidebar = () => {
                         ))
                       ) : (
                         <CTableRow>
-                          <CTableDataCell colSpan={9} className="text-center">
+                          <CTableDataCell colSpan={8} className="text-center">
                             No visits found.
                           </CTableDataCell>
                         </CTableRow>
@@ -455,46 +531,14 @@ const VisitManagementSidebar = () => {
                     </CTableBody>
                   </CTable>
 
-                  {pagination.totalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center mt-3">
-                      <div className="small text-medium-emphasis">
-                        Showing{" "}
-                        {((pagination?.currentPage ?? 1) - 1) *
-                          (pagination?.itemsPerPage ?? 10) +
-                          1}
-                        -
-                        {Math.min(
-                          (pagination?.currentPage ?? 1) *
-                            (pagination?.itemsPerPage ?? 10),
-                          pagination?.totalItems ?? 0,
-                        )}{" "}
-                        of {pagination?.totalItems ?? 0}
-                      </div>
-                      <CPagination className="mb-0">
-                        <CPaginationItem
-                          disabled={page <= 1}
-                          onClick={() =>
-                            setPage((prev) => Math.max(1, prev - 1))
-                          }
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {page} / {pagination.totalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={page >= pagination.totalPages}
-                          onClick={() =>
-                            setPage((prev) =>
-                              Math.min(pagination.totalPages, prev + 1),
-                            )
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={pagination?.currentPage ?? 1}
+                    totalPages={pagination.totalPages}
+                    onPageChange={setPage}
+                    showRange
+                    totalItems={pagination?.totalItems ?? 0}
+                    itemsPerPage={pagination?.itemsPerPage ?? 10}
+                  />
                 </>
               )}
             </CCardBody>
@@ -520,7 +564,7 @@ const VisitManagementSidebar = () => {
         }}
       >
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h6 className="mb-0">Create Task</h6>
+          <h6 className="mb-0">Create Visit</h6>
           <CButton
             color="light"
             size="sm"
@@ -535,29 +579,6 @@ const VisitManagementSidebar = () => {
         <div style={{ overflowY: "auto", flex: 1 }}>
           <CRow className="g-3">
             <CCol md={12}>
-              <CFormLabel>Branch</CFormLabel>
-              <CFormSelect
-                value={form.branchId}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    branchId: e.target.value,
-                    zoneId: "",
-                    employeeId: "",
-                    industryId: "",
-                  }))
-                }
-              >
-                <option value="">Select branch</option>
-                {branches.map((branch) => (
-                  <option key={branch.id} value={branch.id}>
-                    {branch.name || branch.id}
-                  </option>
-                ))}
-              </CFormSelect>
-            </CCol>
-
-            <CCol md={12}>
               <CFormLabel>Zone</CFormLabel>
               <CFormSelect
                 value={form.zoneId}
@@ -565,7 +586,7 @@ const VisitManagementSidebar = () => {
                   setForm((prev) => ({
                     ...prev,
                     zoneId: e.target.value,
-                    employeeId: "",
+                    employeeId: isHod ? "" : currentEmployeeId,
                   }))
                 }
               >
@@ -580,39 +601,43 @@ const VisitManagementSidebar = () => {
 
             <CCol md={12}>
               <CFormLabel>Employee</CFormLabel>
-              <CFormSelect
-                value={form.employeeId}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, employeeId: e.target.value }))
-                }
-              >
-                <option value="">Select employee</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name || employee.id}
-                  </option>
-                ))}
-              </CFormSelect>
+              {isHod ? (
+                <CFormSelect
+                  value={form.employeeId}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, employeeId: e.target.value }))
+                  }
+                >
+                  <option value="">Select employee</option>
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name || employee.id}
+                    </option>
+                  ))}
+                </CFormSelect>
+              ) : (
+                <CFormInput value={currentEmployeeName} disabled readOnly />
+              )}
             </CCol>
 
             <CCol md={12}>
-              <CFormLabel>Search industry</CFormLabel>
+              <CFormLabel>Search industry (optional)</CFormLabel>
               <CFormInput
-                placeholder="Type to search industries"
+                placeholder="Type to search industries (optional)"
                 value={industrySearchText}
                 onChange={(e) => setIndustrySearchText(e.target.value)}
               />
             </CCol>
 
             <CCol md={12}>
-              <CFormLabel>Industry</CFormLabel>
+              <CFormLabel>Industry (optional)</CFormLabel>
               <CFormSelect
                 value={form.industryId}
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, industryId: e.target.value }))
                 }
               >
-                <option value="">Select industry</option>
+                <option value="">No industry selected</option>
                 {visibleIndustries.map((industry) => (
                   <option key={industry.id} value={industry.id}>
                     {industry.name || industry.id}
@@ -678,10 +703,6 @@ const VisitManagementSidebar = () => {
         <div style={{ overflowY: "auto", flex: 1 }}>
           <CRow className="g-3">
             <CCol md={12}>
-              <CFormLabel className="text-muted small mb-1">Branch</CFormLabel>
-              <div>{selectedVisit?.branchName || "-"}</div>
-            </CCol>
-            <CCol md={12}>
               <CFormLabel className="text-muted small mb-1">Zone</CFormLabel>
               <div>{selectedVisit?.zoneName || "-"}</div>
             </CCol>
@@ -693,7 +714,7 @@ const VisitManagementSidebar = () => {
             </CCol>
             <CCol md={12}>
               <CFormLabel className="text-muted small mb-1">
-                Industry
+                Industry (optional)
               </CFormLabel>
               <div>{selectedVisit?.industries?.[0]?.name || "-"}</div>
             </CCol>
@@ -725,7 +746,7 @@ const VisitManagementSidebar = () => {
             ) : null}
             <CCol md={12}>
               <CFormLabel className="text-muted small mb-1">Date</CFormLabel>
-              <div>{formatDateTime(selectedVisit?.createdAt)}</div>
+              <div>{dateTimeFormatter(selectedVisit?.createdAt, "-")}</div>
             </CCol>
           </CRow>
         </div>

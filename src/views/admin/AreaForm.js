@@ -80,6 +80,17 @@ const AreaForm = () => {
   }, [formData.companyId]);
 
   useEffect(() => {
+    if (!formData.companyId || branches.length === 0) return;
+    const firstBranchId = getId(branches[0]);
+    if (
+      !formData.branchId ||
+      !branches.some((b) => getId(b) === formData.branchId)
+    ) {
+      setFormData((prev) => ({ ...prev, branchId: firstBranchId }));
+    }
+  }, [formData.companyId, formData.branchId, branches]);
+
+  useEffect(() => {
     if (!isEdit) return;
     const loadArea = async () => {
       setLoading(true);
@@ -126,7 +137,9 @@ const AreaForm = () => {
 
     const errs = {};
     if (!formData.companyId?.trim()) errs.companyId = "Company is required";
-    if (!formData.branchId?.trim()) errs.branchId = "Branch is required";
+    if (!formData.branchId?.trim()) {
+      errs.branchId = "No branch available for the selected company";
+    }
     const name = (formData.name || "").trim();
     if (!name) errs.name = "Name is required";
     else if (name.length < 2) errs.name = "Name must be at least 2 characters";
@@ -215,29 +228,6 @@ const AreaForm = () => {
                   {fieldErrors.companyId && (
                     <div className="text-danger small mt-1">
                       {fieldErrors.companyId}
-                    </div>
-                  )}
-                </CCol>
-                <CCol md={6}>
-                  <CFormLabel>Branch *</CFormLabel>
-                  <CFormSelect
-                    name="branchId"
-                    value={formData.branchId}
-                    onChange={handleChange}
-                    required
-                    disabled={!formData.companyId}
-                    invalid={!!fieldErrors.branchId}
-                  >
-                    <option value="">Select Branch</option>
-                    {branches.map((b) => (
-                      <option key={getId(b)} value={getId(b)}>
-                        {b.name} {b.location ? `(${b.location})` : ""}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                  {fieldErrors.branchId && (
-                    <div className="text-danger small mt-1">
-                      {fieldErrors.branchId}
                     </div>
                   )}
                 </CCol>

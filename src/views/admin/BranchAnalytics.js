@@ -11,8 +11,6 @@ import {
   CNav,
   CNavItem,
   CNavLink,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -22,10 +20,19 @@ import {
   CTableRow,
   CBadge,
 } from "@coreui/react";
-import branchService from "../../services/branchService";
+import areaService from "../../services/areaService";
 import branchAnalyticsService from "../../services/branchAnalyticsService";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const BRANCH_ANALYTICS_FILTER_DEFAULTS = {
+  zoneId: "",
+  period: "all",
+  dateFrom: "",
+  dateTo: "",
+};
 
 const TAB_KEYS = {
   queries: "queries",
@@ -80,20 +87,23 @@ const getPeriodRange = (period) => {
   return { from: toInputDate(start), to: toInputDate(todayEnd) };
 };
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString();
-};
-
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
+const normalizeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") return String(value._id || value.id || "");
+  return String(value);
+};
+
 const BranchAnalytics = () => {
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "branch_analytics",
+    BRANCH_ANALYTICS_FILTER_DEFAULTS,
+  );
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
-  const [branches, setBranches] = useState([]);
+  const [zones, setZones] = useState([]);
   const [metrics, setMetrics] = useState({
     totalQueries: 0,
     totalQuotation: 0,
@@ -113,10 +123,10 @@ const BranchAnalytics = () => {
     hasPrevPage: false,
   });
 
-  const [selectedBranchId, setSelectedBranchId] = useState("");
-  const [period, setPeriod] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [selectedZoneId, setSelectedZoneId] = useState(initialValues.zoneId);
+  const [period, setPeriod] = useState(initialValues.period);
+  const [dateFrom, setDateFrom] = useState(initialValues.dateFrom);
+  const [dateTo, setDateTo] = useState(initialValues.dateTo);
 
   const [activeTab, setActiveTab] = useState(TAB_KEYS.queries);
   const [tabPages, setTabPages] = useState({
@@ -131,18 +141,16 @@ const BranchAnalytics = () => {
     const load = async () => {
       setLoadingFilters(true);
       try {
-        const branchesRes = await branchService.getAll({
-          pageNumber: 1,
-          pageSize: 100,
-        });
-        const branchList = extractListFromResponse(branchesRes, [
-          "branches",
-        ]).map((b) => ({
-          ...b,
-          id: b._id || b.id,
+        const [zonesRes] = await Promise.all([
+          areaService.getAll({ pageNumber: 1, pageSize: 100 }),
+        ]);
+        const zoneData = zonesRes?.data?.data || zonesRes?.data || zonesRes;
+        const zoneList = (zoneData?.areas || zoneData || []).map((zone) => ({
+          id: zone._id || zone.id,
+          name: zone.name || zone._id || zone.id,
         }));
 
-        setBranches(branchList);
+        setZones(zoneList);
       } catch (err) {
         toastError(err?.message || "Failed to load branch analytics data");
       } finally {
@@ -159,15 +167,15 @@ const BranchAnalytics = () => {
     setDateTo(nextRange.to);
   }, [period]);
 
-  const branchesForCompany = useMemo(() => branches, [branches]);
+  const zoneOptions = useMemo(() => zones, [zones]);
 
   useEffect(() => {
-    if (!selectedBranchId) return;
-    const exists = branchesForCompany.some(
-      (b) => String(b.id) === String(selectedBranchId),
+    if (!selectedZoneId) return;
+    const zoneStillValid = zoneOptions.some(
+      (zone) => String(zone.id) === String(selectedZoneId),
     );
-    if (!exists) setSelectedBranchId("");
-  }, [branchesForCompany, selectedBranchId]);
+    if (!zoneStillValid) setSelectedZoneId("");
+  }, [selectedZoneId, zoneOptions]);
 
   const currentRows = tableRows || [];
   const currentPage = tabPages[activeTab] || 1;
@@ -260,14 +268,30 @@ const BranchAnalytics = () => {
       [TAB_KEYS.po]: 1,
       [TAB_KEYS.billing]: 1,
     });
-  }, [selectedBranchId, period, dateFrom, dateTo]);
+  }, [selectedZoneId, period, dateFrom, dateTo]);
+
+  useFilterLockPersist("branch_analytics", filtersLocked, {
+    zoneId: selectedZoneId,
+    period,
+    dateFrom,
+    dateTo,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      zoneId: selectedZoneId,
+      period,
+      dateFrom,
+      dateTo,
+    });
+  };
 
   useEffect(() => {
     const loadAnalytics = async () => {
       setLoadingData(true);
       try {
         const response = await branchAnalyticsService.getData({
-          branchId: selectedBranchId || undefined,
+          zoneId: selectedZoneId || undefined,
           period: period || "all",
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
@@ -301,15 +325,7 @@ const BranchAnalytics = () => {
     };
 
     loadAnalytics();
-  }, [
-    selectedBranchId,
-    period,
-    dateFrom,
-    dateTo,
-    activeTab,
-    tabPages,
-    pageSize,
-  ]);
+  }, [selectedZoneId, period, dateFrom, dateTo, activeTab, tabPages, pageSize]);
 
   const setPageForActiveTab = (nextPage) => {
     setTabPages((prev) => ({ ...prev, [activeTab]: nextPage }));
@@ -324,24 +340,22 @@ const BranchAnalytics = () => {
           </CCardHeader>
           <CCardBody>
             <CRow className="mb-3 g-3 align-items-end">
-              <CCol md={4}>
-                <CFormLabel className="small text-muted mb-1">
-                  Branch
-                </CFormLabel>
+              <CCol md={3}>
+                <CFormLabel className="small text-muted mb-1">Zone</CFormLabel>
                 <CFormSelect
-                  value={selectedBranchId}
-                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  value={selectedZoneId}
+                  onChange={(e) => setSelectedZoneId(e.target.value)}
                 >
-                  <option value="">All branches</option>
-                  {branchesForCompany.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {branch.name || branch.branchcode || branch.id}
+                  <option value="">All zones</option>
+                  {zoneOptions.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name}
                     </option>
                   ))}
                 </CFormSelect>
               </CCol>
 
-              <CCol md={3}>
+              <CCol md={2}>
                 <CFormLabel className="small text-muted mb-1">
                   Period
                 </CFormLabel>
@@ -367,13 +381,20 @@ const BranchAnalytics = () => {
                 />
               </CCol>
 
-              <CCol md={3}>
+              <CCol md={2}>
                 <CFormLabel className="small text-muted mb-1">To</CFormLabel>
                 <CFormInput
                   type="date"
                   value={dateTo}
                   min={dateFrom || undefined}
                   onChange={(e) => setDateTo(e.target.value)}
+                />
+              </CCol>
+              <CCol md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Branch Analytics"
                 />
               </CCol>
             </CRow>
@@ -512,7 +533,7 @@ const BranchAnalytics = () => {
                               {item.status || "-"}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(item.createdAt)}
+                              {dateFormatter(item.createdAt, "-")}
                             </CTableDataCell>
                           </CTableRow>
                         ))
@@ -559,7 +580,7 @@ const BranchAnalytics = () => {
                               {item.status || "-"}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(item.createdAt)}
+                              {dateFormatter(item.createdAt, "-")}
                             </CTableDataCell>
                           </CTableRow>
                         ))
@@ -602,7 +623,7 @@ const BranchAnalytics = () => {
                               {formatAmount(item.amount)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(item.entryDate)}
+                              {dateFormatter(item.entryDate, "-")}
                             </CTableDataCell>
                           </CTableRow>
                         ))
@@ -645,7 +666,7 @@ const BranchAnalytics = () => {
                               {formatAmount(item.amount)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(item.entryDate)}
+                              {dateFormatter(item.entryDate, "-")}
                             </CTableDataCell>
                           </CTableRow>
                         ))
@@ -660,46 +681,14 @@ const BranchAnalytics = () => {
                   </CTable>
                 )}
 
-                {totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((tablePagination?.currentPage ?? 1) - 1) *
-                        (tablePagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (tablePagination?.currentPage ?? 1) *
-                          (tablePagination?.itemsPerPage ?? 10),
-                        tablePagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {tablePagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={safePage <= 1}
-                        onClick={() =>
-                          setPageForActiveTab(Math.max(1, safePage - 1))
-                        }
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active>
-                        {safePage} / {totalPages}
-                      </CPaginationItem>
-                      <CPaginationItem
-                        disabled={safePage >= totalPages}
-                        onClick={() =>
-                          setPageForActiveTab(
-                            Math.min(totalPages, safePage + 1),
-                          )
-                        }
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={setPageForActiveTab}
+                  showRange
+                  totalItems={tablePagination?.totalItems ?? 0}
+                  itemsPerPage={tablePagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

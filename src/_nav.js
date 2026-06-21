@@ -636,13 +636,6 @@ const _nav = [
     icon: <CIcon icon={cilDescription} customClassName="nav-icon" />,
     module: null,
   },
-  {
-    component: CNavItem,
-    name: "My Salary",
-    to: "/my-salary",
-    icon: <CIcon icon={cilMoney} customClassName="nav-icon" />,
-    module: null,
-  },
 ];
 
 export default _nav;

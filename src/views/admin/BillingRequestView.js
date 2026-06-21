@@ -33,20 +33,95 @@ import {
 } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import billingRequestBatchService from "../../services/billingRequestBatchService";
+import supplierService from "../../services/supplierService";
 import documentService from "../../services/documentService";
 import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
 import { toastError, toastSuccess } from "../../utils/toast";
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-};
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const fmtAmount = (n) =>
   typeof n === "number" ? `₹${n.toLocaleString("en-IN")}` : "—";
+
+const fmtField = (value) => {
+  const text = value != null ? String(value).trim() : "";
+  return text || "—";
+};
+
+const SUPPLIER_BANK_DETAIL_FIELDS = [
+  { key: "accountHolderName", label: "Account Holder Name" },
+  { key: "accountNumber", label: "Account Number" },
+  { key: "bankName", label: "Bank Name" },
+  { key: "ifscCode", label: "IFSC Code" },
+  { key: "upiDetails", label: "UPI Details" },
+];
+
+const normalizeSupplierBankDetails = (bankDetails) => {
+  const src = bankDetails && typeof bankDetails === "object" ? bankDetails : {};
+  return {
+    accountHolderName: src.accountHolderName || "",
+    accountNumber: src.accountNumber || "",
+    bankName: src.bankName || "",
+    ifscCode: src.ifscCode || "",
+    upiDetails: src.upiDetails || "",
+  };
+};
+
+const supplierSnapshotTitle = (snapshot) =>
+  snapshot?.name || snapshot?.shopname || snapshot?.companyName || "Supplier";
+
+const formatSupplierSnapshot = (snapshot) => {
+  if (!snapshot || typeof snapshot !== "object") {
+    return { title: "—", lines: [] };
+  }
+  const title =
+    snapshot.name || snapshot.shopname || snapshot.companyName || "—";
+  const lines = [
+    snapshot.shopname &&
+      snapshot.name &&
+      snapshot.shopname !== snapshot.name &&
+      snapshot.shopname,
+    snapshot.phone_1 && `Phone: ${snapshot.phone_1}`,
+    snapshot.gst && `GST: ${snapshot.gst}`,
+    snapshot.address && `Address: ${snapshot.address}`,
+    snapshot.email && `Email: ${snapshot.email}`,
+  ].filter(Boolean);
+  return { title, lines };
+};
+
+const SupplierDetailsCell = ({
+  snapshot,
+  showBankDetailsAction,
+  onShowBankDetails,
+}) => {
+  const { title, lines } = formatSupplierSnapshot(snapshot);
+  if (title === "—" && lines.length === 0) return "—";
+  return (
+    <div style={{ minWidth: 160 }}>
+      <div className="fw-medium">{title}</div>
+      {lines.map((line) => (
+        <div
+          key={line}
+          className="text-body-secondary"
+          style={{ fontSize: 12, lineHeight: 1.35 }}
+        >
+          {line}
+        </div>
+      ))}
+      {showBankDetailsAction && (
+        <CButton
+          size="sm"
+          color="link"
+          className="p-0 mt-1 text-decoration-none"
+          style={{ fontSize: 12 }}
+          onClick={onShowBankDetails}
+        >
+          Show bank details
+        </CButton>
+      )}
+    </div>
+  );
+};
 
 const STATUS_MAP = {
   hod_approval_pending: { label: "Pending", color: "warning" },
@@ -127,6 +202,15 @@ const BillingRequestView = ({
   const [hodRemark, setHodRemark] = useState("");
   const [hodSubmitting, setHodSubmitting] = useState(false);
 
+  const [bankDetailsOpen, setBankDetailsOpen] = useState(false);
+  const [bankDetailsLoading, setBankDetailsLoading] = useState(false);
+  const [bankDetailsSupplier, setBankDetailsSupplier] = useState(null);
+  const [bankDetails, setBankDetails] = useState(() =>
+    normalizeSupplierBankDetails(),
+  );
+
+  const showSupplierBankDetails = !showProductAction;
+
   const reload = () => {
     if (!id) return;
     billingRequestBatchService
@@ -196,7 +280,46 @@ const BillingRequestView = ({
     }
   };
 
+  const closeBankDetails = () => {
+    if (bankDetailsLoading) return;
+    setBankDetailsOpen(false);
+    setBankDetailsSupplier(null);
+    setBankDetails(normalizeSupplierBankDetails());
+  };
+
+  const openSupplierBankDetails = async (snapshot) => {
+    if (!snapshot || typeof snapshot !== "object") {
+      toastError("No supplier linked to this product.");
+      return;
+    }
+
+    setBankDetailsSupplier(snapshot);
+    setBankDetails(normalizeSupplierBankDetails(snapshot.bankDetails));
+    setBankDetailsOpen(true);
+    setBankDetailsLoading(true);
+
+    try {
+      const supplierId = snapshot._id ? String(snapshot._id) : "";
+      if (supplierId) {
+        const res = await supplierService.getById(supplierId);
+        const data = res?.data || res;
+        setBankDetails(normalizeSupplierBankDetails(data?.bankDetails));
+        setBankDetailsSupplier((prev) => ({
+          ...(prev || {}),
+          name: data?.name || prev?.name,
+          shopname: data?.shopname || prev?.shopname,
+        }));
+      }
+    } catch (e) {
+      toastError(e?.message || "Could not load latest supplier bank details.");
+    } finally {
+      setBankDetailsLoading(false);
+    }
+  };
+
   const onSubmitFinanceApprove = async () => {
+    if (!isPaidAmountValid) return;
+
     setSubmitting(true);
     try {
       let paymentProofDocId = null;
@@ -263,6 +386,11 @@ const BillingRequestView = ({
     (s, p) => s + (typeof p.amount === "number" ? p.amount : 0),
     0,
   );
+  const parsedPaidAmount = paidAmount.trim() !== "" ? Number(paidAmount) : null;
+  const isPaidAmountValid =
+    parsedPaidAmount != null &&
+    Number.isFinite(parsedPaidAmount) &&
+    Math.round(parsedPaidAmount * 100) === Math.round(grandTotal * 100);
   const createdByName =
     detail.createdBySnapshot?.name || detail.createdBySnapshot?.fullName || "—";
   const reviewedByName =
@@ -322,7 +450,9 @@ const BillingRequestView = ({
               </CCol>
               <CCol sm={6} md={3}>
                 <div className="text-body-secondary small mb-1">Raised on</div>
-                <div className="fw-medium">{fmtDate(detail.createdAt)}</div>
+                <div className="fw-medium">
+                  {dateFormatter(detail.createdAt, "—")}
+                </div>
               </CCol>
               <CCol sm={6} md={3}>
                 <div className="text-body-secondary small mb-1">
@@ -343,7 +473,7 @@ const BillingRequestView = ({
                       Reviewed at
                     </div>
                     <div className="fw-medium">
-                      {fmtDate(detail.reviewedAt)}
+                      {dateFormatter(detail.reviewedAt, "—")}
                     </div>
                   </CCol>
                 </>
@@ -397,7 +527,7 @@ const BillingRequestView = ({
                   <CCol sm={6} md={3}>
                     <div className="text-body-secondary mb-1">Approved on</div>
                     <div className="fw-medium">
-                      {fmtDate(detail.financeApprovedAt)}
+                      {dateFormatter(detail.financeApprovedAt, "—")}
                     </div>
                   </CCol>
                 )}
@@ -461,7 +591,6 @@ const BillingRequestView = ({
                     <CTableHeaderCell scope="col">Amount</CTableHeaderCell>
                     <CTableHeaderCell scope="col">Supplier</CTableHeaderCell>
                     <CTableHeaderCell scope="col">Remark</CTableHeaderCell>
-                    <CTableHeaderCell scope="col">HOD Status</CTableHeaderCell>
                     <CTableHeaderCell scope="col" className="text-end">
                       Action
                     </CTableHeaderCell>
@@ -469,10 +598,6 @@ const BillingRequestView = ({
                 </CTableHead>
                 <CTableBody>
                   {products.map((p, idx) => {
-                    const supplierName =
-                      p.supplierSnapshot?.name ||
-                      p.supplierSnapshot?.companyName ||
-                      "—";
                     const imgDocId = p.productImageDocId
                       ? String(p.productImageDocId)
                       : null;
@@ -496,27 +621,23 @@ const BillingRequestView = ({
                             : "—"}
                         </CTableDataCell>
                         <CTableDataCell>{fmtAmount(p.amount)}</CTableDataCell>
-                        <CTableDataCell>{supplierName}</CTableDataCell>
+                        <CTableDataCell>
+                          <SupplierDetailsCell
+                            snapshot={p.supplierSnapshot}
+                            showBankDetailsAction={
+                              showSupplierBankDetails && !!p.supplierSnapshot
+                            }
+                            onShowBankDetails={() =>
+                              openSupplierBankDetails(p.supplierSnapshot)
+                            }
+                          />
+                        </CTableDataCell>
                         <CTableDataCell
                           style={{ maxWidth: 200 }}
                           className="text-truncate"
                           title={p.remark || undefined}
                         >
                           {p.remark || "—"}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          <HodProductBadge status={p.hodStatus} />
-                          {p.hodRemark && (
-                            <div
-                              className="small text-body-secondary mt-1"
-                              style={{ maxWidth: 150 }}
-                              title={p.hodRemark}
-                            >
-                              {p.hodRemark.length > 40
-                                ? `${p.hodRemark.slice(0, 40)}…`
-                                : p.hodRemark}
-                            </div>
-                          )}
                         </CTableDataCell>
                         <CTableDataCell className="text-end">
                           <div className="d-flex gap-2 justify-content-end flex-wrap">
@@ -591,6 +712,57 @@ const BillingRequestView = ({
           </CCardBody>
         </CCard>
       </CCol>
+
+      {/* Supplier bank details offcanvas */}
+      <COffcanvas
+        placement="end"
+        visible={bankDetailsOpen}
+        onHide={closeBankDetails}
+        scroll
+        style={{ width: "min(420px, 95vw)" }}
+      >
+        <COffcanvasHeader className="d-flex align-items-center justify-content-between border-bottom">
+          <COffcanvasTitle className="fw-semibold">
+            Supplier Bank Details
+          </COffcanvasTitle>
+          <CCloseButton
+            className="ms-2"
+            disabled={bankDetailsLoading}
+            onClick={closeBankDetails}
+          />
+        </COffcanvasHeader>
+        <COffcanvasBody className="p-3">
+          {bankDetailsSupplier && (
+            <div className="border rounded p-3 bg-light mb-3">
+              <div className="fw-medium">
+                {supplierSnapshotTitle(bankDetailsSupplier)}
+              </div>
+              {bankDetailsSupplier.shopname &&
+                bankDetailsSupplier.name &&
+                bankDetailsSupplier.shopname !== bankDetailsSupplier.name && (
+                  <div className="small text-body-secondary mt-1">
+                    {bankDetailsSupplier.shopname}
+                  </div>
+                )}
+            </div>
+          )}
+
+          {bankDetailsLoading ? (
+            <div className="text-center py-4">
+              <CSpinner />
+            </div>
+          ) : (
+            <div className="d-flex flex-column gap-3">
+              {SUPPLIER_BANK_DETAIL_FIELDS.map(({ key, label }) => (
+                <div key={key}>
+                  <div className="text-body-secondary small mb-1">{label}</div>
+                  <div className="fw-medium">{fmtField(bankDetails[key])}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </COffcanvasBody>
+      </COffcanvas>
 
       {/* Per-product HOD Action Offcanvas */}
       <COffcanvas
@@ -705,7 +877,16 @@ const BillingRequestView = ({
               value={paidAmount}
               onChange={(e) => setPaidAmount(e.target.value)}
               disabled={submitting}
+              invalid={parsedPaidAmount != null && !isPaidAmountValid}
             />
+            <div className="small text-body-secondary mt-1">
+              Total amount: {fmtAmount(grandTotal)}
+            </div>
+            {parsedPaidAmount != null && !isPaidAmountValid && (
+              <div className="small text-danger mt-1">
+                Paid amount must equal the total amount.
+              </div>
+            )}
           </div>
 
           <div>
@@ -740,23 +921,25 @@ const BillingRequestView = ({
             </div>
           </div>
 
-          <div className="mt-auto pt-3 border-top">
-            <CButton
-              color="primary"
-              className="w-100"
-              disabled={submitting}
-              onClick={onSubmitFinanceApprove}
-            >
-              {submitting ? (
-                <>
-                  <CSpinner size="sm" className="me-2" />
-                  Submitting…
-                </>
-              ) : (
-                "Submit"
-              )}
-            </CButton>
-          </div>
+          {isPaidAmountValid && (
+            <div className="mt-auto pt-3 border-top">
+              <CButton
+                color="primary"
+                className="w-100"
+                disabled={submitting}
+                onClick={onSubmitFinanceApprove}
+              >
+                {submitting ? (
+                  <>
+                    <CSpinner size="sm" className="me-2" />
+                    Submitting…
+                  </>
+                ) : (
+                  "Submit"
+                )}
+              </CButton>
+            </div>
+          )}
         </COffcanvasBody>
       </COffcanvas>
     </CRow>

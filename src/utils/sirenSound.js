@@ -8,52 +8,94 @@ const sirenAssets = import.meta.glob(
 );
 const sirenAssetUrl = Object.values(sirenAssets)[0] || null;
 
-let cachedAudio = null;
-const getCachedAudio = () => {
-  if (!sirenAssetUrl) return null;
-  if (!cachedAudio) {
+let sharedAudioContext = null;
+let audioUnlockInstalled = false;
+let audioUnlocked = false;
+
+const getAudioContextCtor = () =>
+  typeof window !== "undefined"
+    ? window.AudioContext || window.webkitAudioContext
+    : null;
+
+export const ensureAudioReady = async () => {
+  const AudioContext = getAudioContextCtor();
+  if (!AudioContext) return null;
+  if (!sharedAudioContext) {
+    sharedAudioContext = new AudioContext();
+  }
+  if (sharedAudioContext.state === "suspended") {
     try {
-      cachedAudio = new Audio(sirenAssetUrl);
-      cachedAudio.preload = "auto";
-      cachedAudio.volume = 0.7;
+      await sharedAudioContext.resume();
     } catch {
-      cachedAudio = null;
+      // ignore
     }
   }
-  return cachedAudio;
+  return sharedAudioContext;
+};
+
+/** Call once after login — unlocks audio on first click/key/touch in the app. */
+export const installNotificationAudioUnlock = () => {
+  if (audioUnlockInstalled || typeof window === "undefined") return;
+  audioUnlockInstalled = true;
+
+  const unlock = () => {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    void (async () => {
+      await ensureAudioReady();
+      if (sirenAssetUrl) {
+        try {
+          const probe = new Audio(sirenAssetUrl);
+          probe.volume = 0;
+          await probe.play();
+          probe.pause();
+          probe.currentTime = 0;
+        } catch {
+          // HTML audio blocked — Web Audio may still work after ensureAudioReady
+        }
+      }
+    })();
+  };
+
+  window.addEventListener("pointerdown", unlock, {
+    capture: true,
+    passive: true,
+  });
+  window.addEventListener("keydown", unlock, { capture: true, passive: true });
 };
 
 /**
  * Play the bundled notification siren audio file (if present).
- * Falls back to the synthesized `playSirenSound` if no file is available
- * or the browser blocks playback.
+ * Falls back to synthesized `playSirenSound` when blocked or missing.
  */
 export const playNotificationSiren = () => {
-  const audio = getCachedAudio();
-  if (!audio) {
-    playSirenSound();
-    return;
-  }
-  try {
-    audio.currentTime = 0;
-    const result = audio.play();
-    if (result && typeof result.catch === "function") {
-      result.catch(() => playSirenSound());
+  void (async () => {
+    await ensureAudioReady();
+
+    if (sirenAssetUrl) {
+      try {
+        const playback = new Audio(sirenAssetUrl);
+        playback.volume = 0.7;
+        playback.preload = "auto";
+        await playback.play();
+        return;
+      } catch {
+        // fall through to synthesized siren
+      }
     }
-  } catch {
-    playSirenSound();
-  }
+
+    await playSirenSound();
+  })();
 };
 
 /**
  * Play a siren-like sound using Web Audio API (no external file).
- * Two-tone alternating pattern for ~2 seconds.
  */
-export const playSirenSound = () => {
+export const playSirenSound = async () => {
   try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
+    const ctx = await ensureAudioReady();
+    if (!ctx || ctx.state !== "running") return;
+
     const duration = 2;
     const fade = 0.1;
     const lowFreq = 400;
@@ -78,7 +120,7 @@ export const playSirenSound = () => {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
   } catch {
-    // Ignore if autoplay or AudioContext fails
+    // ignore autoplay / AudioContext errors
   }
 };
 
@@ -86,26 +128,28 @@ export const playSirenSound = () => {
  * Play a shorter, higher-pitch beep for rate update.
  */
 export const playRateUpdateSound = () => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    const duration = 0.8;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = "triangle";
-    const now = ctx.currentTime;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
-    gain.gain.linearRampToValueAtTime(0, now + duration);
-    osc.frequency.setValueAtTime(900, now);
-    osc.frequency.exponentialRampToValueAtTime(1500, now + duration / 2);
-    osc.frequency.exponentialRampToValueAtTime(700, now + duration);
-    osc.start(now);
-    osc.stop(now + duration);
-  } catch {
-    // Ignore audio errors
-  }
+  void (async () => {
+    try {
+      const ctx = await ensureAudioReady();
+      if (!ctx || ctx.state !== "running") return;
+
+      const duration = 0.8;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = "triangle";
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.3, now + 0.05);
+      gain.gain.linearRampToValueAtTime(0, now + duration);
+      osc.frequency.setValueAtTime(900, now);
+      osc.frequency.exponentialRampToValueAtTime(1500, now + duration / 2);
+      osc.frequency.exponentialRampToValueAtTime(700, now + duration);
+      osc.start(now);
+      osc.stop(now + duration);
+    } catch {
+      // ignore
+    }
+  })();
 };

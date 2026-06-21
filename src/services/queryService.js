@@ -1,6 +1,15 @@
 import { api } from "../api/axiosClient";
 import { QUERIES } from "../api/endpoints";
 
+const OBJECT_ID_PATTERN = /^[a-fA-F0-9]{24}$/;
+
+const refId = (value) => {
+  if (value == null || value === "") return null;
+  if (typeof value === "string" && OBJECT_ID_PATTERN.test(value)) return value;
+  if (typeof value === "object" && value._id) return String(value._id);
+  return null;
+};
+
 const mapToApiPayload = (data) => {
   const payload = {};
   if (data.status != null) payload.status = data.status;
@@ -25,7 +34,7 @@ const mapToApiPayload = (data) => {
     payload.products = (data.products || []).map((p) => {
       const img = Array.isArray(p.images) ? p.images : [];
       const idFromImg = (i) => {
-        if (typeof i === "string" && /^[a-fA-F0-9]{24}$/.test(i)) return i;
+        if (typeof i === "string" && OBJECT_ID_PATTERN.test(i)) return i;
         if (i && typeof i === "object" && i._id) return i._id;
         return null;
       };
@@ -45,19 +54,29 @@ const mapToApiPayload = (data) => {
           p.description && String(p.description).trim()
             ? String(p.description).trim()
             : "",
-        product_id: p.product_id || null,
-        groupId: p.groupId || null,
-        categoryId: p.categoryId || null,
+        product_id: refId(p.product_id),
+        groupId: refId(p.groupId),
+        categoryId: refId(p.categoryId),
+        subcategoryId: refId(p.subcategoryId),
         rawProductCode:
           (p.rawProductCode && String(p.rawProductCode).trim()) || "",
         query_tracking_code:
           (p.query_tracking_code && String(p.query_tracking_code).trim()) || "",
         images: img.map(idFromImg).filter(Boolean),
+        quotation_status: p.quotation_status || "pending",
+        sub_status: p.sub_status || "draft",
       };
     });
   }
 
   if (data.created_by != null) payload.created_by = String(data.created_by);
+
+  if (data.queryReferenceBy !== undefined) {
+    payload.queryReferenceBy =
+      data.queryReferenceBy != null
+        ? String(data.queryReferenceBy).trim().toLowerCase()
+        : "";
+  }
 
   return payload;
 };
@@ -86,6 +105,13 @@ const queryService = {
   getById: async (id) => {
     const response = await api.get(QUERIES.GET_BY_ID, {
       params: { queryId: id },
+    });
+    return response;
+  },
+
+  getCompanyQueryAnalytics: async (queryId) => {
+    const response = await api.get(QUERIES.COMPANY_QUERY_ANALYTICS, {
+      params: { queryId },
     });
     return response;
   },

@@ -24,8 +24,6 @@ import {
   CFormTextarea,
   CFormSelect,
   CBadge,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
@@ -33,9 +31,10 @@ import { EyeIcon } from "../../components";
 import rawQueryService from "../../services/rawQueryService";
 import industryService from "../../services/industryService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import { ConfirmDialog, Loader, TablePagination } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const RawQuery = () => {
   const navigate = useNavigate();
@@ -269,9 +268,10 @@ const RawQuery = () => {
                               {getPriorityBadge(query.priority)}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {new Date(
+                              {dateFormatter(
                                 query.createdAt || query.created_at,
-                              ).toLocaleDateString()}
+                                "—",
+                              )}
                             </CTableDataCell>
                             <CTableDataCell>
                               <CButton
@@ -326,51 +326,15 @@ const RawQuery = () => {
                   )}
                 </CTableBody>
               </CTable>
-              {pagination && pagination.totalPages > 1 && (
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                  <div className="small text-medium-emphasis">
-                    Showing{" "}
-                    {((pagination?.currentPage ?? 1) - 1) *
-                      (pagination?.itemsPerPage ?? 10) +
-                      1}
-                    -
-                    {Math.min(
-                      (pagination?.currentPage ?? 1) *
-                        (pagination?.itemsPerPage ?? 10),
-                      pagination?.totalItems ?? 0,
-                    )}{" "}
-                    of {pagination?.totalItems ?? 0}
-                  </div>
-                  <CPagination className="mb-0" aria-label="Raw query pages">
-                    <CPaginationItem
-                      disabled={!pagination.hasPrevPage}
-                      onClick={() =>
-                        setPageNumber((prev) => Math.max(1, prev - 1))
-                      }
-                    >
-                      Previous
-                    </CPaginationItem>
-                    {Array.from(
-                      { length: pagination.totalPages },
-                      (_, index) => index + 1,
-                    ).map((page) => (
-                      <CPaginationItem
-                        key={page}
-                        active={page === pagination.currentPage}
-                        onClick={() => setPageNumber(page)}
-                      >
-                        {page}
-                      </CPaginationItem>
-                    ))}
-                    <CPaginationItem
-                      disabled={!pagination.hasNextPage}
-                      onClick={() => setPageNumber((prev) => prev + 1)}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
-                </div>
-              )}
+              <TablePagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setPageNumber}
+                showRange
+                totalItems={pagination?.totalItems ?? 0}
+                itemsPerPage={pagination?.itemsPerPage ?? 10}
+                ariaLabel="Raw query pages"
+              />
             </CCardBody>
           </CCard>
         </CCol>

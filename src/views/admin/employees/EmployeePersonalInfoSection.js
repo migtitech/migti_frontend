@@ -65,7 +65,7 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="fatherName">Fathers Name *</CFormLabel>
+          <CFormLabel htmlFor="fatherName">Fathers Name</CFormLabel>
           <CFormInput
             id="fatherName"
             {...register("fatherName")}
@@ -76,7 +76,7 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
       </CCol>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="motherName">Mothers Name *</CFormLabel>
+          <CFormLabel htmlFor="motherName">Mothers Name</CFormLabel>
           <CFormInput
             id="motherName"
             {...register("motherName")}
@@ -89,7 +89,7 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel htmlFor="pincode">Pincode *</CFormLabel>
+          <CFormLabel htmlFor="pincode">Pincode</CFormLabel>
           <CFormInput
             id="pincode"
             inputMode="numeric"
@@ -104,7 +104,7 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
     <CRow>
       <CCol md={6}>
         <div className="mb-3">
-          <CFormLabel className="d-block">Do you have a bike? *</CFormLabel>
+          <CFormLabel className="d-block">Do you have a bike?</CFormLabel>
           <div className="d-flex gap-3">
             <CFormCheck
               type="radio"
@@ -129,7 +129,7 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
       <CCol md={6}>
         <div className="mb-3">
           <CFormLabel className="d-block">
-            Do you have a driving licence? *
+            Do you have a driving licence?
           </CFormLabel>
           <div className="d-flex gap-3">
             <CFormCheck

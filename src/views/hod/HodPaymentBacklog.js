@@ -7,8 +7,6 @@ import {
   CCol,
   CFormInput,
   CFormLabel,
-  CPagination,
-  CPaginationItem,
   CRow,
   CSpinner,
   CTable,
@@ -22,20 +20,11 @@ import CIcon from "@coreui/icons-react";
 import { cilMoney, cilBuilding, cilReload, cilX } from "@coreui/icons";
 import poPaymentBacklogService from "../../services/poPaymentBacklogService";
 import { toastError } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination } from "../../components";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
 
 const isDueSoon = (dueDateStr) => {
   if (!dueDateStr) return false;
@@ -426,7 +415,7 @@ const HodPaymentBacklog = () => {
                       {formatAmount(row.amount)}
                     </CTableDataCell>
                     <CTableDataCell className="small text-body-secondary">
-                      {formatDate(row.createdAt)}
+                      {dateFormatter(row.createdAt, "—")}
                     </CTableDataCell>
                     <CTableDataCell>
                       <span
@@ -438,7 +427,7 @@ const HodPaymentBacklog = () => {
                               : ""
                         }
                       >
-                        {formatDate(row.due_date)}
+                        {dateFormatter(row.due_date, "—")}
                       </span>
                     </CTableDataCell>
                     <CTableDataCell>
@@ -451,31 +440,13 @@ const HodPaymentBacklog = () => {
           </CTable>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="d-flex justify-content-end mt-3">
-              <CPagination
-                align="end"
-                className="mb-0"
-                aria-label="Backlog pages"
-              >
-                <CPaginationItem
-                  disabled={page <= 1}
-                  onClick={() => page > 1 && setPage((p) => p - 1)}
-                >
-                  Previous
-                </CPaginationItem>
-                <CPaginationItem active>
-                  {page} / {totalPages}
-                </CPaginationItem>
-                <CPaginationItem
-                  disabled={page >= totalPages}
-                  onClick={() => page < totalPages && setPage((p) => p + 1)}
-                >
-                  Next
-                </CPaginationItem>
-              </CPagination>
-            </div>
-          )}
+          <TablePagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            wrapperClassName="d-flex justify-content-center mt-4"
+            align="center"
+          />
         </CCardBody>
       </CCard>
     </div>

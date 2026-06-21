@@ -1,11 +1,36 @@
 import navigation, { PURCHASE_ROLE_NAV } from "../_nav";
-import { isPurchaseFamilyRole, normalizeRole } from "../hooks/usePermissions";
+import {
+  isBackOfficeRole,
+  isPurchaseFamilyRole,
+  normalizeRole,
+} from "../hooks/usePermissions";
 
 /** Routes visible in the sidebar and open to every authenticated role. */
-export const UNIVERSAL_NAV_PATHS = new Set(["/company-catalog", "/my-salary"]);
+export const UNIVERSAL_NAV_PATHS = new Set([
+  "/company-catalog",
+  "/visit-management-sidebar",
+]);
 
 /** Modules where HOD must have explicit permission (no full-access bypass). */
 export const HOD_PERMISSION_REQUIRED_MODULES = new Set(["po_payment_backlog"]);
+
+/** Nav routes under Branch Settings hidden for back office roles. */
+export const BACK_OFFICE_HIDDEN_PATHS = new Set([
+  "/zones",
+  "/sub-zones",
+  "/employees",
+  "/company-documents",
+  "/branch-settings",
+  "/branch-analytics",
+  "/target-dashboard",
+  "/my-visits",
+  "/visit-management-sidebar",
+  "/billing-requests",
+  "/dispatchment",
+  "/task-dashboard",
+  "/task-bucket",
+  "/inventory-bucket",
+]);
 
 /** Nav routes hidden for head_of_department / hod only. */
 export const HOD_HIDDEN_PATHS = new Set([
@@ -14,7 +39,6 @@ export const HOD_HIDDEN_PATHS = new Set([
   "/employee-locations",
   "/billing-requests",
   "/batch-billing-requests",
-  "/my-visits",
   "/dispatchment",
   "/inventory-bucket",
   "/pro-bucket",
@@ -141,6 +165,14 @@ const hasExplicitModulePermission = (permissions, module) =>
 export const isNavItemVisible = (item, ctx) => {
   const { role, strategy, isHod, isFullAccess, hasAnyPermission, permissions } =
     ctx;
+
+  if (
+    isBackOfficeRole(role) &&
+    item.to &&
+    BACK_OFFICE_HIDDEN_PATHS.has(item.to)
+  ) {
+    return false;
+  }
 
   if (item.to && UNIVERSAL_NAV_PATHS.has(item.to)) {
     return true;

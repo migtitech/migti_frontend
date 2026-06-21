@@ -10,8 +10,6 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
   CRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -20,17 +18,29 @@ import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import billingRequestBatchService from "../../services/billingRequestBatchService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+import { dateFormatter } from "../../utils/dateFormatter";
 
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-};
+const BATCH_BILLING_FILTER_DEFAULTS = { poCode: "", status: "" };
 
 const fmtAmount = (n) =>
   typeof n === "number" ? n.toLocaleString("en-IN") : "—";
+
+const salesOrderCodeLast4 = (code) => {
+  const codeText = code != null ? String(code).trim() : "";
+  if (!codeText) return null;
+  return codeText.length <= 4 ? codeText : codeText.slice(-4);
+};
+
+const salesOrderCodesLast4Display = (poCodesText) => {
+  const salesOrderCodes = String(poCodesText || "")
+    .split(",")
+    .map((code) => code.trim())
+    .filter(Boolean);
+  if (salesOrderCodes.length === 0) return null;
+  return salesOrderCodes.map((code) => salesOrderCodeLast4(code)).join(", ");
+};
 
 const totalAmount = (products) =>
   Array.isArray(products)
@@ -61,6 +71,10 @@ const unwrap = (res) => {
 
 const BatchBillingRequests = () => {
   const navigate = useNavigate();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "batch_billing_requests",
+    BATCH_BILLING_FILTER_DEFAULTS,
+  );
 
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState({
@@ -73,9 +87,9 @@ const BatchBillingRequests = () => {
   const [pageSize] = useState(20);
   const [loading, setLoading] = useState(false);
 
-  const [filterPoCode, setFilterPoCode] = useState("");
+  const [filterPoCode, setFilterPoCode] = useState(initialValues.poCode);
   const [filterPoCodeDebounced, setFilterPoCodeDebounced] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
   const [filterFrom] = useState("");
   const [filterTo] = useState("");
 
@@ -87,6 +101,15 @@ const BatchBillingRequests = () => {
   useEffect(() => {
     setPage(1);
   }, [filterPoCodeDebounced, filterStatus]);
+
+  useFilterLockPersist("batch_billing_requests", filtersLocked, {
+    poCode: filterPoCode,
+    status: filterStatus,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ poCode: filterPoCode, status: filterStatus });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -170,6 +193,13 @@ const BatchBillingRequests = () => {
                   <option value="hod_rejected">Rejected</option>
                 </CFormSelect>
               </CCol>
+              <CCol md="auto" className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Batch Billing Requests"
+                />
+              </CCol>
               {(filterPoCode || filterStatus) && (
                 <CCol md="auto">
                   <CButton
@@ -223,6 +253,9 @@ const BatchBillingRequests = () => {
                       r.createdBySnapshot?.name ||
                       r.createdBySnapshot?.fullName ||
                       "—";
+                    const salesOrderLast4 = salesOrderCodesLast4Display(
+                      r.poCode,
+                    );
                     return (
                       <CCol key={r._id} xs={12} md={6} xl={4}>
                         <div
@@ -251,10 +284,12 @@ const BatchBillingRequests = () => {
                               >
                                 {r.billingRequestCode || "—"}
                               </div>
-                              {r.poCode && (
+                              {salesOrderLast4 && (
                                 <div className="small text-body-secondary">
                                   Sales Order:{" "}
-                                  <code className="small">{r.poCode}</code>
+                                  <code className="small">
+                                    {salesOrderLast4}
+                                  </code>
                                 </div>
                               )}
                             </div>
@@ -301,7 +336,7 @@ const BatchBillingRequests = () => {
                               style={{ fontSize: "0.78rem" }}
                             >
                               <CIcon icon={cilCalendar} size="sm" />
-                              {fmtDate(r.createdAt)}
+                              {dateFormatter(r.createdAt, "—")}
                             </span>
                           </div>
 
@@ -320,29 +355,12 @@ const BatchBillingRequests = () => {
                   })}
                 </CRow>
 
-                {pagination.totalItems > pageSize && (
-                  <div className="d-flex align-items-center justify-content-end mt-4">
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={page <= 1}
-                        onClick={() => page > 1 && setPage(page - 1)}
-                        style={{ cursor: page <= 1 ? "default" : "pointer" }}
-                      >
-                        Prev
-                      </CPaginationItem>
-                      <CPaginationItem active>{page}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={page >= totalPages}
-                        onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{
-                          cursor: page >= totalPages ? "default" : "pointer",
-                        }}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  wrapperClassName="d-flex align-items-center justify-content-end mt-4"
+                />
               </>
             )}
           </CCardBody>

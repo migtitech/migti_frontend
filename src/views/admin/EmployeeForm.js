@@ -10,17 +10,11 @@ import {
 } from "@coreui/react";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-import * as yup from "yup";
+import { OBJECT_ID_PATTERN } from "../../utils/validation";
 import {
-  phoneRequired,
-  phoneOptional,
-  emailRequired,
-  emailOptional,
-  stringRequired,
-  stringOptional,
-  MSG,
-  OBJECT_ID_PATTERN,
-} from "../../utils/validation";
+  getEmployeeSchema,
+  EMPLOYEE_FORM_DEFAULT_VALUES,
+} from "../../validation/employeeSchema";
 import employeeService from "../../services/employeeService";
 import groupService from "../../services/groupService";
 import branchService from "../../services/branchService";
@@ -38,12 +32,17 @@ import EmployeeAccountDetailsSection from "./employees/EmployeeAccountDetailsSec
 import EmployeePermissionsSection from "./employees/EmployeePermissionsSection";
 import { FULL_ACCESS_ROLES } from "../../context/AuthContext";
 import useBranchContext from "../../hooks/useBranchContext";
+import { shouldShowEmployeeZoneFields } from "../../utils/employeeZoneEligibility";
+import {
+  EMPLOYEE_ROLE_OPTIONS,
+  getDesignationsForRole,
+} from "../../constants/employeeRoleDesignations";
 
 const EmployeeForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { branchId: userBranchId } = useBranchContext();
 
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -64,175 +63,9 @@ const EmployeeForm = () => {
     }
   }, [isEdit, id]);
 
-  const roleOptions = useMemo(
-    () => [
-      "head_of_department",
-      "sales_manager",
-      "sales_exicutive",
-      "purchase_exicutive",
-      "procurement",
-      "localprocurement",
-      "localpurchase",
-      "back_office_exicutive",
-      "administrator",
-      "finance",
-      "inventry_manager",
-      "dispatch_manager",
-    ],
-    [],
-  );
+  const roleOptions = EMPLOYEE_ROLE_OPTIONS;
 
-  const designationOptions = useMemo(
-    () => [
-      "Head Of Department ( HOD )",
-      "Sales Manager ( SM )",
-      "Sales Exicutive ( SE )",
-      "Purchase Exicutive  ( PE )",
-      "Procurement Exicutive  ( PRC )",
-      "Local Procurement  ( LP )",
-      "Local Purchase  ( LPU )",
-      "Back Office Exicutive ( BOE )",
-      "Administrator ( ADMIN )",
-      "Finance",
-      "Inventry Manager",
-      "Dispatch Manager",
-    ],
-    [],
-  );
-
-  const schema = useMemo(
-    () =>
-      yup.object({
-        name: stringRequired(2, 100).label("Name"),
-        email: emailRequired().label("Email"),
-        phone: phoneRequired().label("Phone"),
-        fatherName: stringOptional(100).label("Father's name"),
-        motherName: stringOptional(100).label("Mother's name"),
-        pincode: yup
-          .string()
-          .trim()
-          .optional()
-          .max(20, MSG.maxLength(20))
-          .nullable()
-          .transform((v, o) => (o === "" ? null : v)),
-        hasBike: yup
-          .string()
-          .oneOf(["yes", "no", ""], "Please select an option")
-          .optional()
-          .default("no"),
-        hasDrivingLicense: yup
-          .string()
-          .oneOf(["yes", "no", ""], "Please select an option")
-          .optional()
-          .default("no"),
-        companyEmail: emailOptional(),
-        companyPhone: phoneOptional(),
-        role: yup
-          .string()
-          .required("Role is required")
-          .min(2, MSG.minLength(2))
-          .max(50, MSG.maxLength(50)),
-        designation: stringRequired(2, 100).label("Designation"),
-        address: stringRequired(2, 500).label("Address"),
-        idnumber: stringRequired(2, 50).label("ID number"),
-        salaryType: yup.string().optional().max(50).default("monthly"),
-        salary: yup
-          .number()
-          .typeError("Salary is required")
-          .min(0, "Salary must be 0 or more")
-          .required("Salary is required"),
-        bankDetails: yup.object({
-          accountNumber: yup
-            .string()
-            .nullable()
-            .transform((v, o) => (o === "" ? null : v))
-            .test(
-              "accountNumber",
-              "Account number must be 6-20 digits",
-              (v) => !v || /^\d{6,20}$/.test(v),
-            ),
-          ifscCode: yup
-            .string()
-            .nullable()
-            .transform((v, o) => (o === "" ? null : v))
-            .test(
-              "ifscCode",
-              "Enter a valid IFSC code",
-              (v) => !v || /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(v),
-            ),
-          bankName: yup
-            .string()
-            .nullable()
-            .transform((v, o) => (o === "" ? null : v))
-            .min(2)
-            .max(100),
-          accountHolderName: yup
-            .string()
-            .nullable()
-            .transform((v, o) => (o === "" ? null : v))
-            .min(2)
-            .max(100),
-          upiDetails: yup.string().trim().nullable(),
-        }),
-        ...(isEdit
-          ? {}
-          : {
-              password: yup
-                .string()
-                .required("Password is required")
-                .min(6, "Password must be at least 6 characters"),
-            }),
-        branchId: yup.string().required("Branch is required"),
-        zoneIds: yup.array().of(yup.string()).optional().default([]),
-        subZoneId: yup.string().optional().nullable(),
-        categories: yup
-          .string()
-          .trim()
-          .optional()
-          .nullable()
-          .transform((v, o) => (o === "" ? null : v)),
-        assigned_groups: yup
-          .array()
-          .of(yup.string().matches(OBJECT_ID_PATTERN, "Invalid group id"))
-          .optional()
-          .default([]),
-        assets: yup.object({
-          bike: yup.object({
-            enabled: yup.boolean().default(false),
-            model: yup.string().trim(),
-            vehicleNumber: yup.string().trim(),
-            providedDate: yup.string().trim(),
-          }),
-          laptop: yup.object({
-            enabled: yup.boolean().default(false),
-            modelNumber: yup.string().trim(),
-            companyName: yup.string().trim(),
-            configurationRam: yup.string().trim(),
-            configurationRom: yup.string().trim(),
-            storageType: yup.string().oneOf(["ssd", "hdd", ""]).default(""),
-            providedDate: yup.string().trim(),
-          }),
-          mobile: yup.object({
-            enabled: yup.boolean().default(false),
-            companyName: yup.string().trim(),
-            phoneType: yup
-              .string()
-              .oneOf(["android", "keypad", ""])
-              .default(""),
-            imeiNumber: yup.string().trim(),
-            modelNumber: yup.string().trim(),
-            providedDate: yup.string().trim(),
-          }),
-          simCard: yup.object({
-            enabled: yup.boolean().default(false),
-            companyName: yup.string().trim(),
-            number: yup.string().trim(),
-            providedDate: yup.string().trim(),
-          }),
-        }),
-      }),
-    [isEdit],
-  );
+  const schema = useMemo(() => getEmployeeSchema({ isEdit }), [isEdit]);
 
   const {
     register,
@@ -240,81 +73,66 @@ const EmployeeForm = () => {
     reset,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(schema),
-    defaultValues: {
-      name: "",
-      email: "",
-      phone: "",
-      fatherName: "",
-      motherName: "",
-      pincode: "",
-      hasBike: "no",
-      hasDrivingLicense: "no",
-      companyEmail: "",
-      companyPhone: "",
-      role: "",
-      branchId: "",
-      zoneIds: [],
-      subZoneId: "",
-      categories: "",
-      assigned_groups: [],
-      designation: "",
-      address: "",
-      idnumber: "",
-      salaryType: "monthly",
-      salary: "",
-      password: "",
-      bankDetails: {
-        accountNumber: "",
-        ifscCode: "",
-        bankName: "",
-        accountHolderName: "",
-        upiDetails: "",
-      },
-      assets: {
-        bike: {
-          enabled: false,
-          model: "",
-          vehicleNumber: "",
-          providedDate: "",
-        },
-        laptop: {
-          enabled: false,
-          modelNumber: "",
-          companyName: "",
-          configurationRam: "",
-          configurationRom: "",
-          storageType: "",
-          providedDate: "",
-        },
-        mobile: {
-          enabled: false,
-          companyName: "",
-          phoneType: "",
-          imeiNumber: "",
-          modelNumber: "",
-          providedDate: "",
-        },
-        simCard: {
-          enabled: false,
-          companyName: "",
-          number: "",
-          providedDate: "",
-        },
-      },
-    },
+    mode: "onChange",
+    reValidateMode: "onChange",
+    defaultValues: EMPLOYEE_FORM_DEFAULT_VALUES,
   });
 
   const bikeEnabled = !!watch("assets.bike.enabled");
   const laptopEnabled = !!watch("assets.laptop.enabled");
   const mobileEnabled = !!watch("assets.mobile.enabled");
   const simCardEnabled = !!watch("assets.simCard.enabled");
-  const selectedBranchId = watch("branchId");
+  const selectedRole = watch("role");
+  const selectedDesignation = watch("designation");
+  const designationOptions = useMemo(
+    () => getDesignationsForRole(selectedRole),
+    [selectedRole],
+  );
+  const showZoneFields = shouldShowEmployeeZoneFields(
+    selectedRole,
+    selectedDesignation,
+  );
   const selectedZoneIds = watch("zoneIds") || [];
   const selectedSingleZoneId =
     selectedZoneIds.length === 1 ? selectedZoneIds[0] : "";
+
+  useEffect(() => {
+    if (!selectedRole) {
+      if (getValues("designation")) {
+        setValue("designation", "", {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+      }
+      return;
+    }
+
+    const allowedDesignations = getDesignationsForRole(selectedRole);
+    const currentDesignation = getValues("designation");
+
+    if (
+      currentDesignation &&
+      !allowedDesignations.includes(currentDesignation)
+    ) {
+      setValue(
+        "designation",
+        allowedDesignations.length === 1 ? allowedDesignations[0] : "",
+        { shouldValidate: true, shouldDirty: true },
+      );
+      return;
+    }
+
+    if (!currentDesignation && allowedDesignations.length === 1) {
+      setValue("designation", allowedDesignations[0], {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  }, [selectedRole, getValues, setValue]);
 
   const normalizeId = (item) => ({
     ...item,
@@ -379,11 +197,23 @@ const EmployeeForm = () => {
   }, [isEdit, reset, userBranchId]);
 
   useEffect(() => {
+    if (showZoneFields) {
+      return;
+    }
+    setSubZones([]);
+    setValue("zoneIds", [], { shouldValidate: true, shouldDirty: true });
+    setValue("subZoneId", "", { shouldValidate: true, shouldDirty: true });
+    prevZoneIdRef.current = "";
+  }, [showZoneFields, setValue]);
+
+  useEffect(() => {
+    if (!showZoneFields) {
+      return;
+    }
     const loadZones = async () => {
       try {
         const response = await areaService.getAll({
           pageSize: 100,
-          ...(selectedBranchId ? { branchId: selectedBranchId } : {}),
         });
         const data = response?.data?.data || response?.data || response;
         const list = data?.areas || data || [];
@@ -396,15 +226,17 @@ const EmployeeForm = () => {
     };
 
     loadZones();
-  }, [selectedBranchId]);
+  }, [showZoneFields]);
 
   useEffect(() => {
     let cancelled = false;
     const loadSubZones = async () => {
-      if (!selectedSingleZoneId) {
+      if (!showZoneFields || !selectedSingleZoneId) {
         setSubZones([]);
-        setValue("subZoneId", "");
-        prevZoneIdRef.current = "";
+        if (!showZoneFields) {
+          setValue("subZoneId", "");
+          prevZoneIdRef.current = "";
+        }
         return;
       }
       if (
@@ -430,7 +262,7 @@ const EmployeeForm = () => {
     return () => {
       cancelled = true;
     };
-  }, [selectedSingleZoneId, setValue]);
+  }, [selectedSingleZoneId, setValue, showZoneFields]);
 
   useEffect(() => {
     const loadEmployee = async () => {
@@ -539,17 +371,24 @@ const EmployeeForm = () => {
     loadEmployee();
   }, [id, isEdit, reset]);
 
-  const selectedRole = watch("role");
-
   const onSubmit = async (data) => {
     setSubmitting(true);
     setError("");
     try {
       const payload = { ...data };
-      payload.zoneIds = Array.isArray(payload.zoneIds)
-        ? payload.zoneIds.filter(Boolean)
-        : [];
-      if (payload.zoneIds.length !== 1) {
+      const assignZones = shouldShowEmployeeZoneFields(
+        payload.role,
+        payload.designation,
+      );
+      if (assignZones) {
+        payload.zoneIds = Array.isArray(payload.zoneIds)
+          ? payload.zoneIds.filter(Boolean)
+          : [];
+        if (payload.zoneIds.length !== 1) {
+          payload.subZoneId = "";
+        }
+      } else {
+        payload.zoneIds = [];
         payload.subZoneId = "";
       }
       if (isEdit) {
@@ -632,7 +471,6 @@ const EmployeeForm = () => {
             register={register}
             errors={errors}
             roleOptions={roleOptions}
-            branches={branches}
             zones={zones}
             selectedZoneIds={selectedZoneIds}
             onZoneIdsChange={(ids) =>
@@ -643,7 +481,8 @@ const EmployeeForm = () => {
             }
             subZones={subZones}
             designationOptions={designationOptions}
-            lockBranch={!canSelectBranch && !!userBranchId}
+            designationDisabled={!selectedRole}
+            showZoneFields={showZoneFields}
           />
         </CCardBody>
       </CCard>
@@ -668,6 +507,7 @@ const EmployeeForm = () => {
             }
             mapEnabled={mapProductGroups}
             onMapEnabledChange={setMapProductGroups}
+            errors={errors}
           />
         </CCardBody>
       </CCard>
@@ -679,6 +519,7 @@ const EmployeeForm = () => {
         <CCardBody>
           <EmployeeAssetsSection
             register={register}
+            errors={errors}
             bikeEnabled={bikeEnabled}
             laptopEnabled={laptopEnabled}
             mobileEnabled={mobileEnabled}

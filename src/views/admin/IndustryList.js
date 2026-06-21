@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CCard,
@@ -14,8 +14,6 @@ import {
   CTableRow,
   CButton,
   CAlert,
-  CPagination,
-  CPaginationItem,
   CFormInput,
   CFormLabel,
   CInputGroup,
@@ -26,65 +24,49 @@ import CIcon from "@coreui/icons-react";
 import { cilPlus, cilPencil, cilTrash, cilSearch } from "@coreui/icons";
 import { EyeIcon } from "../../components";
 import industryService from "../../services/industryService";
-import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  buildAreaNameLookup,
+  formatAreaDisplayOrDash,
+} from "../../utils/areaDisplay";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
-import useBranchContext from "../../hooks/useBranchContext";
 import { useAuth } from "../../context/AuthContext";
 import { normalizeRole } from "../../hooks/usePermissions";
+
+const INDUSTRY_FILTER_DEFAULTS = { areaId: "" };
 
 const IndustryList = () => {
   const MOBILE_BREAKPOINT = 576;
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
   const { user } = useAuth();
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "industry_list",
+    INDUSTRY_FILTER_DEFAULTS,
+  );
   const [industries, setIndustries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [areas, setAreas] = useState([]);
-  const [selectedAreaId, setSelectedAreaId] = useState("");
-  const [branchFilter, setBranchFilter] = useState("");
-  const [branchDefaultApplied, setBranchDefaultApplied] = useState(false);
-  const [branches, setBranches] = useState([]);
+  const [selectedAreaId, setSelectedAreaId] = useState(initialValues.areaId);
   const [pagination, setPagination] = useState({});
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
     id: null,
   });
   const [isMobileView, setIsMobileView] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadBranches = async () => {
-      try {
-        const response = await branchService.getAll({
-          pageNumber: 1,
-          pageSize: 100,
-        });
-        if (cancelled) return;
-        const list =
-          response?.data?.branches ??
-          response?.data?.data?.branches ??
-          response?.branches ??
-          (Array.isArray(response?.data) ? response.data : []);
-        const arr = Array.isArray(list) ? list : [];
-        setBranches(arr.map((b) => ({ ...b, id: b.id || b._id })));
-      } catch {
-        if (!cancelled) setBranches([]);
-      }
-    };
-    loadBranches();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -116,16 +98,6 @@ const IndustryList = () => {
     };
   }, []);
 
-  // Branch isolation: default to user's branch so list shows only that branch's data
-  useEffect(() => {
-    if (branchDefaultApplied || !userBranchId || branches.length === 0) return;
-    const id = String(userBranchId);
-    if (branches.some((b) => String(b.id || b._id) === id)) {
-      setBranchFilter(id);
-      setBranchDefaultApplied(true);
-    }
-  }, [userBranchId, branches, branchDefaultApplied]);
-
   const fetchIndustries = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -147,9 +119,6 @@ const IndustryList = () => {
           params.zoneIds = userZoneIds;
         }
       }
-      // Branch isolation: filter by selected branch or user's branch so only that branch's data shows
-      const effectiveBranchId = branchFilter || userBranchId;
-      if (effectiveBranchId) params.branchId = effectiveBranchId;
       const res = await withMinimumDelay(() => industryService.getAll(params));
       const data = res?.data || res;
       setIndustries(data?.industries || []);
@@ -159,14 +128,7 @@ const IndustryList = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    page,
-    searchTerm,
-    selectedAreaId,
-    branchFilter,
-    userBranchId,
-    isSalesRole,
-  ]);
+  }, [page, searchTerm, selectedAreaId, isSalesRole]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -174,6 +136,14 @@ const IndustryList = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [fetchIndustries]);
+
+  useFilterLockPersist("industry_list", filtersLocked, {
+    areaId: selectedAreaId,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ areaId: selectedAreaId });
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -187,15 +157,6 @@ const IndustryList = () => {
     mediaQuery.addListener(onChange);
     return () => mediaQuery.removeListener(onChange);
   }, []);
-
-  const branchById = useMemo(() => {
-    const map = new Map();
-    branches.forEach((b) => {
-      const id = b.id || b._id;
-      if (id) map.set(String(id), b.name || b.branchcode || id);
-    });
-    return map;
-  }, [branches]);
 
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id });
@@ -214,18 +175,10 @@ const IndustryList = () => {
     }
   };
 
-  const getBranchLabel = (industry) => {
-    if (typeof industry.branchId === "object" && industry.branchId?.name)
-      return industry.branchId.name;
-    if (industry.branchId)
-      return branchById.get(String(industry.branchId)) || industry.branchId;
-    return "-";
-  };
+  const areaNameLookup = buildAreaNameLookup(areas);
 
-  const getZoneLabel = (industry) => {
-    if (typeof industry.area === "object") return industry.area?.name || "-";
-    return industry.area || "-";
-  };
+  const getZoneLabel = (industry) =>
+    formatAreaDisplayOrDash(industry?.area, areaNameLookup);
 
   const getPurchaseManagerLabel = (industry) => {
     const pms = industry.purchaseManagers || [];
@@ -289,26 +242,6 @@ const IndustryList = () => {
               </CCol>
               {!isSalesRole && (
                 <CCol md={2}>
-                  <CFormLabel className="small text-muted">Branch</CFormLabel>
-                  <CFormSelect
-                    value={branchFilter}
-                    onChange={(e) => {
-                      setBranchFilter(e.target.value);
-                      setPage(1);
-                    }}
-                    aria-label="Branch filter"
-                  >
-                    <option value="">All branches</option>
-                    {branches.map((b) => (
-                      <option key={b.id || b._id} value={b.id || b._id}>
-                        {b.name || b.branchcode || b.id}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                </CCol>
-              )}
-              {!isSalesRole && (
-                <CCol md={2}>
                   <CFormLabel className="small text-muted">Zones</CFormLabel>
                   <CFormSelect
                     value={selectedAreaId}
@@ -328,6 +261,15 @@ const IndustryList = () => {
                       );
                     })}
                   </CFormSelect>
+                </CCol>
+              )}
+              {!isSalesRole && (
+                <CCol md={2} className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Industries"
+                  />
                 </CCol>
               )}
             </CRow>
@@ -522,46 +464,14 @@ const IndustryList = () => {
                     </CTableBody>
                   </CTable>
                 )}
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

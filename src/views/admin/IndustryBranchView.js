@@ -17,6 +17,7 @@ import industryBranchService from "../../services/industryBranchService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const IndustryBranchView = () => {
   const { id } = useParams();
@@ -125,11 +126,7 @@ const IndustryBranchView = () => {
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
-                  <span>
-                    {branch.createdAt
-                      ? new Date(branch.createdAt).toLocaleDateString()
-                      : "-"}
-                  </span>
+                  <span>{dateFormatter(branch.createdAt, "-")}</span>
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>

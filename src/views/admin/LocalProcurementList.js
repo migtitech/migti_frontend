@@ -9,8 +9,6 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
   CRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -18,11 +16,19 @@ import { cilBasket, cilClipboard, cilPeople, cilX } from "@coreui/icons";
 import localProcurementService from "../../services/localProcurementService";
 import documentService from "../../services/documentService";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { getAssetsUrl } from "../../api/endpoints";
+import { dateFormatter } from "../../utils/dateFormatter";
 import { useAuth, ROLES } from "../../context/AuthContext";
+
+const LOCAL_PROCUREMENT_FILTER_DEFAULTS = {
+  status: "",
+  dateFrom: "",
+  dateTo: "",
+};
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -66,17 +72,6 @@ const sanitizeRateInput = (raw) => {
   return t.slice(0, dot + 1) + t.slice(dot + 1).replace(/\./g, "");
 };
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
-
 const latestRate = (row) => {
   const rates = Array.isArray(row?.rates) ? row.rates : [];
   if (rates.length) return rates[rates.length - 1];
@@ -98,14 +93,18 @@ const LocalProcurementList = () => {
     String(user?.role || "").toLowerCase() === ROLES.LOCAL_PROCUREMENT;
 
   const pageTitle = isLocalPro ? "My Pro Bucket" : "Local Pro";
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "local_procurement",
+    LOCAL_PROCUREMENT_FILTER_DEFAULTS,
+  );
 
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(12);
-  const [status, setStatus] = useState("");
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [status, setStatus] = useState(initialValues.status);
+  const [fromDate, setFromDate] = useState(initialValues.dateFrom);
+  const [toDate, setToDate] = useState(initialValues.dateTo);
   const [loading, setLoading] = useState(false);
 
   const [submitPanelOpen, setSubmitPanelOpen] = useState(false);
@@ -150,6 +149,16 @@ const LocalProcurementList = () => {
   useEffect(() => {
     setPage(1);
   }, [status, fromDate, toDate]);
+
+  useFilterLockPersist("local_procurement", filtersLocked, {
+    status,
+    dateFrom: fromDate,
+    dateTo: toDate,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status, dateFrom: fromDate, dateTo: toDate });
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
@@ -259,7 +268,7 @@ const LocalProcurementList = () => {
               <CBadge color="secondary">{total} total</CBadge>
             </CCardHeader>
             <CCardBody>
-              <CRow className="g-2 mb-3">
+              <CRow className="g-2 mb-3 align-items-end">
                 <CCol xs={12} sm={6} md={3}>
                   <CFormLabel className="mb-1">Status</CFormLabel>
                   <CFormSelect
@@ -287,6 +296,13 @@ const LocalProcurementList = () => {
                     type="date"
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
+                  />
+                </CCol>
+                <CCol xs={12} sm="auto" className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel={pageTitle}
                   />
                 </CCol>
                 <CCol xs={12} sm="auto" className="d-flex align-items-end">
@@ -462,7 +478,7 @@ const LocalProcurementList = () => {
                             )}
 
                             <div className="small text-body-secondary mt-auto">
-                              Assigned {formatDate(row.createdAt)}
+                              Assigned {dateFormatter(row.createdAt, "—")}
                             </div>
 
                             {canSubmitRow(row) && (
@@ -483,23 +499,13 @@ const LocalProcurementList = () => {
                 </CRow>
               )}
 
-              {totalPages > 1 && (
-                <CPagination className="mt-3 justify-content-center">
-                  <CPaginationItem
-                    disabled={page <= 1}
-                    onClick={() => page > 1 && setPage(page - 1)}
-                  >
-                    Previous
-                  </CPaginationItem>
-                  <CPaginationItem active>{page}</CPaginationItem>
-                  <CPaginationItem
-                    disabled={page >= totalPages}
-                    onClick={() => page < totalPages && setPage(page + 1)}
-                  >
-                    Next
-                  </CPaginationItem>
-                </CPagination>
-              )}
+              <TablePagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                wrapperClassName="d-flex justify-content-center mt-4"
+                align="center"
+              />
             </CCardBody>
           </CCard>
         </CCol>

@@ -18,102 +18,29 @@ import {
   CFormInput,
   CFormLabel,
   CSpinner,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilPencil,
-  cilCloudDownload,
-  cilLockLocked,
-  cilLockUnlocked,
-} from "@coreui/icons";
+import { cilPencil, cilCloudDownload } from "@coreui/icons";
 import { EyeIcon } from "../../components";
 import quotationService from "../../services/quotationService";
 import areaService from "../../services/areaService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { useAuth } from "../../context/AuthContext";
-import { normalizeRole } from "../../hooks/usePermissions";
+import { normalizeRole, isHodRole } from "../../hooks/usePermissions";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const mapQuotation = (q) => (q ? { ...q, id: q._id ?? q.id } : null);
 
-const Q_FILTERS_LOCKED_KEY = "migti_quotations_list_filters_locked";
-const Q_FILTERS_STATUS_KEY = "migti_quotations_list_filters_status";
-const Q_FILTERS_DATE_FROM_KEY = "migti_quotations_list_filters_date_from";
-const Q_FILTERS_DATE_TO_KEY = "migti_quotations_list_filters_date_to";
-
-const readQFiltersLocked = () => {
-  try {
-    return localStorage.getItem(Q_FILTERS_LOCKED_KEY) === "1";
-  } catch {
-    return false;
-  }
-};
-
-const readQPersistedFilters = () => {
-  if (!readQFiltersLocked()) {
-    return { status: "", dateFrom: "", dateTo: "" };
-  }
-  try {
-    const status = localStorage.getItem(Q_FILTERS_STATUS_KEY) ?? "";
-    const dateFrom = localStorage.getItem(Q_FILTERS_DATE_FROM_KEY) ?? "";
-    let dateTo = localStorage.getItem(Q_FILTERS_DATE_TO_KEY) ?? "";
-    if (dateFrom && dateTo && dateTo < dateFrom) dateTo = "";
-    return { status, dateFrom, dateTo };
-  } catch {
-    return { status: "", dateFrom: "", dateTo: "" };
-  }
-};
-
-const clearQPersistedFilters = () => {
-  [
-    Q_FILTERS_LOCKED_KEY,
-    Q_FILTERS_STATUS_KEY,
-    Q_FILTERS_DATE_FROM_KEY,
-    Q_FILTERS_DATE_TO_KEY,
-  ].forEach((k) => {
-    try {
-      localStorage.removeItem(k);
-    } catch {
-      /* ignore */
-    }
-  });
-};
-
-const persistQLockedFilters = (status, from, to) => {
-  try {
-    localStorage.setItem(Q_FILTERS_LOCKED_KEY, "1");
-    localStorage.setItem(Q_FILTERS_STATUS_KEY, status);
-    localStorage.setItem(Q_FILTERS_DATE_FROM_KEY, from);
-    localStorage.setItem(Q_FILTERS_DATE_TO_KEY, to);
-  } catch {
-    /* ignore */
-  }
-};
-
-const getQInitialFilterState = () => {
-  const filtersLocked = readQFiltersLocked();
-  const f = readQPersistedFilters();
-  return {
-    filtersLocked,
-    statusFilter: f.status,
-    dateFrom: f.dateFrom,
-    dateTo: f.dateTo,
-  };
-};
-
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
-};
+const QUOTATION_FILTER_DEFAULTS = { status: "", dateFrom: "", dateTo: "" };
 
 const formatInrAmount = (value) =>
   Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -172,6 +99,54 @@ const getSubmittedOrFulfilledRateRowBg = (quotation) => {
   return null;
 };
 
+const getQuotationCompanyName = (quotation) =>
+  quotation.companyInfo?.name || quotation.customerName || "-";
+
+const getQuotationDisplayCode = (quotation) =>
+  quotation.quotationCode || `QT-${String(quotation.id).slice(-6)}`;
+
+const renderQuotationInfo = (quotation) => {
+  const companyEmail =
+    quotation.companyInfo?.email || quotation.customerEmail || "";
+
+  return (
+    <>
+      <strong>{getQuotationCompanyName(quotation)}</strong>
+      <div style={{ fontSize: "87.5%" }}>
+        {getQuotationDisplayCode(quotation)}
+      </div>
+      {companyEmail ? (
+        <>
+          <br />
+          <small className="text-muted">{companyEmail}</small>
+        </>
+      ) : null}
+    </>
+  );
+};
+
+const renderClientPendingAmount = (quotation) => {
+  const isOverdue = !!quotation?.clientPaymentOverdue;
+
+  return (
+    <span className="d-inline-flex align-items-center gap-2">
+      <span>₹{formatInrAmount(quotation.clientPendingAmount)}</span>
+      <span
+        title={isOverdue ? "Payment overdue" : "Payment not overdue"}
+        aria-label={isOverdue ? "Payment overdue" : "Payment not overdue"}
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: "50%",
+          backgroundColor: isOverdue ? "#dc3545" : "#198754",
+          display: "inline-block",
+          flexShrink: 0,
+        }}
+      />
+    </span>
+  );
+};
+
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "draft", label: "Drafted" },
@@ -190,17 +165,20 @@ const QuotationList = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
-  const [qFilterInit] = useState(() => getQInitialFilterState());
+  const isHodUser = isHodRole(user?.role);
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "quotations_list",
+    QUOTATION_FILTER_DEFAULTS,
+  );
   const [quotations, setQuotations] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [statusFilter, setStatusFilter] = useState(qFilterInit.statusFilter);
+  const [statusFilter, setStatusFilter] = useState(initialValues.status);
   const [areas, setAreas] = useState([]);
   const [selectedAreaId, setSelectedAreaId] = useState("");
-  const [filtersLocked, setFiltersLocked] = useState(qFilterInit.filtersLocked);
-  const [dateFrom, setDateFrom] = useState(qFilterInit.dateFrom);
-  const [dateTo, setDateTo] = useState(qFilterInit.dateTo);
+  const [dateFrom, setDateFrom] = useState(initialValues.dateFrom);
+  const [dateTo, setDateTo] = useState(initialValues.dateTo);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -330,10 +308,11 @@ const QuotationList = () => {
     setPageNumber(1);
   }, [searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo]);
 
-  useEffect(() => {
-    if (!filtersLocked) return;
-    persistQLockedFilters(statusFilter, dateFrom, dateTo);
-  }, [statusFilter, dateFrom, dateTo, filtersLocked]);
+  useFilterLockPersist("quotations_list", filtersLocked, {
+    status: statusFilter,
+    dateFrom,
+    dateTo,
+  });
 
   useEffect(() => {
     if (!dateFrom) return;
@@ -356,14 +335,8 @@ const QuotationList = () => {
     return () => mediaQuery.removeListener(onChange);
   }, []);
 
-  const toggleFiltersLock = () => {
-    if (filtersLocked) {
-      setFiltersLocked(false);
-      clearQPersistedFilters();
-      return;
-    }
-    setFiltersLocked(true);
-    persistQLockedFilters(statusFilter, dateFrom, dateTo);
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status: statusFilter, dateFrom, dateTo });
   };
 
   const fetchQuotations = async () => {
@@ -552,22 +525,11 @@ const QuotationList = () => {
                 lg={1}
                 className="d-flex align-items-end"
               >
-                <CButton
-                  type="button"
-                  color={filtersLocked ? "warning" : "secondary"}
-                  variant="outline"
-                  className="mb-0"
-                  title={
-                    filtersLocked
-                      ? "Unlock filters (status and date range will not persist when you leave this page)"
-                      : "Lock filters (status and from/to dates stay when you return to Quotations)"
-                  }
-                  onClick={toggleFiltersLock}
-                >
-                  <CIcon
-                    icon={filtersLocked ? cilLockLocked : cilLockUnlocked}
-                  />
-                </CButton>
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Quotations"
+                />
               </CCol>
               <CCol xs={12} sm={6} md={6} lg={2}>
                 <CFormLabel className="mb-1 small text-body-secondary">
@@ -613,18 +575,9 @@ const QuotationList = () => {
                               <div className="small text-muted">
                                 #{(currentPage - 1) * pageSize + index + 1}
                               </div>
-                              <strong>
-                                {quotation.quotationCode ||
-                                  `QT-${String(quotation.id).slice(-6)}`}
-                              </strong>
+                              {renderQuotationInfo(quotation)}
                             </div>
                             <div>{getStatusBadge(quotation.status)}</div>
-                          </div>
-                          <div className="small mb-1">
-                            <strong>Company:</strong>{" "}
-                            {quotation.companyInfo?.name ||
-                              quotation.customerName ||
-                              "-"}
                           </div>
                           <div className="small mb-1">
                             <strong>Products / Items:</strong>{" "}
@@ -638,10 +591,16 @@ const QuotationList = () => {
                             <strong>Total Amount:</strong> ₹
                             {formatInrAmount(quotation.totalAmount)}
                           </div>
+                          {isHodUser ? (
+                            <div className="small mb-1">
+                              <strong>Pending amount:</strong>{" "}
+                              {renderClientPendingAmount(quotation)}
+                            </div>
+                          ) : null}
                           <div className="small mb-2">
                             <strong>Date:</strong>{" "}
                             {quotation.createdAt
-                              ? formatDateDdMmYyyy(quotation.createdAt)
+                              ? dateFormatter(quotation.createdAt, "")
                               : "-"}
                           </div>
                           <div
@@ -712,13 +671,15 @@ const QuotationList = () => {
                 <CTableHead>
                   <CTableRow>
                     <CTableHeaderCell>S No</CTableHeaderCell>
-                    <CTableHeaderCell>Quotation No.</CTableHeaderCell>
-                    <CTableHeaderCell>Company</CTableHeaderCell>
+                    <CTableHeaderCell>Quotation info</CTableHeaderCell>
                     <CTableHeaderCell>Products / Items</CTableHeaderCell>
                     <CTableHeaderCell>
                       Rate submitted / fulfilled
                     </CTableHeaderCell>
                     <CTableHeaderCell>Total Amount</CTableHeaderCell>
+                    {isHodUser ? (
+                      <CTableHeaderCell>Pending amount</CTableHeaderCell>
+                    ) : null}
                     <CTableHeaderCell>Status</CTableHeaderCell>
                     <CTableHeaderCell>Date</CTableHeaderCell>
                     <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -748,27 +709,7 @@ const QuotationList = () => {
                             {(currentPage - 1) * pageSize + index + 1}
                           </CTableDataCell>
                           <CTableDataCell>
-                            <strong>
-                              {quotation.quotationCode ||
-                                `QT-${String(quotation.id).slice(-6)}`}
-                            </strong>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <strong>
-                              {quotation.companyInfo?.name ||
-                                quotation.customerName ||
-                                "-"}
-                            </strong>
-                            {(quotation.companyInfo?.email ||
-                              quotation.customerEmail) && (
-                              <>
-                                <br />
-                                <small className="text-muted">
-                                  {quotation.companyInfo?.email ||
-                                    quotation.customerEmail}
-                                </small>
-                              </>
-                            )}
+                            {renderQuotationInfo(quotation)}
                           </CTableDataCell>
                           <CTableDataCell>
                             <small>
@@ -783,12 +724,17 @@ const QuotationList = () => {
                           <CTableDataCell>
                             ₹{formatInrAmount(quotation.totalAmount)}
                           </CTableDataCell>
+                          {isHodUser ? (
+                            <CTableDataCell>
+                              {renderClientPendingAmount(quotation)}
+                            </CTableDataCell>
+                          ) : null}
                           <CTableDataCell>
                             {getStatusBadge(quotation.status)}
                           </CTableDataCell>
                           <CTableDataCell>
                             {quotation.createdAt
-                              ? formatDateDdMmYyyy(quotation.createdAt)
+                              ? dateFormatter(quotation.createdAt, "")
                               : "-"}
                           </CTableDataCell>
                           <CTableDataCell onClick={(e) => e.stopPropagation()}>
@@ -856,46 +802,16 @@ const QuotationList = () => {
                 </CTableBody>
               </CTable>
             )}
-            {totalPages > 1 && (
-              <>
-                <div className="d-flex justify-content-between align-items-center mt-2">
-                  <div className="small text-medium-emphasis">
-                    Showing {startItem}-{endItem} of {totalItems}
-                  </div>
-                  <CPagination className="mb-0">
-                    <CPaginationItem
-                      disabled={loading || currentPage <= 1}
-                      onClick={() => setPageNumber(1)}
-                    >
-                      First
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={loading || currentPage <= 1}
-                      onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active>
-                      {currentPage} / {totalPages}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={loading || currentPage >= totalPages}
-                      onClick={() =>
-                        setPageNumber((p) => Math.min(totalPages, p + 1))
-                      }
-                    >
-                      Next
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={loading || currentPage >= totalPages}
-                      onClick={() => setPageNumber(totalPages)}
-                    >
-                      Last
-                    </CPaginationItem>
-                  </CPagination>
-                </div>
-              </>
-            )}
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPageNumber}
+              disabled={loading}
+              showRange
+              totalItems={totalItems}
+              itemsPerPage={pageSize}
+              wrapperClassName="d-flex justify-content-between align-items-center mt-2"
+            />
           </CCardBody>
         </CCard>
       </CCol>

@@ -34,6 +34,7 @@ import { toastSuccess, toastError } from "../../utils/toast";
 import FindProductModal from "./FindProductModal";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import industryService from "../../services/industryService";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
 
 const INITIAL_COMPANY = {
   name: "",
@@ -61,6 +62,7 @@ const INITIAL_PRODUCT = {
 const QuotationCreate = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { formatArea } = useAreaNameLookup();
   const fromQuery = location.state?.fromQuery || null;
   const { addQuotation } = useData();
 
@@ -535,7 +537,7 @@ const QuotationCreate = () => {
             <CCol md={6}>
               <CFormLabel>Area</CFormLabel>
               <CFormInput
-                value={companyInfo.area || ""}
+                value={formatArea(companyInfo.area) || ""}
                 readOnly={!!industryId}
                 className={industryId ? "bg-light" : ""}
                 onChange={(e) =>

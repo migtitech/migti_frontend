@@ -14,114 +14,51 @@ import {
   CTableRow,
   CButton,
   CBadge,
-  CPagination,
-  CPaginationItem,
   CFormSelect,
   CFormInput,
   CFormLabel,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilPlus,
-  cilPencil,
-  cilTrash,
-  cilLockLocked,
-  cilLockUnlocked,
-} from "@coreui/icons";
+import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
 import { EyeIcon } from "../../components";
 import queryService from "../../services/queryService";
 import areaService from "../../services/areaService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
-import usePermissions, { normalizeRole } from "../../hooks/usePermissions";
+import usePermissions, {
+  normalizeRole,
+  canEditQuery,
+} from "../../hooks/usePermissions";
 import { useAuth } from "../../context/AuthContext";
+import {
+  dateFormatter,
+  dateTimeFormatter,
+  splitDateTimeParts,
+} from "../../utils/dateFormatter";
 
-const FILTERS_LOCKED_KEY = "migti_queries_list_filters_locked";
-const FILTERS_STATUS_KEY = "migti_queries_list_filters_status";
-const FILTERS_DATE_FROM_KEY = "migti_queries_list_filters_date_from";
-const FILTERS_DATE_TO_KEY = "migti_queries_list_filters_date_to";
-/** Previous single-field lock (migrated on next save) */
-const LEGACY_STATUS_LOCK_KEY = "migti_queries_list_status_filter_locked";
-const LEGACY_STATUS_VALUE_KEY = "migti_queries_list_status_filter";
-
-const readFiltersLocked = () => {
-  try {
-    if (localStorage.getItem(FILTERS_LOCKED_KEY) === "1") return true;
-    return localStorage.getItem(LEGACY_STATUS_LOCK_KEY) === "1";
-  } catch {
-    return false;
-  }
+const renderCreatedAtCell = (createdAt) => {
+  if (!createdAt) return "-";
+  const { date, time } = splitDateTimeParts(createdAt, "");
+  return (
+    <>
+      {date}
+      {time ? <div className="text-muted small">{time}</div> : null}
+    </>
+  );
 };
 
-const readPersistedFilters = () => {
-  if (!readFiltersLocked()) {
-    return { status: "", dateFrom: "", dateTo: "" };
-  }
-  try {
-    const status =
-      localStorage.getItem(FILTERS_STATUS_KEY) ??
-      localStorage.getItem(LEGACY_STATUS_VALUE_KEY) ??
-      "";
-    const dateFrom = localStorage.getItem(FILTERS_DATE_FROM_KEY) ?? "";
-    let dateTo = localStorage.getItem(FILTERS_DATE_TO_KEY) ?? "";
-    if (dateFrom && dateTo && dateTo < dateFrom) dateTo = "";
-    return { status, dateFrom, dateTo };
-  } catch {
-    return { status: "", dateFrom: "", dateTo: "" };
-  }
-};
-
-const clearPersistedFilters = () => {
-  [
-    FILTERS_LOCKED_KEY,
-    LEGACY_STATUS_LOCK_KEY,
-    FILTERS_STATUS_KEY,
-    LEGACY_STATUS_VALUE_KEY,
-    FILTERS_DATE_FROM_KEY,
-    FILTERS_DATE_TO_KEY,
-  ].forEach((k) => {
-    try {
-      localStorage.removeItem(k);
-    } catch {
-      /* ignore */
-    }
-  });
-};
-
-const persistLockedFilters = (status, from, to) => {
-  try {
-    localStorage.setItem(FILTERS_LOCKED_KEY, "1");
-    localStorage.setItem(FILTERS_STATUS_KEY, status);
-    localStorage.setItem(FILTERS_DATE_FROM_KEY, from);
-    localStorage.setItem(FILTERS_DATE_TO_KEY, to);
-    localStorage.removeItem(LEGACY_STATUS_LOCK_KEY);
-    localStorage.removeItem(LEGACY_STATUS_VALUE_KEY);
-  } catch {
-    /* ignore */
-  }
-};
-
-const getInitialFilterState = () => {
-  const filtersLocked = readFiltersLocked();
-  const f = readPersistedFilters();
-  return {
-    filtersLocked,
-    statusFilter: f.status,
-    dateFrom: f.dateFrom,
-    dateTo: f.dateTo,
-  };
-};
-
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
+const QUERY_FILTER_DEFAULTS = { status: "", dateFrom: "", dateTo: "" };
+const QUERY_FILTER_LEGACY_KEYS = {
+  lockedKey: "migti_queries_list_status_filter_locked",
+  status: "migti_queries_list_status_filter",
 };
 
 const QUERY_ROW_RATE_HIGHLIGHT_BG = "#e0f2fe";
@@ -139,30 +76,25 @@ const QUERY_STATUS_OPTIONS = [
   { value: "closed", label: "Closed" },
 ];
 
-const isHodRole = (role) => {
-  const normalized = normalizeRole(role);
-  return normalized === "head_of_department" || normalized === "hod";
-};
-
-const canShowQueryEditButton = (role, status) =>
-  isHodRole(role) && status !== "closed" && status !== "convertedToQuotation";
-
 const QueryList = () => {
   const MOBILE_BREAKPOINT = 576;
   const navigate = useNavigate();
-  const { canDelete } = usePermissions();
+  const { canDelete, canUpdate } = usePermissions();
   const { user } = useAuth();
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
-  const [filterInit] = useState(() => getInitialFilterState());
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "queries_list",
+    QUERY_FILTER_DEFAULTS,
+    QUERY_FILTER_LEGACY_KEYS,
+  );
   const [queries, setQueries] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [areas, setAreas] = useState([]);
   const [selectedAreaId, setSelectedAreaId] = useState("");
-  const [statusFilter, setStatusFilter] = useState(filterInit.statusFilter);
-  const [filtersLocked, setFiltersLocked] = useState(filterInit.filtersLocked);
-  const [dateFrom, setDateFrom] = useState(filterInit.dateFrom);
-  const [dateTo, setDateTo] = useState(filterInit.dateTo);
+  const [statusFilter, setStatusFilter] = useState(initialValues.status);
+  const [dateFrom, setDateFrom] = useState(initialValues.dateFrom);
+  const [dateTo, setDateTo] = useState(initialValues.dateTo);
   const [pageNumber, setPageNumber] = useState(1);
 
   const [pageSize] = useState(10);
@@ -256,10 +188,11 @@ const QueryList = () => {
     setPageNumber(1);
   }, [searchDebounced, statusFilter, selectedAreaId, dateFrom, dateTo]);
 
-  useEffect(() => {
-    if (!filtersLocked) return;
-    persistLockedFilters(statusFilter, dateFrom, dateTo);
-  }, [statusFilter, dateFrom, dateTo, filtersLocked]);
+  useFilterLockPersist("queries_list", filtersLocked, {
+    status: statusFilter,
+    dateFrom,
+    dateTo,
+  });
 
   useEffect(() => {
     fetchQueries();
@@ -294,14 +227,8 @@ const QueryList = () => {
     return () => mediaQuery.removeListener(onChange);
   }, []);
 
-  const toggleFiltersLock = () => {
-    if (filtersLocked) {
-      setFiltersLocked(false);
-      clearPersistedFilters();
-      return;
-    }
-    setFiltersLocked(true);
-    persistLockedFilters(statusFilter, dateFrom, dateTo);
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status: statusFilter, dateFrom, dateTo });
   };
 
   const handleDeleteClick = (queryId) => {
@@ -410,22 +337,11 @@ const QueryList = () => {
                   </CCol>
                 )}{" "}
                 <CCol md={2} className="d-flex align-items-end">
-                  <CButton
-                    type="button"
-                    color={filtersLocked ? "warning" : "secondary"}
-                    variant="outline"
-                    className="mb-0"
-                    title={
-                      filtersLocked
-                        ? "Unlock filters (status and date range will not persist when you leave this page)"
-                        : "Lock filters (status and from/to dates stay when you return to Queries)"
-                    }
-                    onClick={toggleFiltersLock}
-                  >
-                    <CIcon
-                      icon={filtersLocked ? cilLockLocked : cilLockUnlocked}
-                    />
-                  </CButton>
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Queries"
+                  />
                 </CCol>
               </CRow>
 
@@ -554,7 +470,7 @@ const QueryList = () => {
                                 <div className="small mb-2">
                                   <strong>Date:</strong>{" "}
                                   {q.createdAt
-                                    ? `${formatDateDdMmYyyy(q.createdAt)} ${new Date(q.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+                                    ? dateTimeFormatter(q.createdAt, "")
                                     : "-"}
                                 </div>
                                 <div className="d-flex gap-2">
@@ -570,9 +486,10 @@ const QueryList = () => {
                                   >
                                     <EyeIcon />
                                   </CButton>
-                                  {canShowQueryEditButton(
+                                  {canEditQuery(
                                     user?.role,
                                     q.status,
+                                    canUpdate("queries"),
                                   ) && (
                                     <CButton
                                       color="warning"
@@ -751,22 +668,7 @@ const QueryList = () => {
                                     : "—"}
                                 </CTableDataCell>
                                 <CTableDataCell>
-                                  {q.createdAt ? (
-                                    <>
-                                      {formatDateDdMmYyyy(q.createdAt)}
-                                      <div className="text-muted small">
-                                        {new Date(
-                                          q.createdAt,
-                                        ).toLocaleTimeString([], {
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                          second: "2-digit",
-                                        })}
-                                      </div>
-                                    </>
-                                  ) : (
-                                    "-"
-                                  )}
+                                  {renderCreatedAtCell(q.createdAt)}
                                 </CTableDataCell>
                                 <CTableDataCell>
                                   <CButton
@@ -781,9 +683,10 @@ const QueryList = () => {
                                   >
                                     <EyeIcon />
                                   </CButton>
-                                  {canShowQueryEditButton(
+                                  {canEditQuery(
                                     user?.role,
                                     q.status,
+                                    canUpdate("queries"),
                                   ) && (
                                     <CButton
                                       color="warning"
@@ -829,44 +732,14 @@ const QueryList = () => {
                     </CTable>
                   )}
 
-                  {totalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center mt-3">
-                      <div className="small text-medium-emphasis">
-                        Showing{" "}
-                        {((pagination?.currentPage ?? 1) - 1) *
-                          (pagination?.itemsPerPage ?? 10) +
-                          1}
-                        -
-                        {Math.min(
-                          (pagination?.currentPage ?? 1) *
-                            (pagination?.itemsPerPage ?? 10),
-                          pagination?.totalItems ?? 0,
-                        )}{" "}
-                        of {pagination?.totalItems ?? 0}
-                      </div>
-                      <CPagination className="mb-0">
-                        <CPaginationItem
-                          disabled={currentPage <= 1}
-                          onClick={() =>
-                            setPageNumber((p) => Math.max(1, p - 1))
-                          }
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {currentPage} / {totalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={currentPage >= totalPages}
-                          onClick={() =>
-                            setPageNumber((p) => Math.min(totalPages, p + 1))
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={setPageNumber}
+                    showRange
+                    totalItems={pagination?.totalItems ?? 0}
+                    itemsPerPage={pagination?.itemsPerPage ?? 10}
+                  />
                 </>
               )}
             </CCardBody>

@@ -37,6 +37,7 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { getAssetsUrl } from "../../api/endpoints";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 /** Below Bootstrap `md` (768px) — treat as phone for add-rate panel layout */
 const useIsPhoneView = () => {
@@ -969,13 +970,7 @@ const ProBucketDetail = () => {
                                   )}
                                   {r.submittedAt && (
                                     <span className="ms-auto text-nowrap">
-                                      {new Date(
-                                        r.submittedAt,
-                                      ).toLocaleDateString(undefined, {
-                                        day: "numeric",
-                                        month: "short",
-                                        year: "numeric",
-                                      })}
+                                      {dateFormatter(r.submittedAt, "—")}
                                     </span>
                                   )}
                                 </div>

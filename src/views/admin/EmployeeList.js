@@ -11,15 +11,16 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilSearch } from "@coreui/icons";
 import employeeService from "../../services/employeeService";
-import branchService from "../../services/branchService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
-import { ConfirmDialog } from "../../components";
+import { ConfirmDialog, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import EmployeeHeader from "./employees/EmployeeHeader";
 import EmployeeTable from "./employees/EmployeeTable";
 import usePermissions from "../../hooks/usePermissions";
-import useBranchContext from "../../hooks/useBranchContext";
 import { ROLE_LABELS } from "../../context/AuthContext";
+
+const EMPLOYEE_FILTER_DEFAULTS = { role: "" };
 
 const EMPLOYEE_ROLE_OPTIONS = [
   "head_of_department",
@@ -39,12 +40,14 @@ const EMPLOYEE_ROLE_OPTIONS = [
 const EmployeeList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
-  const { branchId: userBranchId } = useBranchContext();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "employee_list",
+    EMPLOYEE_FILTER_DEFAULTS,
+  );
   const [employees, setEmployees] = useState([]);
-  const [branches, setBranches] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [roleFilter, setRoleFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState(initialValues.role);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [pagination, setPagination] = useState({});
@@ -66,6 +69,12 @@ const EmployeeList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  useFilterLockPersist("employee_list", filtersLocked, { role: roleFilter });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ role: roleFilter });
+  };
+
   const loadEmployees = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -74,7 +83,6 @@ const EmployeeList = () => {
         pageNumber: page,
         pageSize,
       };
-      if (userBranchId) params.branchId = userBranchId;
       if (searchDebounced) params.search = searchDebounced;
       if (roleFilter) params.role = roleFilter;
 
@@ -100,25 +108,11 @@ const EmployeeList = () => {
     } finally {
       setLoading(false);
     }
-  }, [userBranchId, page, pageSize, searchDebounced, roleFilter]);
-
-  const loadBranches = useCallback(async () => {
-    try {
-      const response = await branchService.getAll();
-      const list = response?.data?.branches || response?.data || [];
-      setBranches(list.map(normalizeId));
-    } catch (err) {
-      toastError(err?.message || "Failed to load branches");
-    }
-  }, []);
+  }, [page, pageSize, searchDebounced, roleFilter]);
 
   useEffect(() => {
     loadEmployees();
   }, [loadEmployees]);
-
-  useEffect(() => {
-    loadBranches();
-  }, [loadBranches]);
 
   const hasActiveFilters = useMemo(
     () => Boolean(searchDebounced || roleFilter),
@@ -198,10 +192,16 @@ const EmployeeList = () => {
             ))}
           </CFormSelect>
         </CCol>
+        <CCol md={2} className="d-flex align-items-end">
+          <FilterLockButton
+            filtersLocked={filtersLocked}
+            onToggle={handleToggleFiltersLock}
+            pageLabel="Employees"
+          />
+        </CCol>
       </CRow>
       <EmployeeTable
         employees={employees}
-        branches={branches}
         loading={loading}
         error={error}
         onClearError={() => setError("")}

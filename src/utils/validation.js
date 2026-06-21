@@ -68,19 +68,27 @@ export const emailOptional = () =>
     .transform((v, o) => (o === "" ? null : v))
     .email(MSG.email);
 
-/** Phone required: 5–20 digits (backend employee/branch) */
+/** Phone required: 5–20 digits (backend employee phone) */
 export const phoneRequired = () =>
-  yup.string().trim().required(MSG.required).matches(PHONE_PATTERN, MSG.phone);
+  yup
+    .string()
+    .trim()
+    .required(MSG.required)
+    .matches(PHONE_PATTERN, "Phone must contain only digits (5–20 digits)");
 
-/** Phone optional: if provided, 5–20 digits */
-export const phoneOptional = () =>
+/** Phone optional: if provided, 5–20 digits (backend companyPhone) */
+export const phoneOptional = (fieldLabel = "Phone") =>
   yup
     .string()
     .trim()
     .optional()
     .nullable()
     .transform((v, o) => (o === "" ? null : v))
-    .test("phone", MSG.phoneShort, (v) => !v || PHONE_PATTERN.test(v));
+    .test(
+      "phone",
+      `${fieldLabel} must contain only digits (5–20 digits)`,
+      (v) => !v || PHONE_PATTERN.test(v),
+    );
 
 /** GSTIN required (15 chars) */
 export const gstinRequired = () =>

@@ -120,16 +120,6 @@ const AreaView = () => {
                   <span className="text-muted">Company</span>
                   <span>{area.companyId?.name ?? "—"}</span>
                 </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between align-items-center">
-                  <span className="text-muted">Branch</span>
-                  <span>{area.branchId?.name ?? "—"}</span>
-                </CListGroupItem>
-                {area.branchId?.location && (
-                  <CListGroupItem className="d-flex justify-content-between align-items-center">
-                    <span className="text-muted">Branch Location</span>
-                    <span>{area.branchId.location}</span>
-                  </CListGroupItem>
-                )}
               </CListGroup>
             </CCardBody>
           </CCard>

@@ -16,8 +16,6 @@ import {
   CBadge,
   CAlert,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilPlus, cilPencil, cilTrash, cilX } from "@coreui/icons";
@@ -26,14 +24,29 @@ import productService from "../../services/productService";
 import categoryService from "../../services/categoryService";
 import brandService from "../../services/brandService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
-import usePermissions from "../../hooks/usePermissions";
+import { useAuth } from "../../context/AuthContext";
+import usePermissions, { isHodRole } from "../../hooks/usePermissions";
+
+const PRODUCT_FILTER_DEFAULTS = { category: "", brand: "", status: "" };
 
 const ProductList = () => {
   const navigate = useNavigate();
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { user } = useAuth();
+  const { canCreate, canUpdate } = usePermissions();
+  const canDeleteProduct = isHodRole(user?.role);
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "product_list",
+    PRODUCT_FILTER_DEFAULTS,
+  );
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -45,9 +58,9 @@ const ProductList = () => {
     id: null,
   });
 
-  const [filterCategory, setFilterCategory] = useState("");
-  const [filterBrand, setFilterBrand] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterCategory, setFilterCategory] = useState(initialValues.category);
+  const [filterBrand, setFilterBrand] = useState(initialValues.brand);
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
 
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -105,6 +118,20 @@ const ProductList = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm, page, filterCategory, filterBrand, filterStatus]);
+
+  useFilterLockPersist("product_list", filtersLocked, {
+    category: filterCategory,
+    brand: filterBrand,
+    status: filterStatus,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      category: filterCategory,
+      brand: filterBrand,
+      status: filterStatus,
+    });
+  };
 
   const hasActiveFilters =
     searchTerm || filterCategory || filterBrand || filterStatus;
@@ -227,6 +254,13 @@ const ProductList = () => {
                 </CFormSelect>
               </CCol>
               <CCol md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Products"
+                />
+              </CCol>
+              <CCol md={2} className="d-flex align-items-end">
                 <CButton
                   color="secondary"
                   variant="outline"
@@ -319,7 +353,7 @@ const ProductList = () => {
                               <CIcon icon={cilPencil} />
                             </CButton>
                           )}
-                          {canDelete("products") && (
+                          {canDeleteProduct && (
                             <CButton
                               color="danger"
                               variant="ghost"
@@ -347,46 +381,14 @@ const ProductList = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

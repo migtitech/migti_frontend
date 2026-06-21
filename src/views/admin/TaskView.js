@@ -24,10 +24,10 @@ import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilUser } from "@coreui/icons";
 import taskManagementService from "../../services/taskManagementService";
 import employeeService from "../../services/employeeService";
-import useBranchContext from "../../hooks/useBranchContext";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
 const getStatusBadge = (status) => {
   switch (status) {
@@ -54,7 +54,6 @@ const getImageUrl = (img) => {
 const TaskView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { branchId: userBranchId } = useBranchContext();
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
@@ -117,7 +116,6 @@ const TaskView = () => {
     const fetchEmployees = async () => {
       try {
         const params = { pageSize: 100 };
-        if (userBranchId) params.branchId = userBranchId;
         const res = await employeeService.getAll(params);
         const data = res?.data?.data ?? res?.data;
         setEmployees(data?.employees ?? []);
@@ -126,7 +124,7 @@ const TaskView = () => {
       }
     };
     if (assignModalVisible) fetchEmployees();
-  }, [assignModalVisible, userBranchId]);
+  }, [assignModalVisible]);
 
   const handleAssign = async () => {
     if (!assignEmployeeId) {
@@ -283,12 +281,6 @@ const TaskView = () => {
                     )}
                   </CListGroupItem>
                   <CListGroupItem className="d-flex justify-content-between">
-                    <span className="text-muted">Branch</span>
-                    <span>
-                      {task.branchId?.name || task.branchId?.address || "–"}
-                    </span>
-                  </CListGroupItem>
-                  <CListGroupItem className="d-flex justify-content-between">
                     <span className="text-muted">Target Rate</span>
                     {editing ? (
                       <CFormInput
@@ -320,28 +312,16 @@ const TaskView = () => {
                         }
                       />
                     ) : (
-                      <span>
-                        {task.dueDate
-                          ? new Date(task.dueDate).toLocaleDateString()
-                          : "–"}
-                      </span>
+                      <span>{dateFormatter(task.dueDate, "–")}</span>
                     )}
                   </CListGroupItem>
                   <CListGroupItem className="d-flex justify-content-between">
                     <span className="text-muted">Assigned Date</span>
-                    <span>
-                      {task.assignedDate
-                        ? new Date(task.assignedDate).toLocaleString()
-                        : "–"}
-                    </span>
+                    <span>{dateTimeFormatter(task.assignedDate, "–")}</span>
                   </CListGroupItem>
                   <CListGroupItem className="d-flex justify-content-between">
                     <span className="text-muted">Submission Date</span>
-                    <span>
-                      {task.submissionDate
-                        ? new Date(task.submissionDate).toLocaleString()
-                        : "–"}
-                    </span>
+                    <span>{dateTimeFormatter(task.submissionDate, "–")}</span>
                   </CListGroupItem>
                   <CListGroupItem>
                     <span className="text-muted d-block mb-1">Remark</span>

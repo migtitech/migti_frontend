@@ -42,6 +42,7 @@ import {
   cilPencil,
 } from "@coreui/icons";
 import { useData } from "../../context/DataContext";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const FollowUpDashboard = () => {
   const navigate = useNavigate();
@@ -241,7 +242,7 @@ const FollowUpDashboard = () => {
               <CTableDataCell>
                 {followUp.dueDate ? (
                   <>
-                    {new Date(followUp.dueDate).toLocaleDateString()}
+                    {dateFormatter(followUp.dueDate, "-")}
                     {isOverdue && (
                       <CBadge color="danger" className="ms-2">
                         Overdue

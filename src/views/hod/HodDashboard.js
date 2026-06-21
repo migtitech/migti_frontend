@@ -21,8 +21,6 @@ import {
   CTableHeaderCell,
   CTableRow,
   CBadge,
-  CPagination,
-  CPaginationItem,
   CSpinner,
 } from "@coreui/react";
 import { CChartBar, CChartDoughnut, CChartLine } from "@coreui/react-chartjs";
@@ -37,10 +35,11 @@ import {
   cilClock,
 } from "@coreui/icons";
 import hodDashboardService from "../../services/hodDashboardService";
-import branchService from "../../services/branchService";
-import { Loader } from "../../components";
+import areaService from "../../services/areaService";
+import { Loader, TablePagination } from "../../components";
 import { toastError } from "../../utils/toast";
 import { useAuth } from "../../context/AuthContext";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const PERIOD_OPTIONS = [
   { value: "all", label: "All time" },
@@ -102,12 +101,6 @@ const formatAmount = (value) =>
     maximumFractionDigits: 0,
   })}`;
 
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? "-" : d.toLocaleDateString();
-};
-
 const progressPct = (achieved, target) => {
   const t = Number(target || 0);
   if (t <= 0) return 0;
@@ -136,11 +129,17 @@ const extractList = (response, key) => {
   return [];
 };
 
+const normalizeId = (value) => {
+  if (!value) return "";
+  if (typeof value === "object") return String(value._id || value.id || "");
+  return String(value);
+};
+
 const HodDashboard = () => {
   const { user } = useAuth();
 
-  const [branches, setBranches] = useState([]);
-  const [branchId, setBranchId] = useState("");
+  const [zones, setZones] = useState([]);
+  const [zoneId, setZoneId] = useState("");
   const [period, setPeriod] = useState("monthly");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -157,30 +156,40 @@ const HodDashboard = () => {
   const pageSize = 10;
 
   useEffect(() => {
-    const loadBranches = async () => {
+    const loadMasterData = async () => {
       try {
-        const res = await branchService.getAll({
-          pageNumber: 1,
-          pageSize: 100,
-        });
-        setBranches(
-          extractList(res, "branches").map((b) => ({
-            id: b._id || b.id,
-            name: b.name || b.branchcode || b._id || b.id,
+        const [zonesRes] = await Promise.all([
+          areaService.getAll({ pageNumber: 1, pageSize: 100 }),
+        ]);
+        const zoneData = zonesRes?.data?.data || zonesRes?.data || zonesRes;
+        setZones(
+          (zoneData?.areas || zoneData || []).map((zone) => ({
+            id: zone._id || zone.id,
+            name: zone.name || zone._id || zone.id,
           })),
         );
       } catch (err) {
         toastError(err?.message || "Failed to load branches");
       }
     };
-    loadBranches();
+    loadMasterData();
   }, []);
+
+  const zoneOptions = useMemo(() => zones, [zones]);
+
+  useEffect(() => {
+    if (!zoneId) return;
+    const zoneStillValid = zoneOptions.some(
+      (zone) => String(zone.id) === String(zoneId),
+    );
+    if (!zoneStillValid) setZoneId("");
+  }, [zoneId, zoneOptions]);
 
   const loadOverview = useCallback(async () => {
     setLoadingOverview(true);
     try {
       const res = await hodDashboardService.getOverview({
-        branchId: branchId || undefined,
+        zoneId: zoneId || undefined,
         period,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
@@ -192,7 +201,7 @@ const HodDashboard = () => {
     } finally {
       setLoadingOverview(false);
     }
-  }, [branchId, period, dateFrom, dateTo]);
+  }, [zoneId, period, dateFrom, dateTo]);
 
   useEffect(() => {
     loadOverview();
@@ -206,7 +215,7 @@ const HodDashboard = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter, branchId, dateFrom, dateTo, period]);
+  }, [statusFilter, zoneId, dateFrom, dateTo, period]);
 
   useEffect(() => {
     const loadPending = async () => {
@@ -216,7 +225,7 @@ const HodDashboard = () => {
           type: activeType,
           status: statusFilter || undefined,
           search: search || undefined,
-          branchId: branchId || undefined,
+          zoneId: zoneId || undefined,
           dateFrom: dateFrom || undefined,
           dateTo: dateTo || undefined,
           pageNumber: page,
@@ -240,7 +249,7 @@ const HodDashboard = () => {
     activeType,
     statusFilter,
     search,
-    branchId,
+    zoneId,
     dateFrom,
     dateTo,
     period,
@@ -374,7 +383,7 @@ const HodDashboard = () => {
             <CTableDataCell>
               <CBadge color="info">{row.status || "-"}</CBadge>
             </CTableDataCell>
-            <CTableDataCell>{formatDate(row.createdAt)}</CTableDataCell>
+            <CTableDataCell>{dateFormatter(row.createdAt, "-")}</CTableDataCell>
           </CTableRow>
         );
       case "pro_bucket":
@@ -390,7 +399,7 @@ const HodDashboard = () => {
             <CTableDataCell>
               <CBadge color="warning">{row.status || "-"}</CBadge>
             </CTableDataCell>
-            <CTableDataCell>{formatDate(row.createdAt)}</CTableDataCell>
+            <CTableDataCell>{dateFormatter(row.createdAt, "-")}</CTableDataCell>
           </CTableRow>
         );
       case "billing_requests":
@@ -404,7 +413,7 @@ const HodDashboard = () => {
             <CTableDataCell>
               <CBadge color="success">{row.status || "-"}</CBadge>
             </CTableDataCell>
-            <CTableDataCell>{formatDate(row.createdAt)}</CTableDataCell>
+            <CTableDataCell>{dateFormatter(row.createdAt, "-")}</CTableDataCell>
           </CTableRow>
         );
       case "deliveries":
@@ -420,7 +429,7 @@ const HodDashboard = () => {
             <CTableDataCell>
               <CBadge color="danger">{row.status || "-"}</CBadge>
             </CTableDataCell>
-            <CTableDataCell>{formatDate(row.createdAt)}</CTableDataCell>
+            <CTableDataCell>{dateFormatter(row.createdAt, "-")}</CTableDataCell>
           </CTableRow>
         );
       default:
@@ -487,23 +496,21 @@ const HodDashboard = () => {
           </CCardHeader>
           <CCardBody>
             <CRow className="g-3 align-items-end">
-              <CCol md={3}>
-                <CFormLabel className="small text-muted mb-1">
-                  Branch
-                </CFormLabel>
+              <CCol md={6} lg={2}>
+                <CFormLabel className="small text-muted mb-1">Zone</CFormLabel>
                 <CFormSelect
-                  value={branchId}
-                  onChange={(e) => setBranchId(e.target.value)}
+                  value={zoneId}
+                  onChange={(e) => setZoneId(e.target.value)}
                 >
-                  <option value="">All branches</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
+                  <option value="">All zones</option>
+                  {zoneOptions.map((zone) => (
+                    <option key={zone.id} value={zone.id}>
+                      {zone.name}
                     </option>
                   ))}
                 </CFormSelect>
               </CCol>
-              <CCol md={3}>
+              <CCol md={6} lg={2}>
                 <CFormLabel className="small text-muted mb-1">
                   Period
                 </CFormLabel>
@@ -522,7 +529,7 @@ const HodDashboard = () => {
                   ))}
                 </CFormSelect>
               </CCol>
-              <CCol md={3}>
+              <CCol md={6} lg={3}>
                 <CFormLabel className="small text-muted mb-1">From</CFormLabel>
                 <CFormInput
                   type="date"
@@ -531,7 +538,7 @@ const HodDashboard = () => {
                   onChange={(e) => setDateFrom(e.target.value)}
                 />
               </CCol>
-              <CCol md={3}>
+              <CCol md={6} lg={3}>
                 <CFormLabel className="small text-muted mb-1">To</CFormLabel>
                 <CFormInput
                   type="date"
@@ -827,32 +834,13 @@ const HodDashboard = () => {
                       </CTableBody>
                     </CTable>
 
-                    {totalPages > 1 && (
-                      <div className="d-flex justify-content-between align-items-center mt-3">
-                        <div className="small text-medium-emphasis">
-                          {pending.pagination?.totalItems ?? 0} total
-                        </div>
-                        <CPagination className="mb-0">
-                          <CPaginationItem
-                            disabled={safePage <= 1}
-                            onClick={() => setPage(Math.max(1, safePage - 1))}
-                          >
-                            Previous
-                          </CPaginationItem>
-                          <CPaginationItem active>
-                            {safePage} / {totalPages}
-                          </CPaginationItem>
-                          <CPaginationItem
-                            disabled={safePage >= totalPages}
-                            onClick={() =>
-                              setPage(Math.min(totalPages, safePage + 1))
-                            }
-                          >
-                            Next
-                          </CPaginationItem>
-                        </CPagination>
-                      </div>
-                    )}
+                    <TablePagination
+                      currentPage={page}
+                      totalPages={totalPages}
+                      onPageChange={setPage}
+                      wrapperClassName="d-flex justify-content-center mt-4"
+                      align="center"
+                    />
                   </>
                 )}
               </CCardBody>

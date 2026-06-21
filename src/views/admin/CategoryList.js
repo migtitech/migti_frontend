@@ -14,8 +14,6 @@ import {
   CButton,
   CBadge,
   CAlert,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
@@ -29,7 +27,7 @@ import { EyeIcon } from "../../components";
 import { useNavigate } from "react-router-dom";
 import categoryService from "../../services/categoryService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, ConfirmDialog } from "../../components";
+import { ConfirmDialog, Loader, TablePagination } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
@@ -135,65 +133,6 @@ const CategoryList = () => {
     ) : (
       <CBadge color="secondary">Inactive</CBadge>
     );
-  };
-
-  const renderPageNumbers = () => {
-    const totalPages = pagination.totalPages || 0;
-    const currentPage = page;
-
-    if (!totalPages) return null;
-
-    const items = [];
-
-    const createPageItem = (pageNumber, label) => (
-      <CPaginationItem
-        key={label}
-        active={pageNumber === currentPage}
-        disabled={!pageNumber}
-        onClick={
-          pageNumber
-            ? () => {
-                if (pageNumber !== currentPage) {
-                  setPage(pageNumber);
-                }
-              }
-            : undefined
-        }
-      >
-        {label}
-      </CPaginationItem>
-    );
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i += 1) {
-        items.push(createPageItem(i, i));
-      }
-      return items;
-    }
-
-    items.push(createPageItem(1, 1));
-
-    const showLeftEllipsis = currentPage > 3;
-    const showRightEllipsis = currentPage < totalPages - 2;
-
-    if (showLeftEllipsis) {
-      items.push(createPageItem(null, "..."));
-    }
-
-    const startPage = Math.max(2, currentPage - 1);
-    const endPage = Math.min(totalPages - 1, currentPage + 1);
-
-    for (let i = startPage; i <= endPage; i += 1) {
-      items.push(createPageItem(i, i));
-    }
-
-    if (showRightEllipsis) {
-      items.push(createPageItem(null, "..."));
-    }
-
-    items.push(createPageItem(totalPages, totalPages));
-
-    return items;
   };
 
   return (
@@ -427,46 +366,14 @@ const CategoryList = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => {
-                          if (pagination.hasPrevPage) {
-                            setPage(page - 1);
-                          }
-                        }}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {renderPageNumbers()}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => {
-                          if (pagination.hasNextPage) {
-                            setPage(page + 1);
-                          }
-                        }}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

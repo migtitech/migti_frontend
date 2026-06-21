@@ -31,6 +31,7 @@ import { cilSearch, cilX } from "@coreui/icons";
 import rateMasterService from "../../services/rateMasterService";
 import { Loader } from "../../components";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const PAGE_SIZE = 25;
 
@@ -49,17 +50,6 @@ const formatCurrency = (amount) => {
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(Number(amount));
-};
-
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
 };
 
 // Best-effort supplier label from the mixed supplierSnapshot.
@@ -458,7 +448,10 @@ const RateMaster = () => {
                                 {getSupplierLabel(row)}
                               </CTableDataCell>
                               <CTableDataCell>
-                                {formatDate(row.updatedAt || row.createdAt)}
+                                {dateFormatter(
+                                  row.updatedAt || row.createdAt,
+                                  "-",
+                                )}
                               </CTableDataCell>
                             </CTableRow>
                           );

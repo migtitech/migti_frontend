@@ -10,18 +10,20 @@ import {
   CFormLabel,
   CFormSelect,
   CFormTextarea,
-  CPagination,
-  CPaginationItem,
   CRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilCart, cilCloudUpload, cilLocationPin, cilX } from "@coreui/icons";
 import localPurchaseService from "../../services/localPurchaseService";
 import documentService from "../../services/documentService";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { getAssetsUrl } from "../../api/endpoints";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
+
+const MY_PURCHASE_FILTER_DEFAULTS = { status: "" };
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -38,24 +40,6 @@ const statusBadge = (status) => {
     default:
       return <CBadge color="secondary">{status || "—"}</CBadge>;
   }
-};
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
 };
 
 const imgSrc = (path) => {
@@ -199,11 +183,15 @@ const DetailRow = ({ label, value, mono = false }) => {
 };
 
 const MyPurchaseList = () => {
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "my_purchase",
+    MY_PURCHASE_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(12);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialValues.status);
   const [loading, setLoading] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -246,6 +234,14 @@ const MyPurchaseList = () => {
   useEffect(() => {
     setPage(1);
   }, [status]);
+
+  useFilterLockPersist("my_purchase", filtersLocked, {
+    status,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status });
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
 
@@ -436,7 +432,7 @@ const MyPurchaseList = () => {
               <CBadge color="secondary">{total} total</CBadge>
             </CCardHeader>
             <CCardBody>
-              <CRow className="g-2 mb-3">
+              <CRow className="g-2 mb-3 align-items-end">
                 <CCol xs={12} sm={6} md={3}>
                   <CFormLabel className="mb-1">Status</CFormLabel>
                   <CFormSelect
@@ -449,6 +445,13 @@ const MyPurchaseList = () => {
                       </option>
                     ))}
                   </CFormSelect>
+                </CCol>
+                <CCol xs={12} sm="auto" className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="My Purchase"
+                  />
                 </CCol>
                 <CCol xs={12} sm="auto" className="d-flex align-items-end">
                   <CButton
@@ -559,54 +562,17 @@ const MyPurchaseList = () => {
                     })}
                   </CRow>
 
-                  {total > pageSize && (
-                    <div className="d-flex flex-column align-items-center mt-3 gap-2">
-                      <span className="small text-body-secondary">
-                        Showing {Math.min((page - 1) * pageSize + 1, total)}–
-                        {Math.min(page * pageSize, total)} of {total}
-                      </span>
-                      <CPagination
-                        align="center"
-                        className="mb-0"
-                        aria-label="My purchase pages"
-                      >
-                        <CPaginationItem
-                          disabled={page <= 1}
-                          onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        >
-                          Previous
-                        </CPaginationItem>
-                        {Array.from(
-                          { length: Math.min(totalPages, 7) },
-                          (_, i) => {
-                            let p;
-                            if (totalPages <= 7) p = i + 1;
-                            else if (page <= 4) p = i + 1;
-                            else if (page >= totalPages - 3)
-                              p = totalPages - 6 + i;
-                            else p = page - 3 + i;
-                            return (
-                              <CPaginationItem
-                                key={p}
-                                active={p === page}
-                                onClick={() => setPage(p)}
-                              >
-                                {p}
-                              </CPaginationItem>
-                            );
-                          },
-                        )}
-                        <CPaginationItem
-                          disabled={page >= totalPages}
-                          onClick={() =>
-                            setPage((p) => Math.min(totalPages, p + 1))
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    showRange
+                    totalItems={total}
+                    itemsPerPage={pageSize}
+                    align="center"
+                    ariaLabel="My purchase pages"
+                    wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+                  />
                 </>
               )}
             </CCardBody>
@@ -735,7 +701,7 @@ const MyPurchaseList = () => {
                   />
                   <DetailRow
                     label="Dispatch date"
-                    value={formatDate(snap.dispatchmentDate)}
+                    value={dateFormatter(snap.dispatchmentDate, "—")}
                   />
                   <DetailRow label="Description" value={snap.description} />
                   <DetailRow label="Product remark" value={snap.remark} />
@@ -761,7 +727,7 @@ const MyPurchaseList = () => {
                   />
                   <DetailRow
                     label="Assigned on"
-                    value={formatDateTime(detail.createdAt)}
+                    value={dateTimeFormatter(detail.createdAt, "—")}
                   />
                   {detail.locationLink && (
                     <div className="py-2">
@@ -807,7 +773,7 @@ const MyPurchaseList = () => {
                     </div>
                     <DetailRow
                       label="Submitted on"
-                      value={formatDateTime(detail.submittedAt)}
+                      value={dateTimeFormatter(detail.submittedAt, "—")}
                     />
                     <DetailRow
                       label="Submission remark"

@@ -3,8 +3,7 @@ import { useAuth, FULL_ACCESS_ROLES } from "../context/AuthContext";
 
 /**
  * Branch context for branch-based data isolation (same pattern as Queries/Quotations).
- * - branchId: current user's branch (from auth); use for defaulting create forms and for list filter when branch-scoped.
- * - canSelectBranch: true for admin/super_admin so UI can show branch dropdown and pass branchId in list params.
+ * - branchId: current user's branch (from auth); use as default for create payloads when backend expects branchId.
  */
 const useBranchContext = () => {
   const { user } = useAuth();

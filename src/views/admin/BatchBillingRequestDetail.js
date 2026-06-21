@@ -33,16 +33,28 @@ import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-};
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const fmtAmount = (n) =>
   typeof n === "number" ? `₹${n.toLocaleString("en-IN")}` : "—";
+
+const formatSupplierSnapshot = (snapshot) => {
+  if (!snapshot || typeof snapshot !== "object") {
+    return { title: "", lines: [] };
+  }
+  const title =
+    snapshot.name || snapshot.shopname || snapshot.companyName || "";
+  const lines = [
+    snapshot.shopname &&
+      snapshot.name &&
+      snapshot.shopname !== snapshot.name &&
+      snapshot.shopname,
+    snapshot.phone_1 && `Phone: ${snapshot.phone_1}`,
+    snapshot.gst && `GST: ${snapshot.gst}`,
+    snapshot.address && `Address: ${snapshot.address}`,
+  ].filter(Boolean);
+  return { title, lines };
+};
 
 const unwrap = (res) => {
   const inner = res?.data ?? res;
@@ -498,7 +510,7 @@ const BatchBillingRequestDetail = () => {
                   <div>
                     <span style={{ color: "#64748b" }}>On: </span>
                     <span style={{ fontWeight: 600 }}>
-                      {fmtDate(detail.financeApprovedAt)}
+                      {dateFormatter(detail.financeApprovedAt, "—")}
                     </span>
                   </div>
                 )}
@@ -572,10 +584,9 @@ const BatchBillingRequestDetail = () => {
             {products.map((p, idx) => {
               const isRejected = p.hodStatus === "rejected";
               const isApproved = p.hodStatus === "approved";
-              const supplierName =
-                p.supplierSnapshot?.name ||
-                p.supplierSnapshot?.companyName ||
-                null;
+              const supplierDetails = formatSupplierSnapshot(
+                p.supplierSnapshot,
+              );
               const isDocLoading = docLoadingId === String(p.billDocId);
 
               return (
@@ -664,22 +675,26 @@ const BatchBillingRequestDetail = () => {
                             {p.unit ? ` ${p.unit}` : ""}
                           </span>
                         )}
-                        {supplierName && (
-                          <span
+                        {supplierDetails.title && (
+                          <div
                             style={{
                               fontSize: 12,
-                              padding: "2px 8px",
+                              padding: "6px 8px",
                               borderRadius: 6,
-                              background: "#f1f5f9",
+                              background: "#f8fafc",
                               color: "#475569",
-                              fontWeight: 500,
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              maxWidth: "100%",
+                              border: "1px solid #e2e8f0",
                             }}
                           >
-                            {supplierName}
-                          </span>
+                            <div className="fw-semibold">
+                              {supplierDetails.title}
+                            </div>
+                            {supplierDetails.lines.map((line) => (
+                              <div key={line} style={{ marginTop: 2 }}>
+                                {line}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
 
@@ -769,7 +784,7 @@ const BatchBillingRequestDetail = () => {
                                   marginLeft: "auto",
                                 }}
                               >
-                                {fmtDate(p.purchasedAt)}
+                                {dateFormatter(p.purchasedAt, "—")}
                               </span>
                             )}
                           </div>
@@ -829,7 +844,7 @@ const BatchBillingRequestDetail = () => {
                                 p.hodReviewedBySnapshot.fullName ||
                                 ""}
                               {p.hodReviewedAt
-                                ? `, ${fmtDate(p.hodReviewedAt)}`
+                                ? `, ${dateFormatter(p.hodReviewedAt, "—")}`
                                 : ""}
                             </div>
                           )}

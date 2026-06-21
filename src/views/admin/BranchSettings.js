@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   CCard,
   CCardBody,
@@ -6,7 +6,6 @@ import {
   CCol,
   CFormInput,
   CFormLabel,
-  CFormSelect,
   CRow,
   CSpinner,
 } from "@coreui/react";
@@ -35,30 +34,24 @@ const getSignatureDisplay = (signature) => {
 };
 
 const BranchSettings = () => {
-  const { branchId: userBranchId, canSelectBranch } = useBranchContext();
+  const { branchId: userBranchId } = useBranchContext();
   const [loading, setLoading] = useState(true);
   const [uploadingSignature, setUploadingSignature] = useState(false);
-  const [branches, setBranches] = useState([]);
-  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [activeBranchId, setActiveBranchId] = useState("");
   const [branch, setBranch] = useState(null);
 
-  const activeBranchId = useMemo(
-    () => (canSelectBranch ? selectedBranchId : userBranchId) || "",
-    [canSelectBranch, selectedBranchId, userBranchId],
-  );
-
-  const loadBranches = useCallback(async () => {
-    if (!canSelectBranch) return;
+  const resolveActiveBranchId = useCallback(async () => {
+    if (userBranchId) {
+      setActiveBranchId(String(userBranchId));
+      return;
+    }
     const res = await branchService.getAll({ pageSize: 100 });
     const data = res?.data?.data ?? res?.data ?? {};
     const list = (data.branches ?? data.companyBranches ?? []).map(normalizeId);
-    setBranches(list);
-    if (!selectedBranchId && list.length) {
-      const preferred =
-        list.find((b) => String(b.id) === String(userBranchId)) || list[0];
-      setSelectedBranchId(String(preferred.id));
+    if (list.length) {
+      setActiveBranchId(String(list[0].id));
     }
-  }, [canSelectBranch, selectedBranchId, userBranchId]);
+  }, [userBranchId]);
 
   const loadBranch = useCallback(async () => {
     if (!activeBranchId) {
@@ -85,8 +78,8 @@ const BranchSettings = () => {
   }, [activeBranchId]);
 
   useEffect(() => {
-    loadBranches();
-  }, [loadBranches]);
+    resolveActiveBranchId();
+  }, [resolveActiveBranchId]);
 
   useEffect(() => {
     loadBranch();
@@ -117,12 +110,11 @@ const BranchSettings = () => {
 
   const signature = getSignatureDisplay(branch?.signature);
 
-  if (!canSelectBranch && !userBranchId) {
+  if (!activeBranchId && !loading) {
     return (
       <CCard>
         <CCardBody className="text-muted">
-          No branch is linked to your account. Contact admin to configure branch
-          settings.
+          No branch is available. Contact admin to configure branch settings.
         </CCardBody>
       </CCard>
     );
@@ -136,23 +128,6 @@ const BranchSettings = () => {
             <strong>Settings</strong>
           </CCardHeader>
           <CCardBody>
-            {canSelectBranch && (
-              <div className="mb-4">
-                <CFormLabel>Branch</CFormLabel>
-                <CFormSelect
-                  value={selectedBranchId}
-                  onChange={(e) => setSelectedBranchId(e.target.value)}
-                >
-                  <option value="">Select branch</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </CFormSelect>
-              </div>
-            )}
-
             {loading ? (
               <div className="text-center py-4">
                 <Loader message="Loading settings..." />

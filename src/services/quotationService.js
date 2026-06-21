@@ -78,6 +78,17 @@ const quotationService = {
     return response;
   },
 
+  importQueryProduct: async (quotationId, queryProductId) => {
+    const response = await api.post(
+      QUOTATIONS.IMPORT_QUERY_PRODUCT,
+      { queryProductId },
+      {
+        params: { quotationId },
+      },
+    );
+    return response;
+  },
+
   exportPdf: async (id) => {
     const response = await api.get(QUOTATIONS.EXPORT_PDF, {
       params: { quotationId: id },

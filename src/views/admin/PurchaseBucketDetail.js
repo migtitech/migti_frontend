@@ -1,19 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
+  CBadge,
   CButton,
+  CCard,
+  CCardBody,
+  CCardHeader,
   CCol,
   CFormInput,
   CFormLabel,
   CFormSelect,
   CFormTextarea,
+  CNav,
+  CNavItem,
+  CNavLink,
   CRow,
   CSpinner,
+  CTabContent,
+  CTabPane,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
   cilArrowLeft,
   cilCheckCircle,
+  cilPlus,
   cilWarning,
   cilFile,
   cilUser,
@@ -27,22 +43,9 @@ import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
 import usePermissions from "../../hooks/usePermissions";
 import { getAssetsUrl } from "../../api/endpoints";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
-
-const fmtDate = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
-};
-
-const fmtDateTime = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString();
-};
 
 const fmt = (v) => {
   if (v == null || v === "") return "—";
@@ -72,6 +75,11 @@ const STATUS_CONFIG = {
     label: "HOD Pending",
     color: "#d97706",
     bg: "#fffbeb",
+  },
+  billing_request_raised: {
+    label: "BR Raised",
+    color: "#0891b2",
+    bg: "#ecfeff",
   },
   payment_request_raised: {
     label: "Payment Requested",
@@ -143,124 +151,134 @@ const StatusPill = ({ status }) => {
   );
 };
 
-// Stat box for quick header metrics
-const StatBox = ({ label, children, valueStyle }) => (
-  <div
-    className="h-100"
-    style={{
-      padding: "8px 14px",
-      background: "#fff",
-      border: "1px solid #e2e8f0",
-      borderRadius: 8,
-      minWidth: 0,
-    }}
-  >
-    <span style={{ color: "#94a3b8", fontSize: 11, display: "block" }}>
-      {label}
-    </span>
-    <div
-      style={{
-        fontWeight: 700,
-        color: "#1e293b",
-        fontSize: 13,
-        wordBreak: "break-word",
-        ...valueStyle,
-      }}
-    >
-      {children}
-    </div>
-  </div>
-);
+const PRIORITY_CONFIG = {
+  high: { label: "High", color: "danger" },
+  medium: { label: "Medium", color: "warning" },
+  low: { label: "Low", color: "success" },
+};
 
-// Custom Tab component
-const Tabs = ({ tabs, active, onChange }) => (
-  <div
-    style={{
-      overflowX: "auto",
-      WebkitOverflowScrolling: "touch",
-      marginBottom: 20,
-      borderBottom: "2px solid #e2e8f0",
-    }}
-  >
-    <div style={{ display: "flex", gap: 4, minWidth: "min-content" }}>
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          onClick={() => onChange(t.key)}
-          style={{
-            padding: "8px 18px",
-            fontSize: 13,
-            fontWeight: active === t.key ? 700 : 500,
-            color: active === t.key ? "#2563eb" : "#64748b",
-            background: "none",
-            border: "none",
-            borderBottom:
-              active === t.key ? "2px solid #2563eb" : "2px solid transparent",
-            marginBottom: -2,
-            cursor: "pointer",
-            transition: "color 0.15s",
-            whiteSpace: "nowrap",
-            flexShrink: 0,
-          }}
-        >
-          {t.label}
-          {t.count != null && (
-            <span
-              style={{
-                marginLeft: 6,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "1px 6px",
-                borderRadius: 10,
-                background: active === t.key ? "#dbeafe" : "#f1f5f9",
-                color: active === t.key ? "#1d4ed8" : "#64748b",
-              }}
-            >
-              {t.count}
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
-  </div>
-);
+const PriorityBadge = ({ priority }) => {
+  const raw =
+    priority != null && String(priority).trim() !== ""
+      ? String(priority).trim().toLowerCase()
+      : "medium";
+  const cfg = PRIORITY_CONFIG[raw] || {
+    label: raw.charAt(0).toUpperCase() + raw.slice(1),
+    color: "secondary",
+  };
+  return (
+    <CBadge color={cfg.color} shape="rounded-pill">
+      {cfg.label}
+    </CBadge>
+  );
+};
 
-// Key-value detail row
-const DetailRow = ({ label, value, mono }) => (
-  <div
-    className="d-flex flex-column flex-sm-row gap-1 gap-sm-3"
-    style={{
-      padding: "10px 0",
-      borderBottom: "1px solid #f1f5f9",
-      alignItems: "flex-start",
-    }}
+const DetailRow = ({ label, value, mono, fullWidth }) => (
+  <CCol
+    xs={12}
+    sm={fullWidth ? 12 : 6}
+    lg={fullWidth ? 12 : 4}
+    className="mb-3"
   >
+    <div className="text-body-secondary small mb-1">{label}</div>
     <div
-      style={{
-        fontSize: 12,
-        color: "#94a3b8",
-        fontWeight: 500,
-        minWidth: 130,
-        flexShrink: 0,
-      }}
-    >
-      {label}
-    </div>
-    <div
-      style={{
-        fontSize: 13,
-        color: "#1e293b",
-        fontWeight: 500,
-        wordBreak: "break-word",
-        fontFamily: mono ? "monospace" : undefined,
-        flex: 1,
-        minWidth: 0,
-      }}
+      className={`fw-semibold ${mono ? "font-monospace" : ""}`}
+      style={{ wordBreak: "break-word", whiteSpace: "pre-wrap" }}
     >
       {value || "—"}
     </div>
-  </div>
+  </CCol>
 );
+
+const RefName = ({ refVal }) => {
+  if (refVal == null || refVal === "") return "—";
+  if (typeof refVal === "object") {
+    if (refVal.name != null && String(refVal.name).trim() !== "") {
+      return String(refVal.name);
+    }
+    if (
+      refVal.productName != null &&
+      String(refVal.productName).trim() !== ""
+    ) {
+      return String(refVal.productName);
+    }
+    if (refVal.sku != null && String(refVal.sku).trim() !== "") {
+      return String(refVal.sku);
+    }
+    return "—";
+  }
+  return String(refVal);
+};
+
+const refDisplayName = (refVal) => {
+  if (refVal == null || refVal === "") return "—";
+  if (typeof refVal === "object") {
+    if (refVal.name != null && String(refVal.name).trim() !== "") {
+      return String(refVal.name);
+    }
+    if (
+      refVal.productName != null &&
+      String(refVal.productName).trim() !== ""
+    ) {
+      return String(refVal.productName);
+    }
+    if (refVal.shopname != null && String(refVal.shopname).trim() !== "") {
+      return String(refVal.shopname);
+    }
+    if (refVal.sku != null && String(refVal.sku).trim() !== "") {
+      return String(refVal.sku);
+    }
+    return "—";
+  }
+  return String(refVal);
+};
+
+const hasDisplayValue = (val) =>
+  val != null &&
+  val !== "" &&
+  val !== "—" &&
+  !(typeof val === "number" && Number.isNaN(val));
+
+const refHasValue = (refVal) => {
+  if (refVal == null || refVal === "") return false;
+  if (typeof refVal === "object") {
+    return !!(
+      (refVal.name != null && String(refVal.name).trim() !== "") ||
+      (refVal.productName != null &&
+        String(refVal.productName).trim() !== "") ||
+      (refVal.sku != null && String(refVal.sku).trim() !== "")
+    );
+  }
+  return true;
+};
+
+const formatCurrency = (value) => {
+  if (value == null || Number.isNaN(Number(value))) return null;
+  return `₹${Number(value).toLocaleString("en-IN")}`;
+};
+
+const formatDimensions = (dimensions, unit) => {
+  if (!dimensions || typeof dimensions !== "object") return null;
+  const length = dimensions.length ?? 0;
+  const width = dimensions.width ?? 0;
+  const height = dimensions.height ?? 0;
+  if (!length && !width && !height) return null;
+  const suffix = unit ? ` ${unit}` : "";
+  return `${length} × ${width} × ${height}${suffix}`;
+};
+
+const formatVariantOptionValues = (optionValues) => {
+  if (!Array.isArray(optionValues) || optionValues.length === 0) return "—";
+  return optionValues
+    .map((row) => {
+      const name = row?.variantName || row?.name || "";
+      const value = row?.variantValue || row?.value || "";
+      if (name && value) return `${name}: ${value}`;
+      return name || value || "";
+    })
+    .filter(Boolean)
+    .join(", ");
+};
 
 const isImagePath = (att) => {
   if (!att || typeof att !== "object" || !att.path) return false;
@@ -289,6 +307,18 @@ const resolveLocalPurchaseEmployeeId = (row) => {
 
 const getLatestLocalPurchaseAssignment = (rows) =>
   Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+
+const RAISE_BILLING_BLOCKED_STATUSES = new Set([
+  "hod_approval_pending",
+  "billing_request_raised",
+  "payment_request_raised",
+  "finance_approved",
+  "purchased",
+  "inventory_received",
+  "ready_for_dispatchment",
+  "delivered",
+  "po_closed",
+]);
 
 // ─── component ────────────────────────────────────────────────────────────────
 
@@ -463,9 +493,15 @@ const PurchaseBucketDetail = () => {
 
   if (loading) {
     return (
-      <div className="text-center py-5">
-        <Loader />
-      </div>
+      <CRow>
+        <CCol xs={12}>
+          <CCard>
+            <CCardBody className="text-center py-5">
+              <Loader />
+            </CCardBody>
+          </CCard>
+        </CCol>
+      </CRow>
     );
   }
 
@@ -493,128 +529,409 @@ const PurchaseBucketDetail = () => {
     item?.status != null && String(item.status).trim() !== ""
       ? String(item.status).trim()
       : "pending";
+  const showRaiseBillingRequest =
+    canRaise && !RAISE_BILLING_BLOCKED_STATUSES.has(lineStatus);
   const ratesToShow = item.queryLineRates?.length
     ? item.queryLineRates
     : Array.isArray(item.queryRate)
       ? item.queryRate
       : [];
 
-  // Images
-  const queryImgs = Array.isArray(item.queryProductMatch?.images)
-    ? item.queryProductMatch.images
+  const queryProduct =
+    item.queryProductMatch && typeof item.queryProductMatch === "object"
+      ? item.queryProductMatch
+      : null;
+
+  const catalogProduct =
+    item.productDetail && typeof item.productDetail === "object"
+      ? item.productDetail
+      : null;
+
+  const displayProductName =
+    catalogProduct?.name || queryProduct?.productName || item.productName;
+  const displayProductCode =
+    catalogProduct?.productCode ||
+    catalogProduct?.sku ||
+    queryProduct?.rawProductCode ||
+    item.rawProductCode;
+  const displayQuantity =
+    queryProduct?.quantity != null
+      ? queryProduct.quantity
+      : catalogProduct?.quantity != null
+        ? catalogProduct.quantity
+        : item.quantity;
+  const displayUnit = queryProduct?.unit || catalogProduct?.unit || item.unit;
+
+  // Images — query product only
+  const queryImgs = Array.isArray(queryProduct?.images)
+    ? queryProduct.images
     : [];
-  const imagePreviews = queryImgs
+  const queryImagePreviews = queryImgs
     .filter(isImagePath)
     .map((d) => ({ doc: d, url: resolveUrl(d.path) }));
-  const nonImageDocs = queryImgs.filter((d) => !isImagePath(d) && d.path);
-  const lineUrl = isImagePath(item.attachmentDocumentId)
-    ? resolveUrl(item.attachmentDocumentId?.path)
-    : null;
-  const lineNonImg =
-    item.attachmentDocumentId?.path && !lineUrl
-      ? item.attachmentDocumentId
-      : null;
+  const queryNonImageDocs = queryImgs.filter((d) => !isImagePath(d) && d.path);
+  const hasQueryMedia =
+    queryImagePreviews.length > 0 || queryNonImageDocs.length > 0;
+
+  const catalogImgs = Array.isArray(catalogProduct?.images)
+    ? catalogProduct.images
+    : [];
+  const catalogImagePreviews = catalogImgs
+    .filter(isImagePath)
+    .map((d) => ({ doc: d, url: resolveUrl(d.path) }));
+  const catalogNonImageDocs = catalogImgs.filter(
+    (d) => !isImagePath(d) && d.path,
+  );
+  const hasCatalogMedia =
+    catalogImagePreviews.length > 0 || catalogNonImageDocs.length > 0;
+  const imageStyle = {
+    maxHeight: 240,
+    maxWidth: "100%",
+    width: "auto",
+    objectFit: "contain",
+    borderRadius: 8,
+    border: "1px solid var(--cui-border-color)",
+  };
 
   const br =
     item.purchaseBillingRequestId &&
     typeof item.purchaseBillingRequestId === "object"
       ? item.purchaseBillingRequestId
       : null;
-  const hasMedia =
-    imagePreviews.length > 0 ||
-    lineUrl ||
-    nonImageDocs.length > 0 ||
-    lineNonImg;
-  const imageStyle = {
-    maxHeight: "clamp(160px, 28vh, 320px)",
-    maxWidth: "100%",
-    width: "auto",
-    objectFit: "contain",
-    borderRadius: 8,
-    border: "1px solid #e2e8f0",
-  };
+
+  const queryVariants = Array.isArray(queryProduct?.variants)
+    ? queryProduct.variants.filter((v) =>
+        hasDisplayValue(v?.variantName ?? v?.name),
+      )
+    : [];
+
+  const queryProductDetailFields = queryProduct
+    ? [
+        { label: "Product name", value: queryProduct.productName },
+        {
+          label: "Product code",
+          value: queryProduct.rawProductCode,
+          mono: true,
+        },
+        { label: "Quantity", value: queryProduct.quantity },
+        { label: "Unit", value: queryProduct.unit },
+        { label: "HSN", value: queryProduct.hsnNumber, mono: true },
+        { label: "Model / part #", value: queryProduct.modelNumber },
+        {
+          label: "GST %",
+          value:
+            queryProduct.gstPercentage != null
+              ? `${queryProduct.gstPercentage}`
+              : null,
+        },
+        { label: "Query code", value: queryProduct.queryCode, mono: true },
+        { label: "Line index", value: queryProduct.lineIndex },
+        {
+          label: "Tracking code",
+          value: queryProduct.query_tracking_code,
+          mono: true,
+        },
+        {
+          label: "Linked product",
+          value: <RefName refVal={queryProduct.product_id} />,
+          show: refHasValue(queryProduct.product_id),
+        },
+        {
+          label: "Group",
+          value: <RefName refVal={queryProduct.groupId} />,
+          show: refHasValue(queryProduct.groupId),
+        },
+        {
+          label: "Category",
+          value: <RefName refVal={queryProduct.categoryId} />,
+          show: refHasValue(queryProduct.categoryId),
+        },
+        {
+          label: "Sub-category",
+          value: <RefName refVal={queryProduct.subcategoryId} />,
+          show: refHasValue(queryProduct.subcategoryId),
+        },
+        {
+          label: "Pro bucket status",
+          value: queryProduct.proBucketStatus
+            ? String(queryProduct.proBucketStatus).replace(/_/g, " ")
+            : null,
+        },
+        {
+          label: "HOD approved",
+          value:
+            queryProduct.hodApproved === true
+              ? "Yes"
+              : queryProduct.hodApproved === false
+                ? "No"
+                : null,
+        },
+        {
+          label: "Created",
+          value: queryProduct.createdAt
+            ? dateTimeFormatter(queryProduct.createdAt, "—")
+            : null,
+        },
+        {
+          label: "Updated",
+          value: queryProduct.updatedAt
+            ? dateTimeFormatter(queryProduct.updatedAt, "—")
+            : null,
+        },
+        {
+          label: "Remark",
+          value: queryProduct.remark,
+          fullWidth: true,
+        },
+        {
+          label: "Description",
+          value: queryProduct.description,
+          fullWidth: true,
+        },
+      ].filter(({ value, show }) =>
+        show != null ? show : hasDisplayValue(value),
+      )
+    : [];
+
+  const catalogVariantTypes = Array.isArray(catalogProduct?.variants)
+    ? catalogProduct.variants.filter(
+        (variant) =>
+          hasDisplayValue(variant?.name) ||
+          (Array.isArray(variant?.options) && variant.options.length > 0),
+      )
+    : [];
+
+  const catalogVariantCombinations = Array.isArray(
+    catalogProduct?.variantCombinations,
+  )
+    ? catalogProduct.variantCombinations
+    : [];
+
+  const companyProductCodeLines = Array.isArray(
+    catalogProduct?.companyProductCodes,
+  )
+    ? catalogProduct.companyProductCodes
+        .map((row) => {
+          const industryName = refDisplayName(row?.industry);
+          const code = row?.code ? String(row.code).trim() : "";
+          if (!code) return null;
+          return industryName !== "—" ? `${industryName}: ${code}` : code;
+        })
+        .filter(Boolean)
+    : [];
+
+  const supplierProductCodeLines = Array.isArray(
+    catalogProduct?.supplierProductCodes,
+  )
+    ? catalogProduct.supplierProductCodes
+        .map((row) => {
+          const supplierName = refDisplayName(row?.supplier);
+          const code = row?.code ? String(row.code).trim() : "";
+          if (!code) return null;
+          return supplierName !== "—" ? `${supplierName}: ${code}` : code;
+        })
+        .filter(Boolean)
+    : [];
+
+  const catalogProductDetailFields = catalogProduct
+    ? [
+        { label: "Name", value: catalogProduct.name },
+        { label: "Unique ID", value: catalogProduct.uniqueId, mono: true },
+        {
+          label: "Product code",
+          value: catalogProduct.productCode,
+          mono: true,
+        },
+        { label: "SKU", value: catalogProduct.sku, mono: true },
+        {
+          label: "Short description",
+          value: catalogProduct.shortDescription,
+          fullWidth: true,
+        },
+        {
+          label: "Group",
+          value: <RefName refVal={catalogProduct.group} />,
+          show: refHasValue(catalogProduct.group),
+        },
+        {
+          label: "Category",
+          value: <RefName refVal={catalogProduct.category} />,
+          show: refHasValue(catalogProduct.category),
+        },
+        {
+          label: "Sub-category",
+          value: <RefName refVal={catalogProduct.subcategory} />,
+          show: refHasValue(catalogProduct.subcategory),
+        },
+        {
+          label: "Brand",
+          value: <RefName refVal={catalogProduct.brand} />,
+          show: refHasValue(catalogProduct.brand),
+        },
+        { label: "HSN", value: catalogProduct.hsnNumber, mono: true },
+        {
+          label: "Default model #",
+          value: catalogProduct.defaultModelNumber,
+        },
+        {
+          label: "GST %",
+          value:
+            catalogProduct.gstPercentage != null
+              ? `${catalogProduct.gstPercentage}`
+              : null,
+        },
+        { label: "Unit", value: catalogProduct.unit },
+        { label: "Stock quantity", value: catalogProduct.quantity },
+        { label: "Price", value: formatCurrency(catalogProduct.price) },
+        { label: "MRP", value: formatCurrency(catalogProduct.mrp) },
+        {
+          label: "Cost price",
+          value: formatCurrency(catalogProduct.costPrice),
+        },
+        {
+          label: "Weight",
+          value:
+            catalogProduct.weight != null && catalogProduct.weight !== ""
+              ? `${catalogProduct.weight}${catalogProduct.weightUnit ? ` ${catalogProduct.weightUnit}` : ""}`
+              : null,
+        },
+        {
+          label: "Dimensions",
+          value: formatDimensions(
+            catalogProduct.dimensions,
+            catalogProduct.dimensionUnit,
+          ),
+        },
+        {
+          label: "Status",
+          value: catalogProduct.status
+            ? String(catalogProduct.status).replace(/_/g, " ")
+            : null,
+        },
+        {
+          label: "Has variants",
+          value:
+            catalogProduct.hasVariants === true
+              ? "Yes"
+              : catalogProduct.hasVariants === false
+                ? "No"
+                : null,
+        },
+        {
+          label: "Tags",
+          value:
+            Array.isArray(catalogProduct.tags) && catalogProduct.tags.length
+              ? catalogProduct.tags.join(", ")
+              : null,
+        },
+        {
+          label: "Timeline (days)",
+          value: catalogProduct.timeline,
+        },
+        {
+          label: "Next timeline date",
+          value: catalogProduct.nextTimelineDate
+            ? dateFormatter(catalogProduct.nextTimelineDate, "—")
+            : null,
+        },
+        {
+          label: "Procurement review",
+          value: catalogProduct.procurementReviewStatus
+            ? String(catalogProduct.procurementReviewStatus).replace(/_/g, " ")
+            : null,
+        },
+        {
+          label: "Company product codes",
+          value: companyProductCodeLines.length
+            ? companyProductCodeLines.join("; ")
+            : null,
+          fullWidth: true,
+        },
+        {
+          label: "Supplier product codes",
+          value: supplierProductCodeLines.length
+            ? supplierProductCodeLines.join("; ")
+            : null,
+          fullWidth: true,
+        },
+        {
+          label: "Created",
+          value: catalogProduct.createdAt
+            ? dateTimeFormatter(catalogProduct.createdAt, "—")
+            : null,
+        },
+        {
+          label: "Updated",
+          value: catalogProduct.updatedAt
+            ? dateTimeFormatter(catalogProduct.updatedAt, "—")
+            : null,
+        },
+      ].filter(({ value, show }) =>
+        show != null ? show : hasDisplayValue(value),
+      )
+    : [];
 
   return (
-    <div className="w-100 mx-auto" style={{ maxWidth: "min(100%, 1280px)" }}>
-      {/* Breadcrumb */}
-      <CBreadcrumb
-        className="mb-3 flex-nowrap overflow-auto"
-        style={{ fontSize: 13 }}
-      >
-        <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
-        <CBreadcrumbItem href="#/purchase-bucket">
-          Purchase Bucket
-        </CBreadcrumbItem>
-        <CBreadcrumbItem
-          active
-          className="text-truncate"
-          style={{ maxWidth: "min(50vw, 420px)" }}
-        >
-          {item.productName || "Line item"}
-        </CBreadcrumbItem>
-      </CBreadcrumb>
-
-      {/* Page header */}
-      <div
-        className="mb-4 rounded-3 p-3 p-md-4"
-        style={{ background: "#f8fafc", border: "1px solid #e2e8f0" }}
-      >
-        <div className="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-start gap-3">
-          <CButton
-            color="secondary"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/purchase-bucket")}
-            className="align-self-start flex-shrink-0"
-          >
-            <CIcon icon={cilArrowLeft} className="me-1" />
-            Back
-          </CButton>
-
-          <div className="flex-grow-1 min-w-0">
-            <div
-              style={{
-                fontWeight: 800,
-                fontSize: "clamp(1rem, 1.6vw, 1.35rem)",
-                color: "#1e293b",
-                lineHeight: 1.3,
-                wordBreak: "break-word",
-              }}
+    <CRow>
+      <CCol xs={12}>
+        <CCard className="mb-3">
+          <CCardBody className="d-flex align-items-center justify-content-between gap-2 py-2">
+            <CBreadcrumb className="mb-0 flex-shrink-1" style={{ minWidth: 0 }}>
+              <CBreadcrumbItem href="#/">Home</CBreadcrumbItem>
+              <CBreadcrumbItem href="#/purchase-bucket">
+                Purchase Bucket
+              </CBreadcrumbItem>
+              <CBreadcrumbItem active className="text-truncate">
+                {displayProductName || "Line item"}
+              </CBreadcrumbItem>
+            </CBreadcrumb>
+            <CButton
+              color="secondary"
+              variant="ghost"
+              size="sm"
+              className="flex-shrink-0"
+              onClick={() => navigate("/purchase-bucket")}
             >
-              {item.productName || "Line item"}
-            </div>
-            {item.poCode && (
-              <span
-                style={{
-                  fontFamily: "monospace",
-                  fontSize: 11,
-                  padding: "2px 7px",
-                  background: "#e2e8f0",
-                  color: "#2563eb",
-                  borderRadius: 5,
-                  marginTop: 4,
-                  display: "inline-block",
-                }}
-              >
-                {item.poCode}
-              </span>
-            )}
-          </div>
+              <CIcon icon={cilArrowLeft} className="me-1" size="sm" />
+              Back
+            </CButton>
+          </CCardBody>
+        </CCard>
 
-          <div className="d-flex flex-row flex-lg-column align-items-center align-items-lg-end justify-content-between justify-content-lg-start gap-2 ms-lg-auto flex-shrink-0 flex-wrap">
+        <CCard className="mb-4">
+          <CCardHeader className="d-flex flex-wrap align-items-center gap-2">
+            <div className="me-auto" style={{ minWidth: 0 }}>
+              <strong className="d-block text-truncate">
+                {displayProductName || "Line item"}
+              </strong>
+              {item.poCode && (
+                <span className="badge bg-dark font-monospace mt-1">
+                  {item.poCode}
+                </span>
+              )}
+            </div>
             <StatusPill status={lineStatus} />
+            {item.priority && <PriorityBadge priority={item.priority} />}
+            {showRaiseBillingRequest && (
+              <CButton
+                color="primary"
+                size="sm"
+                onClick={() =>
+                  navigate(
+                    `/purchase-bucket/raise-billing-request?poProductId=${id}`,
+                  )
+                }
+              >
+                <CIcon icon={cilPlus} className="me-1" />
+                Raise Billing Request
+              </CButton>
+            )}
             {canAssignPurchase && (
               <CButton
                 color="primary"
                 variant="outline"
                 size="sm"
                 onClick={openAssignBar}
-                style={{
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: 12,
-                  whiteSpace: "nowrap",
-                }}
               >
                 <CIcon icon={cilUser} className="me-1" />
                 Assign Purchase
@@ -626,12 +943,6 @@ const PurchaseBucketDetail = () => {
                 size="sm"
                 disabled={markingPurchased}
                 onClick={markAsPurchased}
-                style={{
-                  borderRadius: 8,
-                  fontWeight: 600,
-                  fontSize: 12,
-                  whiteSpace: "nowrap",
-                }}
               >
                 {markingPurchased ? (
                   <>
@@ -646,751 +957,862 @@ const PurchaseBucketDetail = () => {
                 )}
               </CButton>
             )}
-          </div>
-        </div>
+          </CCardHeader>
 
-        {/* Quick stats */}
-        <CRow className="g-2 g-md-3 mt-3">
-          {item.quantity != null && (
-            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
-              <StatBox label="Qty">
-                {item.quantity}
-                {item.unit ? ` ${item.unit}` : ""}
-              </StatBox>
-            </CCol>
-          )}
-          {item.dispatchmentDate && (
-            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
-              <StatBox label="Dispatch">
-                {fmtDate(item.dispatchmentDate)}
-              </StatBox>
-            </CCol>
-          )}
-          {item.priority && (
-            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
-              <StatBox
-                label="Priority"
-                valueStyle={{
-                  color:
-                    item.priority === "high"
-                      ? "#dc2626"
-                      : item.priority === "medium"
-                        ? "#d97706"
-                        : "#16a34a",
-                }}
-              >
-                {String(item.priority).charAt(0).toUpperCase() +
-                  String(item.priority).slice(1)}
-              </StatBox>
-            </CCol>
-          )}
-          {item.targetRate != null && (
-            <CCol xs={6} sm={4} md={3} lg={2} xl="auto">
-              <StatBox label="Target Rate">
-                ₹{Number(item.targetRate).toLocaleString("en-IN")}
-              </StatBox>
-            </CCol>
-          )}
-          {item.rawProductCode && (
-            <CCol xs={12} sm={8} md={6} lg={4} xl="auto">
-              <StatBox
-                label="Product code"
-                valueStyle={{
-                  color: "#2563eb",
-                  fontFamily: "monospace",
-                  fontSize: 12,
-                }}
-              >
-                {item.rawProductCode}
-              </StatBox>
-            </CCol>
-          )}
-        </CRow>
-      </div>
-
-      {/* Tabs */}
-      <Tabs
-        active={activeTab}
-        onChange={setActiveTab}
-        tabs={[
-          { key: "details", label: "Details" },
-          {
-            key: "rates",
-            label: "Supplier Rates",
-            count: ratesToShow.length || undefined,
-          },
-        ]}
-      />
-
-      {/* ── Details tab ── */}
-      {activeTab === "details" && (
-        <CRow className="g-3 g-lg-4">
-          {/* Images */}
-          {hasMedia && (
-            <CCol xs={12} lg={5} xl={4}>
-              <div
-                className="h-100"
-                style={{
-                  background: "#fff",
-                  border: "1.5px solid #e2e8f0",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#64748b",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 12,
-                  }}
-                >
-                  Product Images
-                </div>
-
-                {imagePreviews.length > 0 && (
-                  <div className="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-start mb-2">
-                    {imagePreviews.map(({ doc, url }, i) => (
-                      <a
-                        key={doc._id != null ? String(doc._id) : `img-${i}`}
-                        href={url}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <img
-                          src={url}
-                          alt={
-                            doc.originalName || item.productName || "Product"
-                          }
-                          style={imageStyle}
-                        />
-                      </a>
-                    ))}
+          <CCardBody>
+            <CRow className="g-3 mb-4">
+              {displayQuantity != null && (
+                <CCol xs={6} sm={4} md={3} lg={2}>
+                  <div className="text-body-secondary small">Qty</div>
+                  <div className="fw-semibold">
+                    {displayQuantity}
+                    {displayUnit ? ` ${displayUnit}` : ""}
                   </div>
-                )}
-
-                {lineUrl && (
-                  <div
-                    className={
-                      imagePreviews.length > 0 ? "pt-2 border-top mt-2" : ""
-                    }
-                  >
-                    {imagePreviews.length > 0 && (
-                      <div
-                        style={{
-                          fontSize: 11,
-                          color: "#94a3b8",
-                          marginBottom: 6,
-                        }}
-                      >
-                        Sales Order line photo
-                      </div>
-                    )}
-                    <div className="text-center text-lg-start">
-                      <img
-                        src={lineUrl}
-                        alt="Line attachment"
-                        style={imageStyle}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {[...nonImageDocs, ...(lineNonImg ? [lineNonImg] : [])].map(
-                  (doc, i) => (
-                    <a
-                      key={doc._id ?? `ndoc-${i}`}
-                      href={resolveUrl(doc.path)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="d-flex align-items-center gap-2 mt-2"
-                      style={{
-                        fontSize: 13,
-                        color: "#2563eb",
-                        textDecoration: "none",
-                        wordBreak: "break-word",
-                      }}
-                    >
-                      <CIcon icon={cilFile} style={{ flexShrink: 0 }} />
-                      {doc.originalName || "Open attachment"}
-                    </a>
-                  ),
-                )}
-              </div>
-            </CCol>
-          )}
-
-          {/* Field details */}
-          <CCol xs={12} lg={hasMedia ? 7 : 12} xl={hasMedia ? 8 : 12}>
-            <div
-              className="h-100"
-              style={{
-                background: "#fff",
-                border: "1.5px solid #e2e8f0",
-                borderRadius: 12,
-                padding: "4px 16px 8px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  padding: "12px 0 4px",
-                }}
-              >
-                Line Details
-              </div>
-              {[
-                ["Description", item.description],
-                [
-                  "Group",
-                  item.effectiveGroupName || fmt(item.effectiveGroupId),
-                ],
-                ["HSN", item.hsnNumber],
-                ["Model", item.modelNumber],
-                ["GST %", item.gstPercentage],
-                ["Remark", item.remark],
-              ].map(([label, val]) =>
-                val != null && val !== "" && val !== "—" ? (
-                  <DetailRow key={label} label={label} value={fmt(val)} />
-                ) : null,
+                </CCol>
               )}
-            </div>
-          </CCol>
+              {item.dispatchmentDate && (
+                <CCol xs={6} sm={4} md={3} lg={2}>
+                  <div className="text-body-secondary small">Dispatch</div>
+                  <div className="fw-semibold">
+                    {dateFormatter(item.dispatchmentDate, "—")}
+                  </div>
+                </CCol>
+              )}
+              {item.targetRate != null && (
+                <CCol xs={6} sm={4} md={3} lg={2}>
+                  <div className="text-body-secondary small">Target Rate</div>
+                  <div className="fw-semibold">
+                    ₹{Number(item.targetRate).toLocaleString("en-IN")}
+                  </div>
+                </CCol>
+              )}
+              {displayProductCode && (
+                <CCol xs={12} sm={8} md={6} lg={4}>
+                  <div className="text-body-secondary small">Product code</div>
+                  <div className="fw-semibold font-monospace text-primary">
+                    {displayProductCode}
+                  </div>
+                </CCol>
+              )}
+            </CRow>
 
-          {/* Payment request bill */}
-          {item.paymentRequestBillDocumentId?.path && (
-            <CCol xs={12}>
-              <div
-                style={{
-                  background: "#eff6ff",
-                  border: "1.5px solid #bfdbfe",
-                  borderRadius: 12,
-                  padding: "12px 16px",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#1d4ed8",
-                    marginBottom: 6,
-                  }}
+            <CNav variant="tabs" className="mb-3" role="tablist">
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === "details"}
+                  onClick={() => setActiveTab("details")}
+                  style={{ cursor: "pointer" }}
                 >
-                  Payment Request Bill
-                </div>
-                <a
-                  href={resolveUrl(item.paymentRequestBillDocumentId.path)}
-                  target="_blank"
-                  rel="noreferrer"
+                  Details
+                </CNavLink>
+              </CNavItem>
+              <CNavItem>
+                <CNavLink
+                  active={activeTab === "rates"}
+                  onClick={() => setActiveTab("rates")}
+                  style={{ cursor: "pointer" }}
                   className="d-flex align-items-center gap-2"
-                  style={{
-                    fontSize: 13,
-                    color: "#2563eb",
-                    textDecoration: "none",
-                  }}
                 >
-                  <CIcon icon={cilFile} />
-                  {item.paymentRequestBillDocumentId.originalName ||
-                    "Open bill"}
-                </a>
-              </div>
-            </CCol>
-          )}
-
-          {/* Billing request record */}
-          {br && (
-            <CCol xs={12}>
-              <div
-                style={{
-                  background: "#fff",
-                  border: "1.5px solid #e2e8f0",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: "#64748b",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.5,
-                    marginBottom: 12,
-                  }}
-                >
-                  Purchase Billing Request
-                </div>
-
-                <div className="d-flex flex-wrap gap-2 mb-3">
-                  <span
-                    style={{
-                      padding: "3px 10px",
-                      borderRadius: 20,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      background:
-                        br.status === "finance_approved"
-                          ? "#f0fdf4"
-                          : br.status === "rejected"
-                            ? "#fef2f2"
-                            : "#fffbeb",
-                      color:
-                        br.status === "finance_approved"
-                          ? "#15803d"
-                          : br.status === "rejected"
-                            ? "#dc2626"
-                            : "#92400e",
-                      border: `1.5px solid ${br.status === "finance_approved" ? "#86efac" : br.status === "rejected" ? "#fca5a5" : "#fde68a"}`,
-                    }}
-                  >
-                    {String(br.status || "pending")}
-                  </span>
-                  {br.uniqueId && (
-                    <code
-                      style={{
-                        fontSize: 12,
-                        padding: "3px 8px",
-                        background: "#f1f5f9",
-                        borderRadius: 6,
-                        color: "#475569",
-                      }}
+                  Supplier Rates
+                  {ratesToShow.length > 0 && (
+                    <CBadge
+                      color={activeTab === "rates" ? "primary" : "secondary"}
+                      shape="rounded-pill"
+                      style={{ fontSize: "0.65rem" }}
                     >
-                      {br.uniqueId}
-                    </code>
+                      {ratesToShow.length}
+                    </CBadge>
                   )}
-                </div>
+                </CNavLink>
+              </CNavItem>
+            </CNav>
 
-                <CRow className="g-2 g-md-3" style={{ fontSize: 13 }}>
-                  {br.amount != null && (
-                    <CCol xs={12} sm={6} md={4} lg={3}>
-                      <div
-                        style={{
-                          color: "#94a3b8",
-                          fontSize: 11,
-                          marginBottom: 2,
-                        }}
-                      >
-                        Amount
-                      </div>
-                      <div style={{ fontWeight: 700, color: "#1e293b" }}>
-                        ₹{Number(br.amount).toLocaleString("en-IN")}
-                      </div>
-                    </CCol>
+            <CTabContent>
+              <CTabPane role="tabpanel" visible={activeTab === "details"}>
+                {item.queryRatesMatchNote === "missing_rawProductCode" && (
+                  <div className="alert alert-warning py-2 small mb-3">
+                    This Sales Order line has no raw product code — query
+                    product details cannot be matched.
+                  </div>
+                )}
+                {item.queryRatesMatchNote === "no_query_product" &&
+                  displayProductCode && (
+                    <div className="alert alert-warning py-2 small mb-3">
+                      No query product found for code{" "}
+                      <code>{displayProductCode}</code>.
+                    </div>
                   )}
-                  {(br.createdBySnapshot?.name || br.createdBy?.name) && (
-                    <CCol xs={12} sm={6} md={4} lg={3}>
-                      <div
-                        style={{
-                          color: "#94a3b8",
-                          fontSize: 11,
-                          marginBottom: 2,
-                        }}
-                      >
-                        Submitted by
-                      </div>
-                      <div style={{ fontWeight: 600 }}>
-                        {br.createdBySnapshot?.name || br.createdBy?.name}
-                      </div>
-                    </CCol>
-                  )}
-                  {(br.approvedBySnapshot?.name || br.approvedBy?.name) && (
-                    <CCol xs={12} sm={6} md={4} lg={3}>
-                      <div
-                        style={{
-                          color: "#94a3b8",
-                          fontSize: 11,
-                          marginBottom: 2,
-                        }}
-                      >
-                        Approved by
-                      </div>
-                      <div style={{ fontWeight: 600 }}>
-                        {br.approvedBySnapshot?.name || br.approvedBy?.name}
-                      </div>
-                      {br.approvedAt && (
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                          {fmtDateTime(br.approvedAt)}
-                        </div>
-                      )}
-                    </CCol>
-                  )}
-                  {br.statusRemark && (
-                    <CCol xs={12}>
-                      <div
-                        style={{
-                          color: "#94a3b8",
-                          fontSize: 11,
-                          marginBottom: 2,
-                        }}
-                      >
-                        Financier remark
-                      </div>
-                      <div style={{ color: "#475569" }}>{br.statusRemark}</div>
-                    </CCol>
-                  )}
-                </CRow>
 
-                <div className="d-flex flex-wrap gap-2 mt-3">
-                  {br.billDocumentId?.path && (
-                    <a
-                      href={resolveUrl(br.billDocumentId.path)}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: "#eff6ff",
-                        color: "#2563eb",
-                        textDecoration: "none",
-                        border: "1px solid #bfdbfe",
-                      }}
-                    >
-                      <CIcon icon={cilFile} style={{ fontSize: 14 }} />
-                      {br.billDocumentId.originalName || "View Bill"}
-                    </a>
-                  )}
-                  {br.proofDocumentId?.path && (
-                    <a
-                      href={resolveUrl(br.proofDocumentId.path)}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        padding: "6px 12px",
-                        borderRadius: 8,
-                        fontSize: 12,
-                        fontWeight: 600,
-                        background: "#f0fdf4",
-                        color: "#16a34a",
-                        textDecoration: "none",
-                        border: "1px solid #86efac",
-                      }}
-                    >
-                      <CIcon icon={cilCheckCircle} style={{ fontSize: 14 }} />
-                      {br.proofDocumentId.originalName || "View Payment Proof"}
-                    </a>
-                  )}
-                </div>
-              </div>
-            </CCol>
-          )}
-
-          {/* Local purchase assignments */}
-          <CCol xs={12}>
-            <div
-              style={{
-                background: "#fff",
-                border: "1.5px solid #e2e8f0",
-                borderRadius: 12,
-                padding: 16,
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#64748b",
-                  textTransform: "uppercase",
-                  letterSpacing: 0.5,
-                  marginBottom: 12,
-                }}
-              >
-                Local Purchase Assignments
-              </div>
-              {localPurchasesLoading ? (
-                <div className="text-body-secondary small py-2">
-                  <CSpinner size="sm" className="me-2" />
-                  Loading assignments…
-                </div>
-              ) : localPurchases.length === 0 ? (
-                <p className="text-body-secondary small mb-0">
-                  No local purchase assignments yet.
-                </p>
-              ) : (
-                <div className="d-flex flex-column gap-2">
-                  {localPurchases.map((row) => {
-                    const emp =
-                      row.employeeId && typeof row.employeeId === "object"
-                        ? row.employeeId
-                        : null;
-                    return (
-                      <div
-                        key={row._id}
-                        className="rounded-2 p-3"
-                        style={{
-                          background: "#f8fafc",
-                          border: "1px solid #e2e8f0",
-                        }}
-                      >
-                        <div className="d-flex flex-wrap justify-content-between gap-2 mb-2">
-                          <div
-                            style={{
-                              fontWeight: 600,
-                              fontSize: 13,
-                              color: "#1e293b",
-                            }}
-                          >
-                            {emp?.name || emp?.email || "Assigned employee"}
-                          </div>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              color: "#64748b",
-                            }}
-                          >
-                            {String(row.status || "pending")}
-                          </span>
-                        </div>
-                        {(emp?.designation || emp?.role) && (
-                          <div className="small text-body-secondary mb-2">
-                            {[emp?.designation, emp?.role]
-                              .filter(Boolean)
-                              .join(" · ")}
-                          </div>
-                        )}
-                        {(row.remark || row.assignmentRemark) && (
-                          <div className="small mb-1">
-                            <span className="text-body-secondary">
-                              Remark:{" "}
-                            </span>
-                            {row.remark || row.assignmentRemark}
-                          </div>
-                        )}
-                        {row.locationLink && (
-                          <a
-                            href={row.locationLink}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="small d-inline-block"
-                            style={{ wordBreak: "break-all" }}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            {row.locationLink}
-                          </a>
-                        )}
-                        <div className="small text-body-secondary mt-2">
-                          {fmtDateTime(row.createdAt)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </CCol>
-        </CRow>
-      )}
-
-      {/* ── Rates tab ── */}
-      {activeTab === "rates" && (
-        <div>
-          {item.queryRatesMatchNote === "missing_rawProductCode" && (
-            <div
-              className="text-center py-4"
-              style={{ color: "#94a3b8", fontSize: 13 }}
-            >
-              This Sales Order line has no raw product code — rates cannot be
-              matched.
-            </div>
-          )}
-          {item.queryRatesMatchNote === "no_query_product" &&
-            item.rawProductCode && (
-              <div
-                className="text-center py-4"
-                style={{ color: "#94a3b8", fontSize: 13 }}
-              >
-                No query product found for code{" "}
-                <code>{item.rawProductCode}</code>.
-              </div>
-            )}
-
-          {item.queryProductMatch && (
-            <div
-              className="mb-3 d-flex flex-wrap gap-2 align-items-center"
-              style={{
-                padding: "8px 12px",
-                background: "#f8fafc",
-                border: "1px solid #e2e8f0",
-                borderRadius: 8,
-                fontSize: 12,
-              }}
-            >
-              <span style={{ color: "#64748b" }}>Matched query line</span>
-              <strong style={{ color: "#1e293b" }}>
-                #{item.queryProductMatch.lineIndex}
-              </strong>
-              {item.queryProductMatch.queryCode && (
-                <code
-                  style={{
-                    fontSize: 11,
-                    background: "#e2e8f0",
-                    padding: "2px 6px",
-                    borderRadius: 4,
-                  }}
-                >
-                  {item.queryProductMatch.queryCode}
-                </code>
-              )}
-              {item.queryProductMatch.proBucketStatus && (
-                <span style={{ color: "#7c3aed", fontWeight: 600 }}>
-                  Pro: {item.queryProductMatch.proBucketStatus}
-                </span>
-              )}
-            </div>
-          )}
-
-          {ratesToShow.length === 0 ? (
-            <div
-              className="text-center py-5 rounded-3"
-              style={{
-                background: "#f8fafc",
-                border: "1px dashed #cbd5e1",
-                color: "#94a3b8",
-              }}
-            >
-              <div style={{ fontSize: 14, fontWeight: 600 }}>
-                No supplier rates yet
-              </div>
-            </div>
-          ) : (
-            <CRow className="g-3">
-              {ratesToShow.map((r, idx) => {
-                const extras = supplierExtra(r.supplier);
-                return (
-                  <CCol
-                    key={r._id != null ? String(r._id) : idx}
-                    xs={12}
-                    lg={6}
-                    xl={4}
-                  >
-                    <div
-                      className="h-100"
-                      style={{
-                        background: "#fff",
-                        border: "1.5px solid #e2e8f0",
-                        borderRadius: 12,
-                        padding: "14px 16px",
-                      }}
-                    >
-                      <div className="d-flex align-items-start justify-content-between gap-3 flex-column flex-sm-row">
-                        <div className="min-w-0">
-                          <div
-                            style={{
-                              fontWeight: 700,
-                              fontSize: 14,
-                              color: "#1e293b",
-                              wordBreak: "break-word",
-                            }}
-                          >
-                            {supplierLabel(r.supplier)}
-                          </div>
-                          {extras.map((e, i) => (
-                            <div
-                              key={i}
-                              style={{
-                                fontSize: 12,
-                                color: "#64748b",
-                                marginTop: 1,
-                                wordBreak: "break-word",
-                              }}
-                            >
-                              {e}
+                <CRow className="g-3">
+                  {hasQueryMedia && (
+                    <CCol xs={12} lg={4}>
+                      <CCard className="h-100 mb-0">
+                        <CCardHeader className="py-2">
+                          <strong className="small text-body-secondary">
+                            Query Product Images
+                          </strong>
+                        </CCardHeader>
+                        <CCardBody>
+                          {queryImagePreviews.length > 0 && (
+                            <div className="d-flex flex-wrap gap-2 mb-2">
+                              {queryImagePreviews.map(({ doc, url }, i) => (
+                                <a
+                                  key={
+                                    doc._id != null
+                                      ? String(doc._id)
+                                      : `img-${i}`
+                                  }
+                                  href={url}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <img
+                                    src={url}
+                                    alt={
+                                      doc.originalName ||
+                                      displayProductName ||
+                                      "Product"
+                                    }
+                                    style={imageStyle}
+                                  />
+                                </a>
+                              ))}
                             </div>
+                          )}
+                          {queryNonImageDocs.map((doc, i) => (
+                            <a
+                              key={doc._id ?? `ndoc-${i}`}
+                              href={resolveUrl(doc.path)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="d-flex align-items-center gap-2 mt-2 text-decoration-none"
+                            >
+                              <CIcon icon={cilFile} />
+                              {doc.originalName ||
+                                doc.name ||
+                                "Open attachment"}
+                            </a>
                           ))}
-                        </div>
-                        {r.rate != null && (
-                          <div className="text-start text-sm-end flex-shrink-0">
-                            <div
-                              style={{
-                                fontWeight: 800,
-                                fontSize: 16,
-                                color: "#2563eb",
-                              }}
-                            >
-                              ₹{Number(r.rate).toLocaleString("en-IN")}
-                            </div>
-                            {r.unit && (
-                              <div style={{ fontSize: 12, color: "#94a3b8" }}>
-                                per {r.unit}
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                  )}
+
+                  <CCol xs={12} lg={hasQueryMedia ? 8 : 12}>
+                    <CCard className="h-100 mb-0">
+                      <CCardHeader className="py-2 d-flex flex-wrap align-items-center gap-2">
+                        <strong className="small text-body-secondary">
+                          Query Product Details
+                        </strong>
+                        {queryProduct?.proBucketStatus && (
+                          <CBadge color="info">
+                            {String(queryProduct.proBucketStatus).replace(
+                              /_/g,
+                              " ",
+                            )}
+                          </CBadge>
+                        )}
+                        {queryProduct?.queryCode && (
+                          <code className="small">
+                            {queryProduct.queryCode}
+                          </code>
+                        )}
+                      </CCardHeader>
+                      <CCardBody>
+                        {!queryProduct ? (
+                          <p className="text-body-secondary mb-0">
+                            No matched query product data available.
+                          </p>
+                        ) : queryProductDetailFields.length === 0 &&
+                          queryVariants.length === 0 ? (
+                          <p className="text-body-secondary mb-0">
+                            Query product matched but no detail fields are
+                            stored.
+                          </p>
+                        ) : (
+                          <>
+                            <CRow>
+                              {queryProductDetailFields.map(
+                                ({ label, value, mono, fullWidth }) => (
+                                  <DetailRow
+                                    key={label}
+                                    label={label}
+                                    value={
+                                      typeof value === "string" ||
+                                      typeof value === "number"
+                                        ? fmt(value)
+                                        : value
+                                    }
+                                    mono={mono}
+                                    fullWidth={fullWidth}
+                                  />
+                                ),
+                              )}
+                            </CRow>
+                            {queryVariants.length > 0 && (
+                              <div className="mt-2 pt-2 border-top">
+                                <div className="text-body-secondary small mb-2">
+                                  Variants
+                                </div>
+                                <ul className="mb-0 small">
+                                  {queryVariants.map((v, i) => (
+                                    <li key={v._id || i}>
+                                      {v.variantName || v.name || "—"}
+                                    </li>
+                                  ))}
+                                </ul>
                               </div>
                             )}
+                          </>
+                        )}
+                      </CCardBody>
+                    </CCard>
+                  </CCol>
+
+                  {!catalogProduct && (
+                    <CCol xs={12}>
+                      <div className="alert alert-secondary py-2 small mb-0">
+                        {item.product_id
+                          ? "Linked catalog product could not be loaded."
+                          : "No linked catalog product on this Sales Order line."}
+                      </div>
+                    </CCol>
+                  )}
+
+                  {catalogProduct && (
+                    <>
+                      {hasCatalogMedia && (
+                        <CCol xs={12} lg={4}>
+                          <CCard className="h-100 mb-0">
+                            <CCardHeader className="py-2">
+                              <strong className="small text-body-secondary">
+                                Catalog Product Images
+                              </strong>
+                            </CCardHeader>
+                            <CCardBody>
+                              {catalogImagePreviews.length > 0 && (
+                                <div className="d-flex flex-wrap gap-2 mb-2">
+                                  {catalogImagePreviews.map(
+                                    ({ doc, url }, i) => (
+                                      <a
+                                        key={
+                                          doc._id != null
+                                            ? String(doc._id)
+                                            : `cat-img-${i}`
+                                        }
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                      >
+                                        <img
+                                          src={url}
+                                          alt={
+                                            doc.originalName ||
+                                            catalogProduct.name ||
+                                            "Product"
+                                          }
+                                          style={imageStyle}
+                                        />
+                                      </a>
+                                    ),
+                                  )}
+                                </div>
+                              )}
+                              {catalogNonImageDocs.map((doc, i) => (
+                                <a
+                                  key={doc._id ?? `cat-ndoc-${i}`}
+                                  href={resolveUrl(doc.path)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="d-flex align-items-center gap-2 mt-2 text-decoration-none"
+                                >
+                                  <CIcon icon={cilFile} />
+                                  {doc.originalName ||
+                                    doc.name ||
+                                    "Open attachment"}
+                                </a>
+                              ))}
+                            </CCardBody>
+                          </CCard>
+                        </CCol>
+                      )}
+
+                      <CCol xs={12} lg={hasCatalogMedia ? 8 : 12}>
+                        <CCard className="h-100 mb-0">
+                          <CCardHeader className="py-2 d-flex flex-wrap align-items-center gap-2">
+                            <strong className="small text-body-secondary">
+                              Catalog Product Details
+                            </strong>
+                            {catalogProduct.status && (
+                              <CBadge color="secondary">
+                                {String(catalogProduct.status).replace(
+                                  /_/g,
+                                  " ",
+                                )}
+                              </CBadge>
+                            )}
+                            {catalogProduct.sku && (
+                              <code className="small">
+                                {catalogProduct.sku}
+                              </code>
+                            )}
+                          </CCardHeader>
+                          <CCardBody>
+                            {catalogProductDetailFields.length === 0 &&
+                            catalogVariantTypes.length === 0 &&
+                            catalogVariantCombinations.length === 0 ? (
+                              <p className="text-body-secondary mb-0">
+                                Linked catalog product has no stored detail
+                                fields.
+                              </p>
+                            ) : (
+                              <>
+                                <CRow>
+                                  {catalogProductDetailFields.map(
+                                    ({ label, value, mono, fullWidth }) => (
+                                      <DetailRow
+                                        key={label}
+                                        label={label}
+                                        value={
+                                          typeof value === "string" ||
+                                          typeof value === "number"
+                                            ? fmt(value)
+                                            : value
+                                        }
+                                        mono={mono}
+                                        fullWidth={fullWidth}
+                                      />
+                                    ),
+                                  )}
+                                </CRow>
+
+                                {catalogVariantTypes.length > 0 && (
+                                  <div className="mt-2 pt-2 border-top">
+                                    <div className="text-body-secondary small mb-2">
+                                      Variant types
+                                    </div>
+                                    <div className="table-responsive">
+                                      <CTable
+                                        bordered
+                                        hover
+                                        align="middle"
+                                        className="mb-0 small"
+                                      >
+                                        <CTableBody>
+                                          {catalogVariantTypes.map(
+                                            (variant, index) => (
+                                              <CTableRow
+                                                key={variant.name || index}
+                                              >
+                                                <CTableHeaderCell
+                                                  style={{ width: "30%" }}
+                                                >
+                                                  {variant.name || "—"}
+                                                </CTableHeaderCell>
+                                                <CTableDataCell>
+                                                  {(variant.options || []).map(
+                                                    (option, optionIndex) => (
+                                                      <CBadge
+                                                        key={`${option}-${optionIndex}`}
+                                                        color="primary"
+                                                        className="me-1 mb-1"
+                                                      >
+                                                        {option}
+                                                      </CBadge>
+                                                    ),
+                                                  )}
+                                                </CTableDataCell>
+                                              </CTableRow>
+                                            ),
+                                          )}
+                                        </CTableBody>
+                                      </CTable>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {catalogVariantCombinations.length > 0 && (
+                                  <div className="mt-3 pt-2 border-top">
+                                    <div className="text-body-secondary small mb-2">
+                                      Variant combinations
+                                    </div>
+                                    <div className="table-responsive">
+                                      <CTable
+                                        bordered
+                                        hover
+                                        align="middle"
+                                        className="mb-0 small"
+                                      >
+                                        <CTableHead color="light">
+                                          <CTableRow>
+                                            <CTableHeaderCell>
+                                              Variant
+                                            </CTableHeaderCell>
+                                            <CTableHeaderCell>
+                                              SKU
+                                            </CTableHeaderCell>
+                                            <CTableHeaderCell>
+                                              Code
+                                            </CTableHeaderCell>
+                                            <CTableHeaderCell>
+                                              HSN
+                                            </CTableHeaderCell>
+                                            <CTableHeaderCell>
+                                              Model
+                                            </CTableHeaderCell>
+                                            <CTableHeaderCell>
+                                              Price
+                                            </CTableHeaderCell>
+                                            <CTableHeaderCell>
+                                              Images
+                                            </CTableHeaderCell>
+                                          </CTableRow>
+                                        </CTableHead>
+                                        <CTableBody>
+                                          {catalogVariantCombinations.map(
+                                            (variantRow, index) => {
+                                              const variantImages = (
+                                                variantRow.images || []
+                                              ).filter(isImagePath);
+                                              return (
+                                                <CTableRow
+                                                  key={
+                                                    variantRow._id ||
+                                                    variantRow.uniqueId ||
+                                                    index
+                                                  }
+                                                >
+                                                  <CTableDataCell>
+                                                    {formatVariantOptionValues(
+                                                      variantRow.optionValues,
+                                                    )}
+                                                  </CTableDataCell>
+                                                  <CTableDataCell className="font-monospace">
+                                                    {variantRow.sku || "—"}
+                                                  </CTableDataCell>
+                                                  <CTableDataCell className="font-monospace">
+                                                    {variantRow.variantCode ||
+                                                      "—"}
+                                                  </CTableDataCell>
+                                                  <CTableDataCell className="font-monospace">
+                                                    {variantRow.hsnNumber ||
+                                                      "—"}
+                                                  </CTableDataCell>
+                                                  <CTableDataCell>
+                                                    {variantRow.modelNumber ||
+                                                      "—"}
+                                                  </CTableDataCell>
+                                                  <CTableDataCell>
+                                                    {formatCurrency(
+                                                      variantRow.price,
+                                                    ) || "—"}
+                                                  </CTableDataCell>
+                                                  <CTableDataCell>
+                                                    {variantImages.length >
+                                                    0 ? (
+                                                      <div className="d-flex flex-wrap gap-1">
+                                                        {variantImages.map(
+                                                          (doc, imageIndex) => (
+                                                            <a
+                                                              key={
+                                                                doc._id ||
+                                                                `vc-img-${imageIndex}`
+                                                              }
+                                                              href={resolveUrl(
+                                                                doc.path,
+                                                              )}
+                                                              target="_blank"
+                                                              rel="noreferrer"
+                                                            >
+                                                              <img
+                                                                src={resolveUrl(
+                                                                  doc.path,
+                                                                )}
+                                                                alt="Variant"
+                                                                style={{
+                                                                  ...imageStyle,
+                                                                  maxHeight: 56,
+                                                                  maxWidth: 56,
+                                                                }}
+                                                              />
+                                                            </a>
+                                                          ),
+                                                        )}
+                                                      </div>
+                                                    ) : (
+                                                      "—"
+                                                    )}
+                                                  </CTableDataCell>
+                                                </CTableRow>
+                                              );
+                                            },
+                                          )}
+                                        </CTableBody>
+                                      </CTable>
+                                    </div>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </CCardBody>
+                        </CCard>
+                      </CCol>
+                    </>
+                  )}
+
+                  {item.paymentRequestBillDocumentId?.path && (
+                    <CCol xs={12}>
+                      <CCard className="mb-0 border-primary-subtle bg-primary-subtle">
+                        <CCardBody className="py-3">
+                          <div className="fw-semibold text-primary mb-2">
+                            Payment Request Bill
+                          </div>
+                          <a
+                            href={resolveUrl(
+                              item.paymentRequestBillDocumentId.path,
+                            )}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="d-inline-flex align-items-center gap-2 text-decoration-none"
+                          >
+                            <CIcon icon={cilFile} />
+                            {item.paymentRequestBillDocumentId.originalName ||
+                              "Open bill"}
+                          </a>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                  )}
+
+                  {br && (
+                    <CCol xs={12}>
+                      <CCard className="mb-0">
+                        <CCardHeader className="py-2 d-flex flex-wrap align-items-center gap-2">
+                          <strong className="small text-body-secondary">
+                            Purchase Billing Request
+                          </strong>
+                          <CBadge
+                            color={
+                              br.status === "finance_approved"
+                                ? "success"
+                                : br.status === "rejected"
+                                  ? "danger"
+                                  : "warning"
+                            }
+                          >
+                            {String(br.status || "pending")}
+                          </CBadge>
+                          {br.uniqueId && (
+                            <code className="small">{br.uniqueId}</code>
+                          )}
+                        </CCardHeader>
+                        <CCardBody>
+                          <CRow className="g-3 mb-3">
+                            {br.amount != null && (
+                              <CCol xs={12} sm={6} md={4} lg={3}>
+                                <div className="text-body-secondary small">
+                                  Amount
+                                </div>
+                                <div className="fw-bold">
+                                  ₹{Number(br.amount).toLocaleString("en-IN")}
+                                </div>
+                              </CCol>
+                            )}
+                            {(br.createdBySnapshot?.name ||
+                              br.createdBy?.name) && (
+                              <CCol xs={12} sm={6} md={4} lg={3}>
+                                <div className="text-body-secondary small">
+                                  Submitted by
+                                </div>
+                                <div className="fw-semibold">
+                                  {br.createdBySnapshot?.name ||
+                                    br.createdBy?.name}
+                                </div>
+                              </CCol>
+                            )}
+                            {(br.approvedBySnapshot?.name ||
+                              br.approvedBy?.name) && (
+                              <CCol xs={12} sm={6} md={4} lg={3}>
+                                <div className="text-body-secondary small">
+                                  Approved by
+                                </div>
+                                <div className="fw-semibold">
+                                  {br.approvedBySnapshot?.name ||
+                                    br.approvedBy?.name}
+                                </div>
+                                {br.approvedAt && (
+                                  <div className="text-body-secondary small">
+                                    {dateTimeFormatter(br.approvedAt, "—")}
+                                  </div>
+                                )}
+                              </CCol>
+                            )}
+                            {br.statusRemark && (
+                              <CCol xs={12}>
+                                <div className="text-body-secondary small">
+                                  Financier remark
+                                </div>
+                                <div>{br.statusRemark}</div>
+                              </CCol>
+                            )}
+                          </CRow>
+                          <div className="d-flex flex-wrap gap-2">
+                            {br.billDocumentId?.path && (
+                              <CButton
+                                color="primary"
+                                variant="outline"
+                                size="sm"
+                                href={resolveUrl(br.billDocumentId.path)}
+                                target="_blank"
+                                rel="noreferrer"
+                                component="a"
+                              >
+                                <CIcon icon={cilFile} className="me-1" />
+                                {br.billDocumentId.originalName || "View Bill"}
+                              </CButton>
+                            )}
+                            {br.proofDocumentId?.path && (
+                              <CButton
+                                color="success"
+                                variant="outline"
+                                size="sm"
+                                href={resolveUrl(br.proofDocumentId.path)}
+                                target="_blank"
+                                rel="noreferrer"
+                                component="a"
+                              >
+                                <CIcon icon={cilCheckCircle} className="me-1" />
+                                {br.proofDocumentId.originalName ||
+                                  "View Payment Proof"}
+                              </CButton>
+                            )}
+                          </div>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                  )}
+
+                  <CCol xs={12}>
+                    <CCard className="mb-0">
+                      <CCardHeader className="py-2">
+                        <strong className="small text-body-secondary">
+                          Local Purchase Assignments
+                        </strong>
+                      </CCardHeader>
+                      <CCardBody>
+                        {localPurchasesLoading ? (
+                          <Loader message="Loading assignments…" />
+                        ) : localPurchases.length === 0 ? (
+                          <p className="text-body-secondary mb-0">
+                            No local purchase assignments yet.
+                          </p>
+                        ) : (
+                          <div className="table-responsive">
+                            <CTable
+                              hover
+                              bordered
+                              align="middle"
+                              className="mb-0"
+                            >
+                              <CTableHead color="light">
+                                <CTableRow>
+                                  <CTableHeaderCell>Employee</CTableHeaderCell>
+                                  <CTableHeaderCell>
+                                    Designation
+                                  </CTableHeaderCell>
+                                  <CTableHeaderCell>Status</CTableHeaderCell>
+                                  <CTableHeaderCell>Remark</CTableHeaderCell>
+                                  <CTableHeaderCell>Location</CTableHeaderCell>
+                                  <CTableHeaderCell>
+                                    Assigned on
+                                  </CTableHeaderCell>
+                                </CTableRow>
+                              </CTableHead>
+                              <CTableBody>
+                                {localPurchases.map((row) => {
+                                  const emp =
+                                    row.employeeId &&
+                                    typeof row.employeeId === "object"
+                                      ? row.employeeId
+                                      : null;
+                                  return (
+                                    <CTableRow key={row._id}>
+                                      <CTableDataCell>
+                                        {emp?.name || emp?.email || "—"}
+                                      </CTableDataCell>
+                                      <CTableDataCell>
+                                        {[emp?.designation, emp?.role]
+                                          .filter(Boolean)
+                                          .join(" · ") || "—"}
+                                      </CTableDataCell>
+                                      <CTableDataCell>
+                                        {String(row.status || "pending")}
+                                      </CTableDataCell>
+                                      <CTableDataCell>
+                                        {row.remark ||
+                                          row.assignmentRemark ||
+                                          "—"}
+                                      </CTableDataCell>
+                                      <CTableDataCell>
+                                        {row.locationLink ? (
+                                          <a
+                                            href={row.locationLink}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-truncate d-inline-block"
+                                            style={{ maxWidth: 180 }}
+                                          >
+                                            Link
+                                          </a>
+                                        ) : (
+                                          "—"
+                                        )}
+                                      </CTableDataCell>
+                                      <CTableDataCell className="text-nowrap">
+                                        {dateTimeFormatter(row.createdAt, "—")}
+                                      </CTableDataCell>
+                                    </CTableRow>
+                                  );
+                                })}
+                              </CTableBody>
+                            </CTable>
                           </div>
                         )}
-                      </div>
-
-                      {(r.remark || r.submittedAt || r.submittedBy?.name) && (
-                        <div
-                          className="d-flex flex-wrap gap-2 gap-md-3 mt-2 pt-2"
-                          style={{
-                            borderTop: "1px solid #f1f5f9",
-                            fontSize: 12,
-                            color: "#64748b",
-                          }}
-                        >
-                          {r.remark && (
-                            <span>
-                              <strong style={{ color: "#475569" }}>
-                                Note:
-                              </strong>{" "}
-                              {r.remark}
-                            </span>
-                          )}
-                          {r.submittedBy?.name && (
-                            <span>
-                              By{" "}
-                              <strong style={{ color: "#475569" }}>
-                                {r.submittedBy.name}
-                              </strong>
-                            </span>
-                          )}
-                          {r.submittedAt && (
-                            <span>{fmtDateTime(r.submittedAt)}</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                      </CCardBody>
+                    </CCard>
                   </CCol>
-                );
-              })}
-            </CRow>
-          )}
+                </CRow>
+              </CTabPane>
 
-          {/* Warning if rejected */}
-          {lineStatus === "billing_request_rejected" && (
-            <div
-              className="mt-3 d-flex gap-2 align-items-start rounded-2 p-3"
-              style={{
-                background: "#fef2f2",
-                border: "1px solid #fecaca",
-                fontSize: 13,
-              }}
-            >
-              <CIcon
-                icon={cilWarning}
-                style={{ color: "#dc2626", flexShrink: 0, marginTop: 1 }}
-              />
-              <span style={{ color: "#7f1d1d" }}>
-                This line's billing request was rejected. Please resubmit via
-                the Purchase Bucket.
-              </span>
-            </div>
-          )}
-        </div>
-      )}
+              <CTabPane role="tabpanel" visible={activeTab === "rates"}>
+                {item.queryRatesMatchNote === "missing_rawProductCode" && (
+                  <p className="text-body-secondary text-center py-4 mb-0">
+                    This Sales Order line has no raw product code — rates cannot
+                    be matched.
+                  </p>
+                )}
+                {item.queryRatesMatchNote === "no_query_product" &&
+                  item.rawProductCode && (
+                    <p className="text-body-secondary text-center py-4 mb-0">
+                      No query product found for code{" "}
+                      <code>{item.rawProductCode}</code>.
+                    </p>
+                  )}
+
+                {item.queryProductMatch && (
+                  <div className="mb-3 p-2 rounded border bg-body-secondary-subtle d-flex flex-wrap gap-2 align-items-center small">
+                    <span className="text-body-secondary">
+                      Matched query line
+                    </span>
+                    <strong>#{item.queryProductMatch.lineIndex}</strong>
+                    {item.queryProductMatch.queryCode && (
+                      <code className="small">
+                        {item.queryProductMatch.queryCode}
+                      </code>
+                    )}
+                    {item.queryProductMatch.proBucketStatus && (
+                      <CBadge color="info">
+                        Pro: {item.queryProductMatch.proBucketStatus}
+                      </CBadge>
+                    )}
+                  </div>
+                )}
+
+                {ratesToShow.length === 0 ? (
+                  <div className="text-center py-5 rounded border border-dashed text-body-secondary">
+                    No supplier rates yet
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <CTable hover bordered align="middle" className="mb-0">
+                      <CTableHead color="light">
+                        <CTableRow>
+                          <CTableHeaderCell style={{ minWidth: 160 }}>
+                            Supplier
+                          </CTableHeaderCell>
+                          <CTableHeaderCell>Contact</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 120 }}>
+                            Rate
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 80 }}>
+                            Unit
+                          </CTableHeaderCell>
+                          <CTableHeaderCell>Remark</CTableHeaderCell>
+                          <CTableHeaderCell>Submitted by</CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 140 }}>
+                            Date
+                          </CTableHeaderCell>
+                        </CTableRow>
+                      </CTableHead>
+                      <CTableBody>
+                        {ratesToShow.map((r, idx) => {
+                          const extras = supplierExtra(r.supplier);
+                          return (
+                            <CTableRow
+                              key={r._id != null ? String(r._id) : idx}
+                            >
+                              <CTableDataCell className="fw-semibold">
+                                {supplierLabel(r.supplier)}
+                              </CTableDataCell>
+                              <CTableDataCell className="small text-body-secondary">
+                                {extras.length > 0 ? extras.join(" · ") : "—"}
+                              </CTableDataCell>
+                              <CTableDataCell className="fw-bold text-primary">
+                                {r.rate != null
+                                  ? `₹${Number(r.rate).toLocaleString("en-IN")}`
+                                  : "—"}
+                              </CTableDataCell>
+                              <CTableDataCell>{r.unit || "—"}</CTableDataCell>
+                              <CTableDataCell>{r.remark || "—"}</CTableDataCell>
+                              <CTableDataCell>
+                                {r.submittedBy?.name || "—"}
+                              </CTableDataCell>
+                              <CTableDataCell className="text-nowrap small">
+                                {r.submittedAt
+                                  ? dateTimeFormatter(r.submittedAt, "—")
+                                  : "—"}
+                              </CTableDataCell>
+                            </CTableRow>
+                          );
+                        })}
+                      </CTableBody>
+                    </CTable>
+                  </div>
+                )}
+
+                {lineStatus === "billing_request_rejected" && (
+                  <div className="mt-3 d-flex gap-2 align-items-start rounded border border-danger-subtle bg-danger-subtle p-3">
+                    <CIcon
+                      icon={cilWarning}
+                      className="text-danger flex-shrink-0 mt-1"
+                    />
+                    <span className="text-danger-emphasis">
+                      This line&apos;s billing request was rejected. Please
+                      resubmit using Raise Billing Request.
+                    </span>
+                    {showRaiseBillingRequest && (
+                      <CButton
+                        color="danger"
+                        variant="outline"
+                        size="sm"
+                        className="ms-auto flex-shrink-0"
+                        onClick={() =>
+                          navigate(
+                            `/purchase-bucket/raise-billing-request?poProductId=${id}`,
+                          )
+                        }
+                      >
+                        <CIcon icon={cilPlus} className="me-1" />
+                        Resubmit
+                      </CButton>
+                    )}
+                  </div>
+                )}
+              </CTabPane>
+            </CTabContent>
+          </CCardBody>
+        </CCard>
+      </CCol>
 
       {assignBarOpen && (
         <div
@@ -1529,7 +1951,7 @@ const PurchaseBucketDetail = () => {
           </div>
         </div>
       )}
-    </div>
+    </CRow>
   );
 };
 

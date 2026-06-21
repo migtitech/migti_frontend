@@ -8,12 +8,11 @@ import {
   CCol,
   CFormInput,
   CFormTextarea,
-  CPagination,
-  CPaginationItem,
   CRow,
 } from "@coreui/react";
 import visitService from "../../services/visitService";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError, toastSuccess } from "../../utils/toast";
 
 const unwrapResponse = (response) => {
@@ -29,8 +28,17 @@ const getTodayInputDate = () => {
   return `${yyyy}-${mm}-${dd}`;
 };
 
+const MY_VISITS_FILTER_DEFAULTS = {
+  date: getTodayInputDate(),
+  status: "active",
+};
+
 const MyVisits = () => {
   const drawerWidth = 420;
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "my_visits",
+    MY_VISITS_FILTER_DEFAULTS,
+  );
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState({
@@ -40,8 +48,8 @@ const MyVisits = () => {
     itemsPerPage: 10,
   });
   const [page, setPage] = useState(1);
-  const [selectedDate, setSelectedDate] = useState(getTodayInputDate());
-  const [activeTab, setActiveTab] = useState("active");
+  const [selectedDate, setSelectedDate] = useState(initialValues.date);
+  const [activeTab, setActiveTab] = useState(initialValues.status);
   const [selectedVisit, setSelectedVisit] = useState(null);
   const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false);
   const [remarkText, setRemarkText] = useState("");
@@ -83,6 +91,18 @@ const MyVisits = () => {
   useEffect(() => {
     setPage(1);
   }, [selectedDate, activeTab]);
+
+  useFilterLockPersist("my_visits", filtersLocked, {
+    date: selectedDate,
+    status: activeTab,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      date: selectedDate,
+      status: activeTab,
+    });
+  };
 
   const onOpenVisitView = (visit) => {
     setSelectedVisit(visit);
@@ -160,7 +180,7 @@ const MyVisits = () => {
                     </CButton>
                   </div>
                 </CCol>
-                <CCol xs={12} sm={6} md={4}>
+                <CCol xs={12} sm={6} md={3}>
                   <CCard>
                     <CCardBody className="py-2">
                       <div className="small text-muted">
@@ -172,6 +192,13 @@ const MyVisits = () => {
                       </div>
                     </CCardBody>
                   </CCard>
+                </CCol>
+                <CCol xs={12} sm={6} md={1} className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="My Visits"
+                  />
                 </CCol>
               </CRow>
 
@@ -229,44 +256,14 @@ const MyVisits = () => {
                 </CRow>
               )}
 
-              {pagination.totalPages > 1 && (
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                  <div className="small text-medium-emphasis">
-                    Showing{" "}
-                    {((pagination?.currentPage ?? 1) - 1) *
-                      (pagination?.itemsPerPage ?? 10) +
-                      1}
-                    -
-                    {Math.min(
-                      (pagination?.currentPage ?? 1) *
-                        (pagination?.itemsPerPage ?? 10),
-                      pagination?.totalItems ?? 0,
-                    )}{" "}
-                    of {pagination?.totalItems ?? 0}
-                  </div>
-                  <CPagination className="mb-0">
-                    <CPaginationItem
-                      disabled={page <= 1}
-                      onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active>
-                      {page} / {pagination.totalPages}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={page >= pagination.totalPages}
-                      onClick={() =>
-                        setPage((prev) =>
-                          Math.min(pagination.totalPages, prev + 1),
-                        )
-                      }
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
-                </div>
-              )}
+              <TablePagination
+                currentPage={pagination?.currentPage ?? 1}
+                totalPages={pagination.totalPages}
+                onPageChange={setPage}
+                showRange
+                totalItems={pagination?.totalItems ?? 0}
+                itemsPerPage={pagination?.itemsPerPage ?? 10}
+              />
             </CCardBody>
           </CCard>
         </CCol>
@@ -308,11 +305,6 @@ const MyVisits = () => {
               {selectedVisit?.status === "completed" ? "Completed" : "Active"}
             </CBadge>
           </div>
-          <div className="small text-muted">Branch</div>
-          <div className="mb-2 fw-semibold">
-            {selectedVisit?.branchName || "-"}
-          </div>
-
           <div className="small text-muted">Zone</div>
           <div className="mb-2">{selectedVisit?.zoneName || "-"}</div>
 

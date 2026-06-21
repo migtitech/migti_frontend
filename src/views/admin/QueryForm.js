@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { yupResolver } from "@hookform/resolvers/yup";
+import * as yup from "yup";
 import {
   CCard,
   CCardBody,
@@ -33,6 +36,7 @@ import {
   CImage,
   CCollapse,
   CFormSwitch,
+  CFormCheck,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
@@ -49,16 +53,29 @@ import {
 } from "@coreui/icons";
 import queryService from "../../services/queryService";
 import industryService from "../../services/industryService";
+import employeeService from "../../services/employeeService";
 import areaService from "../../services/areaService";
+import {
+  buildAreaNameLookup,
+  formatAreaDisplay,
+  getAreaId,
+} from "../../utils/areaDisplay";
 import subZoneService from "../../services/subZoneService";
 import queryNewProductService from "../../services/queryNewProductService";
 import groupService from "../../services/groupService";
 import categoryService from "../../services/categoryService";
 import documentService from "../../services/documentService";
 import { useAuth } from "../../context/AuthContext";
+import usePermissions, { canEditQuery } from "../../hooks/usePermissions";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import {
+  QUERY_REFERENCE_BY,
+  QUERY_REFERENCE_BY_LABELS,
+  employeeMatchesZone,
+  formatQueryReferenceByDisplay,
+} from "../../utils/queryReferenceBy";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
 import QueryNewProductFindSidebar from "./QueryNewProductFindSidebar";
 import QueryProductFindSidebar from "./QueryProductFindSidebar";
@@ -74,13 +91,33 @@ const INITIAL_COMPANY = {
   purchaseManagers: [],
 };
 
-const mapPurchaseManagers = (list) =>
-  (list || []).map((pm) => ({
-    name: pm?.name || "",
-    phone: pm?.phone || "",
-    email: pm?.email || "",
-    department: pm?.department || "",
+const getPurchaseManagerKey = (purchaseManager) =>
+  `${(purchaseManager?.name || "").trim().toLowerCase()}|${(purchaseManager?.phone || "").trim()}|${(purchaseManager?.email || "").trim()}`;
+
+const mapPurchaseManagers = (list, selectedKeys = null) =>
+  (list || []).map((purchaseManager) => ({
+    name: purchaseManager?.name || "",
+    phone: purchaseManager?.phone || "",
+    email: purchaseManager?.email || "",
+    department: purchaseManager?.department || "",
+    selected: selectedKeys
+      ? selectedKeys.has(getPurchaseManagerKey(purchaseManager))
+      : true,
   }));
+
+const isPurchaseManagerSelected = (purchaseManager) =>
+  purchaseManager?.selected !== false;
+
+const getSelectedPurchaseManagersForApi = (list) =>
+  (list || [])
+    .filter(isPurchaseManagerSelected)
+    .map(({ name, phone, email, department }) => ({
+      name: (name || "").trim(),
+      phone: (phone || "").trim(),
+      email: (email || "").trim(),
+      department: (department || "").trim(),
+    }))
+    .filter((purchaseManager) => purchaseManager.name || purchaseManager.phone);
 
 const INITIAL_VARIANT = { variantName: "" };
 
@@ -117,11 +154,26 @@ const STEPS = [
 
 const DRAFT_STORAGE_KEY = "migticrm_query_draft";
 const MAX_PRODUCT_IMAGES = 3;
+const MAX_PRODUCT_QUANTITY = 100000;
+
+const productQuantitySchema = yup.object({
+  quantity: yup
+    .number()
+    .transform((value, originalValue) =>
+      originalValue === "" || originalValue === null ? NaN : value,
+    )
+    .typeError("Quantity is required")
+    .required("Quantity is required")
+    .integer("Quantity must be a whole number")
+    .min(0, "Quantity must be 0 or more")
+    .max(MAX_PRODUCT_QUANTITY, "Quantity cannot exceed 1,00,000"),
+});
 
 const QueryForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { canUpdate } = usePermissions();
   const isEdit = Boolean(id);
   /** New query only: each line must have group + category (edit keeps them optional). */
   const requireGroupCategory = !isEdit;
@@ -138,6 +190,9 @@ const QueryForm = () => {
   const [industrySearchLoading, setIndustrySearchLoading] = useState(false);
   const [industryId, setIndustryId] = useState(null);
   const [companyInfo, setCompanyInfo] = useState(INITIAL_COMPANY);
+  const [queryReferenceBy, setQueryReferenceBy] = useState("");
+  const [zoneSalesPersons, setZoneSalesPersons] = useState([]);
+  const [zoneSalesPersonsLoading, setZoneSalesPersonsLoading] = useState(false);
   const [areas, setAreas] = useState([]);
   const [querySubZones, setQuerySubZones] = useState([]);
   const companyDropdownRef = useRef(null);
@@ -168,8 +223,24 @@ const QueryForm = () => {
   /** categoryId (string) -> name for rows not in allTableCategories / productCategories (e.g. subcategories) */
   const [categoryNameById, setCategoryNameById] = useState({});
 
-  const getAreaId = (area) =>
-    (typeof area === "object" ? area?._id : area) || "";
+  const {
+    register: registerProductQuantityField,
+    reset: resetProductQuantityForm,
+    trigger: triggerProductQuantityField,
+    getValues: getProductQuantityFormValues,
+    formState: { errors: productQuantityFormErrors },
+  } = useForm({
+    resolver: yupResolver(productQuantitySchema),
+    defaultValues: { quantity: "" },
+    mode: "onChange",
+  });
+
+  const syncProductQuantityField = useCallback(
+    (quantity) => {
+      resetProductQuantityForm({ quantity: quantity ?? "" });
+    },
+    [resetProductQuantityForm],
+  );
 
   const getSubZoneId = (sz) => (typeof sz === "object" ? sz?._id : sz) || "";
 
@@ -196,6 +267,59 @@ const QueryForm = () => {
     };
   }, [companyInfo.area]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const zoneId = companyInfo.area;
+    if (!zoneId) {
+      setZoneSalesPersons([]);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const loadZoneSalesPersons = async () => {
+      setZoneSalesPersonsLoading(true);
+      try {
+        const merged = [];
+        let page = 1;
+        let hasNext = true;
+        while (hasNext && page <= 40) {
+          const res = await employeeService.getAll({
+            pageNumber: page,
+            pageSize: 100,
+            roleKeywords: "sales",
+          });
+          const payload = res?.data?.data ?? res?.data ?? res;
+          const batch = payload?.employees ?? [];
+          merged.push(...batch);
+          hasNext = !!payload?.pagination?.hasNextPage;
+          page += 1;
+        }
+        const filtered = merged
+          .filter(
+            (employee) =>
+              employeeMatchesZone(employee, zoneId) &&
+              String(employee?.email || "").trim(),
+          )
+          .sort((a, b) =>
+            String(a.email || "").localeCompare(String(b.email || ""), "en", {
+              sensitivity: "base",
+            }),
+          );
+        if (!cancelled) setZoneSalesPersons(filtered);
+      } catch {
+        if (!cancelled) setZoneSalesPersons([]);
+      } finally {
+        if (!cancelled) setZoneSalesPersonsLoading(false);
+      }
+    };
+
+    loadZoneSalesPersons();
+    return () => {
+      cancelled = true;
+    };
+  }, [companyInfo.area]);
+
   const goToStep = (step) => {
     if (step < 1 || step > STEPS.length) return;
     setCurrentStep(step);
@@ -209,6 +333,9 @@ const QueryForm = () => {
       if (!raw) return;
       const draft = JSON.parse(raw);
       if (draft.companyInfo) setCompanyInfo(draft.companyInfo);
+      if (typeof draft.queryReferenceBy === "string") {
+        setQueryReferenceBy(draft.queryReferenceBy);
+      }
       if (draft.industryId) setIndustryId(draft.industryId);
       if (typeof draft.currentStep === "number")
         setCurrentStep(draft.currentStep);
@@ -383,6 +510,7 @@ const QueryForm = () => {
     try {
       const draft = {
         companyInfo,
+        queryReferenceBy,
         industryId,
         industrySearch,
         products,
@@ -392,7 +520,15 @@ const QueryForm = () => {
     } catch {
       // ignore storage errors
     }
-  }, [companyInfo, industryId, industrySearch, products, currentStep, isEdit]);
+  }, [
+    companyInfo,
+    queryReferenceBy,
+    industryId,
+    industrySearch,
+    products,
+    currentStep,
+    isEdit,
+  ]);
 
   // Industry search – top 5 matches
   const fetchIndustrySearch = useCallback(async (term) => {
@@ -461,6 +597,7 @@ const QueryForm = () => {
     setIndustryId(null);
     setIndustrySearch("");
     setCompanyInfo(INITIAL_COMPANY);
+    setQueryReferenceBy("");
   };
 
   const applyQueryNewProductFromLibrary = (q) => {
@@ -519,6 +656,7 @@ const QueryForm = () => {
       Boolean((q.description || "").trim()) ||
       (q.images || []).length > 0;
     setShowOptionalProductFields(hasOptionalLoaded);
+    syncProductQuantityField(1);
     setTimeout(() => {
       if (quantityInputRef.current) {
         quantityInputRef.current.focus();
@@ -588,6 +726,7 @@ const QueryForm = () => {
       Boolean((product.shortDescription || "").trim()) ||
       (product.images || []).length > 0;
     setShowOptionalProductFields(hasOptionalLoaded);
+    syncProductQuantityField(1);
     setTimeout(() => {
       if (quantityInputRef.current) {
         quantityInputRef.current.focus();
@@ -600,6 +739,7 @@ const QueryForm = () => {
     setFormProduct({ ...INITIAL_PRODUCT });
     setEditingProductIndex(null);
     setShowOptionalProductFields(false);
+    syncProductQuantityField("");
     productImagePreviews.forEach((url) => {
       try {
         URL.revokeObjectURL(url);
@@ -614,14 +754,12 @@ const QueryForm = () => {
       toastError("Product name is required");
       return;
     }
-    if (
-      formProduct.quantity === "" ||
-      formProduct.quantity === null ||
-      Number.isNaN(Number(formProduct.quantity))
-    ) {
-      toastError("Quantity is required");
+    const isQuantityValid = await triggerProductQuantityField("quantity");
+    if (!isQuantityValid) {
       return;
     }
+    const validatedQuantity = getProductQuantityFormValues("quantity");
+    const productLine = { ...formProduct, quantity: validatedQuantity };
     if (requireGroupCategory) {
       if (!String(formProduct.groupId || "").trim()) {
         toastError("Group is required");
@@ -668,9 +806,11 @@ const QueryForm = () => {
             categoryId: formProduct.categoryId || null,
             subcategoryId: formProduct.subcategoryId || null,
             qty: (() => {
-              const n = Number(formProduct.quantity);
-              if (Number.isFinite(n) && n >= 0)
-                return Number.isInteger(n) ? n : Math.max(0, Math.floor(n));
+              const quantityValue = Number(validatedQuantity);
+              if (Number.isFinite(quantityValue) && quantityValue >= 0)
+                return Number.isInteger(quantityValue)
+                  ? quantityValue
+                  : Math.max(0, Math.floor(quantityValue));
               return 1;
             })(),
             variants: (formProduct.variants || [])
@@ -711,14 +851,14 @@ const QueryForm = () => {
       const productsToAdd =
         cleanedVariants.length > 0
           ? cleanedVariants.map((variant) => ({
-              ...formProduct,
+              ...productLine,
               ...codeAndRefFromNew,
               variants: [{ ...variant }],
               images: mergedImages,
             }))
           : [
               {
-                ...formProduct,
+                ...productLine,
                 ...codeAndRefFromNew,
                 images: mergedImages,
               },
@@ -742,14 +882,11 @@ const QueryForm = () => {
         toastError("Product name is required");
       return;
     }
-    if (
-      formProduct.quantity === "" ||
-      formProduct.quantity === null ||
-      Number.isNaN(Number(formProduct.quantity))
-    ) {
-      toastError("Quantity is required");
+    const isQuantityValid = await triggerProductQuantityField("quantity");
+    if (!isQuantityValid) {
       return;
     }
+    const validatedQuantity = getProductQuantityFormValues("quantity");
     if (requireGroupCategory) {
       if (!String(formProduct.groupId || "").trim()) {
         toastError("Group is required");
@@ -777,6 +914,7 @@ const QueryForm = () => {
 
     const updatedProduct = {
       ...formProduct,
+      quantity: validatedQuantity,
       images: (formProduct.images || [])
         .concat(uploadedDocs)
         .slice(0, MAX_PRODUCT_IMAGES),
@@ -834,6 +972,7 @@ const QueryForm = () => {
       (p.images || []).length > 0;
     setShowOptionalProductFields(hasOptional);
     setEditingProductIndex(index);
+    syncProductQuantityField(p.quantity ?? 1);
   };
 
   const deleteProductFromTable = (index) => {
@@ -924,19 +1063,30 @@ const QueryForm = () => {
           navigate(`/queries/${id}`);
           return;
         }
+        if (!canEditQuery(user?.role, q.status, canUpdate("queries"))) {
+          toastError(
+            q.status === "drafted"
+              ? "You do not have permission to edit this query"
+              : "Only Head of Department can edit this query once it is no longer in draft status",
+          );
+          navigate(`/queries/${id}`);
+          return;
+        }
 
         const ci = q.companyInfo || {};
-        let managers = (ci.purchaseManagers || []).map((m) => ({
-          name: m?.name || "",
-          phone: m?.phone || "",
-          email: m?.email || "",
-          department: m?.department || "",
-        }));
+        let savedManagers = (ci.purchaseManagers || []).map(
+          (purchaseManager) => ({
+            name: purchaseManager?.name || "",
+            phone: purchaseManager?.phone || "",
+            email: purchaseManager?.email || "",
+            department: purchaseManager?.department || "",
+          }),
+        );
         if (
-          managers.length === 0 &&
+          savedManagers.length === 0 &&
           (ci.purchase_manager_name || ci.purchase_manager_phone)
         ) {
-          managers = [
+          savedManagers = [
             {
               name: ci.purchase_manager_name || "",
               phone: ci.purchase_manager_phone || "",
@@ -945,6 +1095,29 @@ const QueryForm = () => {
             },
           ];
         }
+        const savedManagerKeys = new Set(
+          savedManagers.map(getPurchaseManagerKey),
+        );
+        const queryIndustryId = q.industry_id?._id || q.industry_id || null;
+        let purchaseManagers = mapPurchaseManagers(
+          savedManagers,
+          savedManagerKeys,
+        );
+        if (queryIndustryId) {
+          try {
+            const industryRes = await industryService.getById(queryIndustryId);
+            const industryData = industryRes?.data || industryRes;
+            purchaseManagers = mapPurchaseManagers(
+              industryData?.purchaseManagers,
+              savedManagerKeys,
+            );
+          } catch {
+            purchaseManagers = mapPurchaseManagers(
+              savedManagers,
+              savedManagerKeys,
+            );
+          }
+        }
         setCompanyInfo({
           name: ci.name || "",
           area: getAreaId(ci.area) || ci.area || "",
@@ -952,9 +1125,10 @@ const QueryForm = () => {
           location: ci.location || "",
           billingAddress: ci.billingAddress || ci.address || "",
           shippingAddress: ci.shippingAddress || ci.address || "",
-          purchaseManagers: managers,
+          purchaseManagers,
         });
-        setIndustryId(q.industry_id?._id || q.industry_id || null);
+        setQueryReferenceBy(q.queryReferenceBy || "");
+        setIndustryId(queryIndustryId);
         setIndustrySearch(q.industry_id?.name || ci.name || "");
 
         const prods = q.products?.length
@@ -988,6 +1162,8 @@ const QueryForm = () => {
               isNewProduct: p.isNewProduct ?? !p.productCode,
               images: Array.isArray(p.images) ? p.images : [],
               sourceQueryNewProductId: p.sourceQueryNewProductId || null,
+              quotation_status: p.quotation_status || "pending",
+              sub_status: p.sub_status || "draft",
             }))
           : [];
         setProducts(prods);
@@ -1021,16 +1197,22 @@ const QueryForm = () => {
       toastError("Company name must be at most 100 characters");
       return;
     }
-    const managers = companyInfo?.purchaseManagers || [];
-    for (const m of managers) {
-      if ((m?.name || "").length > 100) {
+    const managers = getSelectedPurchaseManagersForApi(
+      companyInfo?.purchaseManagers,
+    );
+    if (managers.length === 0) {
+      toastError("Select at least one purchase manager");
+      return;
+    }
+    for (const purchaseManager of managers) {
+      if ((purchaseManager?.name || "").length > 100) {
         toastError("Purchase manager name must be at most 100 characters");
         return;
       }
-      const pm = (m?.phone || "").trim();
-      if (pm && !/^\d{10}$/.test(pm)) {
+      const phoneNumber = (purchaseManager?.phone || "").trim();
+      if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) {
         toastError(
-          `Purchase manager "${m?.name || "Unknown"}" phone must be exactly 10 digits`,
+          `Purchase manager "${purchaseManager?.name || "Unknown"}" phone must be exactly 10 digits`,
         );
         return;
       }
@@ -1041,6 +1223,10 @@ const QueryForm = () => {
     }
     if ((companyInfo.shippingAddress || "").length > 500) {
       toastError("Shipping address must be at most 500 characters");
+      return;
+    }
+    if (!String(queryReferenceBy || "").trim()) {
+      toastError("Query reference by is required");
       return;
     }
     goToStep(2);
@@ -1108,12 +1294,17 @@ const QueryForm = () => {
     );
   };
 
+  const areaNameLookup = buildAreaNameLookup(areas);
+
   const getAreaLabel = () => {
-    const areaId = companyInfo.area;
-    if (!areaId) return "";
-    const match = areas.find((a) => (a._id || a.id) === areaId);
-    if (!match) return "";
-    return `${match.name}${match.city ? ` - ${match.city}` : ""}`;
+    const areaName = formatAreaDisplay(companyInfo.area, areaNameLookup);
+    if (!areaName) return "";
+    const match = areas.find(
+      (area) =>
+        getAreaId(area) === getAreaId(companyInfo.area) ||
+        area.name === areaName,
+    );
+    return match?.city ? `${areaName} - ${match.city}` : areaName;
   };
 
   const getSubZoneLabel = () => {
@@ -1172,16 +1363,22 @@ const QueryForm = () => {
       toastError("Company name must be at most 100 characters");
       return;
     }
-    const managers = companyInfo?.purchaseManagers || [];
-    for (const m of managers) {
-      if ((m?.name || "").length > 100) {
+    const managers = getSelectedPurchaseManagersForApi(
+      companyInfo?.purchaseManagers,
+    );
+    if (managers.length === 0) {
+      toastError("Select at least one purchase manager");
+      return;
+    }
+    for (const purchaseManager of managers) {
+      if ((purchaseManager?.name || "").length > 100) {
         toastError("Purchase manager name must be at most 100 characters");
         return;
       }
-      const pm = (m?.phone || "").trim();
-      if (pm && !/^\d{10}$/.test(pm)) {
+      const phoneNumber = (purchaseManager?.phone || "").trim();
+      if (phoneNumber && !/^\d{10}$/.test(phoneNumber)) {
         toastError(
-          `Purchase manager "${m?.name || "Unknown"}" phone must be exactly 10 digits`,
+          `Purchase manager "${purchaseManager?.name || "Unknown"}" phone must be exactly 10 digits`,
         );
         return;
       }
@@ -1194,6 +1391,10 @@ const QueryForm = () => {
       toastError("Shipping address must be at most 500 characters");
       return;
     }
+    if (!String(queryReferenceBy || "").trim()) {
+      toastError("Query reference by is required");
+      return;
+    }
     const validProducts = products.filter((p) => (p.productName || "").trim());
     if (validProducts.length === 0) {
       toastError(
@@ -1203,13 +1404,6 @@ const QueryForm = () => {
     }
     for (let i = 0; i < products.length; i++) {
       const p = products[i];
-      const qty = Number(p.quantity);
-      if (Number.isNaN(qty) || qty < 0 || !Number.isInteger(qty)) {
-        toastError(
-          `Product "${(p.productName || "").trim() || i + 1}": quantity must be a whole number 0 or more`,
-        );
-        return;
-      }
       const gst = p.gstPercentage;
       if (gst != null && (typeof gst !== "number" || gst < 0 || gst > 100)) {
         toastError(
@@ -1254,16 +1448,14 @@ const QueryForm = () => {
           ...companyInfo,
           area: companyInfo.area || "",
           subZoneId: companyInfo.subZoneId || "",
-          purchaseManagers: (companyInfo.purchaseManagers || [])
-            .map((m) => ({
-              name: (m?.name || "").trim(),
-              phone: (m?.phone || "").trim(),
-              email: (m?.email || "").trim(),
-              department: (m?.department || "").trim(),
-            }))
-            .filter((m) => m.name || m.phone),
+          purchaseManagers: getSelectedPurchaseManagersForApi(
+            companyInfo.purchaseManagers,
+          ),
         },
         industry_id: industryId || null,
+        queryReferenceBy: String(queryReferenceBy || "")
+          .trim()
+          .toLowerCase(),
         products: products
           .map((p) => ({
             productName: p.productName?.trim() || "",
@@ -1298,6 +1490,8 @@ const QueryForm = () => {
                 return null;
               })
               .filter(Boolean),
+            quotation_status: p.quotation_status || "pending",
+            sub_status: p.sub_status || "draft",
           }))
           .filter((p) => p.productName),
         created_by: isEdit ? undefined : getCreatedBy(),
@@ -1320,6 +1514,9 @@ const QueryForm = () => {
       setSubmitting(false);
     }
   };
+
+  const { ref: productQuantityInputRef, ...productQuantityInputProps } =
+    registerProductQuantityField("quantity");
 
   if (loading) {
     return (
@@ -1427,6 +1624,7 @@ const QueryForm = () => {
                           // ignore
                         }
                         setCompanyInfo({ ...INITIAL_COMPANY });
+                        setQueryReferenceBy("");
                         setIndustryId(null);
                         setIndustrySearch("");
                         setProducts([]);
@@ -1527,13 +1725,10 @@ const QueryForm = () => {
                     <div className="mb-3">
                       <CFormLabel>Zone</CFormLabel>
                       <CFormInput
-                        value={
-                          companyInfo.area
-                            ? areas.find(
-                                (a) => (a._id || a.id) === companyInfo.area,
-                              )?.name || companyInfo.area
-                            : ""
-                        }
+                        value={formatAreaDisplay(
+                          companyInfo.area,
+                          areaNameLookup,
+                        )}
                         readOnly
                         className="bg-light"
                         placeholder="Auto-filled from selected client"
@@ -1581,133 +1776,154 @@ const QueryForm = () => {
                     </div>
                   </CCol>
                 </CRow>
+                <CRow>
+                  <CCol md={6}>
+                    <div className="mb-3">
+                      <CFormLabel>Query reference by</CFormLabel>
+                      <CFormSelect
+                        value={queryReferenceBy}
+                        onChange={(e) => setQueryReferenceBy(e.target.value)}
+                        disabled={!companyInfo.area}
+                      >
+                        <option value="">
+                          {companyInfo.area
+                            ? "Select query reference"
+                            : "Select a client first"}
+                        </option>
+                        <option value={QUERY_REFERENCE_BY.DIRECTLY_RECEIVED}>
+                          {
+                            QUERY_REFERENCE_BY_LABELS[
+                              QUERY_REFERENCE_BY.DIRECTLY_RECEIVED
+                            ]
+                          }
+                        </option>
+                        <option value={QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT}>
+                          {
+                            QUERY_REFERENCE_BY_LABELS[
+                              QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT
+                            ]
+                          }
+                        </option>
+                        {zoneSalesPersonsLoading ? (
+                          <option value="" disabled>
+                            Loading sales persons…
+                          </option>
+                        ) : null}
+                        {zoneSalesPersons.map((salesPerson) => {
+                          const email = String(salesPerson.email || "")
+                            .trim()
+                            .toLowerCase();
+                          if (!email) return null;
+                          return (
+                            <option key={email} value={email}>
+                              {email}
+                            </option>
+                          );
+                        })}
+                        {queryReferenceBy &&
+                        ![
+                          "",
+                          QUERY_REFERENCE_BY.DIRECTLY_RECEIVED,
+                          QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT,
+                        ].includes(queryReferenceBy) &&
+                        !zoneSalesPersons.some(
+                          (salesPerson) =>
+                            String(salesPerson.email || "")
+                              .trim()
+                              .toLowerCase() === queryReferenceBy,
+                        ) ? (
+                          <option value={queryReferenceBy}>
+                            {queryReferenceBy}
+                          </option>
+                        ) : null}
+                      </CFormSelect>
+                    </div>
+                  </CCol>
+                </CRow>
                 <div className="mb-3">
                   <CFormLabel className="mb-2">Purchase managers</CFormLabel>
                   {(companyInfo.purchaseManagers || []).length > 0 ? (
                     <div className="border rounded p-2">
-                      {(companyInfo.purchaseManagers || []).map((m, idx) => (
-                        <CRow key={idx} className="align-items-end mb-2 g-2">
-                          <CCol md={2}>
-                            <CFormInput
-                              value={m.name || ""}
-                              readOnly={!m._new}
-                              className={!m._new ? "bg-light" : ""}
-                              onChange={
-                                m._new
-                                  ? (e) =>
-                                      setCompanyInfo((c) => {
-                                        const next = [
-                                          ...(c.purchaseManagers || []),
-                                        ];
-                                        next[idx] = {
-                                          ...next[idx],
-                                          name: e.target.value.slice(0, 100),
-                                        };
-                                        return { ...c, purchaseManagers: next };
-                                      })
-                                  : undefined
-                              }
-                              placeholder="Name"
-                              maxLength={100}
-                            />
-                          </CCol>
-                          <CCol md={2}>
-                            <CFormInput
-                              value={m.department || ""}
-                              readOnly={!m._new}
-                              className={!m._new ? "bg-light" : ""}
-                              onChange={
-                                m._new
-                                  ? (e) =>
-                                      setCompanyInfo((c) => {
-                                        const next = [
-                                          ...(c.purchaseManagers || []),
-                                        ];
-                                        next[idx] = {
-                                          ...next[idx],
-                                          department: e.target.value.slice(
-                                            0,
-                                            100,
-                                          ),
-                                        };
-                                        return { ...c, purchaseManagers: next };
-                                      })
-                                  : undefined
-                              }
-                              placeholder="Department"
-                              maxLength={100}
-                            />
-                          </CCol>
-                          <CCol md={2}>
-                            <CFormInput
-                              value={m.phone || ""}
-                              readOnly={!m._new}
-                              className={!m._new ? "bg-light" : ""}
-                              onChange={
-                                m._new
-                                  ? (e) =>
-                                      setCompanyInfo((c) => {
-                                        const next = [
-                                          ...(c.purchaseManagers || []),
-                                        ];
-                                        next[idx] = {
-                                          ...next[idx],
-                                          phone: e.target.value,
-                                        };
-                                        return { ...c, purchaseManagers: next };
-                                      })
-                                  : undefined
-                              }
-                              placeholder="Phone"
-                            />
-                          </CCol>
-                          <CCol md={3}>
-                            <CFormInput
-                              type="email"
-                              value={m.email || ""}
-                              readOnly={!m._new}
-                              className={!m._new ? "bg-light" : ""}
-                              onChange={
-                                m._new
-                                  ? (e) =>
-                                      setCompanyInfo((c) => {
-                                        const next = [
-                                          ...(c.purchaseManagers || []),
-                                        ];
-                                        next[idx] = {
-                                          ...next[idx],
-                                          email: e.target.value,
-                                        };
-                                        return { ...c, purchaseManagers: next };
-                                      })
-                                  : undefined
-                              }
-                              placeholder="Email"
-                            />
-                          </CCol>
-                          <CCol md={1} className="d-flex align-items-end">
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              type="button"
-                              title="Remove purchase manager"
-                              onClick={() =>
-                                setCompanyInfo((c) => ({
-                                  ...c,
-                                  purchaseManagers: (
-                                    c.purchaseManagers || []
-                                  ).filter((_, i) => i !== idx),
-                                }))
-                              }
+                      {(companyInfo.purchaseManagers || []).map(
+                        (purchaseManager, managerIndex) => (
+                          <CRow
+                            key={
+                              getPurchaseManagerKey(purchaseManager) ||
+                              managerIndex
+                            }
+                            className="align-items-center mb-2 g-2"
+                          >
+                            <CCol
+                              xs="auto"
+                              className="d-flex align-items-center"
                             >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          </CCol>
-                        </CRow>
-                      ))}
+                              <CFormCheck
+                                id={`query-purchase-manager-${managerIndex}`}
+                                checked={isPurchaseManagerSelected(
+                                  purchaseManager,
+                                )}
+                                onChange={(event) =>
+                                  setCompanyInfo((currentCompanyInfo) => {
+                                    const nextPurchaseManagers = [
+                                      ...(currentCompanyInfo.purchaseManagers ||
+                                        []),
+                                    ];
+                                    nextPurchaseManagers[managerIndex] = {
+                                      ...nextPurchaseManagers[managerIndex],
+                                      selected: event.target.checked,
+                                    };
+                                    return {
+                                      ...currentCompanyInfo,
+                                      purchaseManagers: nextPurchaseManagers,
+                                    };
+                                  })
+                                }
+                                label=""
+                                aria-label={`Include purchase manager ${purchaseManager.name || managerIndex + 1}`}
+                              />
+                            </CCol>
+                            <CCol md={2}>
+                              <CFormInput
+                                value={purchaseManager.name || ""}
+                                readOnly
+                                className="bg-light"
+                                placeholder="Name"
+                              />
+                            </CCol>
+                            <CCol md={2}>
+                              <CFormInput
+                                value={purchaseManager.department || ""}
+                                readOnly
+                                className="bg-light"
+                                placeholder="Department"
+                              />
+                            </CCol>
+                            <CCol md={2}>
+                              <CFormInput
+                                value={purchaseManager.phone || ""}
+                                readOnly
+                                className="bg-light"
+                                placeholder="Phone"
+                              />
+                            </CCol>
+                            <CCol md={3}>
+                              <CFormInput
+                                type="email"
+                                value={purchaseManager.email || ""}
+                                readOnly
+                                className="bg-light"
+                                placeholder="Email"
+                              />
+                            </CCol>
+                          </CRow>
+                        ),
+                      )}
                     </div>
-                  ) : null}
+                  ) : (
+                    <p className="text-body-secondary small mb-0">
+                      Select a company to view purchase managers.
+                    </p>
+                  )}
                 </div>
                 <CRow>
                   <CCol md={6}>
@@ -1939,16 +2155,22 @@ const QueryForm = () => {
                           <CFormInput
                             type="number"
                             min={0}
+                            max={MAX_PRODUCT_QUANTITY}
                             step={1}
                             inputMode="numeric"
-                            value={formProduct.quantity}
-                            onChange={(e) =>
-                              updateFormProduct("quantity", e.target.value)
-                            }
                             placeholder="0"
-                            required
-                            ref={quantityInputRef}
+                            invalid={!!productQuantityFormErrors.quantity}
+                            {...productQuantityInputProps}
+                            ref={(element) => {
+                              productQuantityInputRef(element);
+                              quantityInputRef.current = element;
+                            }}
                           />
+                          {productQuantityFormErrors.quantity && (
+                            <div className="text-danger small mt-1">
+                              {productQuantityFormErrors.quantity.message}
+                            </div>
+                          )}
                         </div>
                       </CCol>
                       <CCol sm={6} md={6}>
@@ -2514,6 +2736,17 @@ const QueryForm = () => {
                         scope="row"
                         className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
                       >
+                        Query reference by
+                      </CTableHeaderCell>
+                      <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
+                        {formatQueryReferenceByDisplay(queryReferenceBy)}
+                      </CTableDataCell>
+                    </CTableRow>
+                    <CTableRow>
+                      <CTableHeaderCell
+                        scope="row"
+                        className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
+                      >
                         Location link
                       </CTableHeaderCell>
                       <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
@@ -2569,7 +2802,8 @@ const QueryForm = () => {
                 <h6 className="text-body-secondary text-uppercase small fw-semibold border-bottom pb-2 mb-0">
                   Purchase managers
                 </h6>
-                {(companyInfo.purchaseManagers || []).length === 0 ? (
+                {getSelectedPurchaseManagersForApi(companyInfo.purchaseManagers)
+                  .length === 0 ? (
                   <p className="text-body-secondary small mt-3 mb-4">—</p>
                 ) : (
                   <CTable
@@ -2587,17 +2821,21 @@ const QueryForm = () => {
                       </CTableRow>
                     </CTableHead>
                     <CTableBody>
-                      {(companyInfo.purchaseManagers || []).map((m, idx) => (
-                        <CTableRow key={idx}>
+                      {getSelectedPurchaseManagersForApi(
+                        companyInfo.purchaseManagers,
+                      ).map((purchaseManager, managerIndex) => (
+                        <CTableRow key={managerIndex}>
                           <CTableDataCell className="text-break">
-                            {m.name || "—"}
+                            {purchaseManager.name || "—"}
                           </CTableDataCell>
                           <CTableDataCell className="text-break">
-                            {m.department || "—"}
+                            {purchaseManager.department || "—"}
                           </CTableDataCell>
-                          <CTableDataCell>{m.phone || "—"}</CTableDataCell>
+                          <CTableDataCell>
+                            {purchaseManager.phone || "—"}
+                          </CTableDataCell>
                           <CTableDataCell className="text-break">
-                            {m.email || "—"}
+                            {purchaseManager.email || "—"}
                           </CTableDataCell>
                         </CTableRow>
                       ))}

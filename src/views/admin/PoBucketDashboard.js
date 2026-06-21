@@ -22,17 +22,24 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilTrash } from "@coreui/icons";
 import purchaseOrderService from "../../services/purchaseOrderService";
-import { Loader, EyeIcon } from "../../components";
+import {
+  EyeIcon,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { useAuth } from "../../context/AuthContext";
 import { normalizeRole } from "../../hooks/usePermissions";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const PO_BUCKET_FILTER_DEFAULTS = { status: "" };
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -43,16 +50,6 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "Cancelled" },
   { value: "closed", label: "Closed" },
 ];
-
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
-};
 
 const formatInrAmount = (value) =>
   Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
@@ -90,13 +87,17 @@ const PO_CLOSE_SECRET_PIN = "2003";
 const PoBucketDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "po_bucket",
+    PO_BUCKET_FILTER_DEFAULTS,
+  );
   const hodUser = isHodRole(user?.role);
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(initialValues.status);
   const [pageNumber, setPageNumber] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -116,6 +117,14 @@ const PoBucketDashboard = () => {
   useEffect(() => {
     setPageNumber(1);
   }, [searchDebounced, statusFilter]);
+
+  useFilterLockPersist("po_bucket", filtersLocked, {
+    status: statusFilter,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status: statusFilter });
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -365,6 +374,13 @@ const PoBucketDashboard = () => {
                   <option value={50}>50</option>
                 </CFormSelect>
               </CCol>
+              <CCol xs={12} md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Sales Order Bucket"
+                />
+              </CCol>
             </CRow>
             {loading && <Loader />}
             <CTable hover responsive bordered>
@@ -413,9 +429,7 @@ const PoBucketDashboard = () => {
                           {getStatusBadge(po.status)}
                         </CTableDataCell>
                         <CTableDataCell>
-                          {po.createdAt
-                            ? formatDateDdMmYyyy(po.createdAt)
-                            : "-"}
+                          {po.createdAt ? dateFormatter(po.createdAt, "") : "-"}
                         </CTableDataCell>
                         <CTableDataCell onClick={(e) => e.stopPropagation()}>
                           <div className="d-flex align-items-center gap-1 flex-wrap">
@@ -454,32 +468,14 @@ const PoBucketDashboard = () => {
                 )}
               </CTableBody>
             </CTable>
-            {totalPages > 1 && (
-              <div className="d-flex justify-content-between align-items-center mt-2">
-                <div className="small text-medium-emphasis">
-                  Showing {startItem}-{endItem} of {totalItems}
-                </div>
-                <CPagination className="mb-0">
-                  <CPaginationItem
-                    disabled={loading || currentPage <= 1}
-                    onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-                  >
-                    Previous
-                  </CPaginationItem>
-                  <CPaginationItem active>
-                    {currentPage} / {totalPages}
-                  </CPaginationItem>
-                  <CPaginationItem
-                    disabled={loading || currentPage >= totalPages}
-                    onClick={() =>
-                      setPageNumber((p) => Math.min(totalPages, p + 1))
-                    }
-                  >
-                    Next
-                  </CPaginationItem>
-                </CPagination>
-              </div>
-            )}
+            <TablePagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setPageNumber}
+              showRange
+              totalItems={totalItems}
+              itemsPerPage={pageSize}
+            />
           </CCardBody>
         </CCard>
       </CCol>

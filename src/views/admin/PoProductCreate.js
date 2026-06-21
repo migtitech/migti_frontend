@@ -18,6 +18,7 @@ import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilSave } from "@coreui/icons";
 import { poProductsBucketService } from "../../services/deliveryApprovalService";
 import { toastError, toastSuccess } from "../../utils/toast";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
 
 const defaultTargetRate = (poRate) => {
   const val = Number(poRate);
@@ -29,6 +30,7 @@ const PoProductCreate = () => {
   const navigate = useNavigate();
   const { state } = useLocation();
   const product = state?.product;
+  const { formatArea } = useAreaNameLookup();
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -203,7 +205,10 @@ const PoProductCreate = () => {
                 <CFormInput
                   value={
                     product.companyInfo?.name
-                      ? [product.companyInfo.name, product.companyInfo.area]
+                      ? [
+                          product.companyInfo.name,
+                          formatArea(product.companyInfo?.area),
+                        ]
                           .filter(Boolean)
                           .join(" · ")
                       : "—"

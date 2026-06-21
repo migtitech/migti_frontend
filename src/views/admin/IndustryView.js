@@ -20,8 +20,6 @@ import {
   CTableRow,
   CTableHeaderCell,
   CTableDataCell,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import { CChartBar } from "@coreui/react-chartjs";
 import CIcon from "@coreui/icons-react";
@@ -30,15 +28,12 @@ import industryService from "../../services/industryService";
 import queryService from "../../services/queryService";
 import quotationService from "../../services/quotationService";
 import poBillingService from "../../services/poBillingService";
-import { EyeIcon, Loader } from "../../components";
+import { EyeIcon, Loader, TablePagination } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
-
-const formatDate = (date) => {
-  if (!date) return "-";
-  const parsed = new Date(date);
-  return Number.isNaN(parsed.getTime()) ? "-" : parsed.toLocaleString();
-};
+import { dateTimeFormatter } from "../../utils/dateFormatter";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
+import { formatAreaDisplayOrDash } from "../../utils/areaDisplay";
 
 const getText = (value) => {
   if (value === null || value === undefined || value === "") return "-";
@@ -75,6 +70,7 @@ const unwrapPayload = (res) => {
 const IndustryView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { formatAreaOrDash } = useAreaNameLookup();
   const [industry, setIndustry] = useState(null);
   const [queries, setQueries] = useState([]);
   const [queryPagination, setQueryPagination] = useState(null);
@@ -87,12 +83,17 @@ const IndustryView = () => {
   const [poPagination, setPoPagination] = useState(null);
   const [poAmount, setPoAmount] = useState(null);
   const [poLoading, setPoLoading] = useState(false);
+  const [billings, setBillings] = useState([]);
+  const [billingPagination, setBillingPagination] = useState(null);
+  const [billingAmount, setBillingAmount] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("company");
   const [loadingIndustry, setLoadingIndustry] = useState(true);
   const [error, setError] = useState("");
   const [queryPage, setQueryPage] = useState(1);
   const [quotationPage, setQuotationPage] = useState(1);
   const [poPage, setPoPage] = useState(1);
+  const [billingPage, setBillingPage] = useState(1);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,8 +127,10 @@ const IndustryView = () => {
     setQueryPage(1);
     setQuotationPage(1);
     setPoPage(1);
+    setBillingPage(1);
     setQuotationTotalAmountSum(null);
     setPoAmount(null);
+    setBillingAmount(null);
   }, [id]);
 
   useEffect(() => {
@@ -237,6 +240,44 @@ const IndustryView = () => {
     };
   }, [id, poPage]);
 
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const loadBilling = async () => {
+      setBillingLoading(true);
+      try {
+        const res = await poBillingService.getAnalytics({
+          tab: "billing",
+          industryId: id,
+          pageNumber: billingPage,
+          pageSize: PAGE_SIZE,
+        });
+        if (cancelled) return;
+        const result = unwrapPayload(res);
+        setBillings(result?.table?.rows || []);
+        setBillingPagination(result?.table?.pagination || null);
+        if (
+          result?.metrics?.billingAmount !== undefined &&
+          result?.metrics?.billingAmount !== null
+        ) {
+          setBillingAmount(Number(result.metrics.billingAmount) || 0);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toastError(err?.message || "Failed to load billing entries");
+          setBillings([]);
+          setBillingPagination(null);
+        }
+      } finally {
+        if (!cancelled) setBillingLoading(false);
+      }
+    };
+    loadBilling();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, billingPage]);
+
   const purchaseManagers = useMemo(() => {
     const list = industry?.purchaseManagers || [];
     if (list.length > 0) return list;
@@ -259,9 +300,11 @@ const IndustryView = () => {
   const queryTotalPages = Math.max(1, queryPagination?.totalPages ?? 1);
   const quotationTotalPages = Math.max(1, quotationPagination?.totalPages ?? 1);
   const poTotalPages = Math.max(1, poPagination?.totalPages ?? 1);
+  const billingTotalPages = Math.max(1, billingPagination?.totalPages ?? 1);
   const queryListPage = queryPagination?.currentPage ?? queryPage;
   const quotationListPage = quotationPagination?.currentPage ?? quotationPage;
   const poListPage = poPagination?.currentPage ?? poPage;
+  const billingListPage = billingPagination?.currentPage ?? billingPage;
 
   const totalQuotationValue = useMemo(() => {
     if (
@@ -286,6 +329,16 @@ const IndustryView = () => {
     }, 0);
   }, [poAmount, purchaseOrders]);
 
+  const totalBillingAmount = useMemo(() => {
+    if (billingAmount != null && !Number.isNaN(Number(billingAmount))) {
+      return Number(billingAmount);
+    }
+    return billings.reduce((sum, billing) => {
+      const amount = Number(billing?.amount);
+      return sum + (Number.isNaN(amount) ? 0 : amount);
+    }, 0);
+  }, [billingAmount, billings]);
+
   const industryEntries = useMemo(() => {
     if (!industry) return [];
     const skipKeys = [
@@ -304,15 +357,11 @@ const IndustryView = () => {
       .filter(([key]) => !skipKeys.includes(key))
       .map(([key, value]) => {
         if (key === "area") {
-          const zoneName =
-            typeof value === "object" && value !== null
-              ? value?.name || "-"
-              : value || "-";
-          return ["Zone", zoneName];
+          return ["Zone", formatAreaOrDash(value)];
         }
         return [key, value];
       });
-  }, [industry]);
+  }, [industry, formatAreaOrDash]);
 
   if (loadingIndustry) {
     return (
@@ -391,6 +440,9 @@ const IndustryView = () => {
                 <CBadge color="success">
                   Sales Order: {poPagination?.totalItems ?? 0}
                 </CBadge>
+                <CBadge color="secondary">
+                  Billing: {billingPagination?.totalItems ?? 0}
+                </CBadge>
               </div>
             </CCardHeader>
             <CCardBody>
@@ -429,6 +481,15 @@ const IndustryView = () => {
                     style={{ cursor: "pointer" }}
                   >
                     Sales Order
+                  </CNavLink>
+                </CNavItem>
+                <CNavItem>
+                  <CNavLink
+                    active={activeTab === "billing"}
+                    onClick={() => setActiveTab("billing")}
+                    style={{ cursor: "pointer" }}
+                  >
+                    Billing
                   </CNavLink>
                 </CNavItem>
                 <CNavItem>
@@ -530,7 +591,7 @@ const IndustryView = () => {
                             {query.products?.length || 0}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(query.createdAt)}
+                            {dateTimeFormatter(query.createdAt, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
                             <CButton
@@ -560,48 +621,15 @@ const IndustryView = () => {
                       )}
                     </CTableBody>
                   </CTable>
-                  {queryTotalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center mt-3">
-                      <div className="small text-medium-emphasis">
-                        Showing{" "}
-                        {((queryPagination?.currentPage ?? 1) - 1) *
-                          (queryPagination?.itemsPerPage ?? PAGE_SIZE) +
-                          1}
-                        -
-                        {Math.min(
-                          (queryPagination?.currentPage ?? 1) *
-                            (queryPagination?.itemsPerPage ?? PAGE_SIZE),
-                          queryPagination?.totalItems ?? 0,
-                        )}{" "}
-                        of {queryPagination?.totalItems ?? 0}
-                      </div>
-                      <CPagination className="mb-0">
-                        <CPaginationItem
-                          disabled={queriesLoading || queryPage <= 1}
-                          onClick={() =>
-                            setQueryPage((prev) => Math.max(1, prev - 1))
-                          }
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {queryPage} / {queryTotalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={
-                            queriesLoading || queryPage >= queryTotalPages
-                          }
-                          onClick={() =>
-                            setQueryPage((prev) =>
-                              Math.min(queryTotalPages, prev + 1),
-                            )
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={queryPage}
+                    totalPages={queryTotalPages}
+                    onPageChange={setQueryPage}
+                    showRange
+                    totalItems={queryPagination?.totalItems ?? 0}
+                    itemsPerPage={PAGE_SIZE}
+                    disabled={queriesLoading}
+                  />
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "quotations"}>
@@ -641,7 +669,7 @@ const IndustryView = () => {
                             {formatINRCurrency(quotation.totalAmount)}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(quotation.createdAt)}
+                            {dateTimeFormatter(quotation.createdAt, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
                             <CButton
@@ -671,49 +699,15 @@ const IndustryView = () => {
                       )}
                     </CTableBody>
                   </CTable>
-                  {quotationTotalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center mt-3">
-                      <div className="small text-medium-emphasis">
-                        Showing{" "}
-                        {((quotationPagination?.currentPage ?? 1) - 1) *
-                          (quotationPagination?.itemsPerPage ?? PAGE_SIZE) +
-                          1}
-                        -
-                        {Math.min(
-                          (quotationPagination?.currentPage ?? 1) *
-                            (quotationPagination?.itemsPerPage ?? PAGE_SIZE),
-                          quotationPagination?.totalItems ?? 0,
-                        )}{" "}
-                        of {quotationPagination?.totalItems ?? 0}
-                      </div>
-                      <CPagination className="mb-0">
-                        <CPaginationItem
-                          disabled={quotationsLoading || quotationPage <= 1}
-                          onClick={() =>
-                            setQuotationPage((prev) => Math.max(1, prev - 1))
-                          }
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {quotationPage} / {quotationTotalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={
-                            quotationsLoading ||
-                            quotationPage >= quotationTotalPages
-                          }
-                          onClick={() =>
-                            setQuotationPage((prev) =>
-                              Math.min(quotationTotalPages, prev + 1),
-                            )
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={quotationPage}
+                    totalPages={quotationTotalPages}
+                    onPageChange={setQuotationPage}
+                    showRange
+                    totalItems={quotationPagination?.totalItems ?? 0}
+                    itemsPerPage={PAGE_SIZE}
+                    disabled={quotationsLoading}
+                  />
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "po"}>
@@ -748,10 +742,10 @@ const IndustryView = () => {
                             {formatINRCurrency(po.amount)}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(po.entryDate)}
+                            {dateTimeFormatter(po.entryDate, "-")}
                           </CTableDataCell>
                           <CTableDataCell>
-                            {formatDate(po.dispatchmentDate)}
+                            {dateTimeFormatter(po.dispatchmentDate, "-")}
                           </CTableDataCell>
                           <CTableDataCell>{po.remark || "-"}</CTableDataCell>
                         </CTableRow>
@@ -765,51 +759,80 @@ const IndustryView = () => {
                       )}
                     </CTableBody>
                   </CTable>
-                  {poTotalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center mt-3">
-                      <div className="small text-medium-emphasis">
-                        Showing{" "}
-                        {((poPagination?.currentPage ?? 1) - 1) *
-                          (poPagination?.itemsPerPage ?? PAGE_SIZE) +
-                          1}
-                        -
-                        {Math.min(
-                          (poPagination?.currentPage ?? 1) *
-                            (poPagination?.itemsPerPage ?? PAGE_SIZE),
-                          poPagination?.totalItems ?? 0,
-                        )}{" "}
-                        of {poPagination?.totalItems ?? 0}
-                      </div>
-                      <CPagination className="mb-0">
-                        <CPaginationItem
-                          disabled={poLoading || poPage <= 1}
-                          onClick={() =>
-                            setPoPage((prev) => Math.max(1, prev - 1))
-                          }
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {poPage} / {poTotalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={poPage >= poTotalPages}
-                          onClick={() =>
-                            setPoPage((prev) =>
-                              Math.min(poTotalPages, prev + 1),
-                            )
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
+                  <TablePagination
+                    currentPage={poPage}
+                    totalPages={poTotalPages}
+                    onPageChange={setPoPage}
+                    showRange
+                    totalItems={poPagination?.totalItems ?? 0}
+                    itemsPerPage={PAGE_SIZE}
+                    disabled={poLoading}
+                  />
+                </CTabPane>
+
+                <CTabPane visible={activeTab === "billing"}>
+                  {billingLoading && (
+                    <div className="text-center py-3">
+                      <Loader message="Loading billing..." />
                     </div>
                   )}
+                  <CTable bordered responsive hover>
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>S No</CTableHeaderCell>
+                        <CTableHeaderCell>Billing Number</CTableHeaderCell>
+                        <CTableHeaderCell>Salesperson</CTableHeaderCell>
+                        <CTableHeaderCell>Amount</CTableHeaderCell>
+                        <CTableHeaderCell>Entry Date</CTableHeaderCell>
+                        <CTableHeaderCell>Remark</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {billings.map((billing, idx) => (
+                        <CTableRow key={billing._id || idx}>
+                          <CTableDataCell>
+                            {(billingListPage - 1) * PAGE_SIZE + idx + 1}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {billing.number || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {billing.salespersonName || "-"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {formatINRCurrency(billing.amount)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {dateTimeFormatter(billing.entryDate, "-")}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {billing.remark || "-"}
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                      {!billingLoading && billings.length === 0 && (
+                        <CTableRow>
+                          <CTableDataCell colSpan={6} className="text-center">
+                            No billing entries found for this company.
+                          </CTableDataCell>
+                        </CTableRow>
+                      )}
+                    </CTableBody>
+                  </CTable>
+                  <TablePagination
+                    currentPage={billingPage}
+                    totalPages={billingTotalPages}
+                    onPageChange={setBillingPage}
+                    showRange
+                    totalItems={billingPagination?.totalItems ?? 0}
+                    itemsPerPage={PAGE_SIZE}
+                    disabled={billingLoading}
+                  />
                 </CTabPane>
 
                 <CTabPane visible={activeTab === "analytics"}>
                   <CRow className="g-3">
-                    <CCol md={4}>
+                    <CCol md={3}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">Total Queries</div>
@@ -819,7 +842,7 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={4}>
+                    <CCol md={3}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">
@@ -831,7 +854,7 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={4}>
+                    <CCol md={3}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">
@@ -843,7 +866,17 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={6}>
+                    <CCol md={3}>
+                      <CCard>
+                        <CCardBody>
+                          <div className="text-muted small">Total Billing</div>
+                          <h4 className="mb-0">
+                            {billingPagination?.totalItems ?? 0}
+                          </h4>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                    <CCol md={4}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">
@@ -855,7 +888,7 @@ const IndustryView = () => {
                         </CCardBody>
                       </CCard>
                     </CCol>
-                    <CCol md={6}>
+                    <CCol md={4}>
                       <CCard>
                         <CCardBody>
                           <div className="text-muted small">
@@ -863,6 +896,16 @@ const IndustryView = () => {
                           </div>
                           <h4 className="mb-0">
                             {formatINRCurrency(totalPoAmount)}
+                          </h4>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                    <CCol md={4}>
+                      <CCard>
+                        <CCardBody>
+                          <div className="text-muted small">Billing Amount</div>
+                          <h4 className="mb-0">
+                            {formatINRCurrency(totalBillingAmount)}
                           </h4>
                         </CCardBody>
                       </CCard>
@@ -888,14 +931,20 @@ const IndustryView = () => {
                                 labels: [
                                   "Quotation Value",
                                   "Sales Order Amount",
+                                  "Billing Amount",
                                 ],
                                 datasets: [
                                   {
                                     data: [
                                       Math.max(0, totalQuotationValue),
                                       Math.max(0, totalPoAmount),
+                                      Math.max(0, totalBillingAmount),
                                     ],
-                                    backgroundColor: ["#39f", "#2eb85c"],
+                                    backgroundColor: [
+                                      "#39f",
+                                      "#2eb85c",
+                                      "#f9b115",
+                                    ],
                                   },
                                 ],
                               }}
@@ -934,6 +983,7 @@ const IndustryView = () => {
                                   "Queries",
                                   "Quotations",
                                   "Sales Order",
+                                  "Billing",
                                 ],
                                 datasets: [
                                   {
@@ -942,11 +992,13 @@ const IndustryView = () => {
                                       "#5856d6",
                                       "#39f",
                                       "#2eb85c",
+                                      "#f9b115",
                                     ],
                                     data: [
                                       queryPagination?.totalItems ?? 0,
                                       quotationPagination?.totalItems ?? 0,
                                       poPagination?.totalItems ?? 0,
+                                      billingPagination?.totalItems ?? 0,
                                     ],
                                   },
                                 ],

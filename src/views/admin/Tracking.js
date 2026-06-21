@@ -29,38 +29,13 @@ import {
   cilEnvelopeClosed,
   cilPhone,
 } from "@coreui/icons";
-import { EyeIcon } from "../../components";
+import { EyeIcon, TablePagination } from "../../components";
 import rawQueryService from "../../services/rawQueryService";
 import queryService from "../../services/queryService";
 import employeeService from "../../services/employeeService";
 import userService from "../../services/userService";
 import { toastError } from "../../utils/toast";
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  const pad = (n) => String(n).padStart(2, "0");
-  const dd = pad(d.getDate());
-  const mm = pad(d.getMonth() + 1);
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = pad(d.getHours());
-  const min = pad(d.getMinutes());
-  const ss = pad(d.getSeconds());
-  return `${dd}/${mm}/${yy} ${hh}:${min}:${ss}`;
-};
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleDateString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
 const getTimeAgo = (dateStr) => {
   if (!dateStr) return "";
@@ -77,7 +52,7 @@ const getTimeAgo = (dateStr) => {
   if (diffMins < 60) return `${diffMins}m ago`;
   if (diffHrs < 24) return `${diffHrs}h ago`;
   if (diffDays < 30) return `${diffDays}d ago`;
-  return formatDate(dateStr);
+  return dateFormatter(dateStr, "-");
 };
 
 const getStoredUser = () => {
@@ -723,7 +698,10 @@ const Tracking = () => {
                     <CListGroupItem className="d-flex justify-content-between align-items-center">
                       <strong>Created</strong>
                       <span className="small">
-                        {formatDateTime(query.createdAt || query.created_at)}
+                        {dateTimeFormatter(
+                          query.createdAt || query.created_at,
+                          "-",
+                        )}
                       </span>
                     </CListGroupItem>
                     {creator && (
@@ -853,7 +831,10 @@ const Tracking = () => {
                     <CListGroupItem className="d-flex justify-content-between align-items-center">
                       <strong>Created</strong>
                       <span className="small">
-                        {formatDateTime(query.createdAt || query.created_at)}
+                        {dateTimeFormatter(
+                          query.createdAt || query.created_at,
+                          "-",
+                        )}
                       </span>
                     </CListGroupItem>
                     {creator && (
@@ -910,35 +891,12 @@ const Tracking = () => {
                       ? "activity"
                       : "activities"}
                   </CBadge>
-                  {activitiesPagination &&
-                    activitiesPagination.totalPages > 1 && (
-                      <div className="d-flex align-items-center gap-1">
-                        <CButton
-                          color="light"
-                          size="sm"
-                          disabled={
-                            !activitiesPagination.hasPrevPage || loading
-                          }
-                          onClick={() => loadActivitiesPage(activitiesPage - 1)}
-                        >
-                          Prev
-                        </CButton>
-                        <span className="small text-muted px-2">
-                          Page {activitiesPagination.currentPage} of{" "}
-                          {activitiesPagination.totalPages}
-                        </span>
-                        <CButton
-                          color="light"
-                          size="sm"
-                          disabled={
-                            !activitiesPagination.hasNextPage || loading
-                          }
-                          onClick={() => loadActivitiesPage(activitiesPage + 1)}
-                        >
-                          Next
-                        </CButton>
-                      </div>
-                    )}
+                  <TablePagination
+                    currentPage={activitiesPagination?.currentPage ?? 1}
+                    totalPages={activitiesPagination?.totalPages ?? 1}
+                    onPageChange={loadActivitiesPage}
+                    disabled={loading}
+                  />
                 </div>
               </CCardHeader>
               <CCardBody>
@@ -955,7 +913,10 @@ const Tracking = () => {
                       <CBadge color="primary">Created</CBadge>
                       <span className="small text-muted">
                         <CIcon icon={cilClock} size="sm" className="me-1" />
-                        {formatDateTime(query.createdAt || query.created_at)}
+                        {dateTimeFormatter(
+                          query.createdAt || query.created_at,
+                          "-",
+                        )}
                       </span>
                     </div>
                     <div className="mt-1">
@@ -1042,7 +1003,7 @@ const Tracking = () => {
                                 size="sm"
                                 className="me-1"
                               />
-                              {formatDateTime(timestamp)}
+                              {dateTimeFormatter(timestamp, "-")}
                             </span>
                           </div>
 

@@ -11,6 +11,7 @@ import {
   CSpinner,
 } from "@coreui/react";
 import rateLogService from "../../services/rateLogService";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const formatMoney = (value) => {
   const amount = Number(value);
@@ -19,16 +20,6 @@ const formatMoney = (value) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-};
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
 };
 
 const QuoteLogsView = () => {
@@ -155,7 +146,8 @@ const QuoteLogsView = () => {
                   </div>
                   <div className="small text-muted mt-1">
                     <strong>Client:</strong> {log.industry_name || "Unknown"} |{" "}
-                    <strong>Created:</strong> {formatDate(log.created_at)}
+                    <strong>Created:</strong>{" "}
+                    {dateFormatter(log.created_at, "—")}
                   </div>
                 </div>
               ))}

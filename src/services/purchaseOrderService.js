@@ -42,6 +42,9 @@ const purchaseOrderService = {
       quotationId,
       reuseExisting: options.reuseExisting !== false,
     };
+    if (Array.isArray(options.products)) {
+      body.products = options.products;
+    }
     const response = await api.post(
       PURCHASE_ORDERS.CREATE_FROM_QUOTATION,
       body,

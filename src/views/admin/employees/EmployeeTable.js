@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import {
   CCard,
   CCardBody,
@@ -15,18 +15,15 @@ import {
   CBadge,
   CAlert,
   CAvatar,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilPencil, cilTrash } from "@coreui/icons";
 import { EyeIcon } from "../../../components";
-import { Loader } from "../../../components";
+import { Loader, TablePagination } from "../../../components";
 import { ROLE_LABELS } from "../../../context/AuthContext";
 
 const EmployeeTable = ({
   employees,
-  branches,
   loading,
   error,
   onClearError,
@@ -43,13 +40,6 @@ const EmployeeTable = ({
 }) => {
   const totalPages = pagination?.totalPages ?? 1;
   const totalItems = pagination?.totalItems ?? 0;
-  const branchById = useMemo(() => {
-    const map = new Map();
-    branches.forEach((branch) => {
-      map.set(String(branch.id), branch);
-    });
-    return map;
-  }, [branches]);
 
   const roleBadgeColor = (role) => {
     const colors = {
@@ -96,7 +86,6 @@ const EmployeeTable = ({
                     <CTableHeaderCell>Email</CTableHeaderCell>
                     <CTableHeaderCell>Phone</CTableHeaderCell>
                     <CTableHeaderCell>Role</CTableHeaderCell>
-                    <CTableHeaderCell>Branch</CTableHeaderCell>
                     <CTableHeaderCell>Designation</CTableHeaderCell>
                     <CTableHeaderCell>ID Number</CTableHeaderCell>
                     <CTableHeaderCell>Actions</CTableHeaderCell>
@@ -104,7 +93,6 @@ const EmployeeTable = ({
                 </CTableHead>
                 <CTableBody>
                   {employees.map((employee, index) => {
-                    const branch = branchById.get(String(employee.branchId));
                     const rowNumber = (page - 1) * pageSize + index + 1;
                     return (
                       <CTableRow
@@ -143,7 +131,6 @@ const EmployeeTable = ({
                               : "-"}
                           </CBadge>
                         </CTableDataCell>
-                        <CTableDataCell>{branch?.name || "N/A"}</CTableDataCell>
                         <CTableDataCell>
                           {employee.designation || "-"}
                         </CTableDataCell>
@@ -213,31 +200,13 @@ const EmployeeTable = ({
                   Showing {Math.min((page - 1) * pageSize + 1, totalItems)}-
                   {Math.min(page * pageSize, totalItems)} of {totalItems}
                 </div>
-                {totalPages > 1 && (
-                  <CPagination className="mb-0" aria-label="Employee pages">
-                    <CPaginationItem
-                      disabled={page <= 1}
-                      onClick={() => page > 1 && onPageChange(page - 1)}
-                      style={{ cursor: page <= 1 ? "default" : "pointer" }}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active aria-current="page">
-                      {page}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={page >= totalPages}
-                      onClick={() =>
-                        page < totalPages && onPageChange(page + 1)
-                      }
-                      style={{
-                        cursor: page >= totalPages ? "default" : "pointer",
-                      }}
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
-                )}
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={onPageChange}
+                  wrapperClassName="d-flex justify-content-center mt-4"
+                  align="center"
+                />
               </div>
             )}
           </CCardBody>

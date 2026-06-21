@@ -22,16 +22,23 @@ export const normalizeRole = (role) =>
     .toLowerCase()
     .replace(/[\s-]+/g, "_");
 
-export const hasPurchaseOrderBypass = (role) => {
+export const isBackOfficeRole = (role) => {
   const normalized = normalizeRole(role);
-  if (normalized.startsWith("sales")) return true;
   if (
     ["back_office_exicutive", "back_office_executive", "boe"].includes(
       normalized,
     )
-  )
+  ) {
     return true;
+  }
   return normalized.replace(/_/g, "").includes("backoffice");
+};
+
+export const hasPurchaseOrderBypass = (role) => {
+  const normalized = normalizeRole(role);
+  if (normalized.startsWith("sales")) return true;
+  if (isBackOfficeRole(normalized)) return true;
+  return false;
 };
 
 /** Procurement always sees Suppliers in the sidebar (read access). */
@@ -52,6 +59,29 @@ export const isPurchaseFamilyRole = (role) => {
 
 /** HOD-approved quotation → PO (quotation detail action). */
 export const canConvertQuotationToPo = (role) => hasPurchaseOrderBypass(role);
+
+/** Head of Department (includes legacy `hod` role key). */
+export const isHodRole = (role) => {
+  const normalized = normalizeRole(role);
+  return normalized === "head_of_department" || normalized === "hod";
+};
+
+/**
+ * Query edit visibility:
+ * - drafted → roles with queries:update (existing permission logic)
+ * - any other non-closed status → HOD only
+ */
+export const canEditQuery = (role, status, hasUpdatePermission = true) => {
+  if (status === "closed") return false;
+  if (status === "drafted") return !!hasUpdatePermission;
+  return isHodRole(role);
+};
+
+/** Quotation detail — Add New Product tab: HOD and back office only. */
+export const canAddNewProductOnQuotation = (role) => {
+  const normalized = normalizeRole(role);
+  return isHodRole(normalized) || isBackOfficeRole(normalized);
+};
 
 const usePermissions = () => {
   const { user } = useAuth();

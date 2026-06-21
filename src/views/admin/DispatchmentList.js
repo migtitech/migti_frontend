@@ -22,8 +22,6 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
   CCloseButton,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -34,12 +32,18 @@ import documentService from "../../services/documentService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import usePermissions from "../../hooks/usePermissions";
+import { dateFormatter } from "../../utils/dateFormatter";
+import useAreaNameLookup from "../../hooks/useAreaNameLookup";
+import { formatAreaDisplayOrDash } from "../../utils/areaDisplay";
 
 const serverStatus = (d) => d?.status ?? d?.inventoryStatus;
 
 const invStatus = (d) => String(serverStatus(d) || "pending");
+
+const DISPATCHMENT_FILTER_DEFAULTS = { status: "", dateFrom: "", dateTo: "" };
 
 /** All = both statuses; otherwise filter to one (matches API). */
 const STATUS_FILTER_OPTIONS = [
@@ -85,23 +89,14 @@ const statusBadge = (s) => {
   return <CBadge color="secondary">{readable}</CBadge>;
 };
 
-const formatDateDdMmYyyy = (iso) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = String(d.getFullYear());
-  return `${dd}/${mm}/${yyyy}`;
-};
-
-const formatAddress = (c) => {
-  if (!c || typeof c !== "object") return "—";
+const formatAddress = (companyInfo, areaLookup) => {
+  if (!companyInfo || typeof companyInfo !== "object") return "—";
+  const areaLabel = formatAreaDisplayOrDash(companyInfo.area, areaLookup, "");
   const parts = [
-    c.name,
-    [c.area, c.location].filter(Boolean).join(", "),
-    c.address,
-  ].filter((p) => p && String(p).trim());
+    companyInfo.name,
+    [areaLabel, companyInfo.location].filter(Boolean).join(", "),
+    companyInfo.address,
+  ].filter((part) => part && String(part).trim());
   return parts.length ? parts.join(" · ") : "—";
 };
 
@@ -147,16 +142,21 @@ const parseListResponse = (res) => {
 
 const DispatchmentList = () => {
   const { canUpdate } = usePermissions();
+  const { lookup, formatAreaWithLocation } = useAreaNameLookup();
   const canAct = canUpdate("dispatchment");
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "dispatchment_list",
+    DISPATCHMENT_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const [status, setStatus] = useState("");
+  const [from, setFrom] = useState(initialValues.dateFrom);
+  const [to, setTo] = useState(initialValues.dateTo);
+  const [status, setStatus] = useState(initialValues.status);
   const [loading, setLoading] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -182,6 +182,16 @@ const DispatchmentList = () => {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, from, to, status]);
+
+  useFilterLockPersist("dispatchment_list", filtersLocked, {
+    status,
+    dateFrom: from,
+    dateTo: to,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status, dateFrom: from, dateTo: to });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -305,7 +315,7 @@ const DispatchmentList = () => {
             </span>
           </CCardHeader>
           <CCardBody>
-            <CRow className="g-3 mb-3">
+            <CRow className="g-3 mb-3 align-items-end">
               <CCol xs={12} md={4}>
                 <CFormLabel>Search</CFormLabel>
                 <CFormInput
@@ -342,6 +352,13 @@ const DispatchmentList = () => {
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
+                />
+              </CCol>
+              <CCol xs={6} md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Dispatchment"
                 />
               </CCol>
             </CRow>
@@ -398,7 +415,7 @@ const DispatchmentList = () => {
                                 className="text-break d-block"
                                 style={{ maxWidth: 280 }}
                               >
-                                {formatAddress(row.companyInfo)}
+                                {formatAddress(row.companyInfo, lookup)}
                               </small>
                             </CTableDataCell>
                             <CTableDataCell>
@@ -410,7 +427,7 @@ const DispatchmentList = () => {
                               </small>
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDateDdMmYyyy(row.dispatchmentDate)}
+                              {dateFormatter(row.dispatchmentDate, "—")}
                             </CTableDataCell>
                             <CTableDataCell>
                               {statusBadge(serverStatus(row))}
@@ -432,29 +449,13 @@ const DispatchmentList = () => {
                   </CTableBody>
                 </CTable>
 
-                {totalPages > 1 && (
-                  <div className="d-flex justify-content-center mt-4">
-                    <CPagination align="center" aria-label="Dispatchment pages">
-                      <CPaginationItem
-                        disabled={page <= 1}
-                        onClick={() => page > 1 && setPage(page - 1)}
-                        style={{ cursor: page <= 1 ? "default" : "pointer" }}
-                      >
-                        Prev
-                      </CPaginationItem>
-                      <CPaginationItem active>{page}</CPaginationItem>
-                      <CPaginationItem
-                        disabled={page >= totalPages}
-                        onClick={() => page < totalPages && setPage(page + 1)}
-                        style={{
-                          cursor: page >= totalPages ? "default" : "pointer",
-                        }}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  wrapperClassName="d-flex justify-content-center mt-4"
+                  align="center"
+                />
               </>
             )}
           </CCardBody>
@@ -500,7 +501,7 @@ const DispatchmentList = () => {
               </p>
               <p className="mb-3">
                 <strong>Dispatchment date:</strong>{" "}
-                {formatDateDdMmYyyy(detail.dispatchmentDate)}
+                {dateFormatter(detail.dispatchmentDate, "—")}
               </p>
 
               <h6 className="mb-2">Company</h6>
@@ -511,9 +512,10 @@ const DispatchmentList = () => {
                   </p>
                   <p className="mb-1">
                     <strong>Area / location:</strong>{" "}
-                    {[itemCompany.area, itemCompany.location]
-                      .filter(Boolean)
-                      .join(", ") || "—"}
+                    {formatAreaWithLocation(
+                      itemCompany.area,
+                      itemCompany.location,
+                    ) || "—"}
                   </p>
                   <p className="mb-1">
                     <strong>Address:</strong> {itemCompany.address || "—"}

@@ -56,6 +56,9 @@ const QuotationForm = React.lazy(() => import("./views/admin/QuotationForm"));
 const QuotationGenerate = React.lazy(
   () => import("./views/admin/QuotationGenerate"),
 );
+const FinalizeSalesOrder = React.lazy(
+  () => import("./views/admin/FinalizeSalesOrder"),
+);
 const QuoteLogsView = React.lazy(() => import("./views/admin/QuoteLogsView"));
 // Finance
 const FinanceDashboard = React.lazy(
@@ -514,6 +517,13 @@ const routes = [
     action: "update",
   },
   {
+    path: "/quotations/:id/finalize-sales-order",
+    name: "Finalize Sales Order",
+    element: FinalizeSalesOrder,
+    module: "quotations",
+    action: "read",
+  },
+  {
     path: "/quotations/:id",
     name: "Quotation Details",
     element: QuotationView,
@@ -571,6 +581,7 @@ const routes = [
     path: "/my-salary",
     name: "My Salary",
     element: MySalary,
+    allowedRoles: ["head_of_department", "hod"],
   },
   {
     path: "/target-dashboard",

@@ -22,14 +22,13 @@ import employeeSalaryService from "../../services/employeeSalaryService";
 import { Loader } from "../../components";
 import { toastError } from "../../utils/toast";
 import { downloadSalarySlipPdf } from "../../utils/salarySlipPdf";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const formatAmount = (v) =>
   `₹${Number(v || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
-
-const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "—");
 
 const SalaryManagement = () => {
   const navigate = useNavigate();
@@ -146,7 +145,7 @@ const SalaryManagement = () => {
                         <CTableDataCell>{snap.name || "—"}</CTableDataCell>
                         <CTableDataCell>{snap.idnumber || "—"}</CTableDataCell>
                         <CTableDataCell>
-                          {formatDate(record.payDate)}
+                          {dateFormatter(record.payDate, "—")}
                         </CTableDataCell>
                         <CTableDataCell>
                           {formatAmount(record.netPay)}

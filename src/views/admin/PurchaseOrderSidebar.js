@@ -13,8 +13,6 @@ import {
   CNav,
   CNavItem,
   CNavLink,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -32,8 +30,17 @@ import areaService from "../../services/areaService";
 import documentService from "../../services/documentService";
 import useBranchContext from "../../hooks/useBranchContext";
 import usePermissions from "../../hooks/usePermissions";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { splitDateTimeParts } from "../../utils/dateFormatter";
+
+const PURCHASE_ORDER_SIDEBAR_FILTER_DEFAULTS = {
+  period: "all",
+  dateFrom: "",
+  dateTo: "",
+  areaId: "",
+};
 
 const TAB_KEYS = { po: "po", billing: "billing" };
 const PERIOD_OPTIONS = [
@@ -62,34 +69,6 @@ const getPeriodRange = (period) => {
 
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-const formatDate = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yy} ${hh}:${min}`;
-};
-
-const formatDateParts = (value) => {
-  const formatted = formatDate(value);
-  if (formatted === "-") return { date: "-", time: "" };
-  const [date, time] = formatted.split(" ");
-  return { date: date || "-", time: time || "" };
-};
-
-const formatDateOnly = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
-};
 
 const getTodayInputDate = () => {
   const d = new Date();
@@ -112,14 +91,18 @@ const PurchaseOrderSidebar = () => {
   const { branchId } = useBranchContext();
   const { canCreate } = usePermissions();
   const canCreatePurchaseOrders = canCreate("po_payment");
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "purchase_order_sidebar",
+    PURCHASE_ORDER_SIDEBAR_FILTER_DEFAULTS,
+  );
   const [loadingInit, setLoadingInit] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [activeTab, setActiveTab] = useState(TAB_KEYS.po);
-  const [period, setPeriod] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [period, setPeriod] = useState(initialValues.period);
+  const [dateFrom, setDateFrom] = useState(initialValues.dateFrom);
+  const [dateTo, setDateTo] = useState(initialValues.dateTo);
   const [areas, setAreas] = useState([]);
-  const [selectedAreaId, setSelectedAreaId] = useState("");
+  const [selectedAreaId, setSelectedAreaId] = useState(initialValues.areaId);
   const [tabPages, setTabPages] = useState({
     [TAB_KEYS.po]: 1,
     [TAB_KEYS.billing]: 1,
@@ -284,6 +267,22 @@ const PurchaseOrderSidebar = () => {
   useEffect(() => {
     setTabPages((prev) => ({ ...prev, [activeTab]: 1 }));
   }, [dateFrom, dateTo, activeTab]);
+
+  useFilterLockPersist("purchase_order_sidebar", filtersLocked, {
+    period,
+    dateFrom,
+    dateTo,
+    areaId: selectedAreaId,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      period,
+      dateFrom,
+      dateTo,
+      areaId: selectedAreaId,
+    });
+  };
 
   const loadAnalytics = async () => {
     const requestId = latestAnalyticsRequestRef.current + 1;
@@ -572,6 +571,13 @@ const PurchaseOrderSidebar = () => {
                     })}
                   </CFormSelect>
                 </CCol>
+                <CCol md={4} className="d-flex align-items-end">
+                  <FilterLockButton
+                    filtersLocked={filtersLocked}
+                    onToggle={handleToggleFiltersLock}
+                    pageLabel="Purchase Orders"
+                  />
+                </CCol>
               </CRow>
 
               {loadingInit || loadingData ? (
@@ -713,7 +719,10 @@ const PurchaseOrderSidebar = () => {
                     <div>
                       {rows.length > 0 ? (
                         rows.map((item, index) => {
-                          const dateInfo = formatDateParts(item.entryDate);
+                          const dateInfo = splitDateTimeParts(
+                            item.entryDate,
+                            "-",
+                          );
                           return (
                             <CCard
                               key={item._id || `${index}`}
@@ -786,7 +795,10 @@ const PurchaseOrderSidebar = () => {
                       <CTableBody>
                         {rows.length > 0 ? (
                           rows.map((item, index) => {
-                            const dateInfo = formatDateParts(item.entryDate);
+                            const dateInfo = splitDateTimeParts(
+                              item.entryDate,
+                              "-",
+                            );
                             return (
                               <CTableRow key={item._id || `${index}`}>
                                 <CTableDataCell>
@@ -870,50 +882,16 @@ const PurchaseOrderSidebar = () => {
                     </CTable>
                   )}
 
-                  {totalPages > 1 && (
-                    <div className="d-flex justify-content-between align-items-center mt-3">
-                      <div className="small text-medium-emphasis">
-                        Showing{" "}
-                        {((pagination?.currentPage ?? 1) - 1) *
-                          (pagination?.itemsPerPage ?? 10) +
-                          1}
-                        -
-                        {Math.min(
-                          (pagination?.currentPage ?? 1) *
-                            (pagination?.itemsPerPage ?? 10),
-                          pagination?.totalItems ?? 0,
-                        )}{" "}
-                        of {pagination?.totalItems ?? 0}
-                      </div>
-                      <CPagination className="mb-0">
-                        <CPaginationItem
-                          disabled={safePage <= 1}
-                          onClick={() =>
-                            setTabPages((prev) => ({
-                              ...prev,
-                              [activeTab]: Math.max(1, safePage - 1),
-                            }))
-                          }
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {safePage} / {totalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={safePage >= totalPages}
-                          onClick={() =>
-                            setTabPages((prev) => ({
-                              ...prev,
-                              [activeTab]: Math.min(totalPages, safePage + 1),
-                            }))
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={safePage}
+                    totalPages={totalPages}
+                    onPageChange={(newPage) =>
+                      setTabPages((prev) => ({ ...prev, [activeTab]: newPage }))
+                    }
+                    showRange
+                    totalItems={pagination?.totalItems ?? 0}
+                    itemsPerPage={pagination?.itemsPerPage ?? 10}
+                  />
                 </>
               )}
             </CCardBody>

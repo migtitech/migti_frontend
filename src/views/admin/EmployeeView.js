@@ -43,6 +43,7 @@ import areaService from "../../services/areaService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const empty = (v) => v === undefined || v === null || v === "";
 const show = (v) => (empty(v) ? "-" : String(v).trim() || "-");
@@ -459,7 +460,6 @@ const EmployeeView = () => {
                 </CListGroupItem>
                 <InfoRow label="Designation" value={e.designation} />
                 <InfoRow label="ID Number" value={e.idnumber} />
-                <InfoRow label="Branch" value={branch?.name} />
                 <InfoRow
                   label="Zones"
                   value={
@@ -588,7 +588,7 @@ const EmployeeView = () => {
                     Created
                   </CTableHeaderCell>
                   <CTableDataCell>
-                    {new Date(e.createdAt).toLocaleString()}
+                    {dateTimeFormatter(e.createdAt, "—")}
                   </CTableDataCell>
                 </CTableRow>
               )}
@@ -598,7 +598,7 @@ const EmployeeView = () => {
                     Last Updated
                   </CTableHeaderCell>
                   <CTableDataCell>
-                    {new Date(e.updatedAt).toLocaleString()}
+                    {dateTimeFormatter(e.updatedAt, "—")}
                   </CTableDataCell>
                 </CTableRow>
               )}

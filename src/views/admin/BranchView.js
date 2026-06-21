@@ -21,6 +21,7 @@ import employeeService from "../../services/employeeService";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { getAssetsUrl } from "../../api/endpoints";
 import documentService from "../../services/documentService";
@@ -39,23 +40,6 @@ const BranchView = () => {
     ...item,
     id: item?.id || item?._id,
   });
-
-  const formatCreatedAt = (item) => {
-    const dt = item?.createdAt ?? item?.created_at;
-    if (!dt) return "-";
-    try {
-      const d = new Date(dt);
-      return isNaN(d.getTime())
-        ? "-"
-        : d.toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          });
-    } catch {
-      return "-";
-    }
-  };
 
   const getSignatureDisplay = (signature) => {
     if (!signature) return { id: "", path: "" };
@@ -278,7 +262,12 @@ const BranchView = () => {
                 )}
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
-                  <span>{formatCreatedAt(branch)}</span>
+                  <span>
+                    {dateFormatter(
+                      branch?.createdAt ?? branch?.created_at,
+                      "-",
+                    )}
+                  </span>
                 </CListGroupItem>
                 <CListGroupItem>
                   <strong>Signature:</strong>

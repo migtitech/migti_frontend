@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
+import { TablePagination } from "../../components";
 import {
   CButton,
   CCard,
@@ -17,19 +18,10 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
-  CPagination,
-  CPaginationItem,
 } from "@coreui/react";
 import employeeLocationService from "../../services/employeeLocationService";
 import { toastError } from "../../utils/toast";
-
-const formatDateTime = (v) =>
-  v
-    ? new Date(v).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      })
-    : "—";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const EmployeeLocations = () => {
   const [rows, setRows] = useState([]);
@@ -168,7 +160,7 @@ const EmployeeLocations = () => {
                               {loc?.locality || "—"}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDateTime(loc?.fetchedAt)}
+                              {dateTimeFormatter(loc?.fetchedAt, "—")}
                             </CTableDataCell>
                             <CTableDataCell className="text-end">
                               <CButton
@@ -254,7 +246,7 @@ const EmployeeLocations = () => {
                           <CTableDataCell>{h.city || "—"}</CTableDataCell>
                           <CTableDataCell>{h.locality || "—"}</CTableDataCell>
                           <CTableDataCell>
-                            {formatDateTime(h.fetchedAt)}
+                            {dateTimeFormatter(h.fetchedAt, "—")}
                           </CTableDataCell>
                         </CTableRow>
                       ))
@@ -262,44 +254,14 @@ const EmployeeLocations = () => {
                   </CTableBody>
                 </CTable>
               </div>
-              {totalHistoryPages > 1 && (
-                <div className="d-flex justify-content-between align-items-center mt-3">
-                  <div className="small text-medium-emphasis">
-                    Showing{" "}
-                    {((historyPagination?.currentPage ?? 1) - 1) *
-                      (historyPagination?.itemsPerPage ?? 10) +
-                      1}
-                    -
-                    {Math.min(
-                      (historyPagination?.currentPage ?? 1) *
-                        (historyPagination?.itemsPerPage ?? 10),
-                      historyPagination?.totalItems ?? 0,
-                    )}{" "}
-                    of {historyPagination?.totalItems ?? 0}
-                  </div>
-                  <CPagination className="mb-0">
-                    <CPaginationItem
-                      disabled={currentHistoryPage <= 1}
-                      onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </CPaginationItem>
-                    <CPaginationItem active>
-                      {currentHistoryPage} / {totalHistoryPages}
-                    </CPaginationItem>
-                    <CPaginationItem
-                      disabled={currentHistoryPage >= totalHistoryPages}
-                      onClick={() =>
-                        setHistoryPage((p) =>
-                          Math.min(totalHistoryPages, p + 1),
-                        )
-                      }
-                    >
-                      Next
-                    </CPaginationItem>
-                  </CPagination>
-                </div>
-              )}
+              <TablePagination
+                currentPage={currentHistoryPage}
+                totalPages={totalHistoryPages}
+                onPageChange={setHistoryPage}
+                showRange
+                totalItems={historyPagination?.totalItems ?? 0}
+                itemsPerPage={historyPagination?.itemsPerPage ?? 10}
+              />
             </>
           )}
         </CModalBody>

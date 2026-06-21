@@ -18,6 +18,7 @@ import taskManagementService from "../../services/taskManagementService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const getStatusBadge = (status) => {
   switch (status) {
@@ -145,7 +146,7 @@ const TaskBucketView = () => {
                         </span>
                         <span>
                           {task.dueDate
-                            ? new Date(task.dueDate).toLocaleDateString()
+                            ? dateFormatter(task.dueDate, "–")
                             : "–"}
                         </span>
                       </CListGroupItem>

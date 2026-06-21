@@ -11,8 +11,6 @@ import {
   CNav,
   CNavItem,
   CNavLink,
-  CPagination,
-  CPaginationItem,
   CRow,
   CSpinner,
   CTable,
@@ -30,8 +28,9 @@ import poPaymentService from "../../services/poPaymentService";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import usePermissions from "../../hooks/usePermissions";
 import { ROLE_LABELS } from "../../context/AuthContext";
-import { Loader } from "../../components";
+import { Loader, TablePagination } from "../../components";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
 const unwrapResponse = (response) => {
   if (response?.data && typeof response.data === "object") return response.data;
@@ -40,28 +39,6 @@ const unwrapResponse = (response) => {
 
 const formatAmount = (value) =>
   `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const formatDateTime = (value) => {
-  if (!value) return "-";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "-";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yy = String(d.getFullYear()).slice(-2);
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yy} ${hh}:${min}`;
-};
-
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
 
 const getTodayInputDate = () => {
   const d = new Date();
@@ -348,33 +325,13 @@ const PoPaymentSidebar = () => {
                       })}
                     </CTableBody>
                   </CTable>
-                  {totalPages > 1 && (
-                    <div className="d-flex justify-content-end mt-3">
-                      <CPagination
-                        align="end"
-                        className="mb-0"
-                        aria-label="Sales Order pages"
-                      >
-                        <CPaginationItem
-                          disabled={page <= 1}
-                          onClick={() => page > 1 && setPage((p) => p - 1)}
-                        >
-                          Previous
-                        </CPaginationItem>
-                        <CPaginationItem active>
-                          {page} / {totalPages}
-                        </CPaginationItem>
-                        <CPaginationItem
-                          disabled={page >= totalPages}
-                          onClick={() =>
-                            page < totalPages && setPage((p) => p + 1)
-                          }
-                        >
-                          Next
-                        </CPaginationItem>
-                      </CPagination>
-                    </div>
-                  )}
+                  <TablePagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    onPageChange={setPage}
+                    wrapperClassName="d-flex justify-content-center mt-4"
+                    align="center"
+                  />
                 </>
               ) : (
                 <div>
@@ -448,8 +405,9 @@ const PoPaymentSidebar = () => {
                                 Date of Sales Order received
                               </div>
                               <div>
-                                {formatDate(
+                                {dateFormatter(
                                   detail.poReceivedDate || detail.createdAt,
+                                  "—",
                                 )}
                               </div>
                             </CCol>
@@ -704,7 +662,7 @@ const PoPaymentSidebar = () => {
                                   key={L._id || `${L.paidAt}-${L.amount}`}
                                 >
                                   <CTableDataCell>
-                                    {formatDateTime(L.paidAt)}
+                                    {dateTimeFormatter(L.paidAt, "-")}
                                   </CTableDataCell>
                                   <CTableDataCell className="text-end text-success fw-medium">
                                     {formatAmount(L.amount)}

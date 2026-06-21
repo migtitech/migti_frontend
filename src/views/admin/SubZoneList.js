@@ -142,7 +142,7 @@ const SubZoneList = () => {
         </CCardHeader>
         <CCardBody>
           {zones.length === 0 ? (
-            <p className="text-muted mb-0">No zones found for your branch.</p>
+            <p className="text-muted mb-0">No zones found.</p>
           ) : (
             <CAccordion alwaysOpen flush>
               {zones.map((zone) => {

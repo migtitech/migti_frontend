@@ -229,6 +229,22 @@ export const createProductPayloadSchema = yup.object({
     .of(supplierProductCodeSchema)
     .optional()
     .default([]),
+  timeline: yup
+    .number()
+    .integer()
+    .min(1)
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
+  nextTimelineDate: yup.string().nullable().optional(),
+  procurementReviewStatus: yup
+    .string()
+    .oneOf(
+      ["idle", "overdue", "activated", "active"],
+      '"procurementReviewStatus" must be one of [idle, overdue, activated, active]',
+    )
+    .optional()
+    .default("idle"),
 });
 
 /** React-hook-form schema (form fields before payload transform). */
@@ -348,6 +364,17 @@ export const productFormSchema = yup.object({
     )
     .optional()
     .default(DEFAULT_PRODUCT_UNIT),
+  timelineValue: yup
+    .number()
+    .typeError('"timeline" must be a number')
+    .min(1, '"timeline" must be at least 1')
+    .transform((value, original) => (original === "" ? undefined : value))
+    .optional(),
+  timelineUnit: yup
+    .string()
+    .oneOf(["day", "week", "month", "year"])
+    .optional()
+    .default("day"),
 });
 
 export const collectYupErrors = (err) => {

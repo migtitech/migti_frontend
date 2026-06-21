@@ -16,7 +16,6 @@ import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilCloudDownload } from "@coreui/icons";
 import employeeService from "../../services/employeeService";
 import employeeSalaryService from "../../services/employeeSalaryService";
-import useBranchContext from "../../hooks/useBranchContext";
 import { Loader } from "../../components";
 import { toastError, toastSuccess } from "../../utils/toast";
 import {
@@ -63,7 +62,6 @@ const SalarySlipForm = () => {
   const navigate = useNavigate();
   const { id: editId } = useParams();
   const isEdit = Boolean(editId);
-  const { branchId: userBranchId } = useBranchContext();
 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -80,7 +78,6 @@ const SalarySlipForm = () => {
 
     while (hasMore) {
       const params = { pageNumber, pageSize };
-      if (userBranchId) params.branchId = userBranchId;
       const res = await employeeService.getAll(params);
       const data = res?.data?.data ?? res?.data ?? {};
       const list = data.employees ?? [];
@@ -90,7 +87,7 @@ const SalarySlipForm = () => {
     }
 
     setEmployees(merged);
-  }, [userBranchId]);
+  }, []);
 
   const loadRecord = useCallback(async () => {
     if (!editId) return;

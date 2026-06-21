@@ -26,7 +26,15 @@ import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import billingRequestBatchService from "../../services/billingRequestBatchService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+
+const BILLING_REQUEST_FILTER_DEFAULTS = {
+  poCode: "",
+  status: "",
+  dateFrom: "",
+  dateTo: "",
+};
 
 const fmtDate = (iso) => {
   if (!iso) return "—";
@@ -72,6 +80,10 @@ const BillingRequestList = ({
   pageTitle = "Billing Requests",
 }) => {
   const navigate = useNavigate();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "billing_requests",
+    BILLING_REQUEST_FILTER_DEFAULTS,
+  );
 
   const [rows, setRows] = useState([]);
   const [pagination, setPagination] = useState({
@@ -82,11 +94,11 @@ const BillingRequestList = ({
   });
   const [page, setPage] = useState(1);
   const [pageSize] = useState(20);
-  const [filterPoCode, setFilterPoCode] = useState("");
+  const [filterPoCode, setFilterPoCode] = useState(initialValues.poCode);
   const [filterPoCodeDebounced, setFilterPoCodeDebounced] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
+  const [from, setFrom] = useState(initialValues.dateFrom);
+  const [to, setTo] = useState(initialValues.dateTo);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -97,6 +109,22 @@ const BillingRequestList = ({
   useEffect(() => {
     setPage(1);
   }, [filterPoCodeDebounced, filterStatus, from, to]);
+
+  useFilterLockPersist("billing_requests", filtersLocked, {
+    poCode: filterPoCode,
+    status: filterStatus,
+    dateFrom: from,
+    dateTo: to,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      poCode: filterPoCode,
+      status: filterStatus,
+      dateFrom: from,
+      dateTo: to,
+    });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -155,7 +183,7 @@ const BillingRequestList = ({
             )}
           </CCardHeader>
           <CCardBody>
-            <CRow className="g-3 mb-3">
+            <CRow className="g-3 mb-3 align-items-end">
               <CCol md={3}>
                 <CFormLabel>Sales Order Code</CFormLabel>
                 <CFormInput
@@ -190,6 +218,13 @@ const BillingRequestList = ({
                   type="date"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
+                />
+              </CCol>
+              <CCol md="auto" className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel={pageTitle}
                 />
               </CCol>
               {(filterPoCode || filterStatus || from || to) && (

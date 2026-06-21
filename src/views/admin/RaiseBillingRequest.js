@@ -1,5 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CAlert,
   CBadge,
@@ -8,6 +14,8 @@ import {
   CCardBody,
   CCol,
   CFormInput,
+  CFormLabel,
+  CFormSelect,
   CRow,
   CSpinner,
 } from "@coreui/react";
@@ -24,23 +32,36 @@ import {
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBucketService from "../../services/purchaseBucketService";
 import billingRequestService from "../../services/billingRequestService";
+import supplierService from "../../services/supplierService";
 import documentService from "../../services/documentService";
+import AuthImage from "../../components/AuthImage/AuthImage";
+import { getAssetsUrl } from "../../api/endpoints";
 import { toastError } from "../../utils/toast";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const fmt = (v) => (v == null || v === "" ? "—" : String(v));
 
-const assetUrl = (path) => {
-  if (!path) return "";
-  if (/^https?:\/\//i.test(path)) return path;
-  const base = (
-    import.meta.env.VITE_API_BASE_URL || "http://localhost:7200/api"
-  )
-    .replace(/\/api\/?$/i, "")
-    .replace(/\/$/, "");
-  return `${base}/assets/${path}`;
+const parseProductQuantity = (product) => {
+  const quantity = Number(product?.quantity);
+  return Number.isFinite(quantity) && quantity > 0 ? quantity : null;
 };
+
+const calcLineAmount = (quantity, rate) => {
+  const parsedRate = Number(rate);
+  if (quantity == null || !Number.isFinite(parsedRate) || parsedRate <= 0) {
+    return null;
+  }
+  return quantity * parsedRate;
+};
+
+const formatInr = (value) =>
+  value == null || Number.isNaN(Number(value))
+    ? "—"
+    : `₹${Number(value).toLocaleString("en-IN", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
 
 const docImageUrl = (doc) => {
   if (!doc || typeof doc !== "object") return null;
@@ -50,9 +71,15 @@ const docImageUrl = (doc) => {
     (mimeType && /^image\//i.test(mimeType)) ||
     /\.(jpe?g|png|gif|webp|bmp)$/i.test(String(path))
   )
-    return assetUrl(path);
+    return getAssetsUrl(path);
   return null;
 };
+
+const extractUploadedDocument = (response) =>
+  (response?.data?.documents ??
+    response?.documents ??
+    response?.data?.data?.documents ??
+    [])[0];
 
 // ─── constants ───────────────────────────────────────────────────────────────
 
@@ -61,9 +88,46 @@ const STEP = { SEARCH: 1, FILL: 2, PAYMENT: 3, REVIEW: 4 };
 const blankForm = () => ({
   photos: [], // [{ docId, url }]
   uploadingPhoto: false,
-  amount: "",
+  rate: "",
   errors: {},
 });
+
+const SUPPLIER_PAGE_SIZE = 10;
+
+const supplierOptionLabel = (supplier) => {
+  if (!supplier) return "—";
+  const name = supplier.name || supplier.shopname || "Unnamed supplier";
+  return supplier.shopname &&
+    supplier.name &&
+    supplier.shopname !== supplier.name
+    ? `${supplier.name} — ${supplier.shopname}`
+    : name;
+};
+
+const normalizeSupplierBankDetails = (bankDetails) => {
+  const src = bankDetails && typeof bankDetails === "object" ? bankDetails : {};
+  return {
+    accountNumber: src.accountNumber || "",
+    ifscCode: src.ifscCode || "",
+    bankName: src.bankName || "",
+    accountHolderName: src.accountHolderName || "",
+    upiDetails: src.upiDetails || "",
+  };
+};
+
+const buildSupplierSnapshot = (supplier) => {
+  if (!supplier || typeof supplier !== "object") return null;
+  return {
+    _id: supplier._id ? String(supplier._id) : undefined,
+    name: supplier.name || "",
+    shopname: supplier.shopname || "",
+    address: supplier.address || "",
+    phone_1: supplier.phone_1 || "",
+    email: supplier.email || "",
+    gst: supplier.gst || "",
+    bankDetails: normalizeSupplierBankDetails(supplier.bankDetails),
+  };
+};
 
 // ─── sub-components ──────────────────────────────────────────────────────────
 
@@ -262,9 +326,10 @@ const CartCard = ({ item, idx, onRemove }) => (
         {item.photos.length > 0 && (
           <div className="d-flex flex-wrap gap-1 mt-2">
             {item.photos.map((p, i) => (
-              <img
-                key={i}
-                src={p.url}
+              <AuthImage
+                key={p.docId || i}
+                documentId={p.docId}
+                fallbackUrl={p.url}
                 alt=""
                 style={{
                   width: 44,
@@ -287,8 +352,20 @@ const CartCard = ({ item, idx, onRemove }) => (
           }}
         >
           <span>
+            <span style={{ color: "#6c757d" }}>Qty: </span>
+            <strong>{fmt(item.product.quantity)}</strong>
+          </span>
+          <span>
+            <span style={{ color: "#6c757d" }}>Unit: </span>
+            <strong>{fmt(item.product.unit)}</strong>
+          </span>
+          <span>
+            <span style={{ color: "#6c757d" }}>Rate: </span>
+            <strong>{formatInr(item.rate)}</strong>
+          </span>
+          <span>
             <span style={{ color: "#6c757d" }}>Amount: </span>
-            <strong>₹{Number(item.amount).toLocaleString("en-IN")}</strong>
+            <strong>{formatInr(item.amount)}</strong>
           </span>
         </div>
       </div>
@@ -310,7 +387,13 @@ const CartCard = ({ item, idx, onRemove }) => (
 
 const RaiseBillingRequest = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectPoProductId = searchParams.get("poProductId")?.trim() || "";
+  const backTarget = preselectPoProductId
+    ? `/purchase-bucket/${preselectPoProductId}`
+    : "/purchase-bucket";
   const topRef = useRef(null);
+  const preselectHandledRef = useRef(false);
 
   const [step, setStep] = useState(STEP.SEARCH);
 
@@ -324,12 +407,18 @@ const RaiseBillingRequest = () => {
   const [product, setProduct] = useState(null);
   const [form, setForm] = useState(blankForm());
 
-  // step 3 – review
+  // step 4 – review
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitErrors, setSubmitErrors] = useState([]);
   const [submitted, setSubmitted] = useState(false);
   const [submittedCode, setSubmittedCode] = useState("");
+  const [suppliers, setSuppliers] = useState([]);
+  const [suppliersLoading, setSuppliersLoading] = useState(false);
+  const [supplierSearch, setSupplierSearch] = useState("");
+  const [supplierSearchDebounced, setSupplierSearchDebounced] = useState("");
+  const [selectedSupplierId, setSelectedSupplierId] = useState("");
+  const [supplierError, setSupplierError] = useState("");
 
   // file refs
   const photoGalleryRef = useRef(null);
@@ -349,17 +438,64 @@ const RaiseBillingRequest = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  // fetch product search
+  useEffect(() => {
+    const t = setTimeout(() => setSupplierSearchDebounced(supplierSearch), 350);
+    return () => clearTimeout(t);
+  }, [supplierSearch]);
+
+  const loadSuppliers = useCallback(async (searchQuery) => {
+    setSuppliersLoading(true);
+    try {
+      const res = await supplierService.getAll({
+        pageNumber: 1,
+        pageSize: SUPPLIER_PAGE_SIZE,
+        search: searchQuery?.trim() || undefined,
+      });
+      const data = res?.data || res;
+      const list = Array.isArray(data?.suppliers) ? data.suppliers : [];
+      setSuppliers(list);
+      return list;
+    } catch (e) {
+      toastError(e?.message || "Failed to load suppliers.");
+      setSuppliers([]);
+      return [];
+    } finally {
+      setSuppliersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (step !== STEP.REVIEW || cart.length === 0) return;
+    loadSuppliers(supplierSearchDebounced);
+  }, [step, cart.length, supplierSearchDebounced, loadSuppliers]);
+
+  const supplierById = useMemo(() => {
+    const map = new Map();
+    suppliers.forEach((supplier) => map.set(String(supplier._id), supplier));
+    return map;
+  }, [suppliers]);
+
+  const supplierSelectOptions = useMemo(() => {
+    if (!selectedSupplierId) return suppliers;
+    const selected = supplierById.get(String(selectedSupplierId));
+    if (!selected) return suppliers;
+    const inList = suppliers.some(
+      (supplier) => String(supplier._id) === String(selectedSupplierId),
+    );
+    return inList ? suppliers : [selected, ...suppliers];
+  }, [suppliers, selectedSupplierId, supplierById]);
+
+  // fetch open purchase-bucket items (all by default; narrows when user searches)
   useEffect(() => {
     const q = searchDebounced.trim();
-    if (!q) {
-      setResults([]);
-      return;
-    }
     let dead = false;
     setSearching(true);
     purchaseBucketService
-      .list({ search: q, pageSize: 30, status: "open" })
+      .list({
+        ...(q ? { search: q } : {}),
+        pageSize: q ? 30 : 100,
+        status: "open",
+      })
       .then((res) => {
         if (!dead) setResults(res?.data?.data ?? []);
       })
@@ -376,6 +512,53 @@ const RaiseBillingRequest = () => {
 
   const patchForm = (patch) => setForm((f) => ({ ...f, ...patch }));
 
+  const buildFormForProduct = (row) => {
+    const attachment = row?.attachmentDocumentId;
+    const attachmentId =
+      attachment && typeof attachment === "object"
+        ? attachment._id
+        : attachment;
+    const existingUrl = docImageUrl(attachment);
+    if (attachmentId && existingUrl) {
+      return {
+        ...blankForm(),
+        photos: [{ docId: String(attachmentId), url: existingUrl }],
+      };
+    }
+    return blankForm();
+  };
+
+  // Pre-select product when opened from purchase bucket detail page
+  useEffect(() => {
+    if (!preselectPoProductId || preselectHandledRef.current) return;
+    preselectHandledRef.current = true;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await purchaseBucketService.getById(preselectPoProductId);
+        const row = res?.data?.data ?? res?.data;
+        if (cancelled || !row?._id) {
+          if (!cancelled) toastError("Product not found.");
+          return;
+        }
+        if (cart.some((c) => c.product._id === row._id)) {
+          goTo(STEP.REVIEW);
+          return;
+        }
+        setProduct(row);
+        setForm(buildFormForProduct(row));
+        goTo(STEP.FILL);
+      } catch (e) {
+        if (!cancelled) toastError(e?.message || "Could not load product.");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [preselectPoProductId]);
+
   // ── step 1: select product
   const selectProduct = (row) => {
     if (cart.some((c) => c.product._id === row._id)) {
@@ -390,14 +573,18 @@ const RaiseBillingRequest = () => {
   // ── step 2: uploads
   const uploadPhoto = async (file) => {
     patchForm({ uploadingPhoto: true });
+    const localPreview = URL.createObjectURL(file);
     try {
       const up = await documentService.uploadAttachments([file]);
-      const doc = (up?.data?.documents ?? up?.documents ?? [])[0];
+      const doc = extractUploadedDocument(up);
       if (!doc?._id) throw new Error("Upload did not return a document.");
       await purchaseBucketService.setLineAttachment(product._id, {
         attachmentDocumentId: String(doc._id),
       });
-      const url = docImageUrl(doc) || "";
+      const url =
+        localPreview ||
+        docImageUrl({ ...doc, mimeType: doc.mimeType || file.type }) ||
+        "";
       setForm((f) => ({
         ...f,
         photos: [...f.photos, { docId: String(doc._id), url }],
@@ -405,13 +592,18 @@ const RaiseBillingRequest = () => {
         errors: { ...f.errors, photo: undefined },
       }));
     } catch (e) {
+      URL.revokeObjectURL(localPreview);
       toastError(e?.message || "Photo upload failed.");
       patchForm({ uploadingPhoto: false });
     }
   };
 
   const removePhoto = (idx) => {
-    setForm((f) => ({ ...f, photos: f.photos.filter((_, i) => i !== idx) }));
+    setForm((f) => {
+      const photo = f.photos[idx];
+      if (photo?.url?.startsWith("blob:")) URL.revokeObjectURL(photo.url);
+      return { ...f, photos: f.photos.filter((_, i) => i !== idx) };
+    });
   };
 
   const onFileChange = (ref, handler) => (e) => {
@@ -444,15 +636,22 @@ const RaiseBillingRequest = () => {
   // ── step 3: validate payment & add to cart
   const addToCart = () => {
     const errs = {};
-    const amt = Number(form.amount);
-    if (!form.amount || Number.isNaN(amt) || amt <= 0)
-      errs.amount = "Enter a valid amount greater than zero.";
+    const rate = Number(form.rate);
+    const quantity = parseProductQuantity(product);
+    const lineAmount = calcLineAmount(quantity, rate);
+
+    if (!form.rate || Number.isNaN(rate) || rate <= 0) {
+      errs.rate = "Enter a valid rate greater than zero.";
+    } else if (quantity == null) {
+      errs.rate = "Product quantity is missing; cannot calculate amount.";
+    } else if (lineAmount == null || lineAmount <= 0) {
+      errs.rate = "Could not calculate amount from quantity and rate.";
+    }
 
     if (Object.keys(errs).length) {
       patchForm({ errors: errs });
-      const firstKey = Object.keys(errs)[0];
       document
-        .getElementById(`rbr-payment-${firstKey}`)
+        .getElementById("rbr-payment-rate")
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
       return;
     }
@@ -462,7 +661,8 @@ const RaiseBillingRequest = () => {
       {
         product,
         photos: form.photos,
-        amount: amt,
+        rate,
+        amount: lineAmount,
       },
     ]);
     setProduct(null);
@@ -473,19 +673,45 @@ const RaiseBillingRequest = () => {
 
   // ── step 3: submit all as one batch billing request
   const raiseAll = async () => {
+    if (!selectedSupplierId) {
+      setSupplierError("Please select a supplier before submitting.");
+      document
+        .getElementById("rbr-supplier-select")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    const selectedSupplier =
+      supplierById.get(String(selectedSupplierId)) ||
+      supplierSelectOptions.find(
+        (supplier) => String(supplier._id) === String(selectedSupplierId),
+      );
+    const supplierSnapshot = buildSupplierSnapshot(selectedSupplier);
+    if (!supplierSnapshot) {
+      setSupplierError(
+        "Selected supplier is no longer available. Choose again.",
+      );
+      return;
+    }
+
     setSubmitting(true);
     setSubmitErrors([]);
+    setSupplierError("");
     try {
       const payload = cart.map((item) => ({
         poProductId: item.product._id,
         productImageDocIds: item.photos.map((p) => p.docId),
         amount: item.amount,
+        supplierSnapshot,
       }));
       const res = await billingRequestService.create(payload);
       const code = res?.data?.data?.billingRequestCode || "";
       setSubmitted(true);
       setSubmittedCode(code);
       setCart([]);
+      setSelectedSupplierId("");
+      setSupplierSearch("");
+      setSupplierError("");
       scrollTop();
     } catch (e) {
       setSubmitErrors([
@@ -504,6 +730,13 @@ const RaiseBillingRequest = () => {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
+  const productQuantity = parseProductQuantity(product);
+  const previewLineAmount = calcLineAmount(productQuantity, form.rate);
+  const hasValidRate =
+    form.rate && !Number.isNaN(Number(form.rate)) && Number(form.rate) > 0;
+  const paymentStepComplete =
+    hasValidRate && previewLineAmount != null && previewLineAmount > 0;
+
   return (
     <div ref={topRef}>
       <CRow>
@@ -521,7 +754,7 @@ const RaiseBillingRequest = () => {
               <CButton
                 color="secondary"
                 variant="ghost"
-                onClick={() => navigate("/purchase-bucket")}
+                onClick={() => navigate(backTarget)}
               >
                 <CIcon icon={cilArrowLeft} className="me-1" size="sm" />
                 Back
@@ -560,13 +793,10 @@ const RaiseBillingRequest = () => {
                 >
                   All products have been submitted for HOD approval. The
                   po_products status has been updated to{" "}
-                  <strong>hod_approval_pending</strong>.
+                  <strong>BR Raised</strong>.
                 </p>
                 <div className="d-flex flex-column flex-sm-row gap-2 justify-content-center">
-                  <CButton
-                    color="primary"
-                    onClick={() => navigate("/purchase-bucket")}
-                  >
+                  <CButton color="primary" onClick={() => navigate(backTarget)}>
                     Go to Purchase Bucket
                   </CButton>
                   <CButton
@@ -576,6 +806,9 @@ const RaiseBillingRequest = () => {
                       setSubmitted(false);
                       setSubmittedCode("");
                       setSubmitErrors([]);
+                      setSelectedSupplierId("");
+                      setSupplierSearch("");
+                      setSupplierError("");
                       goTo(STEP.SEARCH);
                     }}
                   >
@@ -591,8 +824,15 @@ const RaiseBillingRequest = () => {
             <CCard>
               <CCardBody style={{ paddingBottom: 24 }}>
                 <h6 className="mb-1" style={{ fontWeight: 700 }}>
-                  Search for a product
+                  Select a product
                 </h6>
+                <p
+                  className="text-body-secondary mb-3"
+                  style={{ fontSize: 13 }}
+                >
+                  Open purchase bucket items are listed below. Use search to
+                  narrow by sales order or product name.
+                </p>
 
                 <div className="position-relative mb-3">
                   <CIcon
@@ -622,18 +862,18 @@ const RaiseBillingRequest = () => {
                   </div>
                 )}
 
-                {/* empty state */}
-                {!searching && !search.trim() && (
+                {/* no open items */}
+                {!searching && !search.trim() && results.length === 0 && (
                   <div
                     className="text-center py-5 text-body-secondary"
                     style={{ fontSize: 13 }}
                   >
-                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
-                    Start typing to search for products
+                    <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
+                    No open purchase bucket items available
                   </div>
                 )}
 
-                {/* no results */}
+                {/* no search matches */}
                 {!searching && search.trim() && results.length === 0 && (
                   <div
                     className="text-center py-4 text-body-secondary"
@@ -644,17 +884,31 @@ const RaiseBillingRequest = () => {
                   </div>
                 )}
 
-                {/* results */}
+                {/* suggestions */}
                 {results.length > 0 && (
-                  <div className="d-flex flex-column gap-2">
-                    {results.map((row) => (
-                      <ProductCard
-                        key={row._id}
-                        row={row}
-                        inCart={cart.some((c) => c.product._id === row._id)}
-                        onSelect={selectProduct}
-                      />
-                    ))}
+                  <div>
+                    <div
+                      className="mb-2"
+                      style={{
+                        fontSize: 12,
+                        color: "#6c757d",
+                        fontWeight: 600,
+                      }}
+                    >
+                      {search.trim()
+                        ? "Search results"
+                        : "Open purchase bucket items"}
+                    </div>
+                    <div className="d-flex flex-column gap-2">
+                      {results.map((row) => (
+                        <ProductCard
+                          key={row._id}
+                          row={row}
+                          inCart={cart.some((c) => c.product._id === row._id)}
+                          onSelect={selectProduct}
+                        />
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -763,9 +1017,13 @@ const RaiseBillingRequest = () => {
                   {form.photos.length > 0 && (
                     <div className="d-flex flex-wrap gap-2 mb-3">
                       {form.photos.map((p, i) => (
-                        <div key={i} style={{ position: "relative" }}>
-                          <img
-                            src={p.url}
+                        <div
+                          key={p.docId || i}
+                          style={{ position: "relative" }}
+                        >
+                          <AuthImage
+                            documentId={p.docId}
+                            fallbackUrl={p.url}
                             alt=""
                             style={{
                               width: 80,
@@ -941,8 +1199,8 @@ const RaiseBillingRequest = () => {
                 </CButton>
               </div>
 
-              {/* Amount */}
-              <CCard className="mb-3" id="rbr-payment-amount">
+              {/* Payment details */}
+              <CCard className="mb-3" id="rbr-payment-rate">
                 <CCardBody>
                   <div className="d-flex align-items-center gap-2 mb-3">
                     <div
@@ -950,10 +1208,7 @@ const RaiseBillingRequest = () => {
                         width: 24,
                         height: 24,
                         borderRadius: "50%",
-                        background:
-                          form.amount && Number(form.amount) > 0
-                            ? "#198754"
-                            : "#0d6efd",
+                        background: paymentStepComplete ? "#198754" : "#0d6efd",
                         color: "#fff",
                         fontSize: 12,
                         fontWeight: 700,
@@ -963,43 +1218,113 @@ const RaiseBillingRequest = () => {
                         flexShrink: 0,
                       }}
                     >
-                      {form.amount && Number(form.amount) > 0 ? "✓" : "1"}
+                      {paymentStepComplete ? "✓" : "1"}
                     </div>
                     <div style={{ fontWeight: 700, fontSize: 14 }}>
-                      Amount <span style={{ color: "#dc3545" }}>*</span>
+                      Payment Details
                     </div>
                   </div>
-                  <div className="position-relative">
-                    <div
-                      style={{
-                        position: "absolute",
-                        left: 12,
-                        top: "50%",
-                        transform: "translateY(-50%)",
-                        fontWeight: 700,
-                        color: "#495057",
-                        fontSize: 16,
-                        pointerEvents: "none",
-                      }}
-                    >
-                      ₹
-                    </div>
-                    <CFormInput
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={form.amount}
-                      onChange={(e) =>
-                        patchForm({
-                          amount: e.target.value,
-                          errors: { ...form.errors, amount: undefined },
-                        })
-                      }
-                      style={{ paddingLeft: 28, fontSize: 18, fontWeight: 600 }}
-                    />
-                  </div>
-                  <FieldError msg={form.errors.amount} />
+                  <CRow className="g-3">
+                    <CCol xs={6} md={3}>
+                      <CFormLabel className="fw-semibold">Quantity</CFormLabel>
+                      <CFormInput
+                        readOnly
+                        disabled
+                        value={
+                          product?.quantity != null && product?.quantity !== ""
+                            ? String(product.quantity)
+                            : "—"
+                        }
+                        style={{ background: "#f8f9fa" }}
+                      />
+                    </CCol>
+                    <CCol xs={6} md={3}>
+                      <CFormLabel className="fw-semibold">Unit</CFormLabel>
+                      <CFormInput
+                        readOnly
+                        disabled
+                        value={product?.unit ? String(product.unit) : "—"}
+                        style={{ background: "#f8f9fa" }}
+                      />
+                    </CCol>
+                    <CCol xs={6} md={3}>
+                      <CFormLabel className="fw-semibold">
+                        Rate <span style={{ color: "#dc3545" }}>*</span>
+                      </CFormLabel>
+                      <div className="position-relative">
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 12,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            fontWeight: 700,
+                            color: "#495057",
+                            fontSize: 16,
+                            pointerEvents: "none",
+                          }}
+                        >
+                          ₹
+                        </div>
+                        <CFormInput
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={form.rate}
+                          onChange={(e) =>
+                            patchForm({
+                              rate: e.target.value,
+                              errors: { ...form.errors, rate: undefined },
+                            })
+                          }
+                          style={{
+                            paddingLeft: 28,
+                            fontSize: 18,
+                            fontWeight: 600,
+                          }}
+                        />
+                      </div>
+                      <FieldError msg={form.errors.rate} />
+                    </CCol>
+                    <CCol xs={6} md={3}>
+                      <CFormLabel className="fw-semibold">Amount</CFormLabel>
+                      <div className="position-relative">
+                        <div
+                          style={{
+                            position: "absolute",
+                            left: 12,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            fontWeight: 700,
+                            color: "#495057",
+                            fontSize: 16,
+                            pointerEvents: "none",
+                          }}
+                        >
+                          ₹
+                        </div>
+                        <CFormInput
+                          readOnly
+                          disabled
+                          value={
+                            previewLineAmount != null
+                              ? previewLineAmount.toLocaleString("en-IN", {
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2,
+                                })
+                              : "—"
+                          }
+                          style={{
+                            paddingLeft: 28,
+                            fontSize: 18,
+                            fontWeight: 600,
+                            background: "#f8f9fa",
+                          }}
+                        />
+                      </div>
+                    </CCol>
+                  </CRow>
                 </CCardBody>
               </CCard>
 
@@ -1097,19 +1422,140 @@ const RaiseBillingRequest = () => {
                   </CCardBody>
                 </CCard>
               ) : (
-                <div className="d-flex flex-column gap-3 mb-3">
-                  {cart.map((item, idx) => (
-                    <CartCard
-                      key={idx}
-                      item={item}
-                      idx={idx}
-                      onRemove={(i) => {
-                        setCart((p) => p.filter((_, j) => j !== i));
-                        if (cart.length === 1) goTo(STEP.SEARCH);
-                      }}
-                    />
-                  ))}
-                </div>
+                <>
+                  <CCard className="mb-3" id="rbr-supplier-select">
+                    <CCardBody>
+                      <div className="d-flex align-items-center gap-2 mb-3">
+                        <div
+                          style={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: "50%",
+                            background: selectedSupplierId
+                              ? "#198754"
+                              : "#0d6efd",
+                            color: "#fff",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {selectedSupplierId ? "✓" : "1"}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14 }}>
+                            Select supplier{" "}
+                            <span style={{ color: "#dc3545" }}>*</span>
+                          </div>
+                          <div style={{ fontSize: 12, color: "#6c757d" }}>
+                            Search and choose the supplier for this billing
+                            request
+                          </div>
+                        </div>
+                      </div>
+
+                      <CRow className="g-2 align-items-end">
+                        <CCol xs={12} md={5}>
+                          <CFormLabel className="fw-semibold mb-1">
+                            Search supplier
+                          </CFormLabel>
+                          <div className="position-relative">
+                            <CIcon
+                              icon={cilSearch}
+                              style={{
+                                position: "absolute",
+                                left: 12,
+                                top: "50%",
+                                transform: "translateY(-50%)",
+                                color: "#6c757d",
+                                pointerEvents: "none",
+                              }}
+                            />
+                            <CFormInput
+                              value={supplierSearch}
+                              onChange={(e) =>
+                                setSupplierSearch(e.target.value)
+                              }
+                              placeholder="Name, shop, phone, email, GST…"
+                              style={{ paddingLeft: 36 }}
+                            />
+                          </div>
+                          {supplierSearch.trim() && !suppliersLoading && (
+                            <div
+                              style={{ fontSize: 12, color: "#6c757d" }}
+                              className="mt-1"
+                            >
+                              {suppliers.length} supplier
+                              {suppliers.length !== 1 ? "s" : ""} found
+                            </div>
+                          )}
+                        </CCol>
+                        <CCol xs={12} md={7}>
+                          <CFormLabel className="fw-semibold mb-1">
+                            Supplier
+                          </CFormLabel>
+                          <div className="d-flex align-items-center gap-2">
+                            <CFormSelect
+                              value={selectedSupplierId}
+                              onChange={(e) => {
+                                setSelectedSupplierId(e.target.value);
+                                setSupplierError("");
+                              }}
+                              disabled={suppliersLoading}
+                              style={{ flex: 1 }}
+                            >
+                              <option value="">
+                                {suppliersLoading
+                                  ? "Loading suppliers…"
+                                  : supplierSelectOptions.length
+                                    ? "— Select supplier —"
+                                    : "No suppliers found — change search"}
+                              </option>
+                              {supplierSelectOptions.map((supplier) => (
+                                <option
+                                  key={supplier._id}
+                                  value={String(supplier._id)}
+                                >
+                                  {supplierOptionLabel(supplier)}
+                                </option>
+                              ))}
+                            </CFormSelect>
+                            {suppliersLoading && <CSpinner size="sm" />}
+                          </div>
+                          {!suppliersLoading &&
+                            !supplierSearch.trim() &&
+                            supplierSelectOptions.length > 0 && (
+                              <div
+                                style={{ fontSize: 12, color: "#6c757d" }}
+                                className="mt-1"
+                              >
+                                Showing first {SUPPLIER_PAGE_SIZE} suppliers.
+                                Use search to find more.
+                              </div>
+                            )}
+                        </CCol>
+                      </CRow>
+                      <FieldError msg={supplierError} />
+                    </CCardBody>
+                  </CCard>
+
+                  <div className="d-flex flex-column gap-3 mb-3">
+                    {cart.map((item, idx) => (
+                      <CartCard
+                        key={idx}
+                        item={item}
+                        idx={idx}
+                        onRemove={(i) => {
+                          setCart((p) => p.filter((_, j) => j !== i));
+                          if (cart.length === 1) goTo(STEP.SEARCH);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </>
               )}
 
               {/* total summary */}
@@ -1123,10 +1569,9 @@ const RaiseBillingRequest = () => {
                 >
                   <span style={{ fontWeight: 600 }}>Total amount</span>
                   <span style={{ fontWeight: 700, fontSize: 18 }}>
-                    ₹
-                    {cart
-                      .reduce((s, i) => s + i.amount, 0)
-                      .toLocaleString("en-IN")}
+                    {formatInr(
+                      cart.reduce((sum, item) => sum + item.amount, 0),
+                    )}
                   </span>
                 </div>
               )}

@@ -29,22 +29,7 @@ import employeeService from "../../services/employeeService";
 import userService from "../../services/userService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-
-const formatDateTime = (dateStr) => {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "-";
-  return d.toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-};
+import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 // Get the logged-in user from localStorage to resolve performer names
 const getStoredUser = () => {
@@ -581,13 +566,14 @@ const RawQueryView = () => {
                 <CListGroupItem className="d-flex justify-content-between">
                   <strong>Created At:</strong>
                   <span>
-                    {formatDateTime(
+                    {dateTimeFormatter(
                       query.createdAt ||
                         query.created_at ||
                         query.date ||
                         query.createdDate ||
                         query.updatedAt ||
                         query.updated_at,
+                      "-",
                     )}
                   </span>
                 </CListGroupItem>

@@ -20,7 +20,6 @@ import { cilArrowLeft, cilSend } from "@coreui/icons";
 import taskManagementService from "../../services/taskManagementService";
 import employeeService from "../../services/employeeService";
 import documentService from "../../services/documentService";
-import useBranchContext from "../../hooks/useBranchContext";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -33,7 +32,6 @@ const PRIORITY_OPTIONS = [
 
 const TaskForm = () => {
   const navigate = useNavigate();
-  const { branchId: userBranchId } = useBranchContext();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [employees, setEmployees] = useState([]);
@@ -62,7 +60,6 @@ const TaskForm = () => {
       setLoading(true);
       try {
         const params = { pageSize: 100 };
-        if (userBranchId) params.branchId = userBranchId;
         const empRes = await employeeService.getAll(params);
         const empData = empRes?.data?.data ?? empRes?.data;
         setEmployees(empData?.employees ?? []);
@@ -73,7 +70,7 @@ const TaskForm = () => {
       }
     };
     load();
-  }, [userBranchId]);
+  }, []);
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));

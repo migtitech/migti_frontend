@@ -14,8 +14,6 @@ import {
   CTableRow,
   CButton,
   CAlert,
-  CPagination,
-  CPaginationItem,
   CFormInput,
   CFormLabel,
   CInputGroup,
@@ -27,20 +25,34 @@ import { cilPlus, cilPencil, cilTrash, cilSearch } from "@coreui/icons";
 import { EyeIcon } from "../../components";
 import industryBranchService from "../../services/industryBranchService";
 import industryService from "../../services/industryService";
-import { Loader, ConfirmDialog } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
 
+const INDUSTRY_BRANCH_FILTER_DEFAULTS = { industryId: "" };
+
 const IndustryBranchList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "industry_branch_list",
+    INDUSTRY_BRANCH_FILTER_DEFAULTS,
+  );
   const [branches, setBranches] = useState([]);
   const [industries, setIndustries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterIndustryId, setFilterIndustryId] = useState("");
+  const [filterIndustryId, setFilterIndustryId] = useState(
+    initialValues.industryId,
+  );
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
   const [confirmDelete, setConfirmDelete] = useState({
@@ -89,6 +101,14 @@ const IndustryBranchList = () => {
     fetchIndustries();
   }, []);
 
+  useFilterLockPersist("industry_branch_list", filtersLocked, {
+    industryId: filterIndustryId,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ industryId: filterIndustryId });
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => fetchBranches(), 300);
     return () => clearTimeout(timer);
@@ -130,8 +150,8 @@ const IndustryBranchList = () => {
                 {error}
               </CAlert>
             )}
-            <CRow className="mb-3 align-items-end">
-              <CCol md={6}>
+            <CRow className="mb-3 align-items-end g-2">
+              <CCol md={5}>
                 <CInputGroup>
                   <CInputGroupText>
                     <CIcon icon={cilSearch} />
@@ -147,7 +167,7 @@ const IndustryBranchList = () => {
                   />
                 </CInputGroup>
               </CCol>
-              <CCol md={6}>
+              <CCol md={5}>
                 <CFormSelect
                   value={filterIndustryId}
                   onChange={(e) => {
@@ -162,6 +182,13 @@ const IndustryBranchList = () => {
                     </option>
                   ))}
                 </CFormSelect>
+              </CCol>
+              <CCol md={2} className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Industry Branches"
+                />
               </CCol>
             </CRow>
             {loading ? (
@@ -261,46 +288,14 @@ const IndustryBranchList = () => {
                     )}
                   </CTableBody>
                 </CTable>
-                {pagination.totalPages > 1 && (
-                  <div className="d-flex justify-content-between align-items-center mt-3">
-                    <div className="small text-medium-emphasis">
-                      Showing{" "}
-                      {((pagination?.currentPage ?? 1) - 1) *
-                        (pagination?.itemsPerPage ?? 10) +
-                        1}
-                      -
-                      {Math.min(
-                        (pagination?.currentPage ?? 1) *
-                          (pagination?.itemsPerPage ?? 10),
-                        pagination?.totalItems ?? 0,
-                      )}{" "}
-                      of {pagination?.totalItems ?? 0}
-                    </div>
-                    <CPagination className="mb-0">
-                      <CPaginationItem
-                        disabled={!pagination.hasPrevPage}
-                        onClick={() => setPage(page - 1)}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      {Array.from({ length: pagination.totalPages }, (_, i) => (
-                        <CPaginationItem
-                          key={i + 1}
-                          active={page === i + 1}
-                          onClick={() => setPage(i + 1)}
-                        >
-                          {i + 1}
-                        </CPaginationItem>
-                      ))}
-                      <CPaginationItem
-                        disabled={!pagination.hasNextPage}
-                        onClick={() => setPage(page + 1)}
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={pagination?.currentPage ?? 1}
+                  totalPages={pagination.totalPages}
+                  onPageChange={setPage}
+                  showRange
+                  totalItems={pagination?.totalItems ?? 0}
+                  itemsPerPage={pagination?.itemsPerPage ?? 10}
+                />
               </>
             )}
           </CCardBody>

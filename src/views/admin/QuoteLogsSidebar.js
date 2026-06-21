@@ -12,6 +12,7 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilX } from "@coreui/icons";
 import rateLogService from "../../services/rateLogService";
+import { dateFormatter } from "../../utils/dateFormatter";
 
 const sidebarWidth = 380;
 
@@ -22,16 +23,6 @@ const formatMoney = (value) => {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const dd = String(date.getDate()).padStart(2, "0");
-  const mm = String(date.getMonth() + 1).padStart(2, "0");
-  const yy = String(date.getFullYear()).slice(-2);
-  return `${dd}/${mm}/${yy}`;
 };
 
 const QuoteLogsSidebar = ({
@@ -222,7 +213,7 @@ const QuoteLogsSidebar = ({
                     </span>
                   </div>
                   <div className="small text-muted mt-1">
-                    <strong>Date:</strong> {formatDateTime(log.created_at)}
+                    <strong>Date:</strong> {dateFormatter(log.created_at, "—")}
                   </div>
                 </CCardBody>
               </CCard>

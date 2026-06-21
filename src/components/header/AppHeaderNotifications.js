@@ -9,10 +9,9 @@ import { useSocket } from "../../context/SocketContext";
 const AppHeaderNotifications = () => {
   const navigate = useNavigate();
   const { isConnected } = useSocket();
-  const { unreadCount, refreshUnread } = useNotifications();
+  const { unreadCount } = useNotifications();
 
   const goToNotifications = () => {
-    refreshUnread();
     navigate("/notifications");
   };
 

@@ -1,5 +1,10 @@
-/** India Standard Time (UTC+5:30) — use for bucketing/reporting regardless of browser locale. */
-export const IST_TIMEZONE = "Asia/Kolkata";
+import {
+  IST_TIMEZONE,
+  dateFormatter,
+  dateTimeFormatter,
+} from "./dateFormatter";
+
+export { IST_TIMEZONE };
 
 /**
  * Calendar date YYYY-MM-DD for the given instant in IST.
@@ -54,21 +59,11 @@ export function buildLastNDaysIst(n = 7) {
   return { keys, labels };
 }
 
-/**
- * Display date in IST (e.g. for tables).
- * @param {Date|string|number} dateInput
- * @returns {string}
- */
-export function formatIstDisplayDate(dateInput) {
-  const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
-  if (Number.isNaN(d.getTime())) return "–";
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: IST_TIMEZONE,
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  }).format(d);
-}
+/** @deprecated Use dateFormatter from utils/dateFormatter */
+export const formatIstDisplayDate = dateFormatter;
+
+/** @deprecated Use dateTimeFormatter from utils/dateFormatter */
+export const formatIstDisplayDateTime = dateTimeFormatter;
 
 function pctChange(current, previous) {
   if (previous === 0) return current > 0 ? 100 : 0;

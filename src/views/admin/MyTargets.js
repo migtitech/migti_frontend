@@ -18,8 +18,12 @@ import {
   CTableRow,
 } from "@coreui/react";
 import targetAnalyticsService from "../../services/targetAnalyticsService";
-import { Loader } from "../../components";
+import { Loader, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { toastError } from "../../utils/toast";
+import { dateFormatter } from "../../utils/dateFormatter";
+
+const MY_TARGETS_FILTER_DEFAULTS = { status: "", period: "" };
 
 const PERIOD_OPTIONS = [
   { value: "", label: "All Periods" },
@@ -29,8 +33,6 @@ const PERIOD_OPTIONS = [
 
 const formatAmount = (v) =>
   `₹${Number(v || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const formatDate = (v) => (v ? new Date(v).toLocaleDateString("en-IN") : "-");
 
 const clamp = (v, min = 0, max = 100) => Math.max(min, Math.min(max, v));
 
@@ -51,10 +53,14 @@ const statusBadge = (status) => {
 };
 
 const MyTargets = () => {
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "my_targets",
+    MY_TARGETS_FILTER_DEFAULTS,
+  );
   const [loading, setLoading] = useState(false);
   const [targets, setTargets] = useState([]);
-  const [filterPeriod, setFilterPeriod] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
+  const [filterPeriod, setFilterPeriod] = useState(initialValues.period);
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
 
   const loadTargets = useCallback(async () => {
     setLoading(true);
@@ -80,6 +86,15 @@ const MyTargets = () => {
       list = list.filter((t) => (t.status || "active") === filterStatus);
     return list;
   }, [targets, filterPeriod, filterStatus]);
+
+  useFilterLockPersist("my_targets", filtersLocked, {
+    status: filterStatus,
+    period: filterPeriod,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status: filterStatus, period: filterPeriod });
+  };
 
   const summary = useMemo(() => {
     const active = targets.filter((t) => (t.status || "active") === "active");
@@ -162,6 +177,13 @@ const MyTargets = () => {
                       <option value="closed">Closed</option>
                     </CFormSelect>
                   </CCol>
+                  <CCol md={3} className="d-flex align-items-end">
+                    <FilterLockButton
+                      filtersLocked={filtersLocked}
+                      onToggle={handleToggleFiltersLock}
+                      pageLabel="My Targets"
+                    />
+                  </CCol>
                 </CRow>
 
                 <CTable hover responsive bordered>
@@ -194,10 +216,10 @@ const MyTargets = () => {
                               {row.period || "-"}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(row.dateFrom)}
+                              {dateFormatter(row.dateFrom, "-")}
                             </CTableDataCell>
                             <CTableDataCell>
-                              {formatDate(row.dateTo)}
+                              {dateFormatter(row.dateTo, "-")}
                             </CTableDataCell>
                             <CTableDataCell>
                               {formatAmount(row.targetAmount)}

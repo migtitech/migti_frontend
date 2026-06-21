@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { CAlert } from "@coreui/react";
 import { useNotifications } from "../context/NotificationContext";
+import NotificationDescription from "./notifications/NotificationDescription";
 
 const RealtimeNotificationAlert = () => {
   const navigate = useNavigate();
@@ -34,10 +35,11 @@ const RealtimeNotificationAlert = () => {
         }}
       >
         <div className="fw-semibold">{flash.title}</div>
-        {flash.description ? (
-          <div className="small text-body-secondary mt-1">
-            {flash.description}
-          </div>
+        {flash.title || flash.description ? (
+          <NotificationDescription
+            notification={flash}
+            className="small mt-1"
+          />
         ) : null}
       </div>
     </CAlert>

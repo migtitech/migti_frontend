@@ -1,5 +1,10 @@
 import axios from "axios";
 import { BASE_URL, API_VERSION, AUTH } from "./endpoints";
+import {
+  clearAuthStorage,
+  hasValidAccessSession,
+  isTokenExpired,
+} from "../utils/authSession";
 
 // Create axios instance
 const axiosClient = axios.create({
@@ -14,9 +19,12 @@ const axiosClient = axios.create({
 const TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 
+let authFailureInProgress = false;
+
 export const getAccessToken = () => localStorage.getItem(TOKEN_KEY);
 export const getRefreshToken = () => localStorage.getItem(REFRESH_TOKEN_KEY);
 export const setTokens = (accessToken, refreshToken) => {
+  authFailureInProgress = false;
   localStorage.setItem(TOKEN_KEY, accessToken);
   if (refreshToken) {
     localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
@@ -27,7 +35,6 @@ export const clearTokens = () => {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 };
 
-const USER_STORAGE_KEY = "migticrm_user";
 const AUTH_BYPASS_401_PATHS = new Set([
   AUTH.LOGIN,
   AUTH.ADMIN_LOGIN,
@@ -37,18 +44,67 @@ const AUTH_BYPASS_401_PATHS = new Set([
   AUTH.REFRESH_TOKEN,
 ]);
 
-/** Clear auth data and redirect to login (e.g. on 401 / token expired) */
-const redirectToLogin = () => {
-  clearTokens();
-  localStorage.removeItem(USER_STORAGE_KEY);
+let authFailureHandler = null;
+
+export const registerAuthFailureHandler = (handler) => {
+  authFailureHandler = handler;
+  return () => {
+    authFailureHandler = null;
+    authFailureInProgress = false;
+  };
+};
+
+const triggerAuthFailure = () => {
+  if (authFailureInProgress) return;
+  authFailureInProgress = true;
+  clearAuthStorage();
+
+  if (authFailureHandler) {
+    authFailureHandler();
+    return;
+  }
+
   const base = `${window.location.origin}${window.location.pathname || "/"}`;
   window.location.replace(`${base}#/login`);
 };
 
-// Request interceptor
+const isAuthBypassRequest = (url) =>
+  AUTH_BYPASS_401_PATHS.has(String(url || ""));
+
+const rejectUnauthenticatedRequest = () => {
+  triggerAuthFailure();
+  return Promise.reject({
+    status: 401,
+    message: "Session expired. Please log in again.",
+    errors: null,
+    data: null,
+    cancelled: true,
+  });
+};
+
+// Request interceptor — block protected requests without a valid session
 axiosClient.interceptors.request.use(
   (config) => {
+    const requestUrl = String(config.url || "");
+    if (isAuthBypassRequest(requestUrl)) {
+      const token = getAccessToken();
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
+    }
+
     const token = getAccessToken();
+    const refreshToken = getRefreshToken();
+
+    if (!token && !refreshToken) {
+      return rejectUnauthenticatedRequest();
+    }
+
+    if (token && isTokenExpired(token) && !refreshToken) {
+      return rejectUnauthenticatedRequest();
+    }
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -70,9 +126,11 @@ axiosClient.interceptors.response.use(
     const status = error.response?.status;
     const errorMessage = error.response?.data?.message || error.message || "";
     const requestUrl = String(originalRequest.url || "");
-    const isAuthBypassRequest = AUTH_BYPASS_401_PATHS.has(requestUrl);
-
-    if (status === 401 && !isAuthBypassRequest && !originalRequest._retry) {
+    if (
+      status === 401 &&
+      !isAuthBypassRequest(requestUrl) &&
+      !originalRequest._retry
+    ) {
       originalRequest._retry = true;
 
       const refreshToken = getRefreshToken();
@@ -91,13 +149,12 @@ axiosClient.interceptors.response.use(
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
           return axiosClient(originalRequest);
         } catch (refreshError) {
-          redirectToLogin();
+          triggerAuthFailure();
           return Promise.reject(refreshError);
         }
       }
 
-      // No refresh token or token expired: clear auth and redirect to login
-      redirectToLogin();
+      triggerAuthFailure();
       const errorResponse = {
         status: error.response?.status,
         message:
@@ -117,7 +174,7 @@ axiosClient.interceptors.response.use(
         msg.includes("token") ||
         msg.includes("jwt")
       ) {
-        redirectToLogin();
+        triggerAuthFailure();
       }
     }
 

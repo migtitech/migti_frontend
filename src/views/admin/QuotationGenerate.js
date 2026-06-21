@@ -32,6 +32,10 @@ import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
+import {
+  QUERY_PRODUCT_QUOTATION_STATUS,
+  filterProductsReadyForQuotation,
+} from "../../utils/queryProductQuotationStatus";
 
 const formatVariants = (variants) => {
   if (!variants?.length) return "—";
@@ -70,11 +74,22 @@ const QuotationGenerate = () => {
     return "";
   };
 
+  const mapReadyProducts = (sourceProducts = []) =>
+    filterProductsReadyForQuotation(sourceProducts).map((product) => ({
+      ...product,
+    }));
+
   useEffect(() => {
     const load = async () => {
       if (!queryId) return;
       if (queryFromState) {
-        setProducts((queryFromState.products || []).map((p) => ({ ...p })));
+        const readyProducts = mapReadyProducts(queryFromState.products || []);
+        if (readyProducts.length === 0) {
+          toastError("No products marked ready for quotation.");
+          navigate(`/queries/${queryId}`);
+          return;
+        }
+        setProducts(readyProducts);
         setRemark(queryFromState.remark || "");
         setLoading(false);
         return;
@@ -84,8 +99,14 @@ const QuotationGenerate = () => {
         const res = await withMinimumDelay(() => queryService.getById(queryId));
         const data = res?.data || res;
         const q = data?.data ?? data;
+        const readyProducts = mapReadyProducts(q?.products || []);
+        if (readyProducts.length === 0) {
+          toastError("No products marked ready for quotation.");
+          navigate(`/queries/${queryId}`);
+          return;
+        }
         setQuery(q);
-        setProducts((q?.products || []).map((p) => ({ ...p })));
+        setProducts(readyProducts);
         setRemark(q?.remark || "");
       } catch (err) {
         toastError(err?.message || "Failed to load query");
@@ -134,6 +155,7 @@ const QuotationGenerate = () => {
           images: (p.images || [])
             .map((img) => (typeof img === "object" && img?._id ? img._id : img))
             .filter(Boolean),
+          quotation_status: QUERY_PRODUCT_QUOTATION_STATUS.READY_FOR_QUOTATION,
         };
       });
       const res = await queryService.convertToQuotation(query.queryCode, {
@@ -178,21 +200,47 @@ const QuotationGenerate = () => {
 
   return (
     <>
-      <CRow>
-        <CCol xs={12}>
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <CButton
-              color="light"
-              variant="ghost"
-              onClick={() => navigate(`/queries/${queryId}`)}
-            >
-              <CIcon icon={cilArrowLeft} className="me-2" />
-              Back to Query
-            </CButton>
-            <h4 className="mb-0">Generate Quotation from Query</h4>
+      <CCard
+        className="mb-4 border-0 shadow-sm"
+        style={{ borderRadius: 12, backgroundColor: "#f8f9fb" }}
+      >
+        <CCardBody className="p-3 p-md-4">
+          <div
+            className="small text-muted mb-3"
+            style={{ fontSize: "0.82rem" }}
+          >
+            Home&nbsp;/&nbsp;Queries&nbsp;/&nbsp;Generate Quotation
           </div>
-        </CCol>
-      </CRow>
+
+          <div className="d-flex flex-column flex-lg-row align-items-start align-items-lg-center justify-content-between gap-3">
+            <div className="d-flex align-items-center gap-2 flex-wrap">
+              <CButton
+                color="secondary"
+                variant="outline"
+                onClick={() => navigate(`/queries/${queryId}`)}
+                className="d-inline-flex align-items-center px-3"
+                style={{ height: 40 }}
+              >
+                <CIcon icon={cilArrowLeft} className="me-2" />
+                Back to Query
+              </CButton>
+              {query?.queryCode ? (
+                <div
+                  className="fw-bold text-primary px-3 py-2 rounded-pill border"
+                  style={{
+                    fontSize: "0.95rem",
+                    letterSpacing: "0.3px",
+                    backgroundColor: "#eef4ff",
+                  }}
+                >
+                  {query.queryCode}
+                </div>
+              ) : null}
+            </div>
+            <h4 className="mb-0 fw-semibold">Generate Quotation from Query</h4>
+          </div>
+        </CCardBody>
+      </CCard>
 
       {/* 1. Company Information - Read only */}
       <CCard className="mb-4">
@@ -227,8 +275,22 @@ const QuotationGenerate = () => {
               </div>
             </CListGroupItem>
             <CListGroupItem>
-              <strong>Address</strong>
-              <div className="mt-1">{ci.address || "-"}</div>
+              <strong>Billing address</strong>
+              <div
+                className="mt-1 text-break"
+                style={{ whiteSpace: "pre-wrap" }}
+              >
+                {(ci.billingAddress || ci.address || "").trim() || "-"}
+              </div>
+            </CListGroupItem>
+            <CListGroupItem>
+              <strong>Shipping address</strong>
+              <div
+                className="mt-1 text-break"
+                style={{ whiteSpace: "pre-wrap" }}
+              >
+                {(ci.shippingAddress || ci.address || "").trim() || "-"}
+              </div>
             </CListGroupItem>
           </CListGroup>
         </CCardBody>
@@ -255,7 +317,10 @@ const QuotationGenerate = () => {
       {/* 3. Add product + Products table */}
       <CCard className="mb-4">
         <CCardHeader>
-          <strong>3. Products</strong>
+          <strong>3. Products</strong>{" "}
+          <span className="text-muted fw-normal">
+            (Ready for quotation only)
+          </span>
         </CCardHeader>
         <CCardBody>
           {/* Products table */}

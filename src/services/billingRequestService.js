@@ -4,7 +4,7 @@ import { BILLING_REQUESTS } from "../api/endpoints";
 const billingRequestService = {
   /**
    * Create one billing_request document for a batch of PO products.
-   * Also sets each po_product.status = 'hod_approval_pending' on the backend.
+   * Also sets each po_product.status = 'billing_request_raised' on the backend.
    *
    * @param {Array<{
    *   poProductId: string,

@@ -13,7 +13,6 @@ import {
   CCardBody,
   CCardHeader,
   CCol,
-  CFormCheck,
   CFormInput,
   CFormLabel,
   CFormSelect,
@@ -37,6 +36,7 @@ import CIcon from "@coreui/icons-react";
 import { cilArrowLeft, cilPlus, cilTrash, cilX } from "@coreui/icons";
 import { getAssetsUrl } from "../../api/endpoints";
 import purchaseOrderService from "../../services/purchaseOrderService";
+import productService from "../../services/productService";
 import documentService from "../../services/documentService";
 import employeeService from "../../services/employeeService";
 import areaService from "../../services/areaService";
@@ -45,7 +45,7 @@ import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { useAuth } from "../../context/AuthContext";
-import { normalizeRole } from "../../hooks/usePermissions";
+import { normalizeRole, isBackOfficeRole } from "../../hooks/usePermissions";
 
 /** `status` on `po_products` (read-only here; not stored on purchase order) */
 const lineInventoryStatusBadge = (inv) => {
@@ -53,6 +53,12 @@ const lineInventoryStatusBadge = (inv) => {
   switch (s) {
     case "pending":
       return <CBadge color="warning">Pending</CBadge>;
+    case "billing_request_raised":
+      return <CBadge color="info">BR Raised</CBadge>;
+    case "finance_approved":
+      return <CBadge color="success">Finance Approved</CBadge>;
+    case "purchased":
+      return <CBadge color="info">Purchased</CBadge>;
     case "inventory_received":
       return <CBadge color="success">Received</CBadge>;
     case "ready_for_dispatchment":
@@ -153,15 +159,53 @@ const emptyProduct = {
   description: "",
   quantity: 1,
   unit: "",
-  hsnNumber: "",
-  modelNumber: "",
   dispatchmentDate: "",
   gstPercentage: "",
   remark: "",
   rate: "",
+  priority: "medium",
+  product_id: null,
+  images: [],
+  hsnNumber: "",
+  modelNumber: "",
   applyDiscount: false,
   discountPercentage: "",
-  priority: "medium",
+};
+
+const applyCatalogProductToNewForm = (product, setNewProductForm) => {
+  if (!product) return;
+  const imageDocs = (product.images || [])
+    .map((img) => {
+      if (typeof img === "object" && img?._id) {
+        return { _id: img._id, path: img.path || "" };
+      }
+      if (typeof img === "string" && OBJECT_ID_RE.test(img)) {
+        return { _id: img, path: "" };
+      }
+      return null;
+    })
+    .filter(Boolean);
+
+  setNewProductForm({
+    ...emptyProduct,
+    productName: product.name || "",
+    description: product.shortDescription || product.description || "",
+    quantity: 1,
+    unit: (product.unit && String(product.unit).trim()) || "",
+    rate:
+      product.price != null && !Number.isNaN(Number(product.price))
+        ? String(product.price)
+        : "",
+    gstPercentage:
+      product.gstPercentage != null &&
+      !Number.isNaN(Number(product.gstPercentage))
+        ? String(product.gstPercentage)
+        : "",
+    product_id: product._id || product.id || null,
+    images: imageDocs,
+    hsnNumber: product.hsnNumber || "",
+    modelNumber: product.defaultModelNumber || product.modelNumber || "",
+  });
 };
 
 const getTodayInputDate = () => {
@@ -176,6 +220,40 @@ const getTodayInputDate = () => {
 const isTodayOrFutureDispatchDate = (value) => {
   if (!value) return true;
   return value >= getTodayInputDate();
+};
+
+const formatDispatchmentDateDisplay = (value) => {
+  if (!value) return "—";
+  const datePart = String(value).trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return "—";
+  const parsed = new Date(`${datePart}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return datePart;
+  return parsed.toLocaleDateString("en-IN");
+};
+
+const buildDispatchmentDateByLineIndex = (poProductLines) => {
+  const map = new Map();
+  (poProductLines || []).forEach((row) => {
+    if (row?.dispatchmentDate) {
+      map.set(Number(row.lineIndex), String(row.dispatchmentDate).slice(0, 10));
+    }
+  });
+  return map;
+};
+
+const mapProductsFormFromPo = (products, poProductLines) => {
+  const dispatchmentByLineIndex =
+    buildDispatchmentDateByLineIndex(poProductLines);
+  return Array.isArray(products)
+    ? products.map((product, index) => {
+        const editable = toEditableProduct(product);
+        const dispatchmentFromPoProduct = dispatchmentByLineIndex.get(index);
+        if (dispatchmentFromPoProduct) {
+          editable.dispatchmentDate = dispatchmentFromPoProduct;
+        }
+        return editable;
+      })
+    : [];
 };
 
 /** When `companyInfo.area` is an ObjectId, we show the zone (area) name but save the id if unchanged. */
@@ -296,6 +374,9 @@ const PoBucketView = () => {
   const [productsForm, setProductsForm] = useState([]);
   const [newProductForm, setNewProductForm] = useState(emptyProduct);
   const [addProductSidebarOpen, setAddProductSidebarOpen] = useState(false);
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [productSearchResults, setProductSearchResults] = useState([]);
+  const [productSearchLoading, setProductSearchLoading] = useState(false);
   const [dispatchmentDateForAll, setDispatchmentDateForAll] = useState("");
   const [poAttachment, setPoAttachment] = useState({
     documentId: "",
@@ -318,6 +399,7 @@ const PoBucketView = () => {
   const headOfDepartmentUser = isHeadOfDepartmentRole(user?.role);
   const canManageProductList = isHodRole(user?.role);
   const isSalesRole = normalizeRole(user?.role).startsWith("sales");
+  const canEditProductPriority = !isSalesRole && !isBackOfficeRole(user?.role);
   const companyInfoReadOnly = true;
   const poStatusNorm = String(purchaseOrder?.status || "").toLowerCase();
   const poHodApproved = poStatusNorm === "hod_approved";
@@ -386,7 +468,7 @@ const PoBucketView = () => {
               };
               setCompanyForm((prev) => ({
                 ...prev,
-                area: zoneName || rawArea,
+                area: zoneName || "",
               }));
             }
           } catch {
@@ -394,14 +476,17 @@ const PoBucketView = () => {
               companyAreaMetaRef.current = emptyCompanyAreaMeta();
               setCompanyForm((prev) => ({
                 ...prev,
-                area: rawArea,
+                area: "",
               }));
             }
           }
         }
         setProductsForm(
-          Array.isArray(data?.products)
-            ? data.products.map(toEditableProduct)
+          mapProductsFormFromPo(data?.products, data?.poProductLineStatuses),
+        );
+        setPoProductLineStatuses(
+          Array.isArray(data?.poProductLineStatuses)
+            ? data.poProductLineStatuses
             : [],
         );
         const ae = data?.assigned_employee;
@@ -421,6 +506,66 @@ const PoBucketView = () => {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!addProductSidebarOpen) return undefined;
+    const query = productSearchQuery.trim();
+    if (query.length < 2) {
+      setProductSearchResults([]);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setProductSearchLoading(true);
+      try {
+        const res = await productService.getAll({
+          pageNumber: 1,
+          pageSize: 20,
+          status: "hod_approved",
+          search: query,
+        });
+        const inner = res?.data ?? res;
+        const products = inner?.data?.products || inner?.products || [];
+        if (!cancelled) setProductSearchResults(products);
+      } catch {
+        if (!cancelled) setProductSearchResults([]);
+      } finally {
+        if (!cancelled) setProductSearchLoading(false);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [productSearchQuery, addProductSidebarOpen]);
+
+  const openAddProductSidebar = () => {
+    setNewProductForm(emptyProduct);
+    setProductSearchQuery("");
+    setProductSearchResults([]);
+    setAddProductSidebarOpen(true);
+  };
+
+  const closeAddProductSidebar = () => {
+    setAddProductSidebarOpen(false);
+    setProductSearchQuery("");
+    setProductSearchResults([]);
+  };
+
+  const handleSelectCatalogProduct = async (productSummary) => {
+    const productId = productSummary?._id || productSummary?.id;
+    if (!productId) return;
+    try {
+      const res = await productService.getById(productId);
+      const product = res?.data?.data ?? res?.data ?? res;
+      applyCatalogProductToNewForm(product, setNewProductForm);
+      setProductSearchQuery(product?.name || productSummary?.name || "");
+      setProductSearchResults([]);
+      toastSuccess("Product details loaded");
+    } catch (err) {
+      toastError(err?.message || "Failed to load product");
+    }
+  };
+
   const totalAmount = useMemo(
     () => productsForm.reduce((sum, p) => sum + getProductTotal(p), 0),
     [productsForm],
@@ -434,6 +579,15 @@ const PoBucketView = () => {
     });
     return m;
   }, [poProductLineStatuses]);
+
+  const dispatchmentDateByLineIndex = useMemo(
+    () => buildDispatchmentDateByLineIndex(poProductLineStatuses),
+    [poProductLineStatuses],
+  );
+
+  const allLinesHavePoDispatchDate =
+    productsForm.length > 0 &&
+    productsForm.every((_, index) => dispatchmentDateByLineIndex.has(index));
 
   const loadPoProductStatusLines = useCallback(async () => {
     if (!id) {
@@ -470,7 +624,7 @@ const PoBucketView = () => {
     );
     setPoAttachment(poAttachmentStateFromPo(data));
     setProductsForm(
-      Array.isArray(data?.products) ? data.products.map(toEditableProduct) : [],
+      mapProductsFormFromPo(data?.products, data?.poProductLineStatuses),
     );
     const ae = data?.assigned_employee;
     setAssignSelectValue(ae?._id != null ? String(ae._id) : "");
@@ -595,10 +749,10 @@ const PoBucketView = () => {
   }, [activeTab, id, loadPoProductStatusLines]);
 
   useEffect(() => {
-    if (isSalesRole && activeTab === "priority") {
+    if (!canEditProductPriority && activeTab === "priority") {
       setActiveTab("company");
     }
-  }, [isSalesRole, activeTab]);
+  }, [canEditProductPriority, activeTab]);
 
   const saveProducts = async (
     nextProducts,
@@ -646,7 +800,10 @@ const PoBucketView = () => {
       toastError("Product name is required");
       return;
     }
-    if (!isTodayOrFutureDispatchDate(row.dispatchmentDate)) {
+    if (
+      !dispatchmentDateByLineIndex.has(index) &&
+      !isTodayOrFutureDispatchDate(row.dispatchmentDate)
+    ) {
       toastError("Dispatchment date must be today or a future date");
       return;
     }
@@ -657,7 +814,11 @@ const PoBucketView = () => {
     if (poClosed) return;
     if (!dispatchmentDateForAll) {
       setProductsForm((prev) =>
-        prev.map((p) => ({ ...p, dispatchmentDate: "" })),
+        prev.map((product, index) =>
+          dispatchmentDateByLineIndex.has(index)
+            ? product
+            : { ...product, dispatchmentDate: "" },
+        ),
       );
       return;
     }
@@ -666,7 +827,12 @@ const PoBucketView = () => {
       return;
     }
     setProductsForm((prev) =>
-      prev.map((p) => ({ ...p, dispatchmentDate: dispatchmentDateForAll })),
+      prev.map((product, index) => {
+        if (dispatchmentDateByLineIndex.has(index)) {
+          return product;
+        }
+        return { ...product, dispatchmentDate: dispatchmentDateForAll };
+      }),
     );
   };
 
@@ -781,7 +947,7 @@ const PoBucketView = () => {
     const next = [...productsForm, toEditableProduct(newProductForm)];
     setNewProductForm(emptyProduct);
     await saveProducts(next);
-    setAddProductSidebarOpen(false);
+    closeAddProductSidebar();
   };
 
   if (loading) {
@@ -860,7 +1026,7 @@ const PoBucketView = () => {
                   Product List
                 </CNavLink>
               </CNavItem>
-              {!isSalesRole ? (
+              {canEditProductPriority ? (
                 <CNavItem>
                   <CNavLink
                     active={activeTab === "priority"}
@@ -1020,37 +1186,39 @@ const PoBucketView = () => {
                         Total Amount: ₹
                         {Number(totalAmount || 0).toLocaleString("en-IN")}
                       </CBadge>
-                      <div className="d-flex align-items-center gap-2">
-                        <CFormInput
-                          size="sm"
-                          type="date"
-                          min={getTodayInputDate()}
-                          value={dispatchmentDateForAll}
-                          readOnly={poClosed}
-                          disabled={poClosed}
-                          onChange={(e) =>
-                            setDispatchmentDateForAll(e.target.value)
-                          }
-                          placeholder="Dispatchment date"
-                          style={{ minWidth: 170 }}
-                        />
-                        <CButton
-                          size="sm"
-                          color="secondary"
-                          variant="outline"
-                          disabled={poClosed}
-                          onClick={applyDispatchmentDateToAll}
-                        >
-                          Set for all
-                        </CButton>
-                      </div>
+                      {!allLinesHavePoDispatchDate ? (
+                        <>
+                          <CFormInput
+                            size="sm"
+                            type="date"
+                            min={getTodayInputDate()}
+                            value={dispatchmentDateForAll}
+                            readOnly={poClosed}
+                            disabled={poClosed}
+                            onChange={(e) =>
+                              setDispatchmentDateForAll(e.target.value)
+                            }
+                            placeholder="Dispatchment date"
+                            style={{ minWidth: 170 }}
+                          />
+                          <CButton
+                            size="sm"
+                            color="secondary"
+                            variant="outline"
+                            disabled={poClosed}
+                            onClick={applyDispatchmentDateToAll}
+                          >
+                            Set for all
+                          </CButton>
+                        </>
+                      ) : null}
                       {canManageProductList ? (
                         <CButton
                           color="success"
                           size="sm"
                           className="d-inline-flex align-items-center"
                           disabled={poClosed}
-                          onClick={() => setAddProductSidebarOpen(true)}
+                          onClick={openAddProductSidebar}
                         >
                           <CIcon icon={cilPlus} className="me-1" />
                           Add New Product
@@ -1064,9 +1232,7 @@ const PoBucketView = () => {
                         <CTableRow>
                           <CTableHeaderCell>S No</CTableHeaderCell>
                           <CTableHeaderCell>Product</CTableHeaderCell>
-                          <CTableHeaderCell>
-                            Line status (Sales Order product)
-                          </CTableHeaderCell>
+                          <CTableHeaderCell>Line status</CTableHeaderCell>
                           <CTableHeaderCell>Qty</CTableHeaderCell>
                           <CTableHeaderCell style={{ minWidth: 110 }}>
                             GST %
@@ -1162,20 +1328,28 @@ const PoBucketView = () => {
                               />
                             </CTableDataCell>
                             <CTableDataCell>
-                              <CFormInput
-                                size="sm"
-                                type="date"
-                                min={getTodayInputDate()}
-                                value={p.dispatchmentDate || ""}
-                                readOnly={poClosed}
-                                onChange={(e) =>
-                                  updateProductField(
-                                    index,
-                                    "dispatchmentDate",
-                                    e.target.value,
-                                  )
-                                }
-                              />
+                              {dispatchmentDateByLineIndex.has(index) ? (
+                                <span className="text-nowrap small fw-semibold">
+                                  {formatDispatchmentDateDisplay(
+                                    dispatchmentDateByLineIndex.get(index),
+                                  )}
+                                </span>
+                              ) : (
+                                <CFormInput
+                                  size="sm"
+                                  type="date"
+                                  min={getTodayInputDate()}
+                                  value={p.dispatchmentDate || ""}
+                                  readOnly={poClosed}
+                                  onChange={(e) =>
+                                    updateProductField(
+                                      index,
+                                      "dispatchmentDate",
+                                      e.target.value,
+                                    )
+                                  }
+                                />
+                              )}
                             </CTableDataCell>
                             <CTableDataCell className="text-nowrap fw-semibold">
                               ₹{getProductTotal(p).toLocaleString("en-IN")}
@@ -1224,7 +1398,7 @@ const PoBucketView = () => {
                 </CCard>
               </CTabPane>
 
-              {!isSalesRole ? (
+              {canEditProductPriority ? (
                 <CTabPane visible={activeTab === "priority"}>
                   <CCard className="mb-4 border-0 shadow-sm">
                     <CCardHeader className="d-flex flex-wrap justify-content-between align-items-center gap-2 bg-light">
@@ -1653,7 +1827,7 @@ const PoBucketView = () => {
             size="sm"
             className="rounded-circle p-1 d-inline-flex align-items-center justify-content-center"
             style={{ width: 26, height: 26 }}
-            onClick={() => setAddProductSidebarOpen(false)}
+            onClick={closeAddProductSidebar}
           >
             <CIcon icon={cilX} size="sm" />
           </CButton>
@@ -1661,6 +1835,52 @@ const PoBucketView = () => {
 
         <div style={{ overflowY: "auto", flex: 1 }}>
           <CRow className="g-3">
+            <CCol md={12}>
+              <CFormLabel>Search product</CFormLabel>
+              <CFormInput
+                placeholder="Search by product name"
+                value={productSearchQuery}
+                readOnly={poClosed}
+                onChange={(e) => setProductSearchQuery(e.target.value)}
+              />
+              {productSearchLoading ? (
+                <div className="mt-2">
+                  <CSpinner size="sm" className="me-2" />
+                  <span className="small text-muted">Searching...</span>
+                </div>
+              ) : null}
+              {!productSearchLoading && productSearchResults.length > 0 ? (
+                <div
+                  className="list-group mt-2"
+                  style={{ maxHeight: 220, overflowY: "auto" }}
+                >
+                  {productSearchResults.map((product) => {
+                    const productId = product._id || product.id;
+                    return (
+                      <button
+                        key={productId}
+                        type="button"
+                        className="list-group-item list-group-item-action py-2 text-start"
+                        disabled={poClosed}
+                        onClick={() => handleSelectCatalogProduct(product)}
+                      >
+                        <div className="fw-semibold">{product.name || "—"}</div>
+                        {product.productCode ? (
+                          <div className="small text-muted">
+                            {product.productCode}
+                          </div>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {!productSearchLoading &&
+              productSearchQuery.trim().length >= 2 &&
+              productSearchResults.length === 0 ? (
+                <div className="small text-muted mt-2">No products found.</div>
+              ) : null}
+            </CCol>
             <CCol md={12}>
               <CFormLabel>Product name *</CFormLabel>
               <CFormInput
@@ -1762,32 +1982,6 @@ const PoBucketView = () => {
                 }
               />
             </CCol>
-            <CCol md={6}>
-              <CFormLabel>HSN Number</CFormLabel>
-              <CFormInput
-                value={newProductForm.hsnNumber}
-                readOnly={poClosed}
-                onChange={(e) =>
-                  setNewProductForm((prev) => ({
-                    ...prev,
-                    hsnNumber: e.target.value,
-                  }))
-                }
-              />
-            </CCol>
-            <CCol md={6}>
-              <CFormLabel>Model Number</CFormLabel>
-              <CFormInput
-                value={newProductForm.modelNumber}
-                readOnly={poClosed}
-                onChange={(e) =>
-                  setNewProductForm((prev) => ({
-                    ...prev,
-                    modelNumber: e.target.value,
-                  }))
-                }
-              />
-            </CCol>
             <CCol md={12}>
               <CFormLabel>Remark</CFormLabel>
               <CFormInput
@@ -1801,43 +1995,11 @@ const PoBucketView = () => {
                 }
               />
             </CCol>
-            <CCol xs={12}>
-              <CFormCheck
-                label="Apply discount"
-                checked={!!newProductForm.applyDiscount}
-                disabled={poClosed}
-                onChange={(e) =>
-                  setNewProductForm((prev) => ({
-                    ...prev,
-                    applyDiscount: e.target.checked,
-                  }))
-                }
-              />
-            </CCol>
-            <CCol md={12}>
-              <CFormLabel>Discount %</CFormLabel>
-              <CFormInput
-                type="number"
-                min={0}
-                max={100}
-                disabled={poClosed || !newProductForm.applyDiscount}
-                value={newProductForm.discountPercentage}
-                onChange={(e) =>
-                  setNewProductForm((prev) => ({
-                    ...prev,
-                    discountPercentage: e.target.value,
-                  }))
-                }
-              />
-            </CCol>
           </CRow>
         </div>
 
         <div className="d-flex justify-content-end gap-2 pt-3">
-          <CButton
-            color="secondary"
-            onClick={() => setAddProductSidebarOpen(false)}
-          >
+          <CButton color="secondary" onClick={closeAddProductSidebar}>
             Cancel
           </CButton>
           <CButton color="success" disabled={poClosed} onClick={addNewProduct}>

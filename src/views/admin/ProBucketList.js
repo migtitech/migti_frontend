@@ -10,8 +10,6 @@ import {
   CFormInput,
   CFormLabel,
   CFormSelect,
-  CPagination,
-  CPaginationItem,
   CRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -19,7 +17,10 @@ import { cilBasket, cilChevronRight, cilSearch } from "@coreui/icons";
 import proBucketService from "../../services/proBucketService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+
+const PRO_BUCKET_FILTER_DEFAULTS = { status: "" };
 
 /** All listed first (default); Pending next so it's easy to pick. */
 const STATUS_OPTIONS = [
@@ -117,6 +118,10 @@ const parseListResponse = (res) => {
 
 const ProBucketList = () => {
   const navigate = useNavigate();
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "pro_bucket",
+    PRO_BUCKET_FILTER_DEFAULTS,
+  );
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [pendingCount, setPendingCount] = useState(0);
@@ -124,7 +129,7 @@ const ProBucketList = () => {
   const [pageSize] = useState(20);
   const [search, setSearch] = useState("");
   const [searchDebounced, setSearchDebounced] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialValues.status);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -135,6 +140,14 @@ const ProBucketList = () => {
   useEffect(() => {
     setPage(1);
   }, [searchDebounced, status]);
+
+  useFilterLockPersist("pro_bucket", filtersLocked, {
+    status,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({ status });
+  };
 
   const load = async () => {
     setLoading(true);
@@ -187,7 +200,7 @@ const ProBucketList = () => {
             )}
           </CCardHeader>
           <CCardBody>
-            <CRow className="g-2 mb-3">
+            <CRow className="g-2 mb-3 align-items-end">
               <CCol xs={12} sm={12} md={5} lg={4}>
                 <CFormLabel className="mb-1">Search</CFormLabel>
                 <div className="position-relative">
@@ -221,6 +234,13 @@ const ProBucketList = () => {
                     </option>
                   ))}
                 </CFormSelect>
+              </CCol>
+              <CCol xs={12} sm="auto" className="d-flex align-items-end">
+                <FilterLockButton
+                  filtersLocked={filtersLocked}
+                  onToggle={handleToggleFiltersLock}
+                  pageLabel="Pro Bucket"
+                />
               </CCol>
               <CCol xs={12} sm="auto" className="d-flex align-items-end">
                 <CButton
@@ -347,36 +367,14 @@ const ProBucketList = () => {
                   ))}
                 </CRow>
 
-                {total > pageSize && (
-                  <div className="d-flex flex-column align-items-center mt-3 gap-2">
-                    <span className="small text-body-secondary">
-                      Page {page} of {totalPages}
-                    </span>
-                    <CPagination
-                      align="center"
-                      className="mb-0"
-                      aria-label="Pro Bucket pages"
-                    >
-                      <CPaginationItem
-                        disabled={page <= 1}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      >
-                        Previous
-                      </CPaginationItem>
-                      <CPaginationItem active aria-current="page">
-                        {page}
-                      </CPaginationItem>
-                      <CPaginationItem
-                        disabled={page >= totalPages}
-                        onClick={() =>
-                          setPage((p) => Math.min(totalPages, p + 1))
-                        }
-                      >
-                        Next
-                      </CPaginationItem>
-                    </CPagination>
-                  </div>
-                )}
+                <TablePagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  align="center"
+                  ariaLabel="Pro Bucket pages"
+                  wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+                />
               </>
             )}
           </CCardBody>

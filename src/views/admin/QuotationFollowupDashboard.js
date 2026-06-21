@@ -16,8 +16,6 @@ import {
   CModalFooter,
   CModalHeader,
   CModalTitle,
-  CPagination,
-  CPaginationItem,
   CRow,
   CTable,
   CTableBody,
@@ -36,28 +34,14 @@ import {
 } from "@coreui/icons";
 import quotationFollowupService from "../../services/quotationFollowupService";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
+import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-};
-
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+const QUOTATION_FOLLOWUP_FILTER_DEFAULTS = {
+  quotationCode: "",
+  companyName: "",
+  followupStatus: "",
 };
 
 const resolveFollowupCount = (row) => {
@@ -105,6 +89,10 @@ const DEBOUNCE_MS = 400;
 const QuotationFollowupDashboard = () => {
   const location = useLocation();
   const isHodView = location.pathname === "/followup-dashboard";
+  const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
+    "quotation_followup",
+    QUOTATION_FOLLOWUP_FILTER_DEFAULTS,
+  );
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
   const [zoneSalesPersons, setZoneSalesPersons] = useState([]);
@@ -117,11 +105,15 @@ const QuotationFollowupDashboard = () => {
   });
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState({
-    quotationCode: "",
-    companyName: "",
-    followupStatus: "",
+    quotationCode: initialValues.quotationCode,
+    companyName: initialValues.companyName,
+    followupStatus: initialValues.followupStatus,
   });
-  const [debouncedFilters, setDebouncedFilters] = useState(filters);
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    quotationCode: initialValues.quotationCode,
+    companyName: initialValues.companyName,
+    followupStatus: initialValues.followupStatus,
+  });
   const debounceTimer = useRef(null);
 
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
@@ -149,6 +141,20 @@ const QuotationFollowupDashboard = () => {
   };
 
   const hasActiveFilters = Object.values(filters).some((v) => v !== "");
+
+  useFilterLockPersist("quotation_followup", filtersLocked, {
+    quotationCode: filters.quotationCode,
+    companyName: filters.companyName,
+    followupStatus: filters.followupStatus,
+  });
+
+  const handleToggleFiltersLock = () => {
+    toggleFiltersLock({
+      quotationCode: filters.quotationCode,
+      companyName: filters.companyName,
+      followupStatus: filters.followupStatus,
+    });
+  };
 
   const loadData = useCallback(
     async (pageNumber = 1) => {
@@ -289,7 +295,7 @@ const QuotationFollowupDashboard = () => {
           </CButton>
         </CCardHeader>
         <CCardBody>
-          <CRow className="g-3 mb-4">
+          <CRow className="g-3 mb-4 align-items-end">
             <CCol xs={12} sm={6} md={4}>
               <CFormLabel>Quotation code</CFormLabel>
               <CFormInput
@@ -321,6 +327,13 @@ const QuotationFollowupDashboard = () => {
                 <option value="followed_up">Followed up</option>
                 <option value="closed">Closed</option>
               </CFormSelect>
+            </CCol>
+            <CCol xs={12} sm={6} md={1} className="d-flex align-items-end">
+              <FilterLockButton
+                filtersLocked={filtersLocked}
+                onToggle={handleToggleFiltersLock}
+                pageLabel="Quotation Follow-up"
+              />
             </CCol>
             <CCol xs={12} sm={6} md={1} className="d-flex align-items-end">
               {hasActiveFilters && (
@@ -385,7 +398,7 @@ const QuotationFollowupDashboard = () => {
                         </CTableDataCell>
                         <CTableDataCell>{row.status || "—"}</CTableDataCell>
                         <CTableDataCell>
-                          {formatDate(row.followup_date)}
+                          {dateFormatter(row.followup_date, "—")}
                           {overdue && (
                             <CBadge color="warning" className="ms-2">
                               Overdue
@@ -434,23 +447,13 @@ const QuotationFollowupDashboard = () => {
             </CTable>
           </div>
 
-          {totalPages > 1 && (
-            <CPagination className="mt-3 justify-content-center">
-              <CPaginationItem
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </CPaginationItem>
-              <CPaginationItem active>{page}</CPaginationItem>
-              <CPaginationItem
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-              </CPaginationItem>
-            </CPagination>
-          )}
+          <TablePagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            wrapperClassName="d-flex justify-content-center mt-4"
+            align="center"
+          />
         </CCardBody>
       </CCard>
 
@@ -534,7 +537,7 @@ const QuotationFollowupDashboard = () => {
                         </CBadge>
                       </CTableDataCell>
                       <CTableDataCell>
-                        {formatDateTime(entry.followedUpAt)}
+                        {dateTimeFormatter(entry.followedUpAt, "—")}
                       </CTableDataCell>
                       <CTableDataCell>
                         {entry.followedUpBy?.name || "—"}

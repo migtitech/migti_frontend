@@ -47,11 +47,11 @@ const SidebarDocs = () => {
         Promise.all([
           companyDocumentService.list({
             pageNumber: 1,
-            pageSize: 200,
+            pageSize: 100,
             doc_type: "Catalog",
             search: searchTerm || undefined,
           }),
-          groupService.getAll({ pageNumber: 1, pageSize: 200 }),
+          groupService.getAll({ pageNumber: 1, pageSize: 100 }),
         ]),
       );
       const catalogData =
