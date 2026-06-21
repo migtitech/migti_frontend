@@ -13,4 +13,4 @@ dev-noida-deploy:
     DEPLOY_PATH: /migti/dev/noida/migti_frontend
     DEPLOY_BRANCH: dev_noida
   script:
-    - bash /migti/ci-scripts/deploy-frontend.sh
+    - cd "${DEPLOY_PATH}" && bash ci/deploy-frontend.sh

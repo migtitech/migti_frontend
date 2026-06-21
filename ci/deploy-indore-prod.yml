@@ -10,4 +10,4 @@ prod-indore-deploy:
     DEPLOY_PATH: /migti/migti_frontend
     DEPLOY_BRANCH: prod
   script:
-    - bash /migti/ci-scripts/deploy-frontend.sh
+    - cd "${DEPLOY_PATH}" && bash ci/deploy-frontend.sh

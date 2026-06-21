@@ -13,4 +13,4 @@ dev-indore-deploy:
     DEPLOY_PATH: /migti/dev/indore/migti_frontend
     DEPLOY_BRANCH: dev_indore
   script:
-    - bash /migti/ci-scripts/deploy-frontend.sh
+    - cd "${DEPLOY_PATH}" && bash ci/deploy-frontend.sh

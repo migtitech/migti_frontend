@@ -23,13 +23,13 @@ import {
   CCloseButton,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilCheckCircle, cilEye } from "@coreui/icons";
+import { cilCheckCircle } from "@coreui/icons";
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import deliveryApprovalService from "../../services/deliveryApprovalService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader, TablePagination, FilterLockButton } from "../../components";
+import { EyeIcon, Loader, TablePagination, FilterLockButton } from "../../components";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { dateFormatter } from "../../utils/dateFormatter";
 import useAreaNameLookup from "../../hooks/useAreaNameLookup";
@@ -671,7 +671,7 @@ const DeliveryApprovalList = () => {
                                 variant="outline"
                                 onClick={() => openDetail(row._id)}
                               >
-                                <CIcon icon={cilEye} className="me-1" />
+                                <EyeIcon size={16} className="me-1" />
                                 View
                               </CButton>
                             </CTableDataCell>
