@@ -3,6 +3,7 @@ sync-from-prod:
   tags:
     - migti-prod
     - linux
+  allow_failure: true
   rules:
     - if: $CI_COMMIT_BRANCH == "prod"
   needs:
@@ -11,4 +12,5 @@ sync-from-prod:
   variables:
     GIT_STRATEGY: none
   script:
+    - rm -rf "/migti/ci-sync/${CI_PROJECT_PATH//\//_}"
     - bash /migti/ci-scripts/sync-branches.sh prod dev_indore dev_noida
