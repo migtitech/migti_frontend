@@ -29,7 +29,12 @@ import deliveryApprovalService from "../../services/deliveryApprovalService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { EyeIcon, Loader, TablePagination, FilterLockButton } from "../../components";
+import {
+  EyeIcon,
+  Loader,
+  TablePagination,
+  FilterLockButton,
+} from "../../components";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { dateFormatter } from "../../utils/dateFormatter";
 import useAreaNameLookup from "../../hooks/useAreaNameLookup";

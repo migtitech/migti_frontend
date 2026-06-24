@@ -25,6 +25,7 @@ const localPurchaseService = {
   assign: async ({
     poProductId,
     employeeId,
+    zoneId,
     remark,
     supplier,
     locationLink,
@@ -32,6 +33,7 @@ const localPurchaseService = {
     const response = await api.post(LOCAL_PURCHASE.ASSIGN, {
       poProductId,
       employeeId,
+      zoneId,
       remark: remark || "",
       supplier: supplier || "",
       locationLink: locationLink || "",

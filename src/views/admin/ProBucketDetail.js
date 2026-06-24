@@ -31,6 +31,7 @@ import { cilArrowLeft, cilPlus, cilTrash, cilUser, cilX } from "@coreui/icons";
 import proBucketService from "../../services/proBucketService";
 import supplierService from "../../services/supplierService";
 import localProcurementService from "../../services/localProcurementService";
+import areaService from "../../services/areaService";
 import usePermissions from "../../hooks/usePermissions";
 import { EyeIcon, Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -367,6 +368,16 @@ const emptyRow = () => ({
   remark: "",
 });
 
+const formatProcurementZone = (zone) => {
+  if (!zone || typeof zone !== "object") return "—";
+  const name = zone.name?.trim() || "";
+  const city = zone.city?.trim() || "";
+  if (name && city) return `${name} (${city})`;
+  return name || city || "—";
+};
+
+const unwrapPayload = (res) => res?.data?.data ?? res?.data;
+
 /** Digits and at most one decimal point; strips all other characters (paste-safe). */
 const sanitizeRateInput = (raw) => {
   if (raw === "" || raw == null) return "";
@@ -402,7 +413,10 @@ const ProBucketDetail = () => {
   const [localProEmployeesLoading, setLocalProEmployeesLoading] =
     useState(false);
   const [selectedLocalProEmployee, setSelectedLocalProEmployee] = useState("");
+  const [selectedLocalProZone, setSelectedLocalProZone] = useState("");
   const [localProAssignRemark, setLocalProAssignRemark] = useState("");
+  const [marketZones, setMarketZones] = useState([]);
+  const [marketZonesLoading, setMarketZonesLoading] = useState(false);
   const [assigningLocalPro, setAssigningLocalPro] = useState(false);
 
   const productCategoryId = useMemo(
@@ -507,17 +521,42 @@ const ProBucketDetail = () => {
     let cancelled = false;
     const run = async () => {
       setLocalProEmployeesLoading(true);
+      setMarketZonesLoading(true);
       try {
-        const res = await localProcurementService.listEmployees();
-        const list = Array.isArray(res?.data) ? res.data : [];
-        if (!cancelled) setLocalProEmployees(list);
+        const [employeesRes, zonesRes] = await Promise.all([
+          localProcurementService.listEmployees(),
+          areaService.getAll({
+            pageNumber: 1,
+            pageSize: 100,
+            areaType: "market",
+          }),
+        ]);
+        if (cancelled) return;
+
+        const employeeList = Array.isArray(employeesRes?.data)
+          ? employeesRes.data
+          : [];
+        setLocalProEmployees(employeeList);
+
+        const zonesPayload = unwrapPayload(zonesRes);
+        const zoneRows = zonesPayload?.areas || [];
+        setMarketZones(
+          (zoneRows || []).map((zone) => ({
+            ...zone,
+            id: zone._id || zone.id,
+          })),
+        );
       } catch (e) {
         if (!cancelled) {
-          toastError(e?.message || "Failed to load local procurement staff");
+          toastError(e?.message || "Failed to load assign local pro form");
           setLocalProEmployees([]);
+          setMarketZones([]);
         }
       } finally {
-        if (!cancelled) setLocalProEmployeesLoading(false);
+        if (!cancelled) {
+          setLocalProEmployeesLoading(false);
+          setMarketZonesLoading(false);
+        }
       }
     };
     run();
@@ -559,6 +598,7 @@ const ProBucketDetail = () => {
     if (assigningLocalPro) return;
     setLocalProBarOpen(false);
     setSelectedLocalProEmployee("");
+    setSelectedLocalProZone("");
     setLocalProAssignRemark("");
   };
 
@@ -572,6 +612,7 @@ const ProBucketDetail = () => {
       await localProcurementService.assign({
         queryProductId: id,
         employeeId: selectedLocalProEmployee,
+        zoneId: selectedLocalProZone,
         remark: localProAssignRemark,
       });
       toastSuccess("Assigned to local procurement");
@@ -685,6 +726,7 @@ const ProBucketDetail = () => {
                     className="ms-auto"
                     onClick={() => {
                       setSelectedLocalProEmployee("");
+                      setSelectedLocalProZone("");
                       setLocalProAssignRemark("");
                       setLocalProBarOpen(true);
                     }}
@@ -1350,8 +1392,8 @@ const ProBucketDetail = () => {
           </div>
 
           <div className="flex-grow-1 overflow-auto px-3 py-3">
-            {localProEmployeesLoading ? (
-              <Loader message="Loading employees…" />
+            {localProEmployeesLoading || marketZonesLoading ? (
+              <Loader message="Loading form…" />
             ) : localProEmployees.length === 0 ? (
               <p className="text-body-secondary mb-0">
                 No employees with the local procurement role were found.
@@ -1378,6 +1420,24 @@ const ProBucketDetail = () => {
                     );
                   })}
                 </CFormSelect>
+
+                <CFormLabel htmlFor="local-pro-zone">
+                  Zone (optional)
+                </CFormLabel>
+                <CFormSelect
+                  id="local-pro-zone"
+                  value={selectedLocalProZone}
+                  onChange={(e) => setSelectedLocalProZone(e.target.value)}
+                  className="mb-3"
+                >
+                  <option value="">— Select zone —</option>
+                  {marketZones.map((zone) => (
+                    <option key={zone.id} value={String(zone.id)}>
+                      {formatProcurementZone(zone)}
+                    </option>
+                  ))}
+                </CFormSelect>
+
                 <CFormLabel htmlFor="local-pro-remark" className="mt-2">
                   Remark
                 </CFormLabel>
@@ -1408,8 +1468,9 @@ const ProBucketDetail = () => {
               onClick={submitLocalProAssignment}
               disabled={
                 assigningLocalPro ||
-                !selectedLocalProEmployee ||
-                localProEmployeesLoading
+                localProEmployeesLoading ||
+                marketZonesLoading ||
+                !selectedLocalProEmployee
               }
             >
               {assigningLocalPro ? "Assigning…" : "Assign"}
