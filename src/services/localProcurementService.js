@@ -10,10 +10,11 @@ const localProcurementService = {
     const response = await api.get(LOCAL_PROCUREMENT.EMPLOYEES);
     return response;
   },
-  assign: async ({ queryProductId, employeeId, remark }) => {
+  assign: async ({ queryProductId, employeeId, zoneId, remark }) => {
     const response = await api.post(LOCAL_PROCUREMENT.ASSIGN, {
       queryProductId,
       employeeId,
+      zoneId: zoneId || "",
       remark: remark || "",
     });
     return response;

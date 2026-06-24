@@ -38,6 +38,7 @@ import {
 import { CBreadcrumb, CBreadcrumbItem } from "@coreui/react";
 import purchaseBucketService from "../../services/purchaseBucketService";
 import localPurchaseService from "../../services/localPurchaseService";
+import areaService from "../../services/areaService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import { Loader } from "../../components";
@@ -305,6 +306,23 @@ const resolveLocalPurchaseEmployeeId = (row) => {
   return String(emp);
 };
 
+const resolveLocalPurchaseZoneId = (row) => {
+  const zone = row?.zoneId;
+  if (!zone) return "";
+  if (typeof zone === "object") {
+    return String(zone._id || zone.id || "");
+  }
+  return String(zone);
+};
+
+const formatLocalPurchaseZone = (zone) => {
+  if (!zone || typeof zone !== "object") return "—";
+  const name = zone.name?.trim() || "";
+  const city = zone.city?.trim() || "";
+  if (name && city) return `${name} (${city})`;
+  return name || city || "—";
+};
+
 const getLatestLocalPurchaseAssignment = (rows) =>
   Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 
@@ -337,8 +355,11 @@ const PurchaseBucketDetail = () => {
   const [localPurchaseEmployees, setLocalPurchaseEmployees] = useState([]);
   const [localPurchaseEmployeesLoading, setLocalPurchaseEmployeesLoading] =
     useState(false);
+  const [marketZones, setMarketZones] = useState([]);
+  const [marketZonesLoading, setMarketZonesLoading] = useState(false);
   const [selectedLocalPurchaseEmployee, setSelectedLocalPurchaseEmployee] =
     useState("");
+  const [selectedMarketZone, setSelectedMarketZone] = useState("");
   const [assignRemark, setAssignRemark] = useState("");
   const [assignLocationLink, setAssignLocationLink] = useState("");
   const [assigningPurchase, setAssigningPurchase] = useState(false);
@@ -396,17 +417,42 @@ const PurchaseBucketDetail = () => {
     let cancelled = false;
     const run = async () => {
       setLocalPurchaseEmployeesLoading(true);
+      setMarketZonesLoading(true);
       try {
-        const res = await localPurchaseService.listEmployees();
-        const list = Array.isArray(res?.data) ? res.data : [];
-        if (!cancelled) setLocalPurchaseEmployees(list);
+        const [employeesRes, zonesRes] = await Promise.all([
+          localPurchaseService.listEmployees(),
+          areaService.getAll({
+            pageNumber: 1,
+            pageSize: 100,
+            areaType: "market",
+          }),
+        ]);
+        if (cancelled) return;
+
+        const employeeList = Array.isArray(employeesRes?.data)
+          ? employeesRes.data
+          : [];
+        setLocalPurchaseEmployees(employeeList);
+
+        const zonesPayload = unwrapPayload(zonesRes);
+        const zoneRows = zonesPayload?.areas || [];
+        setMarketZones(
+          (zoneRows || []).map((zone) => ({
+            ...zone,
+            id: zone._id || zone.id,
+          })),
+        );
       } catch (e) {
         if (!cancelled) {
-          toastError(e?.message || "Failed to load local purchase employees");
+          toastError(e?.message || "Failed to load assign purchase form");
           setLocalPurchaseEmployees([]);
+          setMarketZones([]);
         }
       } finally {
-        if (!cancelled) setLocalPurchaseEmployeesLoading(false);
+        if (!cancelled) {
+          setLocalPurchaseEmployeesLoading(false);
+          setMarketZonesLoading(false);
+        }
       }
     };
     run();
@@ -425,6 +471,7 @@ const PurchaseBucketDetail = () => {
     setSelectedLocalPurchaseEmployee(
       latest ? resolveLocalPurchaseEmployeeId(latest) : "",
     );
+    setSelectedMarketZone(latest ? resolveLocalPurchaseZoneId(latest) : "");
     setAssignRemark(
       latest
         ? String(latest.remark || latest.assignmentRemark || "").trim()
@@ -435,6 +482,26 @@ const PurchaseBucketDetail = () => {
     );
     setAssignBarOpen(true);
   };
+
+  const marketZoneOptions = useMemo(() => {
+    const list = [...marketZones];
+    const latest = getLatestLocalPurchaseAssignment(localPurchases);
+    const assignedZone =
+      latest?.zoneId && typeof latest.zoneId === "object"
+        ? latest.zoneId
+        : null;
+    if (!assignedZone?._id) return list;
+
+    const assignedZoneId = String(assignedZone._id);
+    if (list.some((zone) => String(zone.id || zone._id) === assignedZoneId)) {
+      return list;
+    }
+
+    return [
+      { ...assignedZone, id: assignedZone._id || assignedZone.id },
+      ...list,
+    ];
+  }, [marketZones, localPurchases]);
 
   const localPurchaseEmployeeOptions = useMemo(() => {
     const list = [...localPurchaseEmployees];
@@ -459,11 +526,16 @@ const PurchaseBucketDetail = () => {
       toastError("Select a local purchase employee.");
       return;
     }
+    if (!selectedMarketZone) {
+      toastError("Select a zone.");
+      return;
+    }
     setAssigningPurchase(true);
     try {
       await localPurchaseService.assign({
         poProductId: id,
         employeeId: selectedLocalPurchaseEmployee,
+        zoneId: selectedMarketZone,
         remark: assignRemark,
         locationLink: assignLocationLink,
       });
@@ -1620,6 +1692,7 @@ const PurchaseBucketDetail = () => {
                                   <CTableHeaderCell>
                                     Designation
                                   </CTableHeaderCell>
+                                  <CTableHeaderCell>Zone</CTableHeaderCell>
                                   <CTableHeaderCell>Status</CTableHeaderCell>
                                   <CTableHeaderCell>Remark</CTableHeaderCell>
                                   <CTableHeaderCell>Location</CTableHeaderCell>
@@ -1644,6 +1717,9 @@ const PurchaseBucketDetail = () => {
                                         {[emp?.designation, emp?.role]
                                           .filter(Boolean)
                                           .join(" · ") || "—"}
+                                      </CTableDataCell>
+                                      <CTableDataCell>
+                                        {formatLocalPurchaseZone(row.zoneId)}
                                       </CTableDataCell>
                                       <CTableDataCell>
                                         {String(row.status || "pending")}
@@ -1865,11 +1941,15 @@ const PurchaseBucketDetail = () => {
           </div>
 
           <div className="flex-grow-1 overflow-auto px-3 py-3">
-            {localPurchaseEmployeesLoading ? (
-              <Loader message="Loading employees…" />
+            {localPurchaseEmployeesLoading || marketZonesLoading ? (
+              <Loader message="Loading form…" />
             ) : localPurchaseEmployeeOptions.length === 0 ? (
               <p className="text-body-secondary mb-0">
                 No employees with the local purchase role were found.
+              </p>
+            ) : marketZoneOptions.length === 0 ? (
+              <p className="text-body-secondary mb-0">
+                No market zones were found.
               </p>
             ) : (
               <>
@@ -1890,6 +1970,24 @@ const PurchaseBucketDetail = () => {
                     return (
                       <option key={empId} value={String(empId)}>
                         {formatLocalPurchaseEmployee(emp)}
+                      </option>
+                    );
+                  })}
+                </CFormSelect>
+
+                <CFormLabel htmlFor="local-purchase-zone">Zone</CFormLabel>
+                <CFormSelect
+                  id="local-purchase-zone"
+                  value={selectedMarketZone}
+                  onChange={(e) => setSelectedMarketZone(e.target.value)}
+                  className="mb-3"
+                >
+                  <option value="">— Select zone —</option>
+                  {marketZoneOptions.map((zone) => {
+                    const zoneId = zone.id || zone._id;
+                    return (
+                      <option key={zoneId} value={String(zoneId)}>
+                        {formatLocalPurchaseZone(zone)}
                       </option>
                     );
                   })}
@@ -1936,7 +2034,11 @@ const PurchaseBucketDetail = () => {
               disabled={
                 assigningPurchase ||
                 localPurchaseEmployeesLoading ||
-                localPurchaseEmployees.length === 0
+                marketZonesLoading ||
+                localPurchaseEmployees.length === 0 ||
+                marketZoneOptions.length === 0 ||
+                !selectedLocalPurchaseEmployee ||
+                !selectedMarketZone
               }
             >
               {assigningPurchase ? (

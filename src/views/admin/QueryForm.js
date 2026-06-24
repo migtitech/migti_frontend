@@ -73,7 +73,6 @@ import { toastSuccess, toastError } from "../../utils/toast";
 import {
   QUERY_REFERENCE_BY,
   QUERY_REFERENCE_BY_LABELS,
-  employeeMatchesZone,
   formatQueryReferenceByDisplay,
 } from "../../utils/queryReferenceBy";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
@@ -191,8 +190,8 @@ const QueryForm = () => {
   const [industryId, setIndustryId] = useState(null);
   const [companyInfo, setCompanyInfo] = useState(INITIAL_COMPANY);
   const [queryReferenceBy, setQueryReferenceBy] = useState("");
-  const [zoneSalesPersons, setZoneSalesPersons] = useState([]);
-  const [zoneSalesPersonsLoading, setZoneSalesPersonsLoading] = useState(false);
+  const [salesEmployees, setSalesEmployees] = useState([]);
+  const [salesEmployeesLoading, setSalesEmployeesLoading] = useState(false);
   const [areas, setAreas] = useState([]);
   const [querySubZones, setQuerySubZones] = useState([]);
   const companyDropdownRef = useRef(null);
@@ -269,16 +268,9 @@ const QueryForm = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const zoneId = companyInfo.area;
-    if (!zoneId) {
-      setZoneSalesPersons([]);
-      return () => {
-        cancelled = true;
-      };
-    }
 
-    const loadZoneSalesPersons = async () => {
-      setZoneSalesPersonsLoading(true);
+    const loadSalesEmployees = async () => {
+      setSalesEmployeesLoading(true);
       try {
         const merged = [];
         let page = 1;
@@ -295,30 +287,26 @@ const QueryForm = () => {
           hasNext = !!payload?.pagination?.hasNextPage;
           page += 1;
         }
-        const filtered = merged
-          .filter(
-            (employee) =>
-              employeeMatchesZone(employee, zoneId) &&
-              String(employee?.email || "").trim(),
-          )
+        const withEmail = merged
+          .filter((employee) => String(employee?.email || "").trim())
           .sort((a, b) =>
             String(a.email || "").localeCompare(String(b.email || ""), "en", {
               sensitivity: "base",
             }),
           );
-        if (!cancelled) setZoneSalesPersons(filtered);
+        if (!cancelled) setSalesEmployees(withEmail);
       } catch {
-        if (!cancelled) setZoneSalesPersons([]);
+        if (!cancelled) setSalesEmployees([]);
       } finally {
-        if (!cancelled) setZoneSalesPersonsLoading(false);
+        if (!cancelled) setSalesEmployeesLoading(false);
       }
     };
 
-    loadZoneSalesPersons();
+    loadSalesEmployees();
     return () => {
       cancelled = true;
     };
-  }, [companyInfo.area]);
+  }, []);
 
   const goToStep = (step) => {
     if (step < 1 || step > STEPS.length) return;
@@ -1804,13 +1792,13 @@ const QueryForm = () => {
                             ]
                           }
                         </option>
-                        {zoneSalesPersonsLoading ? (
+                        {salesEmployeesLoading ? (
                           <option value="" disabled>
-                            Loading sales persons…
+                            Loading sales employees…
                           </option>
                         ) : null}
-                        {zoneSalesPersons.map((salesPerson) => {
-                          const email = String(salesPerson.email || "")
+                        {salesEmployees.map((salesEmployee) => {
+                          const email = String(salesEmployee.email || "")
                             .trim()
                             .toLowerCase();
                           if (!email) return null;
@@ -1826,9 +1814,9 @@ const QueryForm = () => {
                           QUERY_REFERENCE_BY.DIRECTLY_RECEIVED,
                           QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT,
                         ].includes(queryReferenceBy) &&
-                        !zoneSalesPersons.some(
-                          (salesPerson) =>
-                            String(salesPerson.email || "")
+                        !salesEmployees.some(
+                          (salesEmployee) =>
+                            String(salesEmployee.email || "")
                               .trim()
                               .toLowerCase() === queryReferenceBy,
                         ) ? (

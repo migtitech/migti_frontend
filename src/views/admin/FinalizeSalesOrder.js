@@ -150,7 +150,7 @@ const toEditableProduct = (product) => {
   };
 };
 
-const toProductPayload = (product) => {
+const toProductPayload = (product, quotationLineIndex) => {
   const quantity = Number(product.quantity);
   const rate = toNumberOrNull(product.rate);
   const gst = toNumberOrNull(product.gstPercentage);
@@ -196,6 +196,7 @@ const toProductPayload = (product) => {
     notAvailable: !!product.notAvailable,
     notAvailableRemark: String(product.notAvailableRemark || ""),
     priority: normalizeProductPriority(product.priority),
+    quotationLineIndex,
   };
 };
 
@@ -291,8 +292,12 @@ const FinalizeSalesOrder = () => {
   }, [quotationId]);
 
   const totalAmount = useMemo(
-    () => productsForm.reduce((sum, p) => sum + getProductTotal(p), 0),
-    [productsForm],
+    () =>
+      productsForm.reduce((sum, product, index) => {
+        if (!productConfirmed[index]) return sum;
+        return sum + getProductTotal(product);
+      }, 0),
+    [productsForm, productConfirmed],
   );
 
   const confirmedCount = useMemo(
@@ -300,10 +305,16 @@ const FinalizeSalesOrder = () => {
     [productConfirmed],
   );
 
-  const allProductsConfirmed =
-    productsForm.length > 0 &&
-    productConfirmed.length === productsForm.length &&
-    productConfirmed.every(Boolean);
+  const anyProductConfirmed = confirmedCount > 0;
+
+  const confirmedProductsPayload = useMemo(
+    () =>
+      productsForm
+        .map((product, index) => ({ product, index }))
+        .filter(({ index }) => productConfirmed[index])
+        .map(({ product, index }) => toProductPayload(product, index)),
+    [productsForm, productConfirmed],
+  );
 
   const companyInfo = quotation?.companyInfo || {};
   const purchaseManagers = Array.isArray(companyInfo.purchaseManagers)
@@ -355,9 +366,20 @@ const FinalizeSalesOrder = () => {
       toastError("Convert to Sales Order is available only after HOD approval");
       return;
     }
-    if (!allProductsConfirmed) {
-      toastError("Update every product line before converting to sales order");
+    if (!anyProductConfirmed) {
+      toastError(
+        "Update at least one product line before converting to sales order",
+      );
       return;
+    }
+    for (const { product, index } of productsForm
+      .map((row, rowIndex) => ({ product: row, index: rowIndex }))
+      .filter(({ index }) => productConfirmed[index])) {
+      const validationError = validateSingleProduct(product, index + 1);
+      if (validationError) {
+        toastError(validationError);
+        return;
+      }
     }
     setConfirmModalVisible(true);
   };
@@ -366,10 +388,9 @@ const FinalizeSalesOrder = () => {
     if (!quotationId || submitting) return;
     setSubmitting(true);
     try {
-      const payloadProducts = productsForm.map(toProductPayload);
       const res = await purchaseOrderService.createFromQuotation(quotationId, {
-        reuseExisting: true,
-        products: payloadProducts,
+        reuseExisting: false,
+        products: confirmedProductsPayload,
       });
       const data = res?.data?.data ?? res?.data ?? res;
       const poId = data?._id || data?.id;
@@ -422,7 +443,9 @@ const FinalizeSalesOrder = () => {
                 </strong>
               </div>
               <div className="text-muted small mt-1">
-                Update each product below, then convert to sales order.
+                Update the products you want in a new sales order, then convert.
+                Each convert creates a separate sales order with only the
+                updated lines.
               </div>
             </div>
             <CButton
@@ -520,7 +543,8 @@ const FinalizeSalesOrder = () => {
               Updated: {confirmedCount}/{productsForm.length}
             </span>
             <CBadge color="primary" className="px-2 py-1">
-              Total amount: ₹{Number(totalAmount || 0).toLocaleString("en-IN")}
+              Selected total: ₹
+              {Number(totalAmount || 0).toLocaleString("en-IN")}
             </CBadge>
           </div>
         </CCardHeader>
@@ -561,13 +585,9 @@ const FinalizeSalesOrder = () => {
                         </CFormLabel>
                         <CFormInput
                           value={product.productName || ""}
-                          onChange={(e) =>
-                            updateProductField(
-                              index,
-                              "productName",
-                              e.target.value,
-                            )
-                          }
+                          disabled
+                          readOnly
+                          className="bg-light"
                         />
                       </CCol>
                       <CCol xs={12}>
@@ -605,9 +625,8 @@ const FinalizeSalesOrder = () => {
                         <CFormLabel>Unit</CFormLabel>
                         <ProductUnitSelect
                           value={product.unit || ""}
-                          onChange={(e) =>
-                            updateProductField(index, "unit", e.target.value)
-                          }
+                          disabled
+                          className="bg-light"
                         />
                       </CCol>
                       <CCol md={3}>
@@ -732,9 +751,9 @@ const FinalizeSalesOrder = () => {
 
       <div className="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
         <span className="text-muted small">
-          {allProductsConfirmed
-            ? "All products updated. You can convert to sales order."
-            : `Update all product lines (${confirmedCount}/${productsForm.length} done) before converting.`}
+          {anyProductConfirmed
+            ? `${confirmedCount} product line(s) ready. A new sales order will be created with only these lines.`
+            : "Update at least one product line before converting to sales order."}
         </span>
         <div className="d-flex gap-2">
           <CButton
@@ -751,7 +770,7 @@ const FinalizeSalesOrder = () => {
             disabled={
               !canCreatePurchaseOrder ||
               !canConvertToPo ||
-              !allProductsConfirmed ||
+              !anyProductConfirmed ||
               submitting
             }
             onClick={handleOpenConfirm}
@@ -771,8 +790,10 @@ const FinalizeSalesOrder = () => {
           <CModalTitle>Convert to sales order?</CModalTitle>
         </CModalHeader>
         <CModalBody>
-          All product lines are updated. The sales order and PO product records
-          will be created with the quotation product details shown above.
+          A new sales order will be created with {confirmedCount} updated
+          product line(s). Other quotation products will not be included. You
+          can return later to create additional sales orders from this
+          quotation.
         </CModalBody>
         <CModalFooter>
           <CButton

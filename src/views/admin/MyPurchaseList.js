@@ -15,6 +15,7 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilCart, cilCloudUpload, cilLocationPin, cilX } from "@coreui/icons";
 import localPurchaseService from "../../services/localPurchaseService";
+import areaService from "../../services/areaService";
 import documentService from "../../services/documentService";
 import { Loader, TablePagination, FilterLockButton } from "../../components";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
@@ -23,7 +24,7 @@ import { toastError, toastSuccess } from "../../utils/toast";
 import { getAssetsUrl } from "../../api/endpoints";
 import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
 
-const MY_PURCHASE_FILTER_DEFAULTS = { status: "" };
+const MY_PURCHASE_FILTER_DEFAULTS = { status: "", zoneId: "" };
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -147,6 +148,16 @@ const resolveAssignmentId = (row) => {
   return String(raw);
 };
 
+const formatPurchaseZone = (zone) => {
+  if (!zone || typeof zone !== "object") return "—";
+  const name = zone.name?.trim() || "";
+  const city = zone.city?.trim() || "";
+  if (name && city) return `${name} (${city})`;
+  return name || city || "—";
+};
+
+const unwrapPayload = (res) => res?.data?.data ?? res?.data;
+
 const unwrapLocalPurchase = (res) => {
   const block = res?.data ?? res;
   if (block && typeof block === "object") {
@@ -192,6 +203,9 @@ const MyPurchaseList = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(12);
   const [status, setStatus] = useState(initialValues.status);
+  const [zoneId, setZoneId] = useState(initialValues.zoneId);
+  const [marketZones, setMarketZones] = useState([]);
+  const [marketZonesLoading, setMarketZonesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [detailOpen, setDetailOpen] = useState(false);
@@ -213,6 +227,7 @@ const MyPurchaseList = () => {
           page,
           pageSize,
           status: status.trim() || undefined,
+          zoneId: zoneId.trim() || undefined,
         }),
       );
       const block = res?.data;
@@ -225,7 +240,41 @@ const MyPurchaseList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, status]);
+  }, [page, pageSize, status, zoneId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMarketZones = async () => {
+      setMarketZonesLoading(true);
+      try {
+        const res = await areaService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+          areaType: "market",
+        });
+        if (cancelled) return;
+        const zonesPayload = unwrapPayload(res);
+        const zoneRows = zonesPayload?.areas || [];
+        setMarketZones(
+          (zoneRows || []).map((zone) => ({
+            ...zone,
+            id: zone._id || zone.id,
+          })),
+        );
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e?.message || "Failed to load zones");
+          setMarketZones([]);
+        }
+      } finally {
+        if (!cancelled) setMarketZonesLoading(false);
+      }
+    };
+    loadMarketZones();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     load();
@@ -233,14 +282,15 @@ const MyPurchaseList = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [status]);
+  }, [status, zoneId]);
 
   useFilterLockPersist("my_purchase", filtersLocked, {
     status,
+    zoneId,
   });
 
   const handleToggleFiltersLock = () => {
-    toggleFiltersLock({ status });
+    toggleFiltersLock({ status, zoneId });
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
@@ -446,6 +496,21 @@ const MyPurchaseList = () => {
                     ))}
                   </CFormSelect>
                 </CCol>
+                <CCol xs={12} sm={6} md={3}>
+                  <CFormLabel className="mb-1">Zone</CFormLabel>
+                  <CFormSelect
+                    value={zoneId}
+                    onChange={(e) => setZoneId(e.target.value)}
+                    disabled={marketZonesLoading}
+                  >
+                    <option value="">All zones</option>
+                    {marketZones.map((zone) => (
+                      <option key={zone.id} value={String(zone.id)}>
+                        {formatPurchaseZone(zone)}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </CCol>
                 <CCol xs={12} sm="auto" className="d-flex align-items-end">
                   <FilterLockButton
                     filtersLocked={filtersLocked}
@@ -459,6 +524,7 @@ const MyPurchaseList = () => {
                     variant="outline"
                     onClick={() => {
                       setStatus("");
+                      setZoneId("");
                       setPage(1);
                     }}
                   >
@@ -539,6 +605,14 @@ const MyPurchaseList = () => {
                                     <span className="font-monospace">
                                       {cardSnap.rawProductCode}
                                     </span>
+                                  </div>
+                                )}
+                                {row.zoneId && (
+                                  <div>
+                                    <span className="text-body-secondary">
+                                      Zone:
+                                    </span>{" "}
+                                    {formatPurchaseZone(row.zoneId)}
                                   </div>
                                 )}
                               </div>
@@ -724,6 +798,10 @@ const MyPurchaseList = () => {
                   <DetailRow
                     label="Assignment remark"
                     value={detail.assignmentRemark || detail.remark}
+                  />
+                  <DetailRow
+                    label="Zone"
+                    value={formatPurchaseZone(detail.zoneId)}
                   />
                   <DetailRow
                     label="Assigned on"

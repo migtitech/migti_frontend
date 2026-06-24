@@ -14,6 +14,7 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilBasket, cilClipboard, cilPeople, cilX } from "@coreui/icons";
 import localProcurementService from "../../services/localProcurementService";
+import areaService from "../../services/areaService";
 import documentService from "../../services/documentService";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { Loader, TablePagination, FilterLockButton } from "../../components";
@@ -28,6 +29,7 @@ const LOCAL_PROCUREMENT_FILTER_DEFAULTS = {
   status: "",
   dateFrom: "",
   dateTo: "",
+  zoneId: "",
 };
 
 const STATUS_OPTIONS = [
@@ -87,6 +89,16 @@ const latestRate = (row) => {
   return null;
 };
 
+const formatProcurementZone = (zone) => {
+  if (!zone || typeof zone !== "object") return "—";
+  const name = zone.name?.trim() || "";
+  const city = zone.city?.trim() || "";
+  if (name && city) return `${name} (${city})`;
+  return name || city || "—";
+};
+
+const unwrapPayload = (res) => res?.data?.data ?? res?.data;
+
 const LocalProcurementList = () => {
   const { user } = useAuth();
   const isLocalPro =
@@ -105,6 +117,9 @@ const LocalProcurementList = () => {
   const [status, setStatus] = useState(initialValues.status);
   const [fromDate, setFromDate] = useState(initialValues.dateFrom);
   const [toDate, setToDate] = useState(initialValues.dateTo);
+  const [zoneId, setZoneId] = useState(initialValues.zoneId);
+  const [marketZones, setMarketZones] = useState([]);
+  const [marketZonesLoading, setMarketZonesLoading] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [submitPanelOpen, setSubmitPanelOpen] = useState(false);
@@ -128,6 +143,7 @@ const LocalProcurementList = () => {
           status: status.trim() || undefined,
           from: fromDate || undefined,
           to: toDate || undefined,
+          zoneId: zoneId.trim() || undefined,
         }),
       );
       const block = res?.data;
@@ -140,7 +156,41 @@ const LocalProcurementList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, status, fromDate, toDate]);
+  }, [page, pageSize, status, fromDate, toDate, zoneId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMarketZones = async () => {
+      setMarketZonesLoading(true);
+      try {
+        const res = await areaService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+          areaType: "market",
+        });
+        if (cancelled) return;
+        const zonesPayload = unwrapPayload(res);
+        const zoneRows = zonesPayload?.areas || [];
+        setMarketZones(
+          (zoneRows || []).map((zone) => ({
+            ...zone,
+            id: zone._id || zone.id,
+          })),
+        );
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e?.message || "Failed to load zones");
+          setMarketZones([]);
+        }
+      } finally {
+        if (!cancelled) setMarketZonesLoading(false);
+      }
+    };
+    loadMarketZones();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     load();
@@ -148,16 +198,22 @@ const LocalProcurementList = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [status, fromDate, toDate]);
+  }, [status, fromDate, toDate, zoneId]);
 
   useFilterLockPersist("local_procurement", filtersLocked, {
     status,
     dateFrom: fromDate,
     dateTo: toDate,
+    zoneId,
   });
 
   const handleToggleFiltersLock = () => {
-    toggleFiltersLock({ status, dateFrom: fromDate, dateTo: toDate });
+    toggleFiltersLock({
+      status,
+      dateFrom: fromDate,
+      dateTo: toDate,
+      zoneId,
+    });
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
@@ -298,6 +354,21 @@ const LocalProcurementList = () => {
                     onChange={(e) => setToDate(e.target.value)}
                   />
                 </CCol>
+                <CCol xs={12} sm={6} md={3}>
+                  <CFormLabel className="mb-1">Zone</CFormLabel>
+                  <CFormSelect
+                    value={zoneId}
+                    onChange={(e) => setZoneId(e.target.value)}
+                    disabled={marketZonesLoading}
+                  >
+                    <option value="">All zones</option>
+                    {marketZones.map((zone) => (
+                      <option key={zone.id} value={String(zone.id)}>
+                        {formatProcurementZone(zone)}
+                      </option>
+                    ))}
+                  </CFormSelect>
+                </CCol>
                 <CCol xs={12} sm="auto" className="d-flex align-items-end">
                   <FilterLockButton
                     filtersLocked={filtersLocked}
@@ -313,6 +384,7 @@ const LocalProcurementList = () => {
                       setStatus("");
                       setFromDate("");
                       setToDate("");
+                      setZoneId("");
                       setPage(1);
                     }}
                   >
@@ -390,6 +462,14 @@ const LocalProcurementList = () => {
                                     Category:
                                   </span>{" "}
                                   {snap.categoryName}
+                                </div>
+                              )}
+                              {row.zoneId && (
+                                <div>
+                                  <span className="text-body-secondary">
+                                    Zone:
+                                  </span>{" "}
+                                  {formatProcurementZone(row.zoneId)}
                                 </div>
                               )}
                             </div>
