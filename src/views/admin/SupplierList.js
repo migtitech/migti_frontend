@@ -24,6 +24,7 @@ import { cilPlus, cilPencil, cilTrash, cilSearch } from "@coreui/icons";
 import { EyeIcon } from "../../components";
 import supplierService from "../../services/supplierService";
 import categoryService from "../../services/categoryService";
+import subcategoryService from "../../services/subcategoryService";
 import areaService from "../../services/areaService";
 import {
   ConfirmDialog,
@@ -159,12 +160,12 @@ const SupplierList = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await categoryService.getAll({
-          parent: filterCategory,
-          pageSize: 100,
+        const res = await subcategoryService.getAllSubcategories({
+          category: filterCategory,
         });
         const data = res?.data || res;
-        if (!cancelled) setSubcategories(data?.categories || []);
+        const inner = data?.data ?? data;
+        if (!cancelled) setSubcategories(inner?.subcategories || []);
         if (!cancelled) setFilterSubcategory("");
       } catch {
         if (!cancelled) setSubcategories([]);

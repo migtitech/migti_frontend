@@ -12,42 +12,50 @@ import {
   CTableHeaderCell,
   CTableRow,
   CButton,
-  CBadge,
   CAlert,
+  CFormSwitch,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import {
-  cilPlus,
-  cilPencil,
-  cilTrash,
-  cilChevronBottom,
-  cilChevronRight,
-} from "@coreui/icons";
+import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
 import { EyeIcon } from "../../components";
 import { useNavigate } from "react-router-dom";
 import categoryService from "../../services/categoryService";
 import Filtered from "../../filtered/Filtered";
-import { ConfirmDialog, Loader, TablePagination } from "../../components";
+import {
+  ConfirmDialog,
+  Loader,
+  TablePagination,
+  StatusLabel,
+} from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
-import usePermissions from "../../hooks/usePermissions";
+import usePermissions, { isHodRole } from "../../hooks/usePermissions";
+import { useAuth } from "../../context/AuthContext";
+
+const StackedNameCode = ({ name, code, bold = false }) => (
+  <div>
+    {bold ? <strong>{name || "—"}</strong> : <span>{name || "—"}</span>}
+    <div>
+      <code className="text-primary">{code || "—"}</code>
+    </div>
+  </div>
+);
 
 const CategoryList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
+  const { user } = useAuth();
+  const canToggleStatus = isHodRole(user?.role);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
-  const [expandedCategories, setExpandedCategories] = useState({});
-  const [subcategories, setSubcategories] = useState({});
-  const [rootCategories, setRootCategories] = useState([]);
+  const [togglingId, setTogglingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
     id: null,
-    parentId: null,
   });
 
   const fetchCategories = async () => {
@@ -80,59 +88,54 @@ const CategoryList = () => {
     return () => clearTimeout(timer);
   }, [searchTerm, page]);
 
-  const toggleExpand = async (categoryId) => {
-    if (expandedCategories[categoryId]) {
-      setExpandedCategories((prev) => ({ ...prev, [categoryId]: false }));
-      return;
-    }
-    try {
-      const res = await categoryService.getAll({
-        pageNumber: 1,
-        pageSize: 100,
-        parent: categoryId,
-      });
-      const data = res?.data || res;
-      const list = data?.data?.categories ?? data?.categories ?? [];
-      setSubcategories((prev) => ({ ...prev, [categoryId]: list }));
-      setExpandedCategories((prev) => ({ ...prev, [categoryId]: true }));
-    } catch (err) {
-      console.error("Failed to fetch subcategories", err);
-    }
-  };
-
-  const handleDeleteClick = (id, parentId = null) => {
-    setConfirmDelete({ visible: true, id, parentId });
+  const handleDeleteClick = (id) => {
+    setConfirmDelete({ visible: true, id });
   };
 
   const handleDeleteConfirm = async () => {
-    const { id, parentId } = confirmDelete;
-    setConfirmDelete({ visible: false, id: null, parentId: null });
+    const { id } = confirmDelete;
+    setConfirmDelete({ visible: false, id: null });
     if (!id) return;
     try {
       await categoryService.delete(id);
       toastSuccess("Category deleted successfully");
       fetchCategories();
-      if (parentId) {
-        const res = await categoryService.getAll({
-          pageNumber: 1,
-          pageSize: 100,
-          parent: parentId,
-        });
-        const data = res?.data || res;
-        const list = data?.data?.categories ?? data?.categories ?? [];
-        setSubcategories((prev) => ({ ...prev, [parentId]: list }));
-      }
     } catch (err) {
       toastError(err?.message || "Failed to delete category");
     }
   };
 
-  const getStatusBadge = (status) => {
-    return status === "active" ? (
-      <CBadge color="success">Active</CBadge>
-    ) : (
-      <CBadge color="secondary">Inactive</CBadge>
+  const handleStatusToggle = async (category, checked) => {
+    if (!canToggleStatus) return;
+
+    const newStatus = checked ? "active" : "inactive";
+    if (category.status === newStatus) return;
+
+    const previousStatus = category.status;
+    setTogglingId(category._id);
+    setCategories((prev) =>
+      prev.map((item) =>
+        item._id === category._id ? { ...item, status: newStatus } : item,
+      ),
     );
+
+    try {
+      await categoryService.update(category._id, { status: newStatus });
+      toastSuccess(
+        `Category ${newStatus === "active" ? "activated" : "deactivated"} successfully`,
+      );
+    } catch (err) {
+      setCategories((prev) =>
+        prev.map((item) =>
+          item._id === category._id
+            ? { ...item, status: previousStatus }
+            : item,
+        ),
+      );
+      toastError(err?.message || "Failed to update category status");
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   return (
@@ -157,7 +160,14 @@ const CategoryList = () => {
                 {error}
               </CAlert>
             )}
-            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+            <CRow className="mb-3 align-items-end">
+              <CCol xs={12} sm={6} md={4}>
+                <Filtered
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                />
+              </CCol>
+            </CRow>
             {loading ? (
               <Loader message="Loading categories..." />
             ) : (
@@ -165,65 +175,71 @@ const CategoryList = () => {
                 <CTable hover responsive bordered>
                   <CTableHead>
                     <CTableRow>
-                      <CTableHeaderCell
-                        style={{ width: 40 }}
-                      ></CTableHeaderCell>
                       <CTableHeaderCell>S No</CTableHeaderCell>
-                      <CTableHeaderCell>Code</CTableHeaderCell>
-                      <CTableHeaderCell>Group</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
-                      <CTableHeaderCell>Description</CTableHeaderCell>
-                      <CTableHeaderCell>Status</CTableHeaderCell>
-                      <CTableHeaderCell>Actions</CTableHeaderCell>
+                      <CTableHeaderCell>Group</CTableHeaderCell>
+                      <CTableHeaderCell className="text-center">
+                        Status
+                      </CTableHeaderCell>
+                      <CTableHeaderCell className="text-center">
+                        Actions
+                      </CTableHeaderCell>
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
                     {categories.map((cat, index) => (
-                      <React.Fragment key={cat._id}>
-                        <CTableRow
-                          onClick={() => navigate(`/categories/${cat._id}`)}
-                          style={{ cursor: "pointer" }}
+                      <CTableRow
+                        key={cat._id}
+                        onClick={() => navigate(`/categories/${cat._id}`)}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <CTableDataCell>
+                          {(page - 1) * 10 + index + 1}
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <StackedNameCode
+                            name={cat.name}
+                            code={cat.categoryCode}
+                            bold
+                          />
+                        </CTableDataCell>
+                        <CTableDataCell>
+                          <StackedNameCode
+                            name={
+                              typeof cat.group === "object"
+                                ? cat.group?.name
+                                : null
+                            }
+                            code={
+                              typeof cat.group === "object"
+                                ? cat.group?.code
+                                : null
+                            }
+                          />
+                        </CTableDataCell>
+                        <CTableDataCell
+                          className="text-center"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                            <CButton
-                              color="light"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleExpand(cat._id);
-                              }}
-                            >
-                              <CIcon
-                                icon={
-                                  expandedCategories[cat._id]
-                                    ? cilChevronBottom
-                                    : cilChevronRight
-                                }
-                                size="sm"
-                              />
-                            </CButton>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {(page - 1) * 10 + index + 1}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <code>{cat.categoryCode || "—"}</code>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {typeof cat.group === "object"
-                              ? cat.group?.name || "—"
-                              : "—"}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            <strong>{cat.name}</strong>
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {cat.description?.substring(0, 50) || "-"}
-                          </CTableDataCell>
-                          <CTableDataCell>
-                            {getStatusBadge(cat.status)}
-                          </CTableDataCell>
-                          <CTableDataCell onClick={(e) => e.stopPropagation()}>
+                          <div className="d-flex align-items-center justify-content-center gap-2">
+                            <CFormSwitch
+                              checked={cat.status === "active"}
+                              disabled={
+                                !canToggleStatus || togglingId === cat._id
+                              }
+                              onChange={(event) =>
+                                handleStatusToggle(cat, event.target.checked)
+                              }
+                              aria-label={`Toggle status for ${cat.name}`}
+                            />
+                            <StatusLabel status={cat.status} />
+                          </div>
+                        </CTableDataCell>
+                        <CTableDataCell
+                          className="text-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="d-flex justify-content-center">
                             <CButton
                               color="info"
                               variant="ghost"
@@ -236,20 +252,6 @@ const CategoryList = () => {
                             >
                               <EyeIcon />
                             </CButton>
-                            {canCreate("categories") && (
-                              <CButton
-                                color="success"
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/categories/new?parent=${cat._id}`);
-                                }}
-                                title="Add Subcategory"
-                              >
-                                <CIcon icon={cilPlus} />
-                              </CButton>
-                            )}
                             {canUpdate("categories") && (
                               <CButton
                                 color="warning"
@@ -278,86 +280,13 @@ const CategoryList = () => {
                                 <CIcon icon={cilTrash} />
                               </CButton>
                             )}
-                          </CTableDataCell>
-                        </CTableRow>
-                        {expandedCategories[cat._id] &&
-                          subcategories[cat._id]?.map((sub) => (
-                            <CTableRow
-                              key={sub._id}
-                              className="table-light"
-                              style={{ cursor: "pointer" }}
-                              onClick={() => navigate(`/categories/${sub._id}`)}
-                            >
-                              <CTableDataCell></CTableDataCell>
-                              <CTableDataCell></CTableDataCell>
-                              <CTableDataCell>
-                                <code>{sub.categoryCode || "—"}</code>
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {typeof sub.group === "object"
-                                  ? sub.group?.name || "—"
-                                  : "—"}
-                              </CTableDataCell>
-                              <CTableDataCell className="ps-4">
-                                &#8627; {sub.name ?? sub.categoryName ?? "—"}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {sub.description?.substring(0, 50) || "-"}
-                              </CTableDataCell>
-                              <CTableDataCell>
-                                {getStatusBadge(sub.status)}
-                              </CTableDataCell>
-                              <CTableDataCell
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <CButton
-                                  color="info"
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/categories/${sub._id}`);
-                                  }}
-                                  title="View"
-                                >
-                                  <EyeIcon />
-                                </CButton>
-                                {canUpdate("categories") && (
-                                  <CButton
-                                    color="warning"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      navigate(`/categories/edit/${sub._id}`);
-                                    }}
-                                    title="Edit"
-                                  >
-                                    <CIcon icon={cilPencil} />
-                                  </CButton>
-                                )}
-                                {canDelete("categories") && (
-                                  <CButton
-                                    color="danger"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleDeleteClick(sub._id, cat._id);
-                                    }}
-                                    title="Delete"
-                                  >
-                                    <CIcon icon={cilTrash} />
-                                  </CButton>
-                                )}
-                              </CTableDataCell>
-                            </CTableRow>
-                          ))}
-                      </React.Fragment>
+                          </div>
+                        </CTableDataCell>
+                      </CTableRow>
                     ))}
                     {categories.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={9} className="text-center">
+                        <CTableDataCell colSpan={5} className="text-center">
                           {searchTerm
                             ? `No categories found matching "${searchTerm}"`
                             : 'No categories found. Click "Add Category" to create one.'}
@@ -382,9 +311,7 @@ const CategoryList = () => {
 
       <ConfirmDialog
         visible={confirmDelete.visible}
-        onClose={() =>
-          setConfirmDelete({ visible: false, id: null, parentId: null })
-        }
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
         title="Delete Category?"
         message="Are you sure you want to delete this category? This action cannot be undone."

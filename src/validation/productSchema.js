@@ -1,8 +1,5 @@
 import * as yup from "yup";
-import {
-  PRODUCT_UNIT_CODES,
-  DEFAULT_PRODUCT_UNIT,
-} from "../constants/productUnits";
+import { PRODUCT_UNIT_CODES } from "../constants/productUnits";
 
 const OBJECT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
@@ -33,19 +30,13 @@ const variantDimensionsSchema = yup.object({
 
 export const variantCombinationSchema = yup.object({
   _id: yup.string().matches(OBJECT_ID_PATTERN).optional(),
-  uniqueId: yup.string().optional(),
-  variantCode: yup.string().max(50).nullable().optional(),
+  variantCode: yup.string().max(100).nullable().optional(),
   optionValues: yup
     .array()
     .of(variantOptionValueSchema)
     .min(1, '"optionValues" must contain at least 1 items')
     .required(),
-  sku: yup.string().required('"sku" is required'),
-  price: yup
-    .number()
-    .typeError('"price" must be a number')
-    .min(0, '"price" must be greater than or equal to 0')
-    .required('"price" is required'),
+  price: optionalNumber("price"),
   mrp: optionalNumber("mrp"),
   costPrice: optionalNumber("costPrice"),
   quantity: optionalNumber("quantity", { integer: true }),
@@ -62,6 +53,12 @@ export const variantCombinationSchema = yup.object({
     .of(yup.string().matches(OBJECT_ID_PATTERN))
     .optional()
     .default([]),
+  queryQuotationImageId: yup
+    .string()
+    .matches(OBJECT_ID_PATTERN)
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
   modelNumber: yup.string().max(100).nullable().optional().default(""),
   hsnNumber: yup.string().max(50).nullable().optional().default(""),
   gstPercentage: yup
@@ -72,6 +69,29 @@ export const variantCombinationSchema = yup.object({
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
   isActive: yup.boolean().optional().default(true),
+  timeline: yup
+    .number()
+    .integer()
+    .min(1)
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
+  timelineValue: yup
+    .number()
+    .min(1, '"timeline" must be at least 1')
+    .transform((value, original) => (original === "" ? undefined : value))
+    .optional(),
+  timelineUnit: yup
+    .string()
+    .oneOf(["day", "week", "month", "year"])
+    .optional()
+    .default("day"),
+  nextTimelineDate: yup.string().nullable().optional(),
+  procurementReviewStatus: yup
+    .string()
+    .oneOf(["idle", "overdue", "activated", "active"])
+    .optional()
+    .default("idle"),
 });
 
 export const variantSchema = yup.object({
@@ -158,24 +178,33 @@ export const createProductPayloadSchema = yup.object({
     ),
   description: yup.string().optional().default(""),
   shortDescription: yup.string().optional().default(""),
-  sku: yup
-    .string()
-    .trim()
-    .required('"sku" is required')
-    .min(1, '"sku" is not allowed to be empty')
-    .max(50, '"sku" length must be less than or equal to 50 characters long'),
+  sku: yup.string().trim().max(50).optional(),
   category: yup.string().required('"category" is required'),
   subcategory: yup.string().nullable().optional(),
   brand: yup.string().nullable().optional(),
-  group: yup.string().nullable().optional(),
-  hsnNumber: yup.string().max(50).optional().default(""),
+  group: yup.string().required('"group" is required'),
+  hsnNumber: yup
+    .string()
+    .trim()
+    .required('"hsnNumber" is required')
+    .min(1, '"hsnNumber" is not allowed to be empty')
+    .max(
+      50,
+      '"hsnNumber" length must be less than or equal to 50 characters long',
+    ),
+  taxClause: yup
+    .string()
+    .trim()
+    .required("GST is required")
+    .min(1, "GST is not allowed to be empty")
+    .max(200, "GST must be at most 200 characters"),
   gstPercentage: yup.number().min(0).max(100).optional().default(0),
   defaultModelNumber: yup.string().max(100).optional().default(""),
   price: optionalNumber("price"),
   mrp: optionalNumber("mrp"),
   costPrice: optionalNumber("costPrice"),
   quantity: optionalNumber("quantity", { integer: true }),
-  hasVariants: yup.boolean().optional().default(false),
+  hasVariants: yup.boolean().optional().default(true),
   variants: yup.array().of(variantSchema).optional().default([]),
   variantCombinations: yup
     .array()
@@ -210,15 +239,47 @@ export const createProductPayloadSchema = yup.object({
       '"status" must be one of [active, inactive, draft, hod_approved]',
     )
     .optional()
-    .default("draft"),
+    .default("active"),
   unit: yup
     .string()
     .oneOf(
       [...PRODUCT_UNIT_CODES],
       `"unit" must be one of [${PRODUCT_UNIT_CODES.join(", ")}]`,
     )
+    .required('"unit" is required'),
+  purchaseUnit: yup
+    .string()
+    .oneOf(
+      [...PRODUCT_UNIT_CODES],
+      `"purchaseUnit" must be one of [${PRODUCT_UNIT_CODES.join(", ")}]`,
+    )
     .optional()
-    .default(DEFAULT_PRODUCT_UNIT),
+    .nullable()
+    .transform((value, original) => (original === "" ? null : value)),
+  salesUnit: yup
+    .string()
+    .oneOf(
+      [...PRODUCT_UNIT_CODES],
+      `"salesUnit" must be one of [${PRODUCT_UNIT_CODES.join(", ")}]`,
+    )
+    .optional()
+    .nullable()
+    .transform((value, original) => (original === "" ? null : value)),
+  minStock: yup
+    .number()
+    .integer()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
+  maxStock: yup
+    .number()
+    .integer()
+    .min(0)
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
+  expiry: yup.string().nullable().optional(),
   companyProductCodes: yup
     .array()
     .of(companyProductCodeSchema)
@@ -258,13 +319,7 @@ export const productFormSchema = yup.object({
       200,
       '"name" length must be less than or equal to 200 characters long',
     ),
-  sku: yup
-    .string()
-    .trim()
-    .required('"sku" is required')
-    .min(1, '"sku" is not allowed to be empty')
-    .max(50, '"sku" length must be less than or equal to 50 characters long'),
-  shortDescription: yup.string().trim().optional().default(""),
+  description: yup.string().trim().optional().default(""),
   category: yup.string().required('"category" is required'),
   subcategory: yup
     .string()
@@ -278,18 +333,23 @@ export const productFormSchema = yup.object({
     .transform((value, original) => (original === "" ? null : value)),
   group: yup
     .string()
-    .optional()
-    .nullable()
-    .transform((value, original) => (original === "" ? null : value)),
+    .required('"group" is required')
+    .transform((value, original) => (original === "" ? undefined : value)),
   hsnNumber: yup
     .string()
     .trim()
+    .required('"hsnNumber" is required')
+    .min(1, '"hsnNumber" is not allowed to be empty')
     .max(
       50,
       '"hsnNumber" length must be less than or equal to 50 characters long',
-    )
-    .optional()
-    .default(""),
+    ),
+  taxClause: yup
+    .string()
+    .trim()
+    .required("GST is required")
+    .min(1, "GST is not allowed to be empty")
+    .max(200, "GST must be at most 200 characters"),
   gstPercentage: yup
     .number()
     .typeError('"gstPercentage" must be a number')
@@ -307,7 +367,7 @@ export const productFormSchema = yup.object({
     )
     .optional()
     .default(""),
-  hasVariants: yup.boolean().optional().default(false),
+  hasVariants: yup.boolean().optional().default(true),
   weight: yup
     .number()
     .typeError('"weight" must be a number')
@@ -355,26 +415,53 @@ export const productFormSchema = yup.object({
       '"status" must be one of [active, inactive, draft, hod_approved]',
     )
     .optional()
-    .default("draft"),
+    .default("active"),
   unit: yup
     .string()
     .oneOf(
       [...PRODUCT_UNIT_CODES],
       `"unit" must be one of [${PRODUCT_UNIT_CODES.join(", ")}]`,
     )
-    .optional()
-    .default(DEFAULT_PRODUCT_UNIT),
-  timelineValue: yup
-    .number()
-    .typeError('"timeline" must be a number')
-    .min(1, '"timeline" must be at least 1')
-    .transform((value, original) => (original === "" ? undefined : value))
-    .optional(),
-  timelineUnit: yup
+    .required('"unit" is required'),
+  purchaseUnit: yup
     .string()
-    .oneOf(["day", "week", "month", "year"])
+    .oneOf(
+      [...PRODUCT_UNIT_CODES],
+      `"purchaseUnit" must be one of [${PRODUCT_UNIT_CODES.join(", ")}]`,
+    )
     .optional()
-    .default("day"),
+    .nullable()
+    .transform((value, original) => (original === "" ? null : value)),
+  salesUnit: yup
+    .string()
+    .oneOf(
+      [...PRODUCT_UNIT_CODES],
+      `"salesUnit" must be one of [${PRODUCT_UNIT_CODES.join(", ")}]`,
+    )
+    .optional()
+    .nullable()
+    .transform((value, original) => (original === "" ? null : value)),
+  minStock: yup
+    .number()
+    .typeError('"minStock" must be a number')
+    .integer('"minStock" must be an integer')
+    .min(0, '"minStock" must be greater than or equal to 0')
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
+  maxStock: yup
+    .number()
+    .typeError('"maxStock" must be a number')
+    .integer('"maxStock" must be an integer')
+    .min(0, '"maxStock" must be greater than or equal to 0')
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
+  expiry: yup
+    .string()
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value)),
 });
 
 export const collectYupErrors = (err) => {

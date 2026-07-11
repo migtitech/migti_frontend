@@ -37,6 +37,15 @@ const categoryService = {
     });
     return response;
   },
+
+  uploadIcon: async (file) => {
+    const formData = new FormData();
+    formData.append("icon", file);
+    const response = await api.post(CATEGORIES.UPLOAD_ICON, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response;
+  },
 };
 
 export default categoryService;

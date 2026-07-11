@@ -307,6 +307,13 @@ const _nav = [
       },
       {
         component: CNavItem,
+        name: "Subcategories",
+        to: "/subcategories",
+        icon: <CIcon icon={cilFolder} customClassName="nav-icon" />,
+        module: "subcategories",
+      },
+      {
+        component: CNavItem,
         name: "Brands",
         to: "/brands",
         icon: <CIcon icon={cilTags} customClassName="nav-icon" />,

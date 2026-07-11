@@ -45,6 +45,10 @@ import { Loader } from "../../components";
 import usePermissions from "../../hooks/usePermissions";
 import { getAssetsUrl } from "../../api/endpoints";
 import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
+import {
+  formatProBucketRateAmount,
+  resolveProBucketEffectiveRate,
+} from "../../utils/proBucketRate";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -1460,7 +1464,8 @@ const PurchaseBucketDetail = () => {
                                                     )}
                                                   </CTableDataCell>
                                                   <CTableDataCell className="font-monospace">
-                                                    {variantRow.sku || "—"}
+                                                    {variantRow.variantCode ||
+                                                      "—"}
                                                   </CTableDataCell>
                                                   <CTableDataCell className="font-monospace">
                                                     {variantRow.variantCode ||
@@ -1808,7 +1813,16 @@ const PurchaseBucketDetail = () => {
                           </CTableHeaderCell>
                           <CTableHeaderCell>Contact</CTableHeaderCell>
                           <CTableHeaderCell style={{ width: 120 }}>
-                            Rate
+                            Base rate
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 80 }}>
+                            GST %
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 90 }}>
+                            Discount %
+                          </CTableHeaderCell>
+                          <CTableHeaderCell style={{ width: 120 }}>
+                            Final amount
                           </CTableHeaderCell>
                           <CTableHeaderCell style={{ width: 80 }}>
                             Unit
@@ -1833,10 +1847,27 @@ const PurchaseBucketDetail = () => {
                               <CTableDataCell className="small text-body-secondary">
                                 {extras.length > 0 ? extras.join(" · ") : "—"}
                               </CTableDataCell>
-                              <CTableDataCell className="fw-bold text-primary">
+                              <CTableDataCell>
                                 {r.rate != null
                                   ? `₹${Number(r.rate).toLocaleString("en-IN")}`
                                   : "—"}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {r.gstPercentage != null ? r.gstPercentage : 0}
+                              </CTableDataCell>
+                              <CTableDataCell>
+                                {r.discountPercentage != null
+                                  ? r.discountPercentage
+                                  : 0}
+                              </CTableDataCell>
+                              <CTableDataCell className="fw-bold text-primary">
+                                {r.finalAmount != null
+                                  ? `₹${formatProBucketRateAmount(r.finalAmount)}`
+                                  : resolveProBucketEffectiveRate(r) != null
+                                    ? `₹${formatProBucketRateAmount(
+                                        resolveProBucketEffectiveRate(r),
+                                      )}`
+                                    : "—"}
                               </CTableDataCell>
                               <CTableDataCell>{r.unit || "—"}</CTableDataCell>
                               <CTableDataCell>{r.remark || "—"}</CTableDataCell>

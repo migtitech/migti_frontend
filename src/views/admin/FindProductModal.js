@@ -27,6 +27,7 @@ import {
 } from "@coreui/react";
 import productService from "../../services/productService";
 import categoryService from "../../services/categoryService";
+import subcategoryService from "../../services/subcategoryService";
 import { toastSuccess, toastError } from "../../utils/toast";
 
 const getVariantComboDisplay = (combo) => {
@@ -170,11 +171,18 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
     }
     setSubcategoryLoading(true);
     try {
-      const params = { parent: catId, pageSize: 5 };
-      if (term?.trim()) params.search = term.trim();
-      const res = await categoryService.getAll(params);
+      const params = { category: catId };
+      const res = await subcategoryService.getAllSubcategories(params);
       const data = res?.data || res;
-      setSubcategoryResults(data?.categories || []);
+      const inner = data?.data ?? data;
+      let results = inner?.subcategories || [];
+      if (term?.trim()) {
+        const q = term.trim().toLowerCase();
+        results = results.filter((s) =>
+          (s.name || "").toLowerCase().includes(q),
+        );
+      }
+      setSubcategoryResults(results.slice(0, 5));
     } catch {
       setSubcategoryResults([]);
     } finally {
@@ -352,7 +360,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
   };
 
   const toggleAllVariantCombos = (productId, combos) => {
-    const uids = (combos || []).map((c) => c.uniqueId || c._id).filter(Boolean);
+    const uids = (combos || []).map((c) => c._id).filter(Boolean);
     if (!uids.length) return;
     setSelectedVariantCombos((prev) => {
       const next = new Map(prev);
@@ -448,31 +456,29 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
       if (!comboIds?.size || !p?.variantCombinations?.length) return;
 
       const selectedCombos = p.variantCombinations.filter((c) =>
-        comboIds.has(c.uniqueId || c._id),
+        comboIds.has(c._id),
       );
       if (selectedCombos.length === 0) return;
 
-      const variants = selectedCombos.map((c) => ({
-        variantName: getVariantComboDisplay(c),
-      }));
-
-      queryProducts.push({
-        productName: p?.name || "",
-        quantity: 1,
-        unit: (p?.unit && String(p.unit).trim()) || "PCS",
-        hsnNumber: selectedCombos[0]?.hsnNumber || p?.hsnNumber || "",
-        modelNumber:
-          selectedCombos[0]?.modelNumber || p?.defaultModelNumber || "",
-        gstPercentage:
-          typeof selectedCombos[0]?.gstPercentage === "number"
-            ? selectedCombos[0].gstPercentage
-            : typeof p?.gstPercentage === "number"
-              ? p.gstPercentage
-              : null,
-        variants,
-        remark: "",
-        product_id: pid,
-        images: toImageRefs(p?.images),
+      selectedCombos.forEach((combo) => {
+        queryProducts.push({
+          productName: p?.name || "",
+          quantity: 1,
+          unit: (p?.unit && String(p.unit).trim()) || "PCS",
+          hsnNumber: combo?.hsnNumber || p?.hsnNumber || "",
+          modelNumber: combo?.modelNumber || p?.defaultModelNumber || "",
+          gstPercentage:
+            typeof combo?.gstPercentage === "number"
+              ? combo.gstPercentage
+              : typeof p?.gstPercentage === "number"
+                ? p.gstPercentage
+                : null,
+          variants: [{ variantName: getVariantComboDisplay(combo) }],
+          remark: "",
+          rawProductCode: combo?.variantCode || p?.productCode || "",
+          product_id: pid,
+          images: toImageRefs(combo?.images?.length ? combo.images : p?.images),
+        });
       });
     });
 
@@ -806,7 +812,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                 if (showCombos) {
                   const comboSet = selectedVariantCombos.get(pid) || new Set();
                   const allComboIds = combosFiltered
-                    .map((c) => c.uniqueId || c._id)
+                    .map((c) => c._id)
                     .filter(Boolean);
                   const allSelected =
                     allComboIds.length > 0 &&
@@ -843,13 +849,13 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                               <CTableHeaderCell>Variant</CTableHeaderCell>
                               <CTableHeaderCell>HSN</CTableHeaderCell>
                               <CTableHeaderCell>Model</CTableHeaderCell>
-                              <CTableHeaderCell>SKU</CTableHeaderCell>
+                              <CTableHeaderCell>Code</CTableHeaderCell>
                               <CTableHeaderCell>Qty</CTableHeaderCell>
                             </CTableRow>
                           </CTableHead>
                           <CTableBody>
                             {combosFiltered.map((c) => {
-                              const uid = c.uniqueId || c._id;
+                              const uid = c._id;
                               const checked = comboSet.has(uid);
                               return (
                                 <CTableRow key={uid}>
@@ -872,7 +878,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                                       "–"}
                                   </CTableDataCell>
                                   <CTableDataCell>
-                                    {c.sku || "–"}
+                                    {c.variantCode || "–"}
                                   </CTableDataCell>
                                   <CTableDataCell>
                                     {c.quantity ?? c.price ?? "–"}

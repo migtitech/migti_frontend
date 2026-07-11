@@ -14,6 +14,7 @@ import {
   CButton,
   CBadge,
   CAlert,
+  CAvatar,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
@@ -24,6 +25,15 @@ import { ConfirmDialog, Loader, TablePagination } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
+
+const getBrandAvatarLabel = (name) => {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "—";
+  return trimmed.slice(0, 2).toUpperCase();
+};
+
+const getBrandIconSrc = (brand) =>
+  brand?.iconDisplayUrl || brand?.iconUrl || undefined;
 
 const BrandList = () => {
   const [brands, setBrands] = useState([]);
@@ -111,7 +121,14 @@ const BrandList = () => {
               </CAlert>
             )}
 
-            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+            <CRow className="mb-3 align-items-end">
+              <CCol xs={12} sm={6} md={4}>
+                <Filtered
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                />
+              </CCol>
+            </CRow>
 
             {loading ? (
               <Loader message="Loading brands..." />
@@ -128,53 +145,68 @@ const BrandList = () => {
                   </CTableHead>
 
                   <CTableBody>
-                    {brands.map((brand, index) => (
-                      <CTableRow
-                        key={brand._id}
-                        style={{ cursor: "pointer" }}
-                        onClick={() => navigate(`/brands/edit/${brand._id}`)}
-                      >
-                        <CTableDataCell>
-                          {(page - 1) * 10 + index + 1}
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          <strong>{brand.name}</strong>
-                        </CTableDataCell>
-                        <CTableDataCell>
-                          {getStatusBadge(brand.status)}
-                        </CTableDataCell>
+                    {brands.map((brand, index) => {
+                      const iconSrc = getBrandIconSrc(brand);
+                      return (
+                        <CTableRow
+                          key={brand._id}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => navigate(`/brands/edit/${brand._id}`)}
+                        >
+                          <CTableDataCell>
+                            {(page - 1) * 10 + index + 1}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <div className="d-flex align-items-center">
+                              <CAvatar
+                                src={iconSrc}
+                                color={iconSrc ? undefined : "primary"}
+                                textColor={iconSrc ? undefined : "white"}
+                                size="md"
+                                shape="rounded-circle"
+                                className={`me-3 flex-shrink-0${iconSrc ? " bg-transparent" : ""}`}
+                              >
+                                {getBrandAvatarLabel(brand.name)}
+                              </CAvatar>
+                              <strong>{brand.name}</strong>
+                            </div>
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {getStatusBadge(brand.status)}
+                          </CTableDataCell>
 
-                        <CTableDataCell onClick={(e) => e.stopPropagation()}>
-                          {canUpdate("brands") && (
-                            <CButton
-                              size="sm"
-                              color="warning"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/brands/edit/${brand._id}`);
-                              }}
-                            >
-                              <CIcon icon={cilPencil} />
-                            </CButton>
-                          )}
+                          <CTableDataCell onClick={(e) => e.stopPropagation()}>
+                            {canUpdate("brands") && (
+                              <CButton
+                                size="sm"
+                                color="warning"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/brands/edit/${brand._id}`);
+                                }}
+                              >
+                                <CIcon icon={cilPencil} />
+                              </CButton>
+                            )}
 
-                          {canDelete("brands") && (
-                            <CButton
-                              size="sm"
-                              color="danger"
-                              variant="ghost"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteClick(brand._id);
-                              }}
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          )}
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
+                            {canDelete("brands") && (
+                              <CButton
+                                size="sm"
+                                color="danger"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick(brand._id);
+                                }}
+                              >
+                                <CIcon icon={cilTrash} />
+                              </CButton>
+                            )}
+                          </CTableDataCell>
+                        </CTableRow>
+                      );
+                    })}
 
                     {brands.length === 0 && (
                       <CTableRow>

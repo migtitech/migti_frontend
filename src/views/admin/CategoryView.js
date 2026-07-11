@@ -7,7 +7,6 @@ import {
   CCol,
   CRow,
   CButton,
-  CBadge,
   CListGroup,
   CListGroupItem,
   CTable,
@@ -16,13 +15,34 @@ import {
   CTableHead,
   CTableHeaderCell,
   CTableRow,
+  CAvatar,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilArrowLeft, cilPencil, cilPlus } from "@coreui/icons";
+import { cilArrowLeft } from "@coreui/icons";
 import categoryService from "../../services/categoryService";
-import { Loader } from "../../components";
+import Filtered from "../../filtered/Filtered";
+import { EyeIcon, Loader, StatusLabel } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
+
+const getBrandAvatarLabel = (name) => {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return "—";
+  return trimmed.slice(0, 2).toUpperCase();
+};
+
+const getBrandIconSrc = (brand) =>
+  brand?.iconDisplayUrl || brand?.iconUrl || brand?.logoDisplayUrl || undefined;
+
+const matchesSearch = (searchTerm, ...values) => {
+  const query = searchTerm.trim().toLowerCase();
+  if (!query) return true;
+  return values.some((value) =>
+    String(value || "")
+      .toLowerCase()
+      .includes(query),
+  );
+};
 
 const CategoryView = () => {
   const { id } = useParams();
@@ -31,6 +51,8 @@ const CategoryView = () => {
   const [category, setCategory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [subcategorySearch, setSubcategorySearch] = useState("");
+  const [brandSearch, setBrandSearch] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -88,6 +110,15 @@ const CategoryView = () => {
   }
 
   const subcategories = category.subcategories || [];
+  const mappedBrands = category.brands || [];
+
+  const filteredSubcategories = subcategories.filter((sub) =>
+    matchesSearch(subcategorySearch, sub.name, sub.subcategoryCode),
+  );
+
+  const filteredMappedBrands = mappedBrands.filter((brand) =>
+    matchesSearch(brandSearch, brand.name),
+  );
 
   return (
     <>
@@ -104,19 +135,11 @@ const CategoryView = () => {
         </CCol>
       </CRow>
 
-      <CRow>
-        <CCol md={8}>
-          <CCard className="mb-4">
-            <CCardHeader className="d-flex justify-content-between align-items-center">
+      <CRow className="mb-4">
+        <CCol xs={12} lg={6} className="mb-4 mb-lg-0">
+          <CCard className="h-100">
+            <CCardHeader>
               <strong>Category Details</strong>
-              <CButton
-                color="warning"
-                size="sm"
-                onClick={() => navigate(`/categories/edit/${id}`)}
-              >
-                <CIcon icon={cilPencil} className="me-2" />
-                Edit
-              </CButton>
             </CCardHeader>
             <CCardBody>
               <CListGroup flush>
@@ -135,138 +158,152 @@ const CategoryView = () => {
                   <span>{category.group?.name || "—"}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Parent:</strong>
-                  <span>{category.parent?.name || "None (Root)"}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Description:</strong>
                   <span>{category.description || "—"}</span>
                 </CListGroupItem>
                 <CListGroupItem className="d-flex justify-content-between">
-                  <strong>Sort Order:</strong>
-                  <span>{category.sortOrder ?? 0}</span>
-                </CListGroupItem>
-                <CListGroupItem className="d-flex justify-content-between">
                   <strong>Status:</strong>
-                  <CBadge
-                    color={
-                      category.status === "active" ? "success" : "secondary"
-                    }
-                  >
-                    {category.status || "active"}
-                  </CBadge>
+                  <StatusLabel status={category.status} />
                 </CListGroupItem>
               </CListGroup>
             </CCardBody>
           </CCard>
         </CCol>
 
-        <CCol md={4}>
-          <CCard className="mb-4">
+        <CCol xs={12} lg={6}>
+          <CCard className="h-100">
             <CCardHeader className="d-flex justify-content-between align-items-center">
-              <strong>Subcategories ({subcategories.length})</strong>
-              {!category.parent && (
-                <CButton
-                  color="primary"
-                  size="sm"
-                  onClick={() => navigate(`/categories/new?parent=${id}`)}
-                >
-                  <CIcon icon={cilPlus} className="me-2" />
-                  Add
-                </CButton>
-              )}
+              <strong>Subcategories</strong>
+              <CButton
+                color="primary"
+                size="sm"
+                onClick={() => navigate(`/subcategories/new?category=${id}`)}
+              >
+                Add Subcategory
+              </CButton>
             </CCardHeader>
             <CCardBody>
+              {subcategories.length > 0 && (
+                <CRow className="mb-3">
+                  <CCol xs={12}>
+                    <Filtered
+                      searchTerm={subcategorySearch}
+                      setSearchTerm={setSubcategorySearch}
+                    />
+                  </CCol>
+                </CRow>
+              )}
               {subcategories.length > 0 ? (
-                <CListGroup>
-                  {subcategories.map((sub) => (
-                    <CListGroupItem
-                      key={sub._id}
-                      className="d-flex justify-content-between align-items-center"
-                      action
-                      onClick={() => navigate(`/categories/${sub._id}`)}
-                    >
-                      <div>
-                        <code className="text-primary">
-                          {sub.categoryCode || "—"}
-                        </code>
-                        <br />
-                        <strong>{sub.name ?? sub.categoryName ?? "—"}</strong>
-                      </div>
-                      <CIcon icon={cilPencil} size="sm" />
-                    </CListGroupItem>
-                  ))}
-                </CListGroup>
+                filteredSubcategories.length > 0 ? (
+                  <CTable hover responsive className="mb-0">
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>Code</CTableHeaderCell>
+                        <CTableHeaderCell>Name</CTableHeaderCell>
+                        <CTableHeaderCell>Status</CTableHeaderCell>
+                        <CTableHeaderCell>View</CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {filteredSubcategories.map((sub) => (
+                        <CTableRow key={sub._id}>
+                          <CTableDataCell>
+                            <code>{sub.subcategoryCode || "—"}</code>
+                          </CTableDataCell>
+                          <CTableDataCell>{sub.name ?? "—"}</CTableDataCell>
+                          <CTableDataCell>
+                            <StatusLabel status={sub.status} />
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <CButton
+                              color="info"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                navigate(`/subcategories/${sub._id}`)
+                              }
+                              title="View"
+                            >
+                              <EyeIcon />
+                            </CButton>
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                ) : (
+                  <p className="text-muted text-center mb-0">
+                    No subcategories found matching &quot;{subcategorySearch}
+                    &quot;
+                  </p>
+                )
               ) : (
-                <p className="text-muted text-center mb-0">
-                  {category.parent
-                    ? "No subcategories"
-                    : "No subcategories yet. Add one to get codes like MIG01SUB01, MIG01SUB02..."}
-                </p>
+                <p className="text-muted text-center mb-0">No subcategories</p>
               )}
             </CCardBody>
           </CCard>
         </CCol>
       </CRow>
 
-      {subcategories.length > 0 && (
-        <CCard className="mb-4">
-          <CCardHeader>
-            <strong>Subcategories with Codes</strong>
-          </CCardHeader>
-          <CCardBody>
-            <CTable hover responsive>
-              <CTableHead>
-                <CTableRow>
-                  <CTableHeaderCell>Code</CTableHeaderCell>
-                  <CTableHeaderCell>Name</CTableHeaderCell>
-                  <CTableHeaderCell>Status</CTableHeaderCell>
-                  <CTableHeaderCell>Actions</CTableHeaderCell>
-                </CTableRow>
-              </CTableHead>
-              <CTableBody>
-                {subcategories.map((sub) => (
-                  <CTableRow key={sub._id}>
-                    <CTableDataCell>
-                      <code>{sub.categoryCode || "—"}</code>
-                    </CTableDataCell>
-                    <CTableDataCell>
-                      {sub.name ?? sub.categoryName ?? "—"}
-                    </CTableDataCell>
-                    <CTableDataCell>
-                      <CBadge
-                        color={
-                          sub.status === "active" ? "success" : "secondary"
-                        }
-                      >
-                        {sub.status}
-                      </CBadge>
-                    </CTableDataCell>
-                    <CTableDataCell>
-                      <CButton
-                        color="info"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/categories/${sub._id}`)}
-                      >
-                        View
-                      </CButton>
-                      <CButton
-                        color="warning"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => navigate(`/categories/edit/${sub._id}`)}
-                      >
-                        Edit
-                      </CButton>
-                    </CTableDataCell>
-                  </CTableRow>
-                ))}
-              </CTableBody>
-            </CTable>
-          </CCardBody>
-        </CCard>
-      )}
+      <CCard className="mb-4">
+        <CCardHeader>
+          <strong>Mapped Brands</strong>
+        </CCardHeader>
+        <CCardBody>
+          {mappedBrands.length > 0 && (
+            <CRow className="mb-3">
+              <CCol xs={12} sm={6} md={4}>
+                <Filtered
+                  searchTerm={brandSearch}
+                  setSearchTerm={setBrandSearch}
+                />
+              </CCol>
+            </CRow>
+          )}
+          {mappedBrands.length > 0 ? (
+            filteredMappedBrands.length > 0 ? (
+              <div className="overflow-auto" style={{ maxHeight: "180px" }}>
+                <CRow className="g-2">
+                  {filteredMappedBrands.map((brand) => {
+                    const iconSrc = getBrandIconSrc(brand);
+                    return (
+                      <CCol key={brand._id} xs={4} sm={3} md={2} lg={2}>
+                        <div className="border rounded p-2 h-100 text-center">
+                          <CAvatar
+                            src={iconSrc}
+                            color={iconSrc ? undefined : "primary"}
+                            textColor={iconSrc ? undefined : "white"}
+                            size="md"
+                            shape="rounded-circle"
+                            className={`mb-1${iconSrc ? " bg-transparent" : ""}`}
+                          >
+                            {getBrandAvatarLabel(brand.name)}
+                          </CAvatar>
+                          <div
+                            className="small fw-semibold text-truncate"
+                            title={brand.name}
+                          >
+                            {brand.name}
+                          </div>
+                          <div className="mt-1">
+                            <StatusLabel status={brand.status} />
+                          </div>
+                        </div>
+                      </CCol>
+                    );
+                  })}
+                </CRow>
+              </div>
+            ) : (
+              <p className="text-muted text-center mb-0">
+                No brands found matching &quot;{brandSearch}&quot;
+              </p>
+            )
+          ) : (
+            <p className="text-muted text-center mb-0">No brands mapped</p>
+          )}
+        </CCardBody>
+      </CCard>
     </>
   );
 };

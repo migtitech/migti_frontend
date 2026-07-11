@@ -144,6 +144,17 @@ export const CATEGORIES = {
   GET_BY_ID: "/categories/get-by-id",
   UPDATE: "/categories/update",
   DELETE: "/categories/delete",
+  UPLOAD_ICON: "/categories/upload-icon",
+};
+
+export const SUBCATEGORIES = {
+  CREATE: "/subcategories/create",
+  LIST: "/subcategories/list",
+  GET_ALL: "/subcategories/get-all",
+  GET_BY_ID: "/subcategories/get-by-id",
+  UPDATE: "/subcategories/update",
+  DELETE: "/subcategories/delete",
+  UPLOAD_IMAGE: "/subcategories/upload-image",
 };
 
 export const GROUPS = {
@@ -152,6 +163,7 @@ export const GROUPS = {
   GET_BY_ID: "/groups/get-by-id",
   UPDATE: "/groups/update",
   DELETE: "/groups/delete",
+  UPLOAD_ICON: "/groups/upload-icon",
 };
 
 export const BRANDS = {
@@ -160,6 +172,7 @@ export const BRANDS = {
   GET_BY_ID: "/brands/get-by-id",
   UPDATE: "/brands/update",
   DELETE: "/brands/delete",
+  UPLOAD_ICON: "/brands/upload-icon",
 };
 
 export const PRODUCTS = {
@@ -486,6 +499,7 @@ export default {
   RAW_QUERIES,
   DASHBOARD,
   CATEGORIES,
+  SUBCATEGORIES,
   GROUPS,
   BRANDS,
   PRODUCTS,

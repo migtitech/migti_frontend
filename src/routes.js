@@ -24,6 +24,17 @@ const CategoryList = React.lazy(() => import("./views/admin/CategoryList"));
 const CategoryForm = React.lazy(() => import("./views/admin/CategoryForm"));
 const CategoryView = React.lazy(() => import("./views/admin/CategoryView"));
 
+// Subcategories
+const SubcategoryList = React.lazy(
+  () => import("./views/admin/SubcategoryList"),
+);
+const SubcategoryForm = React.lazy(
+  () => import("./views/admin/SubcategoryForm"),
+);
+const SubcategoryView = React.lazy(
+  () => import("./views/admin/SubcategoryView"),
+);
+
 // Groups
 const GroupList = React.lazy(() => import("./views/admin/GroupList"));
 const GroupForm = React.lazy(() => import("./views/admin/GroupForm"));
@@ -327,6 +338,36 @@ const routes = [
     name: "Category Details",
     element: CategoryView,
     module: "categories",
+    action: "read",
+  },
+
+  // Subcategories
+  {
+    path: "/subcategories",
+    name: "Subcategories",
+    element: SubcategoryList,
+    module: "subcategories",
+    action: "read",
+  },
+  {
+    path: "/subcategories/new",
+    name: "Add Subcategory",
+    element: SubcategoryForm,
+    module: "subcategories",
+    action: "create",
+  },
+  {
+    path: "/subcategories/edit/:id",
+    name: "Edit Subcategory",
+    element: SubcategoryForm,
+    module: "subcategories",
+    action: "update",
+  },
+  {
+    path: "/subcategories/:id",
+    name: "Subcategory Details",
+    element: SubcategoryView,
+    module: "subcategories",
     action: "read",
   },
 

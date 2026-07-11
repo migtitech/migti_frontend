@@ -7,6 +7,7 @@ import { useAuth, FULL_ACCESS_ROLES } from "../context/AuthContext";
  * Key = new module; value = older module keys that imply access.
  */
 const MODULE_INHERITANCE = {
+  subcategories: ["categories"],
   po_bucket: ["purchase_orders"],
   inventory_bucket: ["purchase_orders"],
   dispatchment: ["purchase_orders"],

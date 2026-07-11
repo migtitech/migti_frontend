@@ -15,14 +15,24 @@ import {
   CFormTextarea,
   CFormSelect,
   CFormCheck,
+  CFormSwitch,
   CAlert,
   CImage,
   CSpinner,
+  CProgress,
+  CProgressBar,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilPlus, cilTrash, cilArrowLeft } from "@coreui/icons";
+import {
+  cilPlus,
+  cilTrash,
+  cilArrowLeft,
+  cilArrowRight,
+  cilCheckCircle,
+} from "@coreui/icons";
 import productService from "../../services/productService";
 import categoryService from "../../services/categoryService";
+import subcategoryService from "../../services/subcategoryService";
 import brandService from "../../services/brandService";
 import groupService from "../../services/groupService";
 import industryService from "../../services/industryService";
@@ -48,39 +58,69 @@ import {
   formatDateInputValue,
   daysToTimelineForm,
 } from "../../utils/procurementTimeline";
+import { buildVariantCode, getOptionValuesKey } from "../../utils/variantCode";
+import "../../components/CrudFormPage/CrudFormPage.scss";
 
 const VARIANT_TYPE_OPTIONS = [
+  { value: "Brand", label: "Brand" },
   { value: "Color", label: "Color" },
   { value: "Size", label: "Size" },
-  { value: "Quantity", label: "Quantity" },
-  { value: "Dimension", label: "Dimension" },
-  { value: "Build Material", label: "Build Material" },
+  { value: "Grade", label: "Grade" },
+  { value: "Thickness", label: "Thickness" },
+  { value: "Voltage", label: "Voltage" },
+  { value: "Weight", label: "Weight" },
+  { value: "Height", label: "Height" },
+  { value: "Length", label: "Length" },
+  { value: "Amp", label: "Amp" },
 ];
 
 const defaultValues = {
   name: "",
-  sku: "",
-  shortDescription: "",
+  description: "",
   category: "",
   subcategory: "",
   brand: "",
   group: "",
   hsnNumber: "",
+  taxClause: "",
   gstPercentage: "",
   defaultModelNumber: "",
-  hasVariants: false,
+  hasVariants: true,
   weight: "",
   weightUnit: "g",
   dimensions: { length: "", width: "", height: "" },
   dimensionUnit: "cm",
   tags: "",
-  status: "draft",
+  status: "active",
   unit: "PCS",
-  timelineValue: "",
-  timelineUnit: "day",
+  purchaseUnit: "",
+  salesUnit: "",
+  minStock: "",
+  maxStock: "",
+  expiry: "",
 };
 
 const PRODUCT_FORM_DRAFT_KEY = "product_form_draft";
+
+const getProductSteps = (includeHodSections) => {
+  const steps = [
+    { id: 1, label: "Basic Information" },
+    { id: 2, label: "Tax & Accounting" },
+    { id: 3, label: "Attributes" },
+    { id: 4, label: "Inventory" },
+  ];
+  if (includeHodSections) {
+    steps.push({ id: 5, label: "Map Client Code" });
+    steps.push({ id: 6, label: "Map Supplier Code" });
+  }
+  return steps;
+};
+
+const STEP_FIELD_GROUPS = {
+  1: ["name", "group", "category", "status", "description", "subcategory"],
+  2: ["taxClause", "hsnNumber", "unit", "purchaseUnit", "salesUnit"],
+  4: ["minStock", "maxStock", "expiry"],
+};
 
 const EMPTY_COMPANY_PRODUCT_CODE = {
   industryId: "",
@@ -147,6 +187,7 @@ const ProductForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [success, setSuccess] = useState("");
+  const [currentStep, setCurrentStep] = useState(1);
 
   const showValidationAlert = (messages) => {
     const list = (Array.isArray(messages) ? messages : [messages])
@@ -162,18 +203,16 @@ const ProductForm = () => {
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [categoryBrands, setCategoryBrands] = useState([]);
   const [groups, setGroups] = useState([]);
   const [groupSearch, setGroupSearch] = useState("");
   const [categorySearch, setCategorySearch] = useState("");
   const [subcategorySearch, setSubcategorySearch] = useState("");
   const [brandSearch, setBrandSearch] = useState("");
 
-  const [variants, setVariants] = useState([]);
+  const [variants, setVariants] = useState([{ name: "", options: [] }]);
   const [customVariantInput, setCustomVariantInput] = useState({});
 
-  const [imageFiles, setImageFiles] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
-  const [existingImages, setExistingImages] = useState([]);
   const [variantCombinations, setVariantCombinations] = useState([]);
   const [companyProductCodes, setCompanyProductCodes] = useState([
     { ...EMPTY_COMPANY_PRODUCT_CODE },
@@ -184,8 +223,7 @@ const ProductForm = () => {
   const [industryResultsByRow, setIndustryResultsByRow] = useState({});
   const [supplierResultsByRow, setSupplierResultsByRow] = useState({});
   const comboFileInputRefs = useRef({});
-  const [storedTimelineDays, setStoredTimelineDays] = useState(null);
-  const [storedNextTimelineDate, setStoredNextTimelineDate] = useState(null);
+  const [productCode, setProductCode] = useState("");
 
   const {
     register,
@@ -194,6 +232,7 @@ const ProductForm = () => {
     setValue,
     watch,
     control,
+    trigger,
     formState: { errors },
   } = useForm({
     defaultValues,
@@ -201,28 +240,118 @@ const ProductForm = () => {
     mode: "onBlur",
   });
 
-  const hasVariants = watch("hasVariants");
   const selectedGroup = watch("group");
   const selectedCategory = watch("category");
   const selectedSubcategory = watch("subcategory");
   const selectedBrand = watch("brand");
-  const timelineValue = watch("timelineValue");
-  const timelineUnit = watch("timelineUnit");
-
-  const timelineDays = convertTimelineToDays(timelineValue, timelineUnit);
-  const computedNextTimelineDate =
-    timelineDays > 0 &&
-    storedTimelineDays === timelineDays &&
-    storedNextTimelineDate
-      ? new Date(storedNextTimelineDate)
-      : computeNextTimelineDate(timelineDays);
-  const computedProcurementReviewStatus = computeProcurementReviewStatus(
-    timelineDays,
-    computedNextTimelineDate,
-  );
+  const selectedStatus = watch("status");
 
   const sectionHeaderStyle = { padding: "1rem 1.5rem", fontSize: "1.1rem" };
   const sectionBodyStyle = { padding: "1.5rem 1.5rem" };
+  const productSteps = getProductSteps(isHodUser);
+  const totalSteps = productSteps.length;
+
+  const goToStep = (step) => {
+    if (step < 1 || step > totalSteps) return;
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const getStepStatus = (stepId) => {
+    if (stepId < currentStep) return "completed";
+    if (stepId === currentStep) return "active";
+    return "pending";
+  };
+
+  const validateAttributesStep = () => {
+    const hasNamedAttribute = variants.some((attribute) =>
+      attribute?.name?.trim(),
+    );
+    if (!hasNamedAttribute) {
+      toastError("Add at least one attribute.");
+      return false;
+    }
+    const hasVariantOption = variants.some(
+      (attribute) =>
+        attribute?.name?.trim() &&
+        (attribute.options || []).some((option) => String(option).trim()),
+    );
+    if (!hasVariantOption) {
+      toastError("Add at least one variant option for your attributes.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleNextStep = async () => {
+    clearValidationAlert();
+
+    if (STEP_FIELD_GROUPS[currentStep]) {
+      if (currentStep === 1) {
+        if (selectedGroup && groupSearch !== getSelectedGroupName()) {
+          clearGroupSelection();
+        }
+        if (selectedCategory && categorySearch !== getSelectedCategoryName()) {
+          clearCategorySelection();
+        }
+      }
+
+      const isValid = await trigger(STEP_FIELD_GROUPS[currentStep]);
+      if (!isValid) return;
+    }
+
+    if (currentStep === 3 && !validateAttributesStep()) {
+      return;
+    }
+
+    if (currentStep === 5 && isHodUser) {
+      const companyCodeErrors =
+        await validateCompanyProductCodeRows(companyProductCodes);
+      if (companyCodeErrors.length > 0) {
+        showValidationAlert(companyCodeErrors);
+        return;
+      }
+    }
+
+    goToStep(currentStep + 1);
+  };
+
+  const renderStepNav = () => (
+    <div className="d-flex flex-column flex-sm-row justify-content-between align-items-stretch align-items-sm-center gap-2 mb-4">
+      {currentStep > 1 ? (
+        <CButton
+          color="secondary"
+          type="button"
+          onClick={() => goToStep(currentStep - 1)}
+        >
+          <CIcon icon={cilArrowLeft} className="me-1" />
+          Back
+        </CButton>
+      ) : (
+        <span />
+      )}
+      <div className="d-flex gap-2 ms-sm-auto">
+        <CButton
+          color="light"
+          type="button"
+          onClick={() => navigate("/products")}
+        >
+          Cancel
+        </CButton>
+        {currentStep < totalSteps ? (
+          <CButton color="primary" type="button" onClick={handleNextStep}>
+            Next
+            <CIcon icon={cilArrowRight} className="ms-1" />
+          </CButton>
+        ) : (
+          <CButton color="primary" type="submit" disabled={submitting}>
+            {submitting ? <CSpinner size="sm" className="me-2" /> : null}
+            {isEdit ? "Update Product" : "Create Product"}
+          </CButton>
+        )}
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     fetchDropdownData();
@@ -237,9 +366,10 @@ const ProductForm = () => {
           const {
             companyProductCodes: storedCodes,
             supplierProductCodes: storedSupplierCodes,
+            currentStep: storedStep,
             ...formValues
           } = stored;
-          reset({ ...defaultValues, ...formValues });
+          reset({ ...defaultValues, ...formValues, hasVariants: true });
           if (Array.isArray(storedCodes) && storedCodes.length > 0) {
             setCompanyProductCodes(storedCodes);
           }
@@ -248,6 +378,14 @@ const ProductForm = () => {
             storedSupplierCodes.length > 0
           ) {
             setSupplierProductCodes(storedSupplierCodes);
+          }
+          const maxStep = getProductSteps(isHodUser).length;
+          if (
+            typeof storedStep === "number" &&
+            storedStep >= 1 &&
+            storedStep <= maxStep
+          ) {
+            setCurrentStep(storedStep);
           }
         } else {
           reset(defaultValues);
@@ -269,6 +407,7 @@ const ProductForm = () => {
             ...values,
             companyProductCodes,
             supplierProductCodes,
+            currentStep,
           }),
         );
       } catch {
@@ -276,13 +415,7 @@ const ProductForm = () => {
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, isEdit, companyProductCodes, supplierProductCodes]);
-
-  useEffect(() => {
-    if (!hasVariants) {
-      setVariants([]);
-    }
-  }, [hasVariants]);
+  }, [watch, isEdit, companyProductCodes, supplierProductCodes, currentStep]);
 
   useEffect(() => {
     const timers = {};
@@ -358,12 +491,14 @@ const ProductForm = () => {
       // ignore
     }
     reset(defaultValues);
+    setProductCode("");
     setCompanyProductCodes([{ ...EMPTY_COMPANY_PRODUCT_CODE }]);
     setSupplierProductCodes([{ ...EMPTY_SUPPLIER_PRODUCT_CODE }]);
+    setVariants([{ name: "", options: [] }]);
+    setVariantCombinations([]);
     setIndustryResultsByRow({});
     setSupplierResultsByRow({});
-    setStoredTimelineDays(null);
-    setStoredNextTimelineDate(null);
+    setCurrentStep(1);
     toastSuccess("Saved product form data cleared");
   };
 
@@ -459,13 +594,12 @@ const ProductForm = () => {
       return;
     }
     try {
-      const res = await categoryService.getAll({
-        pageNumber: 1,
-        pageSize: 100,
-        parent: parentId,
+      const res = await subcategoryService.getAllSubcategories({
+        category: parentId,
       });
       const data = res?.data || res;
-      setSubcategories(data?.categories || []);
+      const inner = data?.data ?? data;
+      setSubcategories(inner?.subcategories || []);
     } catch (err) {
       console.error("Failed to fetch subcategories", err);
     }
@@ -514,6 +648,82 @@ const ProductForm = () => {
       .includes((subcategorySearch || "").toLowerCase()),
   );
 
+  const getSelectedGroupName = () => {
+    if (!selectedGroup) return "";
+    const group = groups.find(
+      (item) => String(item._id || item.id) === String(selectedGroup),
+    );
+    return group?.name || groupSearch || "";
+  };
+
+  const getSelectedCategoryName = () => {
+    if (!selectedCategory) return "";
+    const category = categories.find(
+      (item) => String(item._id || item.id) === String(selectedCategory),
+    );
+    return category?.name || categorySearch || "";
+  };
+
+  const getSelectedSubcategoryName = () => {
+    if (!selectedSubcategory) return "";
+    const subcategory = subcategories.find(
+      (item) => String(item._id || item.id) === String(selectedSubcategory),
+    );
+    return subcategory?.name || subcategorySearch || "";
+  };
+
+  const resetBrandVariantOptions = () => {
+    setVariants((prev) =>
+      prev.map((attribute) =>
+        attribute.name === "Brand"
+          ? { ...attribute, options: [""] }
+          : attribute,
+      ),
+    );
+  };
+
+  const clearGroupSelection = () => {
+    setValue("group", "", { shouldValidate: true });
+    setValue("category", "", { shouldValidate: true });
+    setValue("subcategory", "", { shouldValidate: true });
+    setCategorySearch("");
+    setSubcategorySearch("");
+    setCategoryBrands([]);
+    resetBrandVariantOptions();
+  };
+
+  const clearCategorySelection = () => {
+    setValue("category", "", { shouldValidate: true });
+    setValue("subcategory", "", { shouldValidate: true });
+    setSubcategorySearch("");
+    setCategoryBrands([]);
+    resetBrandVariantOptions();
+  };
+
+  const handleGroupSearchChange = (event) => {
+    const nextSearch = event.target.value;
+    setGroupSearch(nextSearch);
+    if (selectedGroup && nextSearch !== getSelectedGroupName()) {
+      clearGroupSelection();
+    }
+  };
+
+  const handleCategorySearchChange = (event) => {
+    const nextSearch = event.target.value;
+    setCategorySearch(nextSearch);
+    if (selectedCategory && nextSearch !== getSelectedCategoryName()) {
+      clearCategorySelection();
+    }
+  };
+
+  const handleSubcategorySearchChange = (event) => {
+    const nextSearch = event.target.value;
+    setSubcategorySearch(nextSearch);
+    if (selectedSubcategory && nextSearch !== getSelectedSubcategoryName()) {
+      setValue("subcategory", "", { shouldValidate: true });
+    }
+  };
+
   const filteredBrands = brands.filter((b) =>
     (b.name || "").toLowerCase().includes((brandSearch || "").toLowerCase()),
   );
@@ -526,16 +736,16 @@ const ProductForm = () => {
       if (product) {
         reset({
           name: product.name || "",
-          sku: product.sku || "",
-          shortDescription: product.shortDescription || "",
+          description: product.description || product.shortDescription || "",
           category: product.category?._id || product.category || "",
           subcategory: product.subcategory?._id || product.subcategory || "",
           brand: product.brand?._id || product.brand || "",
           group: product.group?._id || product.group || "",
           hsnNumber: product.hsnNumber || "",
+          taxClause: product.taxClause || "",
           gstPercentage: product.gstPercentage ?? "",
           defaultModelNumber: product.defaultModelNumber || "",
-          hasVariants: product.hasVariants || false,
+          hasVariants: true,
           weight: product.weight ?? "",
           weightUnit: product.weightUnit || "g",
           dimensions: product.dimensions || {
@@ -545,12 +755,27 @@ const ProductForm = () => {
           },
           dimensionUnit: product.dimensionUnit || "cm",
           tags: (product.tags || []).join(", "),
-          status: product.status || "draft",
+          status: product.status === "inactive" ? "inactive" : "active",
           unit: product.unit || "PCS",
-          ...daysToTimelineForm(product.timeline),
+          purchaseUnit: product.purchaseUnit || "",
+          salesUnit: product.salesUnit || "",
+          minStock: product.minStock ?? "",
+          maxStock: product.maxStock ?? "",
+          expiry: product.expiry
+            ? formatDateInputValue(new Date(product.expiry))
+            : "",
         });
+        setProductCode(product.productCode || "");
+        if (product.group?.name) setGroupSearch(product.group.name);
+        if (product.category?.name) setCategorySearch(product.category.name);
+        if (product.subcategory?.name)
+          setSubcategorySearch(product.subcategory.name);
         const loadedVariants = product.variants || [];
-        setVariants(loadedVariants);
+        setVariants(
+          loadedVariants.length > 0
+            ? loadedVariants
+            : [{ name: "", options: [] }],
+        );
         const customInputMap = {};
         loadedVariants.forEach((v, i) => {
           if (v.name && !VARIANT_TYPE_OPTIONS.some((o) => o.value === v.name)) {
@@ -558,16 +783,27 @@ const ProductForm = () => {
           }
         });
         setCustomVariantInput(customInputMap);
-        const imgs = product.images || [];
-        setExistingImages(
-          imgs.map((i) => (typeof i === "object" && i?._id ? i._id : i)),
+        setVariantCombinations(
+          (product.variantCombinations || []).map((vc) => {
+            const queryImage = vc.queryQuotationImageId;
+            const queryImageId =
+              typeof queryImage === "object" && queryImage?._id
+                ? queryImage._id
+                : queryImage || null;
+            return {
+              ...vc,
+              selected: true,
+              price: vc.price ?? "",
+              costPrice: vc.costPrice ?? "",
+              modelNumber: vc.modelNumber || "",
+              isActive: vc.isActive !== false,
+              queryQuotationImageId: queryImageId,
+              ...daysToTimelineForm(vc.timeline),
+              nextTimelineDate: vc.nextTimelineDate || null,
+              procurementReviewStatus: vc.procurementReviewStatus || "idle",
+            };
+          }),
         );
-        setImagePreviews(
-          imgs.map((i) =>
-            typeof i === "object" && i?.path ? getAssetsUrl(i.path) : i,
-          ),
-        );
-        setVariantCombinations(product.variantCombinations || []);
         const loadedCompanyCodes = (product.companyProductCodes || []).map(
           (item) => {
             const industry = item.industry;
@@ -610,12 +846,10 @@ const ProductForm = () => {
             ? loadedSupplierCodes
             : [{ ...EMPTY_SUPPLIER_PRODUCT_CODE }],
         );
-        setStoredTimelineDays(
-          product.timeline > 0 ? Number(product.timeline) : null,
-        );
-        setStoredNextTimelineDate(product.nextTimelineDate || null);
         if (product.category?._id || product.category) {
-          fetchSubcategories(product.category?._id || product.category);
+          const categoryId = product.category?._id || product.category;
+          fetchSubcategories(categoryId);
+          fetchCategoryBrands(categoryId);
         }
       }
     } catch (err) {
@@ -625,9 +859,41 @@ const ProductForm = () => {
     }
   };
 
+  const fetchCategoryBrands = async (categoryId) => {
+    if (!categoryId) {
+      setCategoryBrands([]);
+      return;
+    }
+
+    try {
+      const response = await categoryService.getById(categoryId);
+      const category = response?.data || response;
+      setCategoryBrands(category?.brands || []);
+    } catch (error) {
+      setCategoryBrands([]);
+      toastError(error?.message || "Failed to load category brands");
+    }
+  };
+
   const handleCategoryChange = (value) => {
     setValue("subcategory", "");
+    setSubcategorySearch("");
+    setCategoryBrands([]);
+    setVariants((prev) =>
+      prev.map((attribute) =>
+        attribute.name === "Brand"
+          ? { ...attribute, options: [""] }
+          : attribute,
+      ),
+    );
     fetchSubcategories(value);
+    fetchCategoryBrands(value);
+  };
+
+  const handleStatusToggle = (checked) => {
+    setValue("status", checked ? "active" : "inactive", {
+      shouldValidate: true,
+    });
   };
 
   // Variant management
@@ -647,7 +913,11 @@ const ProductForm = () => {
       setCustomVariantInput((prev) => ({ ...prev, [index]: false }));
       setVariants((prev) => {
         const next = [...prev];
-        next[index] = { ...next[index], name: value };
+        next[index] = {
+          ...next[index],
+          name: value,
+          options: value === "Brand" ? [""] : [],
+        };
         return next;
       });
     }
@@ -662,13 +932,22 @@ const ProductForm = () => {
   };
 
   const removeVariant = (index) => {
-    setVariants((prev) => prev.filter((_, i) => i !== index));
+    setVariants((prev) => {
+      if (prev.length <= 1) {
+        return [{ name: "", options: [] }];
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const addSubVariant = (variantIndex) => {
     const variant = variants[variantIndex];
     if (!variant?.name) {
-      toastError("Please enter a variant name first.");
+      toastError("Please enter an attribute name first.");
+      return;
+    }
+    if (variant.name === "Brand" && !selectedCategory) {
+      toastError("Select a category first.");
       return;
     }
     const newOption = "";
@@ -703,32 +982,14 @@ const ProductForm = () => {
     });
   };
 
-  // Image handling
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    setImageFiles((prev) => [...prev, ...files]);
-    const newPreviews = files.map((file) => URL.createObjectURL(file));
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
-  };
-
-  const removeImage = (index) => {
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-    if (index < existingImages.length) {
-      setExistingImages((prev) => prev.filter((_, i) => i !== index));
-    } else {
-      const fileIndex = index - existingImages.length;
-      setImageFiles((prev) => prev.filter((_, i) => i !== fileIndex));
-    }
-  };
+  const getVariantComboKey = (combo, index = 0) =>
+    combo?._id || getOptionValuesKey(combo?.optionValues) || `combo-${index}`;
 
   const handleVariantComboImageUpload = async (comboIndex, files) => {
     if (!files?.length) return;
     const fileList = Array.from(files);
     try {
-      const combo = variantCombinations[comboIndex];
-      const opts = id
-        ? { productId: id, variantUniqueId: combo?.uniqueId }
-        : {};
+      const opts = id ? { productId: id } : {};
       const uploadRes = await productService.uploadImages(fileList, opts);
       const uploadData = uploadRes?.data ?? uploadRes;
       const documents =
@@ -740,13 +1001,17 @@ const ProductForm = () => {
         }));
         setVariantCombinations((prev) => {
           const next = [...prev];
+          const combo = next[comboIndex];
+          const images = [...(combo.images || []), ...newImages];
           next[comboIndex] = {
-            ...next[comboIndex],
-            images: [...(next[comboIndex].images || []), ...newImages],
+            ...combo,
+            images,
+            queryQuotationImageId:
+              combo.queryQuotationImageId || newImages[0]?._id || null,
           };
           return next;
         });
-        toastSuccess(`${newImages.length} image(s) uploaded (S3)`);
+        toastSuccess(`${newImages.length} image(s) uploaded`);
       } else {
         toastError("No documents returned from upload");
       }
@@ -758,31 +1023,52 @@ const ProductForm = () => {
   const removeVariantComboImage = (comboIndex, imageIndex) => {
     setVariantCombinations((prev) => {
       const next = [...prev];
+      const combo = next[comboIndex];
+      const removed = (combo.images || [])[imageIndex];
+      const removedId =
+        typeof removed === "object" && removed?._id ? removed._id : removed;
+      const queryId =
+        typeof combo.queryQuotationImageId === "object"
+          ? combo.queryQuotationImageId?._id
+          : combo.queryQuotationImageId;
       next[comboIndex] = {
-        ...next[comboIndex],
-        images: (next[comboIndex].images || []).filter(
-          (_, i) => i !== imageIndex,
-        ),
+        ...combo,
+        images: (combo.images || []).filter((_, i) => i !== imageIndex),
+        queryQuotationImageId:
+          String(queryId || "") === String(removedId || "")
+            ? null
+            : combo.queryQuotationImageId,
       };
       return next;
     });
   };
 
-  /** Cartesian product of variant options -> array of { optionValues, uniqueId, sku, price, ... } */
+  const setVariantComboQueryQuotationImage = (comboIndex, imageId) => {
+    setVariantCombinations((prev) => {
+      const next = [...prev];
+      next[comboIndex] = {
+        ...next[comboIndex],
+        queryQuotationImageId: imageId || null,
+      };
+      return next;
+    });
+  };
+
+  /** Cartesian product of variant options -> array of { optionValues, variantCode, price, ... } */
   const generateSubvariantsFromVariants = () => {
     const varsWithOptions = variants.filter(
       (v) => v?.name && v?.options?.length > 0,
     );
     if (varsWithOptions.length === 0) {
-      toastError("Add at least one variant with sub-variant options.");
+      toastError("Add at least one attribute with variant options.");
       return;
     }
-    const baseSku = watch("sku") || "SKU";
-    const productHsn = watch("hsnNumber") || "";
-    const productDefaultModel = watch("defaultModelNumber") || "";
-    const productGst = watch("gstPercentage");
-    const productGstNum =
-      productGst !== "" && productGst != null ? parseFloat(productGst) : 0;
+    const existingByKey = new Map(
+      variantCombinations.map((combo) => [
+        getOptionValuesKey(combo.optionValues),
+        combo,
+      ]),
+    );
 
     const optionArrays = varsWithOptions.map((v) =>
       (v.options || [])
@@ -795,35 +1081,51 @@ const ProductForm = () => {
       return arrs[i].flatMap((opt) => rest.map((r) => [opt, ...r]));
     };
     const optionValueLists = combine(optionArrays);
-    const newCombos = optionValueLists.map((optionValues, idx) => {
-      const slug = optionValues
-        .map((o) => `${o.variantValue}`)
-        .join("-")
-        .replace(/\s+/g, "-");
-      const uniqueId = `combo-${slug}-${Date.now()}-${idx}`;
+    const newCombos = optionValueLists.map((optionValues) => {
+      const existing = existingByKey.get(getOptionValuesKey(optionValues));
       return {
-        uniqueId,
+        _id: existing?._id,
         optionValues,
-        sku: `${baseSku}-${slug}`,
-        price: 0,
-        mrp: 0,
-        costPrice: 0,
-        quantity: 0,
-        weight: 0,
-        weightUnit: "g",
-        dimensions: { length: 0, width: 0, height: 0 },
-        dimensionUnit: "cm",
-        images: [],
-        modelNumber: productDefaultModel,
-        hsnNumber: productHsn,
-        gstPercentage: productGstNum,
-        isActive: true,
+        price: existing?.price ?? "",
+        mrp: existing?.mrp ?? 0,
+        costPrice: existing?.costPrice ?? "",
+        quantity: existing?.quantity ?? 0,
+        weight: existing?.weight ?? 0,
+        weightUnit: existing?.weightUnit ?? "g",
+        dimensions: existing?.dimensions ?? {
+          length: 0,
+          width: 0,
+          height: 0,
+        },
+        dimensionUnit: existing?.dimensionUnit ?? "cm",
+        images: existing?.images ?? [],
+        queryQuotationImageId: existing?.queryQuotationImageId ?? null,
+        modelNumber: existing?.modelNumber ?? "",
+        isActive: existing?.isActive !== false,
+        variantCode: existing?.variantCode,
+        timelineValue: existing?.timelineValue ?? "",
+        timelineUnit: existing?.timelineUnit ?? "day",
+        timeline: existing?.timeline ?? null,
+        nextTimelineDate: existing?.nextTimelineDate ?? null,
+        procurementReviewStatus: existing?.procurementReviewStatus ?? "idle",
+        selected: existing?.selected ?? false,
       };
     });
     setVariantCombinations(newCombos);
     toastSuccess(
-      `Generated ${newCombos.length} subvariants. Upload images for each.`,
+      `Generated ${newCombos.length} variants. Select the ones you need.`,
     );
+  };
+
+  const toggleVariantComboSelected = (comboIndex) => {
+    setVariantCombinations((prev) => {
+      const next = [...prev];
+      next[comboIndex] = {
+        ...next[comboIndex],
+        selected: !next[comboIndex].selected,
+      };
+      return next;
+    });
   };
 
   const updateVariantComboField = (comboIndex, field, value) => {
@@ -834,10 +1136,47 @@ const ProductForm = () => {
     });
   };
 
-  /** Remove a variant combination (subvariant) by index – use when you don't have product for that combo */
-  const removeVariantCombo = (comboIndex) => {
-    setVariantCombinations((prev) => prev.filter((_, i) => i !== comboIndex));
-    toastSuccess("Combination removed.");
+  const getComboTimelineDays = (combo) => {
+    if (combo.timeline != null && Number(combo.timeline) > 0) {
+      return Number(combo.timeline);
+    }
+    return convertTimelineToDays(
+      combo.timelineValue,
+      combo.timelineUnit || "day",
+    );
+  };
+
+  const getComboNextTimelineDate = (combo) => {
+    const timelineDays = getComboTimelineDays(combo);
+    if (timelineDays <= 0) return null;
+    if (combo.nextTimelineDate) {
+      const stored = new Date(combo.nextTimelineDate);
+      if (!Number.isNaN(stored.getTime())) return stored;
+    }
+    return computeNextTimelineDate(timelineDays);
+  };
+
+  const updateVariantComboTimeline = (comboIndex, updates) => {
+    setVariantCombinations((prev) => {
+      const next = [...prev];
+      const combo = { ...next[comboIndex], ...updates };
+      const timelineDays = convertTimelineToDays(
+        combo.timelineValue,
+        combo.timelineUnit || "day",
+      );
+      const nextTimelineDate =
+        timelineDays > 0 ? computeNextTimelineDate(timelineDays) : null;
+      next[comboIndex] = {
+        ...combo,
+        timeline: timelineDays > 0 ? timelineDays : null,
+        nextTimelineDate: nextTimelineDate?.toISOString() ?? null,
+        procurementReviewStatus: computeProcurementReviewStatus(
+          timelineDays,
+          nextTimelineDate,
+        ),
+      };
+      return next;
+    });
   };
 
   const onInvalid = (formErrors) => {
@@ -850,6 +1189,12 @@ const ProductForm = () => {
     setSuccess("");
 
     try {
+      if (!validateAttributesStep()) {
+        setSubmitting(false);
+        goToStep(3);
+        return;
+      }
+
       const companyCodeErrors = isHodUser
         ? await validateCompanyProductCodeRows(companyProductCodes)
         : [];
@@ -862,52 +1207,29 @@ const ProductForm = () => {
         return;
       }
 
-      let uploadedImages = [...existingImages];
-
-      if (imageFiles.length > 0) {
-        try {
-          const opts = isEdit && id ? { productId: id } : {};
-          const uploadRes = await productService.uploadImages(imageFiles, opts);
-          const uploadData = uploadRes?.data || uploadRes;
-          if (uploadData?.documents?.length) {
-            uploadedImages = [
-              ...uploadedImages,
-              ...uploadData.documents.map((d) => d._id),
-            ];
-          }
-        } catch (uploadErr) {
-          console.error(
-            "Image upload failed, continuing without images",
-            uploadErr,
-          );
-        }
-      }
+      let uploadedImages = [];
 
       const payload = {
         name: values.name,
-        sku: values.sku,
-        shortDescription: values.shortDescription || "",
+        description: values.description || "",
         category: values.category,
         subcategory: values.subcategory || null,
         brand: values.brand || null,
-        group: values.group || null,
-        hsnNumber: values.hsnNumber || "",
+        group: values.group,
+        hsnNumber: values.hsnNumber.trim(),
+        taxClause: values.taxClause.trim(),
         gstPercentage:
           values.gstPercentage !== "" && values.gstPercentage != null
             ? parseFloat(values.gstPercentage)
             : 0,
         defaultModelNumber: values.defaultModelNumber || "",
-        hasVariants: values.hasVariants,
-        variants: values.hasVariants ? variants : [],
+        hasVariants: true,
+        variants,
         images: uploadedImages,
-        weight: parseFloat(values.weight) || 0,
-        weightUnit: values.weightUnit,
-        dimensions: {
-          length: parseFloat(values.dimensions?.length) || 0,
-          width: parseFloat(values.dimensions?.width) || 0,
-          height: parseFloat(values.dimensions?.height) || 0,
-        },
-        dimensionUnit: values.dimensionUnit,
+        weight: 0,
+        weightUnit: "g",
+        dimensions: { length: 0, width: 0, height: 0 },
+        dimensionUnit: "cm",
         tags: values.tags
           ? values.tags
               .split(",")
@@ -916,6 +1238,17 @@ const ProductForm = () => {
           : [],
         status: values.status,
         unit: values.unit,
+        purchaseUnit: values.purchaseUnit || null,
+        salesUnit: values.salesUnit || null,
+        minStock:
+          values.minStock !== "" && values.minStock != null
+            ? parseInt(values.minStock, 10)
+            : null,
+        maxStock:
+          values.maxStock !== "" && values.maxStock != null
+            ? parseInt(values.maxStock, 10)
+            : null,
+        expiry: values.expiry || null,
       };
 
       if (isHodUser) {
@@ -933,29 +1266,48 @@ const ProductForm = () => {
           }));
       }
 
-      if (timelineDays > 0) {
-        payload.timeline = timelineDays;
-        payload.nextTimelineDate = computedNextTimelineDate?.toISOString();
-        payload.procurementReviewStatus = computedProcurementReviewStatus;
-      } else {
-        payload.timeline = null;
-        payload.nextTimelineDate = null;
-        payload.procurementReviewStatus = "idle";
-      }
-
-      if (values.hasVariants && variantCombinations.length > 0) {
-        payload.variantCombinations = variantCombinations.map((vc) => ({
-          ...vc,
-          modelNumber: vc.modelNumber || "",
-          hsnNumber: vc.hsnNumber ?? "",
-          gstPercentage:
-            vc.gstPercentage !== undefined && vc.gstPercentage !== ""
-              ? parseFloat(vc.gstPercentage)
-              : null,
-          images: (vc.images || []).map((img) =>
+      const selectedCombinations = variantCombinations.filter(
+        (vc) => vc.selected,
+      );
+      if (selectedCombinations.length > 0) {
+        payload.variantCombinations = selectedCombinations.map((vc) => {
+          const { selected: _selected, ...rest } = vc;
+          const imageIds = (rest.images || []).map((img) =>
             typeof img === "object" && img?._id ? img._id : img,
-          ),
-        }));
+          );
+          let queryQuotationImageId =
+            typeof rest.queryQuotationImageId === "object"
+              ? rest.queryQuotationImageId?._id
+              : rest.queryQuotationImageId;
+          if (
+            queryQuotationImageId &&
+            !imageIds.some((id) => String(id) === String(queryQuotationImageId))
+          ) {
+            queryQuotationImageId = null;
+          }
+          return {
+            ...rest,
+            modelNumber: rest.modelNumber || "",
+            price:
+              rest.price !== "" && rest.price != null
+                ? parseFloat(rest.price)
+                : 0,
+            costPrice:
+              rest.costPrice !== "" && rest.costPrice != null
+                ? parseFloat(rest.costPrice)
+                : 0,
+            isActive: rest.isActive !== false,
+            images: imageIds,
+            queryQuotationImageId: queryQuotationImageId || null,
+            timelineValue:
+              rest.timelineValue !== "" && rest.timelineValue != null
+                ? Number(rest.timelineValue)
+                : undefined,
+            timelineUnit: rest.timelineUnit || "day",
+            nextTimelineDate: rest.nextTimelineDate || undefined,
+            procurementReviewStatus: rest.procurementReviewStatus || "idle",
+          };
+        });
       } else {
         payload.variantCombinations = [];
       }
@@ -981,7 +1333,7 @@ const ProductForm = () => {
         let msg = "Product created successfully.";
         if (productCode) msg += ` Product Code: ${productCode}`;
         if (variantCodes?.length > 0)
-          msg += ` Variants: ${variantCodes.join(", ")}`;
+          msg += ` Variant codes: ${variantCodes.join(", ")}`;
         toastSuccess(msg);
         setTimeout(
           () =>
@@ -1045,1258 +1397,1319 @@ const ProductForm = () => {
         </CAlert>
       )}
 
-      <CCard className="mb-4">
-        <CCardHeader
-          style={sectionHeaderStyle}
-          className="d-flex justify-content-between align-items-center"
-        >
-          <strong>Basic Information</strong>
-          {!isEdit && (
-            <CButton
-              color="secondary"
-              size="sm"
-              variant="outline"
-              onClick={handleClearDraft}
-            >
-              Clear saved data
-            </CButton>
-          )}
-        </CCardHeader>
-        <CCardBody style={sectionBodyStyle}>
-          <CRow>
-            <CCol md={8}>
-              <div className="mb-3">
-                <CFormLabel>Product Name *</CFormLabel>
-                <CFormInput
-                  placeholder="Enter product name"
-                  {...register("name")}
-                />
-                {errors.name && (
-                  <div className="text-danger small mt-1">
-                    {errors.name.message}
+      <div
+        className="mb-4 sticky-top"
+        style={{ top: 0, zIndex: 1040, backgroundColor: "#f8f9fa" }}
+      >
+        <CCard>
+          <CCardBody>
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              {productSteps.map((step) => {
+                const status = getStepStatus(step.id);
+                const isCompleted = status === "completed";
+                const isActive = status === "active";
+                return (
+                  <div key={step.id} className="text-center flex-fill">
+                    <div
+                      className={`d-inline-flex align-items-center justify-content-center rounded-circle border ${
+                        isCompleted
+                          ? "bg-success text-white border-success"
+                          : isActive
+                            ? "bg-primary text-white border-primary"
+                            : "bg-light text-muted border-secondary"
+                      }`}
+                      style={{ width: 36, height: 36 }}
+                    >
+                      {isCompleted ? <CIcon icon={cilCheckCircle} /> : step.id}
+                    </div>
+                    <div className="mt-2 small fw-semibold">{step.label}</div>
                   </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>SKU *</CFormLabel>
-                <CFormInput placeholder="e.g., PROD-001" {...register("sku")} />
-                {errors.sku && (
-                  <div className="text-danger small mt-1">
-                    {errors.sku.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
-            <CCol md={12}>
-              <div className="mb-3">
-                <CFormLabel>Short Description</CFormLabel>
-                <CFormInput
-                  placeholder="Brief product summary"
-                  {...register("shortDescription")}
-                />
-                {errors.shortDescription && (
-                  <div className="text-danger small mt-1">
-                    {errors.shortDescription.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel>Group</CFormLabel>
-                <CFormInput
-                  placeholder="Type to search group..."
-                  value={groupSearch}
-                  onChange={(e) => setGroupSearch(e.target.value)}
-                />
-                {groupSearch && (
-                  <div
-                    className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: "200px", overflowY: "auto" }}
-                  >
-                    {filteredGroups.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">
-                        No matches
-                      </div>
-                    )}
-                    {filteredGroups.map((g) => {
-                      const id = g._id || g.id;
-                      const isSelected = selectedGroup === id;
-                      return (
-                        <div
-                          key={id}
-                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => {
-                            const nextVal = id || "";
-                            setValue("group", nextVal, {
-                              shouldValidate: true,
-                            });
-                            setGroupSearch(g.name || "");
-                            // reset dependent fields
-                            setValue("category", "", { shouldValidate: true });
-                            setValue("subcategory", "", {
-                              shouldValidate: true,
-                            });
-                            setCategorySearch("");
-                            setSubcategorySearch("");
-                          }}
-                        >
-                          {g.name}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel className="mb-0">Category *</CFormLabel>
-                <CFormInput
-                  placeholder="Type to search category..."
-                  value={categorySearch}
-                  onChange={(e) => setCategorySearch(e.target.value)}
-                />
-                {(categorySearch || selectedGroup) && (
-                  <div
-                    className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: "200px", overflowY: "auto" }}
-                  >
-                    {filteredCategories.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">
-                        {selectedGroup
-                          ? "No categories in this group"
-                          : "No matches"}
-                      </div>
-                    )}
-                    {filteredCategories.map((cat) => {
-                      const id = cat._id || cat.id;
-                      const isSelected = selectedCategory === id;
-                      return (
-                        <div
-                          key={id}
-                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => {
-                            const nextVal = id || "";
-                            setValue("category", nextVal, {
-                              shouldValidate: true,
-                            });
-                            setCategorySearch(cat.name || "");
-                            handleCategoryChange(nextVal);
-                          }}
-                        >
-                          {cat.name}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {errors.category && (
-                  <div className="text-danger small mt-1">
-                    {errors.category.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel className="mb-0">Subcategory</CFormLabel>
-                <CFormInput
-                  placeholder="Type to search subcategory..."
-                  value={subcategorySearch}
-                  onChange={(e) => setSubcategorySearch(e.target.value)}
-                  disabled={subcategories.length === 0}
-                />
-                {subcategorySearch && subcategories.length > 0 && (
-                  <div
-                    className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: "200px", overflowY: "auto" }}
-                  >
-                    {filteredSubcategories.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">
-                        No matches
-                      </div>
-                    )}
-                    {filteredSubcategories.map((sub) => {
-                      const id = sub._id || sub.id;
-                      const isSelected = selectedSubcategory === id;
-                      return (
-                        <div
-                          key={id}
-                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => {
-                            const nextVal = id || "";
-                            setValue("subcategory", nextVal, {
-                              shouldValidate: true,
-                            });
-                            setSubcategorySearch(sub.name || "");
-                          }}
-                        >
-                          {sub.name}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {errors.subcategory && (
-                  <div className="text-danger small mt-1">
-                    {errors.subcategory.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel className="mb-0">Brand</CFormLabel>
-                <CFormInput
-                  placeholder="Type to search brand..."
-                  value={brandSearch}
-                  onChange={(e) => setBrandSearch(e.target.value)}
-                />
-                {brandSearch && (
-                  <div
-                    className="border rounded mt-1 bg-white"
-                    style={{ maxHeight: "200px", overflowY: "auto" }}
-                  >
-                    {filteredBrands.length === 0 && (
-                      <div className="px-2 py-1 text-muted small">
-                        No matches
-                      </div>
-                    )}
-                    {filteredBrands.map((b) => {
-                      const id = b._id || b.id;
-                      const isSelected = selectedBrand === id;
-                      return (
-                        <div
-                          key={id}
-                          className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => {
-                            const nextVal = id || "";
-                            setValue("brand", nextVal, {
-                              shouldValidate: true,
-                            });
-                            setBrandSearch(b.name || "");
-                          }}
-                        >
-                          {b.name}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {errors.brand && (
-                  <div className="text-danger small mt-1">
-                    {errors.brand.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>HSN Number</CFormLabel>
-                <CFormInput
-                  placeholder="e.g., 8471"
-                  {...register("hsnNumber")}
-                />
-                {errors.hsnNumber && (
-                  <div className="text-danger small mt-1">
-                    {errors.hsnNumber.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Default Model Number</CFormLabel>
-                <CFormInput
-                  placeholder="Default for subvariants"
-                  {...register("defaultModelNumber")}
-                />
-                {errors.defaultModelNumber && (
-                  <div className="text-danger small mt-1">
-                    {errors.defaultModelNumber.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>GST %</CFormLabel>
-                <CFormInput
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  placeholder="e.g., 18"
-                  {...register("gstPercentage")}
-                />
-                {errors.gstPercentage && (
-                  <div className="text-danger small mt-1">
-                    {errors.gstPercentage.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Unit *</CFormLabel>
-                <Controller
-                  name="unit"
-                  control={control}
-                  render={({ field }) => (
-                    <ProductUnitSelect
-                      ref={field.ref}
-                      name={field.name}
-                      value={field.value ?? ""}
-                      onChange={(e) => field.onChange(e.target.value)}
-                      onBlur={field.onBlur}
-                    />
-                  )}
-                />
-                {errors.unit && (
-                  <div className="text-danger small mt-1">
-                    {errors.unit.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Status *</CFormLabel>
-                <CFormSelect {...register("status")}>
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </CFormSelect>
-                {errors.status && (
-                  <div className="text-danger small mt-1">
-                    {errors.status.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Tags (comma separated)</CFormLabel>
-                <CFormInput
-                  placeholder="e.g., electronics, gadgets, sale"
-                  {...register("tags")}
-                />
-                {errors.tags && (
-                  <div className="text-danger small mt-1">
-                    {errors.tags.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-        </CCardBody>
-      </CCard>
+                );
+              })}
+            </div>
+            <CProgress thin color="primary">
+              <CProgressBar
+                value={((currentStep - 1) / (totalSteps - 1 || 1)) * 100}
+              />
+            </CProgress>
+          </CCardBody>
+        </CCard>
+      </div>
 
-      <CCard className="mb-4">
-        <CCardHeader
-          className="d-flex justify-content-between align-items-center"
-          style={{ ...sectionHeaderStyle, cursor: "pointer" }}
-          onClick={() => setValue("hasVariants", !hasVariants)}
-        >
-          <strong>Variants</strong>
-          <CFormCheck
-            id="hasVariants"
-            label="This product has variants"
-            checked={!!hasVariants}
-            {...register("hasVariants")}
-            onClick={(e) => e.stopPropagation()}
-            style={{ transform: "scale(1.5)", transformOrigin: "right center" }}
-          />
-        </CCardHeader>
-        {hasVariants && (
-          <CCardBody style={sectionBodyStyle}>
-            {variants.map((variant, vIndex) => (
-              <CCard key={vIndex} className="mb-3 border">
-                <CCardHeader className="bg-light d-flex justify-content-between align-items-center py-2">
-                  <div className="d-flex align-items-center gap-2 flex-grow-1">
-                    <strong className="text-nowrap">Variant:</strong>
-                    {customVariantInput[vIndex] ? (
-                      <div className="d-flex align-items-center gap-1">
-                        <CFormInput
-                          size="sm"
-                          value={variant.name}
-                          onChange={(e) =>
-                            updateVariantName(vIndex, e.target.value)
-                          }
-                          placeholder="Enter custom variant name"
-                          style={{ maxWidth: "200px" }}
-                          autoFocus
+      {currentStep === 1 && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader
+              style={sectionHeaderStyle}
+              className="d-flex justify-content-between align-items-center"
+            >
+              <strong>Basic Information</strong>
+              {!isEdit && (
+                <CButton
+                  color="secondary"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleClearDraft}
+                >
+                  Clear saved data
+                </CButton>
+              )}
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              <CRow>
+                <CCol md={12}>
+                  <div className="mb-3">
+                    <CFormLabel>
+                      Product Name <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <CFormInput
+                      placeholder="Enter product name"
+                      {...register("name")}
+                    />
+                    {errors.name && (
+                      <div className="text-danger small mt-1">
+                        {errors.name.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+              <CRow>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel>
+                      Group <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <CFormInput
+                      placeholder="Type to search group..."
+                      value={groupSearch}
+                      onChange={handleGroupSearchChange}
+                    />
+                    {groupSearch && (
+                      <div
+                        className="border rounded mt-1 bg-white"
+                        style={{ maxHeight: "200px", overflowY: "auto" }}
+                      >
+                        {filteredGroups.length === 0 && (
+                          <div className="px-2 py-1 text-muted small">
+                            No matches
+                          </div>
+                        )}
+                        {filteredGroups.map((g) => {
+                          const groupId = g._id || g.id;
+                          const isSelected = selectedGroup === groupId;
+                          return (
+                            <div
+                              key={groupId}
+                              className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                const nextVal = groupId || "";
+                                setValue("group", nextVal, {
+                                  shouldValidate: true,
+                                });
+                                setGroupSearch(g.name || "");
+                                setValue("category", "", {
+                                  shouldValidate: true,
+                                });
+                                setValue("subcategory", "", {
+                                  shouldValidate: true,
+                                });
+                                setCategorySearch("");
+                                setSubcategorySearch("");
+                                setCategoryBrands([]);
+                                setVariants((prev) =>
+                                  prev.map((attribute) =>
+                                    attribute.name === "Brand"
+                                      ? { ...attribute, options: [""] }
+                                      : attribute,
+                                  ),
+                                );
+                              }}
+                            >
+                              {g.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {errors.group && (
+                      <div className="text-danger small mt-1">
+                        {errors.group.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel className="mb-0">
+                      Category <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <CFormInput
+                      placeholder={
+                        selectedGroup
+                          ? "Type to search category..."
+                          : "Select a group first"
+                      }
+                      value={categorySearch}
+                      onChange={handleCategorySearchChange}
+                      disabled={!selectedGroup}
+                    />
+                    {selectedGroup && categorySearch && (
+                      <div
+                        className="border rounded mt-1 bg-white"
+                        style={{ maxHeight: "200px", overflowY: "auto" }}
+                      >
+                        {filteredCategories.length === 0 && (
+                          <div className="px-2 py-1 text-muted small">
+                            {selectedGroup
+                              ? "No categories in this group"
+                              : "No matches"}
+                          </div>
+                        )}
+                        {filteredCategories.map((cat) => {
+                          const catId = cat._id || cat.id;
+                          const isSelected = selectedCategory === catId;
+                          return (
+                            <div
+                              key={catId}
+                              className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                              style={{ cursor: "pointer" }}
+                              onClick={() => {
+                                const nextVal = catId || "";
+                                setValue("category", nextVal, {
+                                  shouldValidate: true,
+                                });
+                                setCategorySearch(cat.name || "");
+                                handleCategoryChange(nextVal);
+                              }}
+                            >
+                              {cat.name}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {errors.category && (
+                      <div className="text-danger small mt-1">
+                        {errors.category.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+              <CRow>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel className="mb-0">Subcategory</CFormLabel>
+                    <CFormInput
+                      placeholder={
+                        selectedCategory
+                          ? "Type to search subcategory..."
+                          : "Select a category first"
+                      }
+                      value={subcategorySearch}
+                      onChange={handleSubcategorySearchChange}
+                      disabled={!selectedCategory || subcategories.length === 0}
+                    />
+                    {selectedCategory &&
+                      subcategorySearch &&
+                      subcategories.length > 0 && (
+                        <div
+                          className="border rounded mt-1 bg-white"
+                          style={{ maxHeight: "200px", overflowY: "auto" }}
+                        >
+                          {filteredSubcategories.length === 0 && (
+                            <div className="px-2 py-1 text-muted small">
+                              No matches
+                            </div>
+                          )}
+                          {filteredSubcategories.map((sub) => {
+                            const subId = sub._id || sub.id;
+                            const isSelected = selectedSubcategory === subId;
+                            return (
+                              <div
+                                key={subId}
+                                className={`px-2 py-1 small ${isSelected ? "bg-light" : ""}`}
+                                style={{ cursor: "pointer" }}
+                                onClick={() => {
+                                  const nextVal = subId || "";
+                                  setValue("subcategory", nextVal, {
+                                    shouldValidate: true,
+                                  });
+                                  setSubcategorySearch(sub.name || "");
+                                }}
+                              >
+                                {sub.name}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    {errors.subcategory && (
+                      <div className="text-danger small mt-1">
+                        {errors.subcategory.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel>
+                      Status <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <div className="crud-form-status-toggle">
+                      <input type="hidden" {...register("status")} />
+                      <CFormSwitch
+                        id="product-status"
+                        checked={selectedStatus === "active"}
+                        onChange={(event) =>
+                          handleStatusToggle(event.target.checked)
+                        }
+                        aria-label="Product status"
+                      />
+                      <span
+                        className={`crud-form-status-toggle__badge ${
+                          selectedStatus === "active"
+                            ? "crud-form-status-toggle__badge--active"
+                            : "crud-form-status-toggle__badge--inactive"
+                        }`}
+                      >
+                        {selectedStatus === "active" ? "Active" : "Inactive"}
+                      </span>
+                    </div>
+                    {errors.status && (
+                      <div className="text-danger small mt-1">
+                        {errors.status.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+              <CRow>
+                <CCol md={12}>
+                  <div className="mb-3">
+                    <CFormLabel>Description</CFormLabel>
+                    <CFormTextarea
+                      rows={3}
+                      placeholder="Product description"
+                      {...register("description")}
+                    />
+                    {errors.description && (
+                      <div className="text-danger small mt-1">
+                        {errors.description.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+            </CCardBody>
+          </CCard>
+          {renderStepNav()}
+        </>
+      )}
+
+      {currentStep === 2 && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Tax &amp; Accounting</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              <CRow>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel>
+                      GST <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <CFormInput
+                      placeholder="e.g., 18% GST"
+                      {...register("taxClause")}
+                    />
+                    {errors.taxClause && (
+                      <div className="text-danger small mt-1">
+                        {errors.taxClause.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={6}>
+                  <div className="mb-3">
+                    <CFormLabel>
+                      HSN Code <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <CFormInput
+                      placeholder="e.g., 8471"
+                      {...register("hsnNumber")}
+                    />
+                    {errors.hsnNumber && (
+                      <div className="text-danger small mt-1">
+                        {errors.hsnNumber.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+              <CRow>
+                <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel>
+                      Unit <span className="text-danger">*</span>
+                    </CFormLabel>
+                    <Controller
+                      name="unit"
+                      control={control}
+                      render={({ field }) => (
+                        <ProductUnitSelect
+                          ref={field.ref}
+                          name={field.name}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                          required
                         />
+                      )}
+                    />
+                    {errors.unit && (
+                      <div className="text-danger small mt-1">
+                        {errors.unit.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel>Purchase Unit</CFormLabel>
+                    <Controller
+                      name="purchaseUnit"
+                      control={control}
+                      render={({ field }) => (
+                        <ProductUnitSelect
+                          ref={field.ref}
+                          name={field.name}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                        />
+                      )}
+                    />
+                    {errors.purchaseUnit && (
+                      <div className="text-danger small mt-1">
+                        {errors.purchaseUnit.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel>Sales Unit</CFormLabel>
+                    <Controller
+                      name="salesUnit"
+                      control={control}
+                      render={({ field }) => (
+                        <ProductUnitSelect
+                          ref={field.ref}
+                          name={field.name}
+                          value={field.value ?? ""}
+                          onChange={(e) => field.onChange(e.target.value)}
+                          onBlur={field.onBlur}
+                        />
+                      )}
+                    />
+                    {errors.salesUnit && (
+                      <div className="text-danger small mt-1">
+                        {errors.salesUnit.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+            </CCardBody>
+          </CCard>
+          {renderStepNav()}
+        </>
+      )}
+
+      {currentStep === 4 && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Inventory</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              <CRow>
+                <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel>Min Stock</CFormLabel>
+                    <CFormInput
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                      {...register("minStock")}
+                    />
+                    {errors.minStock && (
+                      <div className="text-danger small mt-1">
+                        {errors.minStock.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel>Max Stock</CFormLabel>
+                    <CFormInput
+                      type="number"
+                      min="0"
+                      step="1"
+                      placeholder="0"
+                      {...register("maxStock")}
+                    />
+                    {errors.maxStock && (
+                      <div className="text-danger small mt-1">
+                        {errors.maxStock.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={4}>
+                  <div className="mb-3">
+                    <CFormLabel>Expiry</CFormLabel>
+                    <CFormInput type="date" {...register("expiry")} />
+                    {errors.expiry && (
+                      <div className="text-danger small mt-1">
+                        {errors.expiry.message}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+              </CRow>
+            </CCardBody>
+          </CCard>
+          {renderStepNav()}
+        </>
+      )}
+
+      {currentStep === 3 && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Attributes</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              {variants.map((variant, vIndex) => (
+                <CCard key={vIndex} className="mb-3 border">
+                  <CCardHeader className="bg-light d-flex justify-content-between align-items-center py-2">
+                    <div className="d-flex align-items-center gap-2 flex-grow-1">
+                      <strong className="text-nowrap">Attribute:</strong>
+                      {customVariantInput[vIndex] ? (
+                        <div className="d-flex align-items-center gap-1">
+                          <CFormInput
+                            size="sm"
+                            value={variant.name}
+                            onChange={(e) =>
+                              updateVariantName(vIndex, e.target.value)
+                            }
+                            placeholder="Enter custom attribute name"
+                            style={{ maxWidth: "200px" }}
+                            autoFocus
+                          />
+                          <CButton
+                            color="secondary"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setCustomVariantInput((prev) => ({
+                                ...prev,
+                                [vIndex]: false,
+                              }));
+                              setVariants((prev) => {
+                                const next = [...prev];
+                                next[vIndex] = { ...next[vIndex], name: "" };
+                                return next;
+                              });
+                            }}
+                            title="Back to dropdown"
+                          >
+                            &times;
+                          </CButton>
+                        </div>
+                      ) : (
+                        <CFormSelect
+                          size="sm"
+                          value={
+                            VARIANT_TYPE_OPTIONS.some(
+                              (o) => o.value === variant.name,
+                            )
+                              ? variant.name
+                              : variant.name
+                                ? "__custom__"
+                                : ""
+                          }
+                          onChange={(e) =>
+                            handleVariantTypeChange(vIndex, e.target.value)
+                          }
+                          style={{ maxWidth: "250px" }}
+                        >
+                          <option value="" disabled>
+                            Select attribute type
+                          </option>
+                          {VARIANT_TYPE_OPTIONS.map((opt) => (
+                            <option key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </option>
+                          ))}
+                          <option value="__custom__">+ Create New</option>
+                        </CFormSelect>
+                      )}
+                    </div>
+                    <div className="d-flex gap-1">
+                      <CButton
+                        color="primary"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => addSubVariant(vIndex)}
+                        title="Add variant"
+                      >
+                        <CIcon icon={cilPlus} className="me-1" />
+                        Add Variant
+                      </CButton>
+                      <CButton
+                        color="danger"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeVariant(vIndex)}
+                        title="Remove attribute"
+                      >
+                        <CIcon icon={cilTrash} />
+                      </CButton>
+                    </div>
+                  </CCardHeader>
+                  {variant.options.length > 0 && (
+                    <CCardBody className="p-2">
+                      <CRow className="g-2">
+                        {variant.options.map((option, oIndex) => (
+                          <CCol key={oIndex} xs={12} sm={6} md={3}>
+                            <div
+                              className="border rounded h-100"
+                              style={{ backgroundColor: "#fafafa" }}
+                            >
+                              <div className="d-flex flex-column gap-2 p-2">
+                                <div className="d-flex justify-content-between align-items-center">
+                                  <span className="text-muted small">
+                                    Variant {oIndex + 1}
+                                  </span>
+                                  <CButton
+                                    color="danger"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() =>
+                                      removeSubVariant(vIndex, oIndex)
+                                    }
+                                  >
+                                    <CIcon icon={cilTrash} />
+                                  </CButton>
+                                </div>
+                                {variant.name === "Brand" ? (
+                                  <CFormSelect
+                                    size="sm"
+                                    value={option}
+                                    disabled={!selectedCategory}
+                                    onChange={(e) =>
+                                      updateSubVariantName(
+                                        vIndex,
+                                        oIndex,
+                                        e.target.value,
+                                      )
+                                    }
+                                  >
+                                    <option value="" disabled>
+                                      {selectedCategory
+                                        ? "Select mapped brand"
+                                        : "Select category first"}
+                                    </option>
+                                    {categoryBrands.map((brand) => (
+                                      <option
+                                        key={brand._id || brand.id}
+                                        value={brand.name}
+                                      >
+                                        {brand.name}
+                                      </option>
+                                    ))}
+                                  </CFormSelect>
+                                ) : (
+                                  <CFormInput
+                                    size="sm"
+                                    value={option}
+                                    onChange={(e) =>
+                                      updateSubVariantName(
+                                        vIndex,
+                                        oIndex,
+                                        e.target.value,
+                                      )
+                                    }
+                                    placeholder={`e.g., ${variant.name === "Color" ? "Red, Blue, Green" : variant.name === "Size" ? "S, M, L, XL" : "Option name"}`}
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          </CCol>
+                        ))}
+                      </CRow>
+                    </CCardBody>
+                  )}
+                  {variant.options.length === 0 && (
+                    <CCardBody className="text-muted text-center py-3">
+                      No variants yet. Click &quot;Add Variant&quot; to add
+                      options like Red, Blue, Green.
+                    </CCardBody>
+                  )}
+                </CCard>
+              ))}
+
+              <div className="mb-3">
+                <CButton color="light" onClick={addVariant}>
+                  <CIcon icon={cilPlus} className="me-1" />
+                  Add Attribute
+                </CButton>
+              </div>
+
+              {/* Variants (combinations) – generate from attribute options, then upload images for each */}
+              <CCard className="mt-3 border-primary">
+                <CCardHeader className="bg-light">
+                  <strong>Variants (combinations)</strong>
+                  <small className="text-muted ms-2">
+                    Generate combinations, select the ones you need, then fill
+                    their details and upload images.
+                  </small>
+                </CCardHeader>
+                <CCardBody>
+                  {variantCombinations.length === 0 ? (
+                    <div>
+                      <p className="text-muted mb-2">
+                        Add attribute types and their options above (e.g. Color:
+                        Red, Blue; Size: S, M). Then click below to generate all
+                        variants.
+                      </p>
+                      <CButton
+                        color="primary"
+                        onClick={generateSubvariantsFromVariants}
+                        disabled={
+                          !variants.some(
+                            (v) => v?.name && v?.options?.length > 0,
+                          )
+                        }
+                      >
+                        <CIcon icon={cilPlus} className="me-1" />
+                        Generate variants from attribute options
+                      </CButton>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-2 d-flex justify-content-between align-items-center">
+                        <span className="text-muted">
+                          {
+                            variantCombinations.filter((vc) => vc.selected)
+                              .length
+                          }{" "}
+                          of {variantCombinations.length} variant(s) selected
+                        </span>
                         <CButton
                           color="secondary"
-                          variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            setCustomVariantInput((prev) => ({
-                              ...prev,
-                              [vIndex]: false,
-                            }));
-                            setVariants((prev) => {
-                              const next = [...prev];
-                              next[vIndex] = { ...next[vIndex], name: "" };
-                              return next;
-                            });
-                          }}
-                          title="Back to dropdown"
+                          onClick={generateSubvariantsFromVariants}
                         >
-                          &times;
+                          Regenerate
                         </CButton>
                       </div>
-                    ) : (
-                      <CFormSelect
-                        size="sm"
-                        value={
-                          VARIANT_TYPE_OPTIONS.some(
-                            (o) => o.value === variant.name,
-                          )
-                            ? variant.name
-                            : variant.name
-                              ? "__custom__"
-                              : ""
-                        }
-                        onChange={(e) =>
-                          handleVariantTypeChange(vIndex, e.target.value)
-                        }
-                        style={{ maxWidth: "250px" }}
-                      >
-                        <option value="" disabled>
-                          Select variant type
-                        </option>
-                        {VARIANT_TYPE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
+                      <CRow className="g-3">
+                        {variantCombinations.map((combo, cIdx) => (
+                          <CCol
+                            key={getVariantComboKey(combo, cIdx)}
+                            xs={12}
+                            sm={6}
+                            lg={3}
+                          >
+                            <CCard
+                              className={`h-100 border ${
+                                combo.selected ? "border-primary" : ""
+                              }`}
+                            >
+                              <CCardBody className="py-2">
+                                <div className="mb-2">
+                                  <CFormCheck
+                                    id={`combo-select-${getVariantComboKey(combo, cIdx)}`}
+                                    checked={!!combo.selected}
+                                    onChange={() =>
+                                      toggleVariantComboSelected(cIdx)
+                                    }
+                                    label={
+                                      <span className="d-flex flex-column gap-1">
+                                        <strong className="small">
+                                          {combo.optionValues
+                                            ?.map(
+                                              (o) =>
+                                                `${o.variantName}: ${o.variantValue}`,
+                                            )
+                                            .join(" · ") || "Variant"}
+                                        </strong>
+                                        {(combo.variantCode ||
+                                          combo.optionValues?.length > 0) && (
+                                          <code className="text-primary small">
+                                            {combo.variantCode ||
+                                              buildVariantCode(
+                                                productCode,
+                                                combo.optionValues,
+                                              )}
+                                          </code>
+                                        )}
+                                      </span>
+                                    }
+                                  />
+                                </div>
+                                {combo.selected && (
+                                  <>
+                                    <div className="row g-2 mb-2">
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Status
+                                        </CFormLabel>
+                                        <div className="crud-form-status-toggle">
+                                          <CFormSwitch
+                                            id={`combo-status-${getVariantComboKey(combo, cIdx)}`}
+                                            checked={combo.isActive !== false}
+                                            onChange={(e) =>
+                                              updateVariantComboField(
+                                                cIdx,
+                                                "isActive",
+                                                e.target.checked,
+                                              )
+                                            }
+                                            aria-label="Variant status"
+                                          />
+                                          <span
+                                            className={`crud-form-status-toggle__badge ${
+                                              combo.isActive !== false
+                                                ? "crud-form-status-toggle__badge--active"
+                                                : "crud-form-status-toggle__badge--inactive"
+                                            }`}
+                                          >
+                                            {combo.isActive !== false
+                                              ? "Active"
+                                              : "Inactive"}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Model Number
+                                        </CFormLabel>
+                                        <CFormInput
+                                          type="text"
+                                          placeholder="Model number"
+                                          value={combo.modelNumber ?? ""}
+                                          onChange={(e) =>
+                                            updateVariantComboField(
+                                              cIdx,
+                                              "modelNumber",
+                                              e.target.value,
+                                            )
+                                          }
+                                          className="form-control form-control-sm"
+                                          maxLength={100}
+                                        />
+                                      </div>
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Purchase Price
+                                        </CFormLabel>
+                                        <CFormInput
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          placeholder="0"
+                                          value={
+                                            combo.costPrice !== undefined &&
+                                            combo.costPrice !== ""
+                                              ? combo.costPrice
+                                              : ""
+                                          }
+                                          onChange={(e) =>
+                                            updateVariantComboField(
+                                              cIdx,
+                                              "costPrice",
+                                              e.target.value === ""
+                                                ? ""
+                                                : parseFloat(e.target.value),
+                                            )
+                                          }
+                                          className="form-control form-control-sm"
+                                        />
+                                      </div>
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Selling Price
+                                        </CFormLabel>
+                                        <CFormInput
+                                          type="number"
+                                          min="0"
+                                          step="0.01"
+                                          placeholder="0"
+                                          value={
+                                            combo.price !== undefined &&
+                                            combo.price !== ""
+                                              ? combo.price
+                                              : ""
+                                          }
+                                          onChange={(e) =>
+                                            updateVariantComboField(
+                                              cIdx,
+                                              "price",
+                                              e.target.value === ""
+                                                ? ""
+                                                : parseFloat(e.target.value),
+                                            )
+                                          }
+                                          className="form-control form-control-sm"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="row g-2 mb-2">
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Procurement Timeline
+                                        </CFormLabel>
+                                        <div className="d-flex gap-1">
+                                          <CFormInput
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            placeholder="e.g., 2"
+                                            value={combo.timelineValue ?? ""}
+                                            onChange={(e) =>
+                                              updateVariantComboTimeline(cIdx, {
+                                                timelineValue: e.target.value,
+                                              })
+                                            }
+                                            className="form-control form-control-sm"
+                                          />
+                                          <CFormSelect
+                                            size="sm"
+                                            style={{ maxWidth: "110px" }}
+                                            value={combo.timelineUnit || "day"}
+                                            onChange={(e) =>
+                                              updateVariantComboTimeline(cIdx, {
+                                                timelineUnit: e.target.value,
+                                              })
+                                            }
+                                          >
+                                            {TIMELINE_UNIT_OPTIONS.map(
+                                              (opt) => (
+                                                <option
+                                                  key={opt.value}
+                                                  value={opt.value}
+                                                >
+                                                  {opt.label}
+                                                </option>
+                                              ),
+                                            )}
+                                          </CFormSelect>
+                                        </div>
+                                        {getComboTimelineDays(combo) > 0 && (
+                                          <div className="text-muted small mt-1">
+                                            Stored as{" "}
+                                            {getComboTimelineDays(combo)} day
+                                            {getComboTimelineDays(combo) === 1
+                                              ? ""
+                                              : "s"}
+                                          </div>
+                                        )}
+                                      </div>
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Next Review Date
+                                        </CFormLabel>
+                                        <CFormInput
+                                          type="date"
+                                          readOnly
+                                          disabled
+                                          value={formatDateInputValue(
+                                            getComboNextTimelineDate(combo),
+                                          )}
+                                          className="form-control form-control-sm"
+                                        />
+                                      </div>
+                                      <div className="col-12">
+                                        <CFormLabel className="small text-muted">
+                                          Review Status
+                                        </CFormLabel>
+                                        <CFormInput
+                                          type="text"
+                                          readOnly
+                                          disabled
+                                          value={
+                                            getComboTimelineDays(combo) > 0
+                                              ? computeProcurementReviewStatus(
+                                                  getComboTimelineDays(combo),
+                                                  getComboNextTimelineDate(
+                                                    combo,
+                                                  ),
+                                                )
+                                              : "idle"
+                                          }
+                                          className="form-control form-control-sm text-capitalize"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="mb-1">
+                                      <CFormLabel className="small text-muted mb-1">
+                                        Images
+                                      </CFormLabel>
+                                    </div>
+                                    <div className="d-flex flex-wrap gap-2 align-items-start">
+                                      {(combo.images || []).map((img, iIdx) => {
+                                        const imageId =
+                                          typeof img === "object" && img?._id
+                                            ? img._id
+                                            : img;
+                                        const queryId =
+                                          typeof combo.queryQuotationImageId ===
+                                          "object"
+                                            ? combo.queryQuotationImageId?._id
+                                            : combo.queryQuotationImageId;
+                                        const isQueryQuotation =
+                                          String(queryId || "") ===
+                                          String(imageId || "");
+                                        return (
+                                          <div
+                                            key={imageId || iIdx}
+                                            className="d-flex flex-column align-items-center"
+                                            style={{ width: 72 }}
+                                          >
+                                            <div
+                                              className={`position-relative rounded border ${
+                                                isQueryQuotation
+                                                  ? "border-primary border-2"
+                                                  : ""
+                                              }`}
+                                            >
+                                              <CImage
+                                                src={
+                                                  typeof img === "object" &&
+                                                  img?.path
+                                                    ? getAssetsUrl(img.path)
+                                                    : img
+                                                }
+                                                width={64}
+                                                height={64}
+                                                className="object-fit-cover rounded"
+                                              />
+                                              <CButton
+                                                color="danger"
+                                                size="sm"
+                                                variant="ghost"
+                                                className="position-absolute top-0 end-0 p-0 d-flex align-items-center justify-content-center bg-white rounded-circle"
+                                                style={{
+                                                  width: 22,
+                                                  height: 22,
+                                                  minWidth: 22,
+                                                  fontSize: "1rem",
+                                                  lineHeight: 1,
+                                                  transform:
+                                                    "translate(30%, -30%)",
+                                                }}
+                                                onClick={() =>
+                                                  removeVariantComboImage(
+                                                    cIdx,
+                                                    iIdx,
+                                                  )
+                                                }
+                                                title="Remove image"
+                                              >
+                                                &times;
+                                              </CButton>
+                                            </div>
+                                            <CFormCheck
+                                              type="radio"
+                                              name={`query-quotation-image-${getVariantComboKey(combo, cIdx)}`}
+                                              id={`query-quotation-${getVariantComboKey(combo, cIdx)}-${iIdx}`}
+                                              className="mt-1"
+                                              checked={isQueryQuotation}
+                                              onChange={() =>
+                                                setVariantComboQueryQuotationImage(
+                                                  cIdx,
+                                                  imageId,
+                                                )
+                                              }
+                                              label={
+                                                <span className="small">
+                                                  Query
+                                                </span>
+                                              }
+                                            />
+                                          </div>
+                                        );
+                                      })}
+                                      <div
+                                        className="d-flex flex-column align-items-center"
+                                        style={{ width: 72 }}
+                                      >
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          ref={(el) => {
+                                            comboFileInputRefs.current[cIdx] =
+                                              el;
+                                          }}
+                                          className="d-none"
+                                          onChange={(e) => {
+                                            const files = e.target.files;
+                                            if (files?.length)
+                                              handleVariantComboImageUpload(
+                                                cIdx,
+                                                files,
+                                              );
+                                            e.target.value = "";
+                                          }}
+                                        />
+                                        <button
+                                          type="button"
+                                          className="d-flex flex-column align-items-center justify-content-center rounded border border-primary border-2 border-dashed bg-light text-primary"
+                                          style={{
+                                            width: 64,
+                                            height: 64,
+                                            cursor: "pointer",
+                                            padding: 4,
+                                          }}
+                                          onClick={() =>
+                                            comboFileInputRefs.current[
+                                              cIdx
+                                            ]?.click()
+                                          }
+                                          title="Upload images"
+                                        >
+                                          <CIcon icon={cilPlus} />
+                                          <span
+                                            className="text-center mt-1"
+                                            style={{
+                                              fontSize: "0.65rem",
+                                              lineHeight: 1.2,
+                                            }}
+                                          >
+                                            Upload
+                                          </span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </CCardBody>
+                            </CCard>
+                          </CCol>
                         ))}
-                        <option value="__custom__">+ Create New</option>
-                      </CFormSelect>
-                    )}
-                  </div>
-                  <div className="d-flex gap-1">
-                    <CButton
-                      color="primary"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => addSubVariant(vIndex)}
-                      title="Add sub-variant"
-                    >
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Add Sub-variant
-                    </CButton>
+                      </CRow>
+                    </>
+                  )}
+                </CCardBody>
+              </CCard>
+            </CCardBody>
+          </CCard>
+          {renderStepNav()}
+        </>
+      )}
+
+      {currentStep === 5 && isHodUser && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Map Client Code</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              {companyProductCodes.map((row, index) => (
+                <CRow key={index} className="align-items-end mb-3">
+                  <CCol md={5}>
+                    <CFormLabel>Client</CFormLabel>
+                    <CFormInput
+                      placeholder="Type to search client..."
+                      value={row.search}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setCompanyProductCodes((prev) =>
+                          prev.map((item, i) =>
+                            i === index
+                              ? {
+                                  ...item,
+                                  search: value,
+                                  ...(item.industryLabel &&
+                                  value !== item.industryLabel
+                                    ? { industryId: "", industryLabel: "" }
+                                    : {}),
+                                }
+                              : item,
+                          ),
+                        );
+                      }}
+                    />
+                    {row.search &&
+                      row.search !== row.industryLabel &&
+                      (industryResultsByRow[index] || []).length > 0 && (
+                        <div
+                          className="border rounded mt-1 bg-white"
+                          style={{ maxHeight: "200px", overflowY: "auto" }}
+                        >
+                          {(industryResultsByRow[index] || []).map(
+                            (industry) => {
+                              const indId = industry._id || industry.id;
+                              return (
+                                <div
+                                  key={indId}
+                                  className="px-2 py-1 small"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() =>
+                                    selectCompanyForRow(index, industry)
+                                  }
+                                >
+                                  {industry.name}
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
+                      )}
+                  </CCol>
+                  <CCol md={5}>
+                    <CFormLabel>Client Code</CFormLabel>
+                    <CFormInput
+                      placeholder="Enter client code"
+                      value={row.code}
+                      onChange={(e) =>
+                        updateCompanyProductCodeRow(
+                          index,
+                          "code",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </CCol>
+                  <CCol md={2}>
                     <CButton
                       color="danger"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeVariant(vIndex)}
-                      title="Remove variant"
+                      variant="outline"
+                      className="w-100"
+                      onClick={() => removeCompanyProductCodeRow(index)}
+                      title="Remove row"
                     >
                       <CIcon icon={cilTrash} />
                     </CButton>
-                  </div>
-                </CCardHeader>
-                {variant.options.length > 0 && (
-                  <CCardBody className="p-2">
-                    {variant.options.map((option, oIndex) => (
-                      <div
-                        key={oIndex}
-                        className="border rounded mb-2"
-                        style={{ backgroundColor: "#fafafa" }}
-                      >
-                        <div className="d-flex align-items-center gap-2 p-2">
-                          <CFormInput
-                            size="sm"
-                            value={option}
-                            onChange={(e) =>
-                              updateSubVariantName(
-                                vIndex,
-                                oIndex,
-                                e.target.value,
-                              )
-                            }
-                            placeholder={`e.g., ${variant.name === "Color" ? "Red, Blue, Green" : variant.name === "Size" ? "S, M, L, XL" : "Option name"}`}
-                            style={{ maxWidth: "200px" }}
-                          />
-                          <span className="text-muted small">
-                            Sub-variant {oIndex + 1}
-                          </span>
-                          <div className="ms-auto d-flex gap-1">
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeSubVariant(vIndex, oIndex)}
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </CCardBody>
-                )}
-                {variant.options.length === 0 && (
-                  <CCardBody className="text-muted text-center py-3">
-                    No sub-variants yet. Click &quot;Add Sub-variant&quot; to
-                    add options like Red, Blue, Green.
-                  </CCardBody>
-                )}
-              </CCard>
-            ))}
-
-            <div className="mb-3">
-              <CButton color="light" onClick={addVariant}>
+                  </CCol>
+                </CRow>
+              ))}
+              <CButton color="light" onClick={addCompanyProductCodeRow}>
                 <CIcon icon={cilPlus} className="me-1" />
-                Add Variant
+                Add Client Code
               </CButton>
-            </div>
+            </CCardBody>
+          </CCard>
+          {renderStepNav()}
+        </>
+      )}
 
-            {/* Subvariants (combinations) – generate from variant options, then upload images for each */}
-            <CCard className="mt-3 border-primary">
-              <CCardHeader className="bg-light">
-                <strong>Subvariants (combinations)</strong>
-                <small className="text-muted ms-2">
-                  Generate combinations, then upload multiple images for each
-                  (stored on AWS S3).
-                </small>
-              </CCardHeader>
-              <CCardBody>
-                {variantCombinations.length === 0 ? (
-                  <div>
-                    <p className="text-muted mb-2">
-                      Add variant types and their options above (e.g. Color:
-                      Red, Blue; Size: S, M). Then click below to generate all
-                      subvariants.
-                    </p>
-                    <CButton
-                      color="primary"
-                      onClick={generateSubvariantsFromVariants}
-                      disabled={
-                        !variants.some((v) => v?.name && v?.options?.length > 0)
-                      }
-                    >
-                      <CIcon icon={cilPlus} className="me-1" />
-                      Generate subvariants from variant options
-                    </CButton>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-2 d-flex justify-content-between align-items-center">
-                      <span className="text-muted">
-                        {variantCombinations.length} subvariant(s)
-                      </span>
-                      <CButton
-                        color="secondary"
-                        size="sm"
-                        onClick={generateSubvariantsFromVariants}
-                      >
-                        Regenerate
-                      </CButton>
-                    </div>
-                    {variantCombinations.map((combo, cIdx) => (
-                      <CCard
-                        key={combo.uniqueId || cIdx}
-                        className="mb-3 border"
-                      >
-                        <CCardBody className="py-2">
-                          <div className="mb-2 d-flex align-items-center gap-2 flex-wrap justify-content-between">
-                            <div className="d-flex align-items-center gap-2 flex-wrap">
-                              <strong>
-                                {combo.optionValues
-                                  ?.map(
-                                    (o) =>
-                                      `${o.variantName}: ${o.variantValue}`,
-                                  )
-                                  .join(" · ") || "Subvariant"}
-                              </strong>
-                              {combo.variantCode && (
-                                <code className="text-primary small">
-                                  Code: {combo.variantCode}
-                                </code>
-                              )}
-                            </div>
-                            <CButton
-                              color="danger"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeVariantCombo(cIdx)}
-                              title="Remove this combination (no product for this variant)"
-                            >
-                              <CIcon icon={cilTrash} />
-                            </CButton>
-                          </div>
-                          <div className="row g-2 mb-2">
-                            <div className="col-md-4">
-                              <CFormLabel className="small text-muted">
-                                HSN Number
-                              </CFormLabel>
-                              <CFormInput
-                                type="text"
-                                placeholder="Defaults to product HSN"
-                                value={combo.hsnNumber ?? ""}
-                                onChange={(e) =>
-                                  updateVariantComboField(
-                                    cIdx,
-                                    "hsnNumber",
-                                    e.target.value,
-                                  )
+      {currentStep === 6 && isHodUser && (
+        <>
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Map Supplier Code</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              {supplierProductCodes.map((row, index) => (
+                <CRow key={index} className="align-items-end mb-3">
+                  <CCol md={5}>
+                    <CFormLabel>Supplier</CFormLabel>
+                    <CFormInput
+                      placeholder="Type to search supplier..."
+                      value={row.search}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setSupplierProductCodes((prev) =>
+                          prev.map((item, i) =>
+                            i === index
+                              ? {
+                                  ...item,
+                                  search: value,
+                                  ...(item.supplierLabel &&
+                                  value !== item.supplierLabel
+                                    ? { supplierId: "", supplierLabel: "" }
+                                    : {}),
                                 }
-                                className="form-control form-control-sm"
-                                maxLength={50}
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <CFormLabel className="small text-muted">
-                                Model Number
-                              </CFormLabel>
-                              <CFormInput
-                                type="text"
-                                placeholder="Defaults to product default"
-                                value={combo.modelNumber ?? ""}
-                                onChange={(e) =>
-                                  updateVariantComboField(
-                                    cIdx,
-                                    "modelNumber",
-                                    e.target.value,
-                                  )
-                                }
-                                className="form-control form-control-sm"
-                                maxLength={100}
-                              />
-                            </div>
-                            <div className="col-md-4">
-                              <CFormLabel className="small text-muted">
-                                GST %
-                              </CFormLabel>
-                              <CFormInput
-                                type="number"
-                                min="0"
-                                max="100"
-                                step="0.01"
-                                placeholder="Defaults to product %"
-                                value={
-                                  combo.gstPercentage !== undefined &&
-                                  combo.gstPercentage !== ""
-                                    ? combo.gstPercentage
-                                    : ""
-                                }
-                                onChange={(e) =>
-                                  updateVariantComboField(
-                                    cIdx,
-                                    "gstPercentage",
-                                    e.target.value === ""
-                                      ? ""
-                                      : parseFloat(e.target.value),
-                                  )
-                                }
-                                className="form-control form-control-sm"
-                              />
-                            </div>
-                          </div>
-                          <div className="d-flex flex-wrap gap-3 align-items-start">
-                            {(combo.images || []).map((img, iIdx) => (
-                              <div
-                                key={img?._id || iIdx}
-                                className="d-flex flex-column align-items-center"
-                                style={{ width: 80 }}
-                              >
-                                <CImage
-                                  src={
-                                    typeof img === "object" && img?.path
-                                      ? getAssetsUrl(img.path)
-                                      : img
-                                  }
-                                  width={80}
-                                  height={80}
-                                  className="object-fit-cover rounded border"
-                                />
-                                <CButton
-                                  color="danger"
-                                  size="sm"
-                                  variant="ghost"
-                                  className="mt-1 p-0 d-flex align-items-center justify-content-center"
-                                  style={{
-                                    width: 24,
-                                    height: 24,
-                                    minWidth: 24,
-                                    fontSize: "1.1rem",
-                                    lineHeight: 1,
-                                  }}
-                                  onClick={() =>
-                                    removeVariantComboImage(cIdx, iIdx)
-                                  }
-                                  title="Remove image"
-                                >
-                                  &times;
-                                </CButton>
-                              </div>
-                            ))}
-                            <div
-                              className="d-flex flex-column align-items-center"
-                              style={{ width: 80 }}
-                            >
-                              <input
-                                type="file"
-                                accept="image/*"
-                                multiple
-                                ref={(el) => {
-                                  comboFileInputRefs.current[cIdx] = el;
-                                }}
-                                className="d-none"
-                                onChange={(e) => {
-                                  const files = e.target.files;
-                                  if (files?.length)
-                                    handleVariantComboImageUpload(cIdx, files);
-                                  e.target.value = "";
-                                }}
-                              />
-                              <button
-                                type="button"
-                                className="d-flex flex-column align-items-center justify-content-center rounded border border-primary border-2 border-dashed bg-light text-primary"
-                                style={{
-                                  width: 80,
-                                  height: 80,
-                                  cursor: "pointer",
-                                  padding: 4,
-                                }}
-                                onClick={() =>
-                                  comboFileInputRefs.current[cIdx]?.click()
-                                }
-                                title="Upload images"
-                              >
-                                <CIcon icon={cilPlus} />
-                                <span
-                                  className="text-center mt-1"
-                                  style={{
-                                    fontSize: "0.65rem",
-                                    lineHeight: 1.2,
-                                  }}
-                                >
-                                  Upload
-                                </span>
-                              </button>
-                            </div>
-                          </div>
-                        </CCardBody>
-                      </CCard>
-                    ))}
-                  </>
-                )}
-              </CCardBody>
-            </CCard>
-          </CCardBody>
-        )}
-      </CCard>
-
-      <CCard className="mb-4">
-        <CCardHeader style={sectionHeaderStyle}>
-          <strong>Physical Attributes</strong>
-        </CCardHeader>
-        <CCardBody style={sectionBodyStyle}>
-          <CRow>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Weight</CFormLabel>
-                <CFormInput
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  {...register("weight")}
-                />
-                {errors.weight && (
-                  <div className="text-danger small mt-1">
-                    {errors.weight.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Weight Unit *</CFormLabel>
-                <CFormSelect {...register("weightUnit")}>
-                  <option value="g">Grams (g)</option>
-                  <option value="kg">Kilograms (kg)</option>
-                  <option value="lb">Pounds (lb)</option>
-                  <option value="oz">Ounces (oz)</option>
-                </CFormSelect>
-                {errors.weightUnit && (
-                  <div className="text-danger small mt-1">
-                    {errors.weightUnit.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Length</CFormLabel>
-                <CFormInput
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  {...register("dimensions.length")}
-                />
-                {errors.dimensions?.length && (
-                  <div className="text-danger small mt-1">
-                    {errors.dimensions.length.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-          <CRow>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Width</CFormLabel>
-                <CFormInput
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  {...register("dimensions.width")}
-                />
-                {errors.dimensions?.width && (
-                  <div className="text-danger small mt-1">
-                    {errors.dimensions.width.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Height</CFormLabel>
-                <CFormInput
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  {...register("dimensions.height")}
-                />
-                {errors.dimensions?.height && (
-                  <div className="text-danger small mt-1">
-                    {errors.dimensions.height.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={4}>
-              <div className="mb-3">
-                <CFormLabel>Dimension Unit *</CFormLabel>
-                <CFormSelect {...register("dimensionUnit")}>
-                  <option value="cm">Centimeters (cm)</option>
-                  <option value="in">Inches (in)</option>
-                  <option value="m">Meters (m)</option>
-                </CFormSelect>
-                {errors.dimensionUnit && (
-                  <div className="text-danger small mt-1">
-                    {errors.dimensionUnit.message}
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-        </CCardBody>
-      </CCard>
-
-      <CCard className="mb-4">
-        <CCardHeader style={sectionHeaderStyle}>
-          <strong>Images</strong>
-        </CCardHeader>
-        <CCardBody style={sectionBodyStyle}>
-          <CRow className="align-items-start gy-3">
-            <CCol md={5}>
-              <div
-                className="text-center p-4 h-100 d-flex flex-column justify-content-center"
-                style={{
-                  border: "2px dashed #d8dbe0",
-                  borderRadius: "0.5rem",
-                  backgroundColor: "#f8f9fa",
-                }}
-              >
-                <div className="mb-2">
-                  <CIcon icon={cilPlus} className="me-1 text-muted" />
-                  <span className="fw-semibold">Add product images</span>
-                </div>
-                <p className="text-muted small mb-3">
-                  JPG, PNG, or WebP. Up to 10 images. First image is used as the
-                  primary thumbnail.
-                </p>
-                <div className="d-flex justify-content-center gap-2">
-                  <CButton
-                    color="primary"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const input = document.getElementById(
-                        "product-images-input",
-                      );
-                      input && input.click();
-                    }}
-                  >
-                    Browse files
-                  </CButton>
-                  <CButton
-                    color="secondary"
-                    variant="outline"
-                    size="sm"
-                    disabled={imagePreviews.length === 0}
-                    onClick={() => {
-                      // Clear all newly added images & previews, keep existingImages
-                      setImageFiles([]);
-                      setImagePreviews([]);
-                    }}
-                  >
-                    Clear selection
-                  </CButton>
-                </div>
-                <input
-                  id="product-images-input"
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImageUpload}
-                  style={{ display: "none" }}
-                />
-                {imagePreviews.length > 0 && (
-                  <div className="mt-3 text-muted small">
-                    {imagePreviews.length} image
-                    {imagePreviews.length > 1 ? "s" : ""} selected
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={7}>
-              {imagePreviews.length === 0 ? (
-                <div className="text-muted small">
-                  No images selected yet. Add a few high-quality photos to help
-                  users quickly understand the product (front, back, close-up,
-                  packaging, etc.).
-                </div>
-              ) : (
-                <div className="d-flex flex-wrap gap-3">
-                  {imagePreviews.map((preview, index) => (
-                    <div
-                      key={index}
-                      className="position-relative rounded border bg-white shadow-sm"
-                      style={{ width: 120, height: 120 }}
-                    >
-                      <CImage
-                        src={preview}
-                        width={120}
-                        height={120}
-                        className="object-fit-cover rounded"
-                      />
-                      {index === 0 && (
-                        <span
-                          className="badge bg-primary position-absolute"
-                          style={{ top: 4, left: 4 }}
+                              : item,
+                          ),
+                        );
+                      }}
+                    />
+                    {row.search &&
+                      row.search !== row.supplierLabel &&
+                      (supplierResultsByRow[index] || []).length > 0 && (
+                        <div
+                          className="border rounded mt-1 bg-white"
+                          style={{ maxHeight: "200px", overflowY: "auto" }}
                         >
-                          Primary
-                        </span>
+                          {(supplierResultsByRow[index] || []).map(
+                            (supplier) => {
+                              const supplierId = supplier._id || supplier.id;
+                              return (
+                                <div
+                                  key={supplierId}
+                                  className="px-2 py-1 small"
+                                  style={{ cursor: "pointer" }}
+                                  onClick={() =>
+                                    selectSupplierForRow(index, supplier)
+                                  }
+                                >
+                                  {supplier.name || supplier.shopname || "-"}
+                                </div>
+                              );
+                            },
+                          )}
+                        </div>
                       )}
-                      <CButton
-                        color="danger"
-                        size="sm"
-                        className="position-absolute top-0 end-0"
-                        style={{ transform: "translate(25%, -25%)" }}
-                        onClick={() => removeImage(index)}
-                      >
-                        &times;
-                      </CButton>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CCol>
-          </CRow>
-        </CCardBody>
-      </CCard>
-
-      <CCard className="mb-4">
-        <CCardHeader style={sectionHeaderStyle}>
-          <strong>Procurement Review Timeline</strong>
-        </CCardHeader>
-        <CCardBody style={sectionBodyStyle}>
-          <p className="text-muted small mb-3">
-            Set how often this product should be reviewed. Timeline is stored in
-            days; the next review date is calculated automatically.
-          </p>
-          <CRow>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel>Timeline</CFormLabel>
-                <div className="d-flex gap-2">
-                  <CFormInput
-                    type="number"
-                    min="1"
-                    step="1"
-                    placeholder="e.g., 2"
-                    {...register("timelineValue")}
-                  />
-                  <CFormSelect
-                    style={{ maxWidth: "140px" }}
-                    {...register("timelineUnit")}
-                  >
-                    {TIMELINE_UNIT_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </CFormSelect>
-                </div>
-                {errors.timelineValue && (
-                  <div className="text-danger small mt-1">
-                    {errors.timelineValue.message}
-                  </div>
-                )}
-                {timelineDays > 0 && (
-                  <div className="text-muted small mt-1">
-                    Stored as {timelineDays} day{timelineDays === 1 ? "" : "s"}
-                  </div>
-                )}
-              </div>
-            </CCol>
-            <CCol md={6}>
-              <div className="mb-3">
-                <CFormLabel>Next Timeline Date</CFormLabel>
-                <CFormInput
-                  type="date"
-                  readOnly
-                  disabled
-                  value={formatDateInputValue(computedNextTimelineDate)}
-                  placeholder="Auto-calculated"
-                />
-                {timelineDays > 0 && (
-                  <div className="text-muted small mt-1">
-                    Status:{" "}
-                    <span className="text-capitalize">
-                      {computedProcurementReviewStatus}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CCol>
-          </CRow>
-        </CCardBody>
-      </CCard>
-
-      {isHodUser && (
-        <CCard className="mb-4">
-          <CCardHeader style={sectionHeaderStyle}>
-            <strong>Company vs Client</strong>
-          </CCardHeader>
-          <CCardBody style={sectionBodyStyle}>
-            <p className="text-muted small mb-3">
-              Map this product to a client using their internal product code.
-            </p>
-            {companyProductCodes.map((row, index) => (
-              <CRow key={index} className="align-items-end mb-3">
-                <CCol md={5}>
-                  <CFormLabel>Client</CFormLabel>
-                  <CFormInput
-                    placeholder="Type to search client..."
-                    value={row.search}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setCompanyProductCodes((prev) =>
-                        prev.map((item, i) =>
-                          i === index
-                            ? {
-                                ...item,
-                                search: value,
-                                ...(item.industryLabel &&
-                                value !== item.industryLabel
-                                  ? { industryId: "", industryLabel: "" }
-                                  : {}),
-                              }
-                            : item,
-                        ),
-                      );
-                    }}
-                  />
-                  {row.search &&
-                    row.search !== row.industryLabel &&
-                    (industryResultsByRow[index] || []).length > 0 && (
-                      <div
-                        className="border rounded mt-1 bg-white"
-                        style={{ maxHeight: "200px", overflowY: "auto" }}
-                      >
-                        {(industryResultsByRow[index] || []).map((industry) => {
-                          const indId = industry._id || industry.id;
-                          return (
-                            <div
-                              key={indId}
-                              className="px-2 py-1 small"
-                              style={{ cursor: "pointer" }}
-                              onClick={() =>
-                                selectCompanyForRow(index, industry)
-                              }
-                            >
-                              {industry.name}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                </CCol>
-                <CCol md={5}>
-                  <CFormLabel>Client Product Code</CFormLabel>
-                  <CFormInput
-                    placeholder="Enter client product code"
-                    value={row.code}
-                    onChange={(e) =>
-                      updateCompanyProductCodeRow(index, "code", e.target.value)
-                    }
-                  />
-                </CCol>
-                <CCol md={2}>
-                  <CButton
-                    color="danger"
-                    variant="outline"
-                    className="w-100"
-                    onClick={() => removeCompanyProductCodeRow(index)}
-                    title="Remove row"
-                  >
-                    <CIcon icon={cilTrash} />
-                  </CButton>
-                </CCol>
-              </CRow>
-            ))}
-            <CButton color="light" onClick={addCompanyProductCodeRow}>
-              <CIcon icon={cilPlus} className="me-1" />
-              Add Client Product Code
-            </CButton>
-          </CCardBody>
-        </CCard>
+                  </CCol>
+                  <CCol md={5}>
+                    <CFormLabel>Supplier Code</CFormLabel>
+                    <CFormInput
+                      placeholder="Enter supplier code"
+                      value={row.code}
+                      onChange={(e) =>
+                        updateSupplierProductCodeRow(
+                          index,
+                          "code",
+                          e.target.value,
+                        )
+                      }
+                    />
+                  </CCol>
+                  <CCol md={2}>
+                    <CButton
+                      color="danger"
+                      variant="outline"
+                      className="w-100"
+                      onClick={() => removeSupplierProductCodeRow(index)}
+                      title="Remove row"
+                    >
+                      <CIcon icon={cilTrash} />
+                    </CButton>
+                  </CCol>
+                </CRow>
+              ))}
+              <CButton color="light" onClick={addSupplierProductCodeRow}>
+                <CIcon icon={cilPlus} className="me-1" />
+                Add Supplier Code
+              </CButton>
+            </CCardBody>
+          </CCard>
+          {renderStepNav()}
+        </>
       )}
-
-      {isHodUser && (
-        <CCard className="mb-4">
-          <CCardHeader style={sectionHeaderStyle}>
-            <strong>Company vs Supplier</strong>
-          </CCardHeader>
-          <CCardBody style={sectionBodyStyle}>
-            <p className="text-muted small mb-3">
-              Map this product to a supplier using their internal product code.
-            </p>
-            {supplierProductCodes.map((row, index) => (
-              <CRow key={index} className="align-items-end mb-3">
-                <CCol md={5}>
-                  <CFormLabel>Supplier</CFormLabel>
-                  <CFormInput
-                    placeholder="Type to search supplier..."
-                    value={row.search}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSupplierProductCodes((prev) =>
-                        prev.map((item, i) =>
-                          i === index
-                            ? {
-                                ...item,
-                                search: value,
-                                ...(item.supplierLabel &&
-                                value !== item.supplierLabel
-                                  ? { supplierId: "", supplierLabel: "" }
-                                  : {}),
-                              }
-                            : item,
-                        ),
-                      );
-                    }}
-                  />
-                  {row.search &&
-                    row.search !== row.supplierLabel &&
-                    (supplierResultsByRow[index] || []).length > 0 && (
-                      <div
-                        className="border rounded mt-1 bg-white"
-                        style={{ maxHeight: "200px", overflowY: "auto" }}
-                      >
-                        {(supplierResultsByRow[index] || []).map((supplier) => {
-                          const supplierId = supplier._id || supplier.id;
-                          return (
-                            <div
-                              key={supplierId}
-                              className="px-2 py-1 small"
-                              style={{ cursor: "pointer" }}
-                              onClick={() =>
-                                selectSupplierForRow(index, supplier)
-                              }
-                            >
-                              {supplier.name || supplier.shopname || "-"}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                </CCol>
-                <CCol md={5}>
-                  <CFormLabel>Supplier Product Code</CFormLabel>
-                  <CFormInput
-                    placeholder="Enter supplier product code"
-                    value={row.code}
-                    onChange={(e) =>
-                      updateSupplierProductCodeRow(
-                        index,
-                        "code",
-                        e.target.value,
-                      )
-                    }
-                  />
-                </CCol>
-                <CCol md={2}>
-                  <CButton
-                    color="danger"
-                    variant="outline"
-                    className="w-100"
-                    onClick={() => removeSupplierProductCodeRow(index)}
-                    title="Remove row"
-                  >
-                    <CIcon icon={cilTrash} />
-                  </CButton>
-                </CCol>
-              </CRow>
-            ))}
-            <CButton color="light" onClick={addSupplierProductCodeRow}>
-              <CIcon icon={cilPlus} className="me-1" />
-              Add Supplier Product Code
-            </CButton>
-          </CCardBody>
-        </CCard>
-      )}
-
-      <CCard className="mb-4">
-        <CCardBody className="d-flex justify-content-end gap-2">
-          <CButton color="secondary" onClick={() => navigate("/products")}>
-            Cancel
-          </CButton>
-          <CButton color="primary" type="submit" disabled={submitting}>
-            {submitting ? (
-              <CSpinner size="sm" />
-            ) : isEdit ? (
-              "Update Product"
-            ) : (
-              "Create Product"
-            )}
-          </CButton>
-        </CCardBody>
-      </CCard>
     </CForm>
   );
 };

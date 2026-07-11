@@ -39,6 +39,11 @@ import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { getAssetsUrl } from "../../api/endpoints";
 import { dateFormatter } from "../../utils/dateFormatter";
+import {
+  computeProBucketFinalAmount,
+  formatProBucketRateAmount,
+  resolveProBucketEffectiveRate,
+} from "../../utils/proBucketRate";
 
 /** Below Bootstrap `md` (768px) — treat as phone for add-rate panel layout */
 const useIsPhoneView = () => {
@@ -365,6 +370,8 @@ const emptyRow = () => ({
   supplierId: "",
   rate: "",
   unit: "",
+  gstPercentage: "",
+  discountPercentage: "",
   remark: "",
 });
 
@@ -640,23 +647,50 @@ const ProBucketDetail = () => {
     const valid = rateRows
       .filter((r) => r.rate !== "" && r.rate !== null)
       .map((r) => {
-        const row = {
+        const gstPercentage =
+          r.gstPercentage === "" || r.gstPercentage == null
+            ? 0
+            : Number(r.gstPercentage);
+        const discountPercentage =
+          r.discountPercentage === "" || r.discountPercentage == null
+            ? 0
+            : Number(r.discountPercentage);
+        return {
+          supplierId: r.supplierId,
           rate: Number(r.rate),
           unit: r.unit || "",
+          gstPercentage,
+          discountPercentage,
           remark: r.remark || "",
         };
-        if (r.supplierId) {
-          row.supplierId = r.supplierId;
-        }
-        return row;
       });
     if (!valid.length) {
       toastError("Add at least one line with a rate amount.");
       return;
     }
     for (const r of valid) {
+      if (!r.supplierId) {
+        toastError("Select a supplier for each rate entry.");
+        return;
+      }
       if (Number.isNaN(r.rate) || r.rate < 0) {
         toastError("Each rate must be a valid number ≥ 0.");
+        return;
+      }
+      if (
+        Number.isNaN(r.gstPercentage) ||
+        r.gstPercentage < 0 ||
+        r.gstPercentage > 100
+      ) {
+        toastError("GST % must be between 0 and 100.");
+        return;
+      }
+      if (
+        Number.isNaN(r.discountPercentage) ||
+        r.discountPercentage < 0 ||
+        r.discountPercentage > 100
+      ) {
+        toastError("Discount % must be between 0 and 100.");
         return;
       }
     }
@@ -954,72 +988,95 @@ const ProBucketDetail = () => {
 
                     {item.rates?.length > 0 && (
                       <CRow>
-                        {(item.rates || []).map((r) => (
-                          <CCol
-                            key={r._id || `${r.submittedAt}-${r.rate}`}
-                            xs={12}
-                            md={6}
-                            className="mb-3"
-                          >
-                            <CCard>
-                              <CCardBody className="py-3">
-                                <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
-                                  <div style={{ minWidth: 0 }}>
-                                    <div
-                                      className="fw-semibold text-truncate"
-                                      title={
-                                        r.supplier?.name ||
-                                        r.supplier?.shopname ||
-                                        undefined
-                                      }
-                                    >
-                                      {r.supplier?.name ||
-                                        r.supplier?.shopname ||
-                                        (r.supplier
-                                          ? "Supplier"
-                                          : "No supplier")}
-                                    </div>
-                                    {r.supplier?.phone_1 && (
-                                      <div className="text-body-secondary small">
-                                        {r.supplier.phone_1}
+                        {(item.rates || []).map((r) => {
+                          const finalAmount = resolveProBucketEffectiveRate(r);
+                          return (
+                            <CCol
+                              key={r._id || `${r.submittedAt}-${r.rate}`}
+                              xs={12}
+                              md={6}
+                              className="mb-3"
+                            >
+                              <CCard>
+                                <CCardBody className="py-3">
+                                  <div className="d-flex align-items-start justify-content-between gap-2 mb-2">
+                                    <div style={{ minWidth: 0 }}>
+                                      <div
+                                        className="fw-semibold text-truncate"
+                                        title={
+                                          r.supplier?.name ||
+                                          r.supplier?.shopname ||
+                                          undefined
+                                        }
+                                      >
+                                        {r.supplier?.name ||
+                                          r.supplier?.shopname ||
+                                          "Supplier"}
                                       </div>
-                                    )}
+                                      {r.supplier?.phone_1 && (
+                                        <div className="text-body-secondary small">
+                                          {r.supplier.phone_1}
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div
+                                      className="fw-bold text-nowrap"
+                                      style={{
+                                        fontSize: "1.15rem",
+                                        color: "var(--cui-primary)",
+                                      }}
+                                    >
+                                      ₹ {formatProBucketRateAmount(finalAmount)}
+                                    </div>
                                   </div>
-                                  <div
-                                    className="fw-bold text-nowrap"
-                                    style={{
-                                      fontSize: "1.15rem",
-                                      color: "var(--cui-primary)",
-                                    }}
-                                  >
-                                    ₹ {r.rate}
-                                  </div>
-                                </div>
-                                <div className="d-flex flex-wrap gap-3 small text-body-secondary border-top pt-2 mt-1">
-                                  <span>
-                                    <span className="me-1">Unit:</span>
-                                    <span className="text-body">
-                                      {r.unit || "—"}
-                                    </span>
-                                  </span>
-                                  {r.remark && (
+                                  <div className="d-flex flex-wrap gap-3 small text-body-secondary border-top pt-2 mt-1">
                                     <span>
-                                      <span className="me-1">Remark:</span>
+                                      <span className="me-1">Base rate:</span>
                                       <span className="text-body">
-                                        {r.remark}
+                                        ₹ {formatProBucketRateAmount(r.rate)}
                                       </span>
                                     </span>
-                                  )}
-                                  {r.submittedAt && (
-                                    <span className="ms-auto text-nowrap">
-                                      {dateFormatter(r.submittedAt, "—")}
+                                    <span>
+                                      <span className="me-1">GST %:</span>
+                                      <span className="text-body">
+                                        {r.gstPercentage != null
+                                          ? r.gstPercentage
+                                          : 0}
+                                      </span>
                                     </span>
-                                  )}
-                                </div>
-                              </CCardBody>
-                            </CCard>
-                          </CCol>
-                        ))}
+                                    <span>
+                                      <span className="me-1">Discount %:</span>
+                                      <span className="text-body">
+                                        {r.discountPercentage != null
+                                          ? r.discountPercentage
+                                          : 0}
+                                      </span>
+                                    </span>
+                                    <span>
+                                      <span className="me-1">Unit:</span>
+                                      <span className="text-body">
+                                        {r.unit || "—"}
+                                      </span>
+                                    </span>
+                                    {r.remark && (
+                                      <span>
+                                        <span className="me-1">Remark:</span>
+                                        <span className="text-body">
+                                          {r.remark}
+                                        </span>
+                                      </span>
+                                    )}
+                                    {r.submittedAt && (
+                                      <span className="ms-auto text-nowrap">
+                                        {dateFormatter(r.submittedAt, "—")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </CCardBody>
+                              </CCard>
+                            </CCol>
+                          );
+                        })}
                       </CRow>
                     )}
                   </CTabPane>
@@ -1156,6 +1213,24 @@ const ProBucketDetail = () => {
           >
             {rateRows.map((row, idx) => {
               const options = supplierOptionsForRow(row);
+              const gstValue =
+                row.gstPercentage === "" || row.gstPercentage == null
+                  ? 0
+                  : Number(row.gstPercentage);
+              const discountValue =
+                row.discountPercentage === "" || row.discountPercentage == null
+                  ? 0
+                  : Number(row.discountPercentage);
+              const finalAmountPreview =
+                row.rate !== "" &&
+                row.rate != null &&
+                !Number.isNaN(Number(row.rate))
+                  ? computeProBucketFinalAmount(
+                      row.rate,
+                      gstValue,
+                      discountValue,
+                    )
+                  : null;
               return (
                 <div
                   key={idx}
@@ -1201,13 +1276,7 @@ const ProBucketDetail = () => {
                     <CRow className="g-3">
                       <CCol xs={12}>
                         <CFormLabel className="mb-1">
-                          Supplier{" "}
-                          <span
-                            className="text-body-secondary fw-normal"
-                            style={{ fontSize: "0.8em" }}
-                          >
-                            (optional)
-                          </span>
+                          Supplier <span className="text-danger">*</span>
                         </CFormLabel>
                         <CFormSelect
                           value={row.supplierId}
@@ -1217,7 +1286,7 @@ const ProBucketDetail = () => {
                         >
                           <option value="">
                             {options.length
-                              ? "— No supplier —"
+                              ? "— Select supplier —"
                               : "No matches — change search"}
                           </option>
                           {options.map((s) => (
@@ -1255,6 +1324,57 @@ const ProBucketDetail = () => {
                           onChange={(e) =>
                             updateRateRow(idx, "unit", e.target.value)
                           }
+                        />
+                      </CCol>
+                      <CCol xs={6}>
+                        <CFormLabel className="mb-1">GST %</CFormLabel>
+                        <CFormInput
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="0"
+                          value={row.gstPercentage}
+                          onChange={(e) =>
+                            updateRateRow(
+                              idx,
+                              "gstPercentage",
+                              sanitizeRateInput(e.target.value),
+                            )
+                          }
+                        />
+                      </CCol>
+                      <CCol xs={6}>
+                        <CFormLabel className="mb-1">Discount %</CFormLabel>
+                        <CFormInput
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          spellCheck={false}
+                          placeholder="0"
+                          value={row.discountPercentage}
+                          onChange={(e) =>
+                            updateRateRow(
+                              idx,
+                              "discountPercentage",
+                              sanitizeRateInput(e.target.value),
+                            )
+                          }
+                        />
+                      </CCol>
+                      <CCol xs={6}>
+                        <CFormLabel className="mb-1">Final amount</CFormLabel>
+                        <CFormInput
+                          type="text"
+                          readOnly
+                          tabIndex={-1}
+                          value={
+                            finalAmountPreview != null
+                              ? formatProBucketRateAmount(finalAmountPreview)
+                              : ""
+                          }
+                          placeholder="—"
+                          className="bg-body-secondary"
                         />
                       </CCol>
                       <CCol xs={12}>

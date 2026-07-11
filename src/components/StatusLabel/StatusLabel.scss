@@ -1,0 +1,13 @@
+.status-label {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.status-label--active {
+  color: var(--migti-status-active);
+}
+
+.status-label--inactive {
+  color: var(--migti-status-inactive);
+}

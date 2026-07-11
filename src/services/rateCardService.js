@@ -12,10 +12,10 @@ const rateCardService = {
     return response;
   },
 
-  getByProduct: async (productId, combinationUniqueId) => {
+  getByProduct: async (productId, variantCombinationId) => {
     const params = { productId };
-    if (combinationUniqueId && combinationUniqueId !== "base") {
-      params.combinationUniqueId = combinationUniqueId;
+    if (variantCombinationId && variantCombinationId !== "base") {
+      params.variantCombinationId = variantCombinationId;
     }
     const response = await api.get(RATE_CARDS.BY_PRODUCT, { params });
     return response;

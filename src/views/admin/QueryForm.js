@@ -64,6 +64,7 @@ import subZoneService from "../../services/subZoneService";
 import queryNewProductService from "../../services/queryNewProductService";
 import groupService from "../../services/groupService";
 import categoryService from "../../services/categoryService";
+import subcategoryService from "../../services/subcategoryService";
 import documentService from "../../services/documentService";
 import { useAuth } from "../../context/AuthContext";
 import usePermissions, { canEditQuery } from "../../hooks/usePermissions";
@@ -432,6 +433,15 @@ const QueryForm = () => {
             const data = res?.data || res;
             const cat = data?.data ?? data;
             if (cat?.name) updates[sid] = cat.name;
+            return;
+          } catch {
+            // try subcategory
+          }
+          try {
+            const res = await subcategoryService.getById(sid);
+            const data = res?.data || res;
+            const sub = data?.data ?? data;
+            if (sub?.name) updates[sid] = sub.name;
           } catch {
             // ignore
           }
@@ -475,13 +485,12 @@ const QueryForm = () => {
         return;
       }
       try {
-        const res = await categoryService.getAll({
-          pageNumber: 1,
-          pageSize: 100,
-          parent: cid,
+        const res = await subcategoryService.getAllSubcategories({
+          category: cid,
         });
         const data = res?.data || res;
-        if (!cancelled) setProductSubcategories(data?.categories || []);
+        const inner = data?.data ?? data;
+        if (!cancelled) setProductSubcategories(inner?.subcategories || []);
       } catch {
         if (!cancelled) setProductSubcategories([]);
       }

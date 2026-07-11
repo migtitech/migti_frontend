@@ -332,7 +332,7 @@ const RateCardList = () => {
         nextDueDate: selectedDate.toISOString(),
       };
       if (addSelectedCombination && addSelectedCombination !== "base") {
-        payload.combinationUniqueId = addSelectedCombination;
+        payload.variantCombinationId = addSelectedCombination;
       }
       await rateCardService.upsertRate(payload);
       toastSuccess("Rate added successfully");
@@ -354,8 +354,8 @@ const RateCardList = () => {
       const data = res?.data || res;
       setProductInfo(data?.product || null);
       setProductSuppliers(data?.rates || []);
-      if (Array.isArray(data?.combinationIdsWithRates)) {
-        setCombinationIdsWithRates(data.combinationIdsWithRates);
+      if (Array.isArray(data?.variantCombinationIdsWithRates)) {
+        setCombinationIdsWithRates(data.variantCombinationIdsWithRates);
       }
     },
     [],
@@ -445,7 +445,7 @@ const RateCardList = () => {
     try {
       const payload = { productId, supplierId, rate: Number(rate) };
       if (combinationUniqueId && combinationUniqueId !== "base") {
-        payload.combinationUniqueId = combinationUniqueId;
+        payload.variantCombinationId = combinationUniqueId;
       }
       await rateCardService.upsertRate(payload);
       toastSuccess("Rate saved successfully");
@@ -701,11 +701,11 @@ const RateCardList = () => {
                             {productDetail.variantCombinations
                               .filter((c) => c?.isActive !== false)
                               .filter((c) => {
-                                const uid = c.uniqueId || c._id;
+                                const uid = c._id;
                                 return combinationIdsWithRates.includes(uid);
                               })
                               .map((c) => {
-                                const uid = c.uniqueId || c._id;
+                                const uid = c._id;
                                 return (
                                   <label
                                     key={uid}
@@ -760,12 +760,12 @@ const RateCardList = () => {
                           <CTableBody>
                             {productSuppliers.map((entry, index) => {
                               const comboId =
-                                entry.combinationUniqueId ??
+                                entry.variantCombinationId ??
                                 selectedProductCombination;
                               const key = comboId
                                 ? `${selectedProduct._id}_${entry.supplier?._id}_${comboId}`
                                 : `${selectedProduct._id}_${entry.supplier?._id}`;
-                              const isComboEntry = !!entry.combinationUniqueId;
+                              const isComboEntry = !!entry.variantCombinationId;
                               return (
                                 <CTableRow
                                   key={entry._id}
@@ -1319,7 +1319,7 @@ const RateCardList = () => {
                                         const comboText = (
                                           getVariantComboDisplay(c) +
                                           " " +
-                                          (c.sku || "")
+                                          (c.variantCode || "")
                                         ).toLowerCase();
                                         return comboText.includes(q);
                                       });
@@ -1335,7 +1335,7 @@ const RateCardList = () => {
                                     );
                                   }
                                   return filtered.map((c) => {
-                                    const uid = c.uniqueId || c._id;
+                                    const uid = c._id;
                                     const selected =
                                       addSelectedCombination === uid;
                                     return (

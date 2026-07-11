@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   CCard,
   CCardBody,
@@ -10,20 +10,31 @@ import {
   CFormInput,
   CFormLabel,
   CFormTextarea,
-  CFormSelect,
+  CFormSwitch,
   CAlert,
   CSpinner,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
-import { cilReload } from "@coreui/icons";
+import { cilTrash, cilPlus } from "@coreui/icons";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import categoryService from "../../services/categoryService";
 import groupService from "../../services/groupService";
-import { Loader, SearchableDropdown } from "../../components";
+import { Loader, SearchableDropdown, StatusLabel } from "../../components";
+import MapBrandModal from "../../components/MapBrandModal/MapBrandModal";
+import "../../components/CrudFormPage/CrudFormPage.scss";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 
 const CATEGORY_FORM_DRAFT_KEY = "category_form_draft";
+
+const countWords = (text) =>
+  (text || "").trim().split(/\s+/).filter(Boolean).length;
 
 const CategoryForm = () => {
   const navigate = useNavigate();
@@ -45,6 +56,7 @@ const CategoryForm = () => {
             parent: parsed.parent || parentFromQuery || "",
             status: parsed.status || "active",
             categoryCode: parsed.categoryCode || "",
+            image: parsed.image || "",
           };
         }
       } catch {
@@ -59,16 +71,22 @@ const CategoryForm = () => {
       parent: parentFromQuery || "",
       status: "active",
       categoryCode: "",
+      image: "",
     };
   });
 
+  const [imageDisplayUrl, setImageDisplayUrl] = useState("");
   const [groups, setGroups] = useState([]);
-  const [rootCategories, setRootCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [iconUploading, setIconUploading] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
-  const [groupsRefreshing, setGroupsRefreshing] = useState(false);
+  const [mappedBrands, setMappedBrands] = useState([]);
+  const [mapBrandModalVisible, setMapBrandModalVisible] = useState(false);
+  const iconInputRef = useRef(null);
+
+  const hasCategoryIcon = Boolean(imageDisplayUrl || formData.image);
 
   const fetchGroups = async () => {
     try {
@@ -83,35 +101,8 @@ const CategoryForm = () => {
     }
   };
 
-  const refreshGroups = async () => {
-    setGroupsRefreshing(true);
-    try {
-      await fetchGroups();
-      toastSuccess("Groups refreshed");
-    } catch (err) {
-      toastError(err?.message || "Failed to refresh groups");
-    } finally {
-      setGroupsRefreshing(false);
-    }
-  };
-
-  const fetchRootCategories = async () => {
-    try {
-      const res = await categoryService.getAll({
-        pageNumber: 1,
-        pageSize: 100,
-        parent: "null",
-      });
-      const data = res?.data || res;
-      setRootCategories(data?.categories || []);
-    } catch (err) {
-      console.error("Failed to fetch root categories", err);
-    }
-  };
-
   useEffect(() => {
     fetchGroups();
-    fetchRootCategories();
   }, []);
 
   useEffect(() => {
@@ -138,7 +129,10 @@ const CategoryForm = () => {
           status: category.status || "active",
           sortOrder: category.sortOrder ?? 0,
           categoryCode: category.categoryCode || "",
+          image: category.image || "",
         });
+        setImageDisplayUrl(category.imageDisplayUrl || category.image || "");
+        setMappedBrands(category.brands || []);
       } catch (err) {
         setError("Failed to load category details");
       } finally {
@@ -164,6 +158,7 @@ const CategoryForm = () => {
               parent: next.parent || "",
               status: next.status || "active",
               categoryCode: next.categoryCode || "",
+              image: next.image || "",
             }),
           );
         } catch {
@@ -172,6 +167,114 @@ const CategoryForm = () => {
       }
       return next;
     });
+
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+  };
+
+  const handleStatusToggle = (checked) => {
+    setFormData((prev) => {
+      const next = { ...prev, status: checked ? "active" : "inactive" };
+      if (!id && typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            CATEGORY_FORM_DRAFT_KEY,
+            JSON.stringify({
+              name: next.name || "",
+              description: next.description || "",
+              group: next.group || "",
+              parent: next.parent || "",
+              status: next.status || "active",
+              categoryCode: next.categoryCode || "",
+              image: next.image || "",
+            }),
+          );
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleIconChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toastError("Please select an image file (JPEG, PNG, GIF, WebP)");
+      return;
+    }
+
+    setIconUploading(true);
+    try {
+      const res = await categoryService.uploadIcon(file);
+      const data = res?.data?.data || res?.data || {};
+      const url = data?.url;
+      const displayUrl = data?.displayUrl || url;
+
+      if (!url) {
+        toastError("Icon upload failed");
+        return;
+      }
+
+      setFormData((prev) => {
+        const next = { ...prev, image: url };
+        if (!id && typeof window !== "undefined") {
+          try {
+            window.localStorage.setItem(
+              CATEGORY_FORM_DRAFT_KEY,
+              JSON.stringify({
+                name: next.name || "",
+                description: next.description || "",
+                group: next.group || "",
+                parent: next.parent || "",
+                status: next.status || "active",
+                categoryCode: next.categoryCode || "",
+                image: next.image || "",
+              }),
+            );
+          } catch {
+            // ignore storage errors
+          }
+        }
+        return next;
+      });
+      setImageDisplayUrl(displayUrl || url);
+      toastSuccess("Category icon uploaded");
+    } catch (err) {
+      toastError(err?.message || "Icon upload failed");
+    } finally {
+      setIconUploading(false);
+    }
+  };
+
+  const handleRemoveIcon = () => {
+    setFormData((prev) => {
+      const next = { ...prev, image: "" };
+      if (!id && typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            CATEGORY_FORM_DRAFT_KEY,
+            JSON.stringify({
+              name: next.name || "",
+              description: next.description || "",
+              group: next.group || "",
+              parent: next.parent || "",
+              status: next.status || "active",
+              categoryCode: next.categoryCode || "",
+              image: "",
+            }),
+          );
+        } catch {
+          // ignore storage errors
+        }
+      }
+      return next;
+    });
+    setImageDisplayUrl("");
   };
 
   const handleSubmit = async (e) => {
@@ -191,8 +294,16 @@ const CategoryForm = () => {
     } else if (name.length > 100) {
       errs.name = "Name must be at most 100 characters";
     }
-    if (formData.status && !["active", "inactive"].includes(formData.status)) {
+    if (!formData.status) {
+      errs.status = "Status is required";
+    } else if (!["active", "inactive"].includes(formData.status)) {
       errs.status = "Status must be active or inactive";
+    }
+    const description = (formData.description || "").trim();
+    if (!description) {
+      errs.description = "Description is required";
+    } else if (countWords(description) > 200) {
+      errs.description = "Description must be at most 200 words";
     }
     const sortOrder = formData.sortOrder;
     if (sortOrder !== "" && sortOrder != null) {
@@ -211,8 +322,11 @@ const CategoryForm = () => {
       const { categoryCode, ...rest } = formData;
       const payload = {
         ...rest,
+        description,
         group: formData.group || null,
         parent: formData.parent || null,
+        image: formData.image || "",
+        brandIds: mappedBrands.map((brand) => brand._id),
         sortOrder:
           rest.sortOrder !== "" && rest.sortOrder != null
             ? Number(rest.sortOrder)
@@ -234,6 +348,18 @@ const CategoryForm = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleAddMappedBrand = (brand) => {
+    if (!brand?._id) return;
+    setMappedBrands((prev) => {
+      if (prev.some((item) => item._id === brand._id)) return prev;
+      return [...prev, brand];
+    });
+  };
+
+  const handleRemoveMappedBrand = (brandId) => {
+    setMappedBrands((prev) => prev.filter((brand) => brand._id !== brandId));
   };
 
   if (loading) {
@@ -269,7 +395,10 @@ const CategoryForm = () => {
                     parent: parentFromQuery || "",
                     status: "active",
                     categoryCode: "",
+                    image: "",
                   });
+                  setImageDisplayUrl("");
+                  setMappedBrands([]);
                   if (typeof window !== "undefined") {
                     window.localStorage.removeItem(CATEGORY_FORM_DRAFT_KEY);
                   }
@@ -288,44 +417,12 @@ const CategoryForm = () => {
             )}
 
             <CForm onSubmit={handleSubmit}>
-              {/* Row 0: Category Code (read-only, auto-generated) - visible only on edit */}
-              {isEdit && (
-                <CRow className="mb-3">
-                  <CCol md={6}>
-                    <CFormLabel>Category Code</CFormLabel>
-                    <CFormInput
-                      name="categoryCode"
-                      value={formData.categoryCode || ""}
-                      placeholder={formData.categoryCode ? "" : "—"}
-                      readOnly
-                      disabled
-                      className="bg-light"
-                    />
-                  </CCol>
-                </CRow>
-              )}
-
-              {/* Row 0.5: Group (select first before category) */}
-              <CRow className="mb-3">
-                <CCol md={6}>
-                  <div className="d-flex align-items-center gap-2 mb-1">
-                    <CFormLabel className="mb-0">Group</CFormLabel>
-                    <CButton
-                      color="secondary"
-                      variant="ghost"
-                      size="sm"
-                      onClick={refreshGroups}
-                      disabled={groupsRefreshing}
-                      title="Refresh groups list"
-                      aria-label="Refresh groups"
-                    >
-                      {groupsRefreshing ? (
-                        <CSpinner size="sm" />
-                      ) : (
-                        <CIcon icon={cilReload} />
-                      )}
-                    </CButton>
-                  </div>
+              {/* Row 1: Group + Name */}
+              <CRow className="mb-3 g-3 align-items-start">
+                <CCol md={6} className="mb-3 mb-md-0">
+                  <CFormLabel>
+                    Group <span className="text-danger">*</span>
+                  </CFormLabel>
                   <SearchableDropdown
                     options={groups}
                     value={formData.group}
@@ -337,8 +434,9 @@ const CategoryForm = () => {
                           group: undefined,
                         }));
                     }}
-                    placeholder="Select Group (required)"
-                    maxDisplayCount={5}
+                    placeholder="Select group"
+                    maxDisplayCount={10}
+                    invalid={!!fieldErrors.group}
                     getOptionLabel={(grp) =>
                       `${grp.name || ""}${grp.code ? ` (${grp.code})` : ""}`
                     }
@@ -349,17 +447,11 @@ const CategoryForm = () => {
                       {fieldErrors.group}
                     </div>
                   )}
-                  <small className="text-muted">
-                    Search and select a group. Best 5 matches shown. Click the
-                    refresh icon to reload groups.
-                  </small>
                 </CCol>
-              </CRow>
-
-              {/* Row 1: Name + Parent Category */}
-              <CRow className="mb-3">
-                <CCol md={6} className="mb-3 mb-md-0">
-                  <CFormLabel>Name *</CFormLabel>
+                <CCol md={6}>
+                  <CFormLabel>
+                    Name <span className="text-danger">*</span>
+                  </CFormLabel>
                   <CFormInput
                     name="name"
                     value={formData.name}
@@ -373,64 +465,192 @@ const CategoryForm = () => {
                     </div>
                   )}
                 </CCol>
-                <CCol md={6}>
-                  <CFormLabel>Parent Category</CFormLabel>
-                  <SearchableDropdown
-                    options={rootCategories}
-                    value={formData.parent}
-                    onChange={(val) =>
-                      setFormData((prev) => ({ ...prev, parent: val || "" }))
-                    }
-                    placeholder="None (Root Category)"
-                    maxDisplayCount={5}
-                    getOptionLabel={(cat) =>
-                      `${cat.name || ""}${
-                        cat.categoryCode ? ` (${cat.categoryCode})` : ""
-                      }`
-                    }
-                    getOptionValue={(cat) => cat._id}
-                  />
-                  <small className="text-muted">
-                    Search within root categories. Leave empty for a root
-                    category.
-                  </small>
-                </CCol>
               </CRow>
 
-              {/* Row 2: Status */}
-              <CRow className="mb-3">
+              {/* Row 2: Status + Category icon */}
+              <CRow className="mb-3 g-3">
                 <CCol md={6}>
-                  <CFormLabel>Status</CFormLabel>
-                  <CFormSelect
-                    name="status"
-                    value={formData.status}
-                    onChange={handleChange}
-                    invalid={!!fieldErrors.status}
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </CFormSelect>
-                  {fieldErrors.status && (
-                    <div className="text-danger small mt-1">
-                      {fieldErrors.status}
+                  <div className="crud-form-field">
+                    <label
+                      className="crud-form-field__label"
+                      htmlFor="category-status"
+                    >
+                      Status <span className="text-danger">*</span>
+                    </label>
+                    <div className="crud-form-status-toggle">
+                      <CFormSwitch
+                        id="category-status"
+                        checked={formData.status === "active"}
+                        onChange={(event) =>
+                          handleStatusToggle(event.target.checked)
+                        }
+                        aria-label="Category status"
+                      />
+                      <span
+                        className={`crud-form-status-toggle__badge ${
+                          formData.status === "active"
+                            ? "crud-form-status-toggle__badge--active"
+                            : "crud-form-status-toggle__badge--inactive"
+                        }`}
+                      >
+                        {formData.status === "active" ? "Active" : "Inactive"}
+                      </span>
                     </div>
-                  )}
+                    {fieldErrors.status && (
+                      <div className="text-danger small mt-1">
+                        {fieldErrors.status}
+                      </div>
+                    )}
+                  </div>
+                </CCol>
+                <CCol md={6}>
+                  <div className="crud-form-field">
+                    <label
+                      className="crud-form-field__label"
+                      htmlFor="category-icon"
+                    >
+                      Category icon
+                    </label>
+                    <div className="crud-form-icon-upload__preview">
+                      {hasCategoryIcon ? (
+                        <>
+                          <button
+                            type="button"
+                            className="btn btn-link p-0 border-0 flex-shrink-0"
+                            onClick={() => iconInputRef.current?.click()}
+                            disabled={iconUploading || submitting}
+                            aria-label="Change category icon"
+                          >
+                            <img
+                              className="crud-form-icon-upload__image"
+                              src={imageDisplayUrl || formData.image}
+                              alt=""
+                            />
+                          </button>
+                          <CButton
+                            color="danger"
+                            variant="ghost"
+                            size="sm"
+                            type="button"
+                            className="p-1 ms-auto flex-shrink-0"
+                            onClick={handleRemoveIcon}
+                            disabled={iconUploading || submitting}
+                            aria-label="Remove category icon"
+                          >
+                            <CIcon icon={cilTrash} size="sm" />
+                          </CButton>
+                        </>
+                      ) : (
+                        <CFormInput
+                          id="category-icon"
+                          className="crud-form-icon-upload__file-input border-0 bg-transparent shadow-none"
+                          type="file"
+                          accept="image/jpeg,image/png,image/gif,image/webp"
+                          onChange={handleIconChange}
+                          disabled={iconUploading || submitting}
+                        />
+                      )}
+                      <input
+                        ref={iconInputRef}
+                        className="d-none"
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        onChange={handleIconChange}
+                        disabled={iconUploading || submitting}
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      />
+                      {iconUploading && (
+                        <CSpinner size="sm" className="flex-shrink-0" />
+                      )}
+                    </div>
+                  </div>
                 </CCol>
               </CRow>
 
               {/* Row 3: Description (full width) */}
               <div className="mb-4">
-                <CFormLabel>Description</CFormLabel>
+                <CFormLabel>
+                  Description <span className="text-danger">*</span>
+                </CFormLabel>
                 <CFormTextarea
                   name="description"
                   rows={4}
                   value={formData.description}
                   onChange={handleChange}
                   placeholder="Enter category description..."
+                  invalid={!!fieldErrors.description}
                 />
+                {fieldErrors.description && (
+                  <div className="text-danger small mt-1">
+                    {fieldErrors.description}
+                  </div>
+                )}
               </div>
 
-              {/* Row 4: Actions */}
+              {/* Row 4: Map Brand */}
+              <div className="mb-4">
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <CFormLabel className="mb-0">Map Brand</CFormLabel>
+                  <CButton
+                    color="primary"
+                    size="sm"
+                    type="button"
+                    onClick={() => setMapBrandModalVisible(true)}
+                  >
+                    <CIcon icon={cilPlus} className="me-1" />
+                    Add Brand
+                  </CButton>
+                </div>
+
+                {mappedBrands.length > 0 ? (
+                  <CTable hover responsive className="mb-0">
+                    <CTableHead>
+                      <CTableRow>
+                        <CTableHeaderCell>Name</CTableHeaderCell>
+                        <CTableHeaderCell>Description</CTableHeaderCell>
+                        <CTableHeaderCell>Status</CTableHeaderCell>
+                        <CTableHeaderCell className="text-center">
+                          Actions
+                        </CTableHeaderCell>
+                      </CTableRow>
+                    </CTableHead>
+                    <CTableBody>
+                      {mappedBrands.map((brand) => (
+                        <CTableRow key={brand._id}>
+                          <CTableDataCell className="fw-semibold">
+                            {brand.name}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {brand.description || "—"}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            <StatusLabel status={brand.status} />
+                          </CTableDataCell>
+                          <CTableDataCell className="text-center">
+                            <CButton
+                              color="danger"
+                              variant="ghost"
+                              size="sm"
+                              type="button"
+                              onClick={() => handleRemoveMappedBrand(brand._id)}
+                              aria-label={`Remove ${brand.name}`}
+                            >
+                              <CIcon icon={cilTrash} size="sm" />
+                            </CButton>
+                          </CTableDataCell>
+                        </CTableRow>
+                      ))}
+                    </CTableBody>
+                  </CTable>
+                ) : (
+                  <div className="border rounded p-3 text-body-secondary">
+                    No brands mapped yet.
+                  </div>
+                )}
+              </div>
+
+              {/* Row 5: Actions */}
               <div className="d-flex justify-content-end gap-2 pt-2">
                 <CButton
                   color="secondary"
@@ -453,6 +673,13 @@ const CategoryForm = () => {
                 </CButton>
               </div>
             </CForm>
+
+            <MapBrandModal
+              visible={mapBrandModalVisible}
+              onClose={() => setMapBrandModalVisible(false)}
+              onAdd={handleAddMappedBrand}
+              mappedBrandIds={mappedBrands.map((brand) => brand._id)}
+            />
           </CCardBody>
         </CCard>
       </CCol>

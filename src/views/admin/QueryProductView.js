@@ -38,6 +38,10 @@ import { toastError, toastSuccess } from "../../utils/toast";
 import { sortAlphabetically } from "../../utils/sort";
 import { Loader, TablePagination } from "../../components";
 import { dateTimeFormatter, dateFormatter } from "../../utils/dateFormatter";
+import {
+  formatProBucketRateAmount,
+  resolveProBucketEffectiveRate,
+} from "../../utils/proBucketRate";
 
 const isHodRole = (role) => {
   const r = String(role || "").toLowerCase();
@@ -1234,7 +1238,10 @@ const QueryProductView = () => {
                         </CTableHeaderCell>
                         <CTableHeaderCell>Supplier</CTableHeaderCell>
                         <CTableHeaderCell>Phone</CTableHeaderCell>
-                        <CTableHeaderCell>Rate</CTableHeaderCell>
+                        <CTableHeaderCell>Base rate</CTableHeaderCell>
+                        <CTableHeaderCell>GST %</CTableHeaderCell>
+                        <CTableHeaderCell>Discount %</CTableHeaderCell>
+                        <CTableHeaderCell>Final amount</CTableHeaderCell>
                         <CTableHeaderCell>Unit</CTableHeaderCell>
                         <CTableHeaderCell>Remark</CTableHeaderCell>
                         <CTableHeaderCell>Submitted By</CTableHeaderCell>
@@ -1264,6 +1271,20 @@ const QueryProductView = () => {
                           </CTableDataCell>
                           <CTableDataCell className="fw-semibold text-primary">
                             {formatCurrencyRate(row.rate)}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {row.gstPercentage != null ? row.gstPercentage : 0}
+                          </CTableDataCell>
+                          <CTableDataCell>
+                            {row.discountPercentage != null
+                              ? row.discountPercentage
+                              : 0}
+                          </CTableDataCell>
+                          <CTableDataCell className="fw-semibold text-success">
+                            ₹
+                            {formatProBucketRateAmount(
+                              resolveProBucketEffectiveRate(row),
+                            )}
                           </CTableDataCell>
                           <CTableDataCell>
                             {row.unit?.trim() || "—"}

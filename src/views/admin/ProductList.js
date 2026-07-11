@@ -306,7 +306,9 @@ const ProductList = () => {
                           {product.hasVariants && (
                             <div>
                               <small className="text-muted">
-                                {product.variantCombinations?.length || 0}{" "}
+                                {product.variantCombinationCount ??
+                                  product.variantCombinations?.length ??
+                                  0}{" "}
                                 variants
                               </small>
                             </div>

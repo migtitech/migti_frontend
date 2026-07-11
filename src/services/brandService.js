@@ -32,6 +32,15 @@ const brandService = {
     });
     return response;
   },
+
+  uploadIcon: async (file) => {
+    const formData = new FormData();
+    formData.append("icon", file);
+    const response = await api.post(BRANDS.UPLOAD_ICON, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response;
+  },
 };
 
 export default brandService;

@@ -32,6 +32,8 @@ import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { formatDateInputValue } from "../../utils/procurementTimeline";
+import StatusLabel from "../../components/StatusLabel/StatusLabel";
 import { useAuth } from "../../context/AuthContext";
 import { isBackOfficeRole } from "../../hooks/usePermissions";
 
@@ -314,102 +316,89 @@ const ProductView = () => {
             </CCard>
           )}
 
-          {/* Variant combinations – bordered table: Variant value | Images */}
           {product.hasVariants && product.variantCombinations?.length > 0 && (
             <CCard className="mb-4">
               <CCardHeader>
-                <strong>Variant combinations & images</strong>
+                <strong>Variant combinations</strong>
               </CCardHeader>
-              <CCardBody className="p-0">
-                <CTable bordered hover responsive className="mb-0">
-                  <CTableHead>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        style={{ backgroundColor: "#f8f9fa", fontWeight: 600 }}
-                      >
-                        Code
-                      </CTableHeaderCell>
-                      <CTableHeaderCell
-                        style={{ backgroundColor: "#f8f9fa", fontWeight: 600 }}
-                      >
-                        Variant
-                      </CTableHeaderCell>
-                      <CTableHeaderCell
-                        style={{ backgroundColor: "#fff3cd", fontWeight: 600 }}
-                      >
-                        HSN Number
-                      </CTableHeaderCell>
-                      <CTableHeaderCell
-                        style={{ backgroundColor: "#fff3cd", fontWeight: 600 }}
-                      >
-                        Model Number
-                      </CTableHeaderCell>
-                      <CTableHeaderCell
-                        style={{ backgroundColor: "#fff3cd", fontWeight: 600 }}
-                      >
-                        GST %
-                      </CTableHeaderCell>
-                      <CTableHeaderCell
-                        style={{ backgroundColor: "#f8f9fa", fontWeight: 600 }}
-                      >
-                        Images
-                      </CTableHeaderCell>
-                    </CTableRow>
-                  </CTableHead>
-                  <CTableBody>
-                    {product.variantCombinations.map((combo, cIdx) => (
-                      <CTableRow key={combo.uniqueId || cIdx}>
-                        <CTableDataCell className="align-middle">
-                          <code className="text-primary">
-                            {combo.variantCode || `—`}
-                          </code>
-                        </CTableDataCell>
-                        <CTableDataCell className="align-middle">
-                          <strong>
-                            {combo.optionValues
-                              ?.map(
-                                (o) => `${o.variantName}: ${o.variantValue}`,
-                              )
-                              .join(" · ") || "—"}
-                          </strong>
-                        </CTableDataCell>
-                        <CTableDataCell
-                          className="align-middle"
-                          style={{
-                            backgroundColor: "#fff3cd",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {combo.hsnNumber || product.hsnNumber || "—"}
-                        </CTableDataCell>
-                        <CTableDataCell
-                          className="align-middle"
-                          style={{
-                            backgroundColor: "#fff3cd",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {combo.modelNumber ||
-                            product.defaultModelNumber ||
-                            "—"}
-                        </CTableDataCell>
-                        <CTableDataCell
-                          className="align-middle"
-                          style={{
-                            backgroundColor: "#fff3cd",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {combo.gstPercentage != null &&
-                          combo.gstPercentage !== ""
-                            ? `${combo.gstPercentage}%`
-                            : product.gstPercentage != null &&
-                                product.gstPercentage !== ""
-                              ? `${product.gstPercentage}%`
-                              : "—"}
-                        </CTableDataCell>
-                        <CTableDataCell className="align-middle">
-                          <div className="d-flex flex-wrap gap-2 align-items-center">
+              <CCardBody>
+                <CRow className="g-3">
+                  {product.variantCombinations.map((combo, cIdx) => (
+                    <CCol key={combo.uniqueId || cIdx} xs={12} sm={6} lg={3}>
+                      <CCard className="h-100 border">
+                        <CCardBody className="py-3">
+                          <div className="mb-2">
+                            <code className="text-primary small d-block mb-1">
+                              {combo.variantCode || "—"}
+                            </code>
+                            <strong className="small">
+                              {combo.optionValues
+                                ?.map(
+                                  (o) => `${o.variantName}: ${o.variantValue}`,
+                                )
+                                .join(" · ") || "—"}
+                            </strong>
+                          </div>
+                          <div className="small mb-2">
+                            <div className="d-flex justify-content-between py-1 border-bottom">
+                              <span className="text-muted">Status</span>
+                              <StatusLabel
+                                status={
+                                  combo.isActive !== false
+                                    ? "active"
+                                    : "inactive"
+                                }
+                              />
+                            </div>
+                            <div className="d-flex justify-content-between py-1 border-bottom">
+                              <span className="text-muted">Model</span>
+                              <span>
+                                {combo.modelNumber ||
+                                  product.defaultModelNumber ||
+                                  "—"}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between py-1 border-bottom">
+                              <span className="text-muted">Purchase</span>
+                              <span>
+                                {combo.costPrice != null &&
+                                combo.costPrice !== ""
+                                  ? combo.costPrice
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between py-1 border-bottom">
+                              <span className="text-muted">Selling</span>
+                              <span>
+                                {combo.price != null && combo.price !== ""
+                                  ? combo.price
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between py-1 border-bottom">
+                              <span className="text-muted">Timeline</span>
+                              <span>
+                                {combo.timeline > 0
+                                  ? `${combo.timeline} day${combo.timeline === 1 ? "" : "s"}`
+                                  : "—"}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between py-1">
+                              <span className="text-muted">Next review</span>
+                              <span>
+                                {combo.nextTimelineDate
+                                  ? formatDateInputValue(combo.nextTimelineDate)
+                                  : "—"}
+                              </span>
+                            </div>
+                            {combo.procurementReviewStatus &&
+                              combo.procurementReviewStatus !== "idle" && (
+                                <div className="text-muted text-capitalize mt-1">
+                                  {combo.procurementReviewStatus}
+                                </div>
+                              )}
+                          </div>
+                          <div className="d-flex flex-wrap gap-2">
                             {(combo.images || []).length > 0 ? (
                               (combo.images || []).map((img, iIdx) => {
                                 const src = getImageUrl(img);
@@ -424,29 +413,31 @@ const ProductView = () => {
                                     }
                                     className="rounded border overflow-hidden"
                                     style={{
-                                      width: 64,
-                                      height: 64,
+                                      width: 56,
+                                      height: 56,
                                       cursor: "pointer",
                                     }}
                                   >
                                     <CImage
                                       src={src}
-                                      width={64}
-                                      height={64}
+                                      width={56}
+                                      height={56}
                                       className="object-fit-cover w-100 h-100"
                                     />
                                   </div>
                                 );
                               })
                             ) : (
-                              <span className="text-muted">No images</span>
+                              <span className="text-muted small">
+                                No images
+                              </span>
                             )}
                           </div>
-                        </CTableDataCell>
-                      </CTableRow>
-                    ))}
-                  </CTableBody>
-                </CTable>
+                        </CCardBody>
+                      </CCard>
+                    </CCol>
+                  ))}
+                </CRow>
               </CCardBody>
             </CCard>
           )}

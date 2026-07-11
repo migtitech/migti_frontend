@@ -1,14 +1,27 @@
-// Ensure dropdown wrapper allows overflow so menu can overlay content below
 .searchable-dropdown {
-  overflow: visible;
+  width: 100%;
 }
 
-// Dropdown menu overlays table/card (Popper may render outside wrapper)
-.searchable-dropdown-menu {
-  z-index: 1060 !important;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+.searchable-dropdown__suggestions {
+  margin-top: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  width: 100%;
 }
 
-.searchable-dropdown-options {
-  min-height: 2rem;
+.searchable-dropdown__suggestions .list-group-item {
+  border-left: 0;
+  border-right: 0;
+}
+
+.searchable-dropdown__suggestions .list-group-item:first-child {
+  border-top: 0;
+}
+
+.searchable-dropdown__suggestions .list-group-item:last-child {
+  border-bottom: 0;
+}
+
+.searchable-dropdown__suggestions .list-group-item-action {
+  width: 100%;
 }

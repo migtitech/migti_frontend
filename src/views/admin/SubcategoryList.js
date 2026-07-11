@@ -19,7 +19,7 @@ import {
 import CIcon from "@coreui/icons-react";
 import { cilPlus, cilPencil, cilTrash } from "@coreui/icons";
 import { useNavigate } from "react-router-dom";
-import groupService from "../../services/groupService";
+import subcategoryService from "../../services/subcategoryService";
 import Filtered from "../../filtered/Filtered";
 import {
   ConfirmDialog,
@@ -32,48 +32,58 @@ import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions, { isHodRole } from "../../hooks/usePermissions";
 import { useAuth } from "../../context/AuthContext";
 
-const getGroupAvatarLabel = (name) => {
+const StackedNameCode = ({ name, code, bold = false }) => (
+  <div>
+    {bold ? <strong>{name || "—"}</strong> : <span>{name || "—"}</span>}
+    <div>
+      <code className="text-primary">{code || "—"}</code>
+    </div>
+  </div>
+);
+
+const getSubcategoryAvatarLabel = (name) => {
   const trimmed = (name || "").trim();
   if (!trimmed) return "—";
   return trimmed.slice(0, 2).toUpperCase();
 };
 
-const getGroupIconSrc = (group) =>
-  group?.iconDisplayUrl || group?.iconUrl || undefined;
+const getSubcategoryImageSrc = (subcategory) =>
+  subcategory?.imageDisplayUrl || subcategory?.image || undefined;
 
-const GroupList = () => {
+const SubcategoryList = () => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const { user } = useAuth();
   const canToggleStatus = isHodRole(user?.role);
-  const [groups, setGroups] = useState([]);
+  const [subcategories, setSubcategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
+  const [togglingId, setTogglingId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
     id: null,
   });
-  const [togglingId, setTogglingId] = useState(null);
 
-  const fetchGroups = async () => {
+  const fetchSubcategories = async () => {
     setLoading(true);
     setError("");
     try {
       const res = await withMinimumDelay(() =>
-        groupService.getAll({
+        subcategoryService.getAll({
           pageNumber: page,
           pageSize: 10,
           search: searchTerm,
         }),
       );
       const data = res?.data || res;
-      setGroups(data?.groups || []);
-      setPagination(data?.pagination || {});
+      const inner = data?.data ?? data;
+      setSubcategories(inner?.subcategories || []);
+      setPagination(inner?.pagination || {});
     } catch (err) {
-      setError(err?.message || "Failed to fetch groups");
+      setError(err?.message || "Failed to fetch subcategories");
     } finally {
       setLoading(false);
     }
@@ -81,7 +91,7 @@ const GroupList = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchGroups();
+      fetchSubcategories();
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm, page]);
@@ -95,40 +105,42 @@ const GroupList = () => {
     setConfirmDelete({ visible: false, id: null });
     if (!id) return;
     try {
-      await groupService.delete(id);
-      toastSuccess("Group deleted successfully");
-      fetchGroups();
+      await subcategoryService.delete(id);
+      toastSuccess("Subcategory deleted successfully");
+      fetchSubcategories();
     } catch (err) {
-      toastError(err?.message || "Failed to delete group");
+      toastError(err?.message || "Failed to delete subcategory");
     }
   };
 
-  const handleStatusToggle = async (group, checked) => {
+  const handleStatusToggle = async (subcategory, checked) => {
     if (!canToggleStatus) return;
 
     const newStatus = checked ? "active" : "inactive";
-    if (group.status === newStatus) return;
+    if (subcategory.status === newStatus) return;
 
-    const previousStatus = group.status;
-    setTogglingId(group._id);
-    setGroups((prev) =>
+    const previousStatus = subcategory.status;
+    setTogglingId(subcategory._id);
+    setSubcategories((prev) =>
       prev.map((item) =>
-        item._id === group._id ? { ...item, status: newStatus } : item,
+        item._id === subcategory._id ? { ...item, status: newStatus } : item,
       ),
     );
 
     try {
-      await groupService.update(group._id, { status: newStatus });
+      await subcategoryService.update(subcategory._id, { status: newStatus });
       toastSuccess(
-        `Group ${newStatus === "active" ? "activated" : "deactivated"} successfully`,
+        `Subcategory ${newStatus === "active" ? "activated" : "deactivated"} successfully`,
       );
     } catch (err) {
-      setGroups((prev) =>
+      setSubcategories((prev) =>
         prev.map((item) =>
-          item._id === group._id ? { ...item, status: previousStatus } : item,
+          item._id === subcategory._id
+            ? { ...item, status: previousStatus }
+            : item,
         ),
       );
-      toastError(err?.message || "Failed to update group status");
+      toastError(err?.message || "Failed to update subcategory status");
     } finally {
       setTogglingId(null);
     }
@@ -139,11 +151,14 @@ const GroupList = () => {
       <CCol xs={12}>
         <CCard className="mb-4">
           <CCardHeader className="d-flex justify-content-between align-items-center">
-            <strong>Groups</strong>
-            {canCreate("groups") && (
-              <CButton color="primary" onClick={() => navigate("/groups/new")}>
+            <strong>Subcategories</strong>
+            {canCreate("subcategories") && (
+              <CButton
+                color="primary"
+                onClick={() => navigate("/subcategories/new")}
+              >
                 <CIcon icon={cilPlus} className="me-2" />
-                Add Group
+                Add Subcategory
               </CButton>
             )}
           </CCardHeader>
@@ -162,7 +177,7 @@ const GroupList = () => {
               </CCol>
             </CRow>
             {loading ? (
-              <Loader message="Loading groups..." />
+              <Loader message="Loading subcategories..." />
             ) : (
               <>
                 <CTable hover responsive bordered>
@@ -170,6 +185,7 @@ const GroupList = () => {
                     <CTableRow>
                       <CTableHeaderCell>S No</CTableHeaderCell>
                       <CTableHeaderCell>Name</CTableHeaderCell>
+                      <CTableHeaderCell>Category</CTableHeaderCell>
                       <CTableHeaderCell className="text-center">
                         Status
                       </CTableHeaderCell>
@@ -179,83 +195,82 @@ const GroupList = () => {
                     </CTableRow>
                   </CTableHead>
                   <CTableBody>
-                    {groups.map((grp, index) => {
-                      const iconSrc = getGroupIconSrc(grp);
+                    {subcategories.map((sub, index) => {
+                      const imageSrc = getSubcategoryImageSrc(sub);
                       return (
-                        <CTableRow
-                          key={grp._id}
-                          style={{ cursor: "pointer" }}
-                          onClick={() => navigate(`/groups/edit/${grp._id}`)}
-                        >
+                        <CTableRow key={sub._id}>
                           <CTableDataCell>
                             {(page - 1) * 10 + index + 1}
                           </CTableDataCell>
                           <CTableDataCell>
                             <div className="d-flex align-items-center">
                               <CAvatar
-                                src={iconSrc}
-                                color={iconSrc ? undefined : "primary"}
-                                textColor={iconSrc ? undefined : "white"}
+                                src={imageSrc}
+                                color={imageSrc ? undefined : "primary"}
+                                textColor={imageSrc ? undefined : "white"}
                                 size="md"
                                 shape="rounded-circle"
-                                className={`me-3 flex-shrink-0${iconSrc ? " bg-transparent" : ""}`}
+                                className={`me-3 flex-shrink-0${imageSrc ? " bg-transparent" : ""}`}
                               >
-                                {getGroupAvatarLabel(grp.name)}
+                                {getSubcategoryAvatarLabel(sub.name)}
                               </CAvatar>
-                              <div>
-                                <strong>{grp.name}</strong>
-                                <div>
-                                  <code>{grp.code || "—"}</code>
-                                </div>
-                              </div>
+                              <StackedNameCode
+                                name={sub.name}
+                                code={sub.subcategoryCode}
+                                bold
+                              />
                             </div>
                           </CTableDataCell>
-                          <CTableDataCell
-                            className="text-center"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <CTableDataCell>
+                            <StackedNameCode
+                              name={
+                                typeof sub.category === "object"
+                                  ? sub.category?.name
+                                  : null
+                              }
+                              code={
+                                typeof sub.category === "object"
+                                  ? sub.category?.categoryCode
+                                  : null
+                              }
+                            />
+                          </CTableDataCell>
+                          <CTableDataCell className="text-center">
                             <div className="d-flex align-items-center justify-content-center gap-2">
                               <CFormSwitch
-                                checked={grp.status === "active"}
+                                checked={sub.status === "active"}
                                 disabled={
-                                  !canToggleStatus || togglingId === grp._id
+                                  !canToggleStatus || togglingId === sub._id
                                 }
                                 onChange={(event) =>
-                                  handleStatusToggle(grp, event.target.checked)
+                                  handleStatusToggle(sub, event.target.checked)
                                 }
-                                aria-label={`Toggle status for ${grp.name}`}
+                                aria-label={`Toggle status for ${sub.name}`}
                               />
-                              <StatusLabel status={grp.status} />
+                              <StatusLabel status={sub.status} />
                             </div>
                           </CTableDataCell>
-                          <CTableDataCell
-                            className="text-center"
-                            onClick={(e) => e.stopPropagation()}
-                          >
+                          <CTableDataCell className="text-center">
                             <div className="d-flex justify-content-center">
-                              {canUpdate("groups") && (
+                              {canUpdate("subcategories") && (
                                 <CButton
                                   color="warning"
                                   variant="ghost"
                                   size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate(`/groups/edit/${grp._id}`);
-                                  }}
+                                  onClick={() =>
+                                    navigate(`/subcategories/edit/${sub._id}`)
+                                  }
                                   title="Edit"
                                 >
                                   <CIcon icon={cilPencil} />
                                 </CButton>
                               )}
-                              {canDelete("groups") && (
+                              {canDelete("subcategories") && (
                                 <CButton
                                   color="danger"
                                   variant="ghost"
                                   size="sm"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteClick(grp._id);
-                                  }}
+                                  onClick={() => handleDeleteClick(sub._id)}
                                   title="Delete"
                                 >
                                   <CIcon icon={cilTrash} />
@@ -266,12 +281,12 @@ const GroupList = () => {
                         </CTableRow>
                       );
                     })}
-                    {groups.length === 0 && (
+                    {subcategories.length === 0 && (
                       <CTableRow>
-                        <CTableDataCell colSpan={4} className="text-center">
+                        <CTableDataCell colSpan={5} className="text-center">
                           {searchTerm
-                            ? `No groups found matching "${searchTerm}"`
-                            : 'No groups found. Click "Add Group" to create one.'}
+                            ? `No subcategories found matching "${searchTerm}"`
+                            : 'No subcategories found. Click "Add Subcategory" to create one.'}
                         </CTableDataCell>
                       </CTableRow>
                     )}
@@ -295,8 +310,8 @@ const GroupList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete Group?"
-        message="Are you sure you want to delete this group? Categories linked to it will need to be updated first."
+        title="Delete Subcategory?"
+        message="Are you sure you want to delete this subcategory? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
       />
@@ -304,4 +319,4 @@ const GroupList = () => {
   );
 };
 
-export default GroupList;
+export default SubcategoryList;
