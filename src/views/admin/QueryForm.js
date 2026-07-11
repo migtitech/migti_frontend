@@ -34,8 +34,6 @@ import {
   CModalBody,
   CModalFooter,
   CImage,
-  CCollapse,
-  CFormSwitch,
   CFormCheck,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
@@ -45,15 +43,11 @@ import {
   cilPlus,
   cilTrash,
   cilPencil,
-  cilSearch,
   cilCheckCircle,
   cilX,
-  cilChevronBottom,
-  cilChevronTop,
 } from "@coreui/icons";
 import queryService from "../../services/queryService";
 import industryService from "../../services/industryService";
-import employeeService from "../../services/employeeService";
 import areaService from "../../services/areaService";
 import {
   buildAreaNameLookup,
@@ -65,20 +59,14 @@ import queryNewProductService from "../../services/queryNewProductService";
 import groupService from "../../services/groupService";
 import categoryService from "../../services/categoryService";
 import subcategoryService from "../../services/subcategoryService";
+import productService from "../../services/productService";
 import documentService from "../../services/documentService";
 import { useAuth } from "../../context/AuthContext";
 import usePermissions, { canEditQuery } from "../../hooks/usePermissions";
 import { Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
-import {
-  QUERY_REFERENCE_BY,
-  QUERY_REFERENCE_BY_LABELS,
-  formatQueryReferenceByDisplay,
-} from "../../utils/queryReferenceBy";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
-import QueryNewProductFindSidebar from "./QueryNewProductFindSidebar";
-import QueryProductFindSidebar from "./QueryProductFindSidebar";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 
 const INITIAL_COMPANY = {
@@ -118,6 +106,96 @@ const getSelectedPurchaseManagersForApi = (list) =>
       department: (department || "").trim(),
     }))
     .filter((purchaseManager) => purchaseManager.name || purchaseManager.phone);
+
+const QueryFormDetailField = ({ label, children, className = "" }) => (
+  <div className={className}>
+    <div
+      className="text-body-secondary text-uppercase fw-semibold mb-1"
+      style={{ fontSize: "0.68rem", letterSpacing: "0.04em" }}
+    >
+      {label}
+    </div>
+    <div className="text-break">{children ?? "—"}</div>
+  </div>
+);
+
+const getVariantComboDisplay = (combo) => {
+  const parts = (combo?.optionValues || [])
+    .map((option) => option?.variantValue || "")
+    .filter(Boolean);
+  return parts.join(", ");
+};
+
+const getCatalogProductAttributes = (product) =>
+  (product?.variants || []).filter((attribute) =>
+    String(attribute?.name || "").trim(),
+  );
+
+const combinationMatchesSelections = (combo, selections = {}) => {
+  const activeSelections = Object.entries(selections).filter(([, value]) =>
+    String(value || "").trim(),
+  );
+  if (activeSelections.length === 0) return true;
+  return activeSelections.every(([attributeName, attributeValue]) =>
+    (combo?.optionValues || []).some(
+      (option) =>
+        option.variantName === attributeName &&
+        option.variantValue === attributeValue,
+    ),
+  );
+};
+
+const getVariantCombinationLabel = (combo) =>
+  [getVariantComboDisplay(combo), combo?.variantCode]
+    .filter(Boolean)
+    .join(" · ");
+
+const rankVariantCombinationMatch = (combo, term) => {
+  if (!term) return 0;
+  const label = getVariantCombinationLabel(combo).toLowerCase();
+  const display = getVariantComboDisplay(combo).toLowerCase();
+  const code = String(combo?.variantCode || "").toLowerCase();
+  if (label === term || code === term) return 100;
+  if (label.startsWith(term) || code.startsWith(term)) return 85;
+  if (display.startsWith(term)) return 75;
+  if (label.includes(term)) return 60;
+  const words = term.split(/\s+/).filter(Boolean);
+  if (words.length > 0 && words.every((word) => label.includes(word))) {
+    return 45;
+  }
+  return 0;
+};
+
+const getTopVariantCombinationMatches = (
+  combinations,
+  searchTerm,
+  limit = 3,
+) => {
+  const term = searchTerm.trim().toLowerCase();
+  if (!term) return [];
+  return combinations
+    .map((combo) => ({
+      combo,
+      score: rankVariantCombinationMatch(combo, term),
+    }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item) => item.combo);
+};
+
+const mapProductImageDocs = (images = []) =>
+  (images || [])
+    .map((img) => {
+      if (typeof img === "object" && img?._id) {
+        return { _id: img._id, path: img.path || "" };
+      }
+      if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img)) {
+        return { _id: img, path: "" };
+      }
+      return null;
+    })
+    .filter(Boolean);
 
 const INITIAL_VARIANT = { variantName: "" };
 
@@ -191,8 +269,6 @@ const QueryForm = () => {
   const [industryId, setIndustryId] = useState(null);
   const [companyInfo, setCompanyInfo] = useState(INITIAL_COMPANY);
   const [queryReferenceBy, setQueryReferenceBy] = useState("");
-  const [salesEmployees, setSalesEmployees] = useState([]);
-  const [salesEmployeesLoading, setSalesEmployeesLoading] = useState(false);
   const [areas, setAreas] = useState([]);
   const [querySubZones, setQuerySubZones] = useState([]);
   const companyDropdownRef = useRef(null);
@@ -201,9 +277,15 @@ const QueryForm = () => {
   const [products, setProducts] = useState([]);
   const [formProduct, setFormProduct] = useState({ ...INITIAL_PRODUCT });
   const [editingProductIndex, setEditingProductIndex] = useState(null);
-  const [findProductSidebarOpen, setFindProductSidebarOpen] = useState(false);
-  const [findProductCatalogSidebarOpen, setFindProductCatalogSidebarOpen] =
+  const [productFormVisible, setProductFormVisible] = useState(false);
+  const [catalogProductSearch, setCatalogProductSearch] = useState("");
+  const [catalogProductDropdownOpen, setCatalogProductDropdownOpen] =
     useState(false);
+  const [catalogProductSearchResults, setCatalogProductSearchResults] =
+    useState([]);
+  const [catalogProductSearchLoading, setCatalogProductSearchLoading] =
+    useState(false);
+  const catalogProductDropdownRef = useRef(null);
 
   const quantityInputRef = useRef(null);
   const [imagesModal, setImagesModal] = useState({
@@ -213,7 +295,12 @@ const QueryForm = () => {
   const [productImageFiles, setProductImageFiles] = useState([]);
   const [productImagePreviews, setProductImagePreviews] = useState([]);
   const [addingProductToQuery, setAddingProductToQuery] = useState(false);
-  const [showOptionalProductFields, setShowOptionalProductFields] =
+  const [catalogProductDetail, setCatalogProductDetail] = useState(null);
+  const [catalogVariantSelections, setCatalogVariantSelections] = useState({});
+  const [selectedVariantCombinationId, setSelectedVariantCombinationId] =
+    useState("");
+  const [variantCombinationSearch, setVariantCombinationSearch] = useState("");
+  const [variantCombinationDropdownOpen, setVariantCombinationDropdownOpen] =
     useState(false);
   const [productGroups, setProductGroups] = useState([]);
   const [productCategories, setProductCategories] = useState([]);
@@ -266,48 +353,6 @@ const QueryForm = () => {
       cancelled = true;
     };
   }, [companyInfo.area]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadSalesEmployees = async () => {
-      setSalesEmployeesLoading(true);
-      try {
-        const merged = [];
-        let page = 1;
-        let hasNext = true;
-        while (hasNext && page <= 40) {
-          const res = await employeeService.getAll({
-            pageNumber: page,
-            pageSize: 100,
-            roleKeywords: "sales",
-          });
-          const payload = res?.data?.data ?? res?.data ?? res;
-          const batch = payload?.employees ?? [];
-          merged.push(...batch);
-          hasNext = !!payload?.pagination?.hasNextPage;
-          page += 1;
-        }
-        const withEmail = merged
-          .filter((employee) => String(employee?.email || "").trim())
-          .sort((a, b) =>
-            String(a.email || "").localeCompare(String(b.email || ""), "en", {
-              sensitivity: "base",
-            }),
-          );
-        if (!cancelled) setSalesEmployees(withEmail);
-      } catch {
-        if (!cancelled) setSalesEmployees([]);
-      } finally {
-        if (!cancelled) setSalesEmployeesLoading(false);
-      }
-    };
-
-    loadSalesEmployees();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const goToStep = (step) => {
     if (step < 1 || step > STEPS.length) return;
@@ -553,6 +598,38 @@ const QueryForm = () => {
     return () => clearTimeout(t);
   }, [industrySearch, fetchIndustrySearch]);
 
+  const fetchCatalogProductSearch = useCallback(async (term) => {
+    if (!term?.trim()) {
+      setCatalogProductSearchResults([]);
+      return;
+    }
+    setCatalogProductSearchLoading(true);
+    try {
+      const res = await productService.getAll({
+        search: term.trim(),
+        pageNumber: 1,
+        pageSize: 8,
+        status: "hod_approved",
+      });
+      const inner = res?.data ?? res;
+      setCatalogProductSearchResults(
+        inner?.data?.products || inner?.products || [],
+      );
+    } catch {
+      setCatalogProductSearchResults([]);
+    } finally {
+      setCatalogProductSearchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(
+      () => fetchCatalogProductSearch(catalogProductSearch),
+      300,
+    );
+    return () => clearTimeout(t);
+  }, [catalogProductSearch, fetchCatalogProductSearch]);
+
   const handleSelectIndustry = async (industry) => {
     const indId = industry._id || industry.id;
     setIndustryId(indId);
@@ -597,89 +674,69 @@ const QueryForm = () => {
     setQueryReferenceBy("");
   };
 
-  const applyQueryNewProductFromLibrary = (q) => {
-    if (!q) return;
-    const imageDocs = (q.images || [])
-      .map((img) => {
-        if (typeof img === "object" && img?._id) {
-          return { _id: img._id, path: img.path || "" };
-        }
-        if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img)) {
-          return { _id: img, path: "" };
-        }
-        return null;
-      })
-      .filter(Boolean);
-    setFormProduct({
-      productName: q.name || "",
-      quantity: 1,
-      unit: (q.unit && String(q.unit).trim()) || "PCS",
-      hsnNumber: q.hsnNumber || "",
-      modelNumber: q.modelNumber || "",
-      gstPercentage:
-        typeof q.gstPercentage === "number" && !Number.isNaN(q.gstPercentage)
-          ? q.gstPercentage
-          : null,
-      variants: (q.variants || []).map((v) => ({
-        variantName: String(v),
-      })),
-      remark: "",
-      description: q.description || "",
-      product_id: null,
-      productCode: "",
-      groupId: (q.groupId && (q.groupId._id || q.groupId)) || "",
-      categoryId: (q.categoryId && (q.categoryId._id || q.categoryId)) || "",
-      subcategoryId:
-        (q.subcategoryId && (q.subcategoryId._id || q.subcategoryId)) || "",
-      isNewProduct: true,
-      images: imageDocs,
-      sourceQueryNewProductId: q._id || null,
-    });
-    setEditingProductIndex(null);
-    productImagePreviews.forEach((url) => {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {
-        // ignore
-      }
-    });
-    setProductImagePreviews([]);
-    setProductImageFiles([]);
-    const hasOptionalLoaded =
-      Boolean((q.hsnNumber || "").trim()) ||
-      Boolean((q.modelNumber || "").trim()) ||
-      (typeof q.gstPercentage === "number" && !Number.isNaN(q.gstPercentage)) ||
-      (q.variants || []).length > 0 ||
-      Boolean((q.description || "").trim()) ||
-      (q.images || []).length > 0;
-    setShowOptionalProductFields(hasOptionalLoaded);
-    syncProductQuantityField(1);
-    setTimeout(() => {
-      if (quantityInputRef.current) {
-        quantityInputRef.current.focus();
-      }
-    }, 0);
-    toastSuccess("Product details loaded. Review and save to add to the list.");
+  const resetCatalogVariantState = () => {
+    setCatalogProductDetail(null);
+    setCatalogVariantSelections({});
+    setSelectedVariantCombinationId("");
+    setVariantCombinationSearch("");
+    setVariantCombinationDropdownOpen(false);
   };
+
+  const loadCatalogProductDetail = async (productId) => {
+    if (!productId) {
+      setCatalogProductDetail(null);
+      return;
+    }
+    try {
+      const res = await productService.getById(productId);
+      const detail = res?.data?.data ?? res?.data ?? res;
+      setCatalogProductDetail(detail || null);
+    } catch {
+      setCatalogProductDetail(null);
+    }
+  };
+
+  const applyVariantCombinationToForm = useCallback((combo) => {
+    if (!combo) return;
+    const imageDocs = mapProductImageDocs(combo.images);
+    const selections = {};
+    (combo.optionValues || []).forEach((option) => {
+      if (option?.variantName) {
+        selections[option.variantName] = option.variantValue || "";
+      }
+    });
+    setCatalogVariantSelections(selections);
+    setSelectedVariantCombinationId(String(combo._id || ""));
+    setVariantCombinationSearch(getVariantCombinationLabel(combo));
+    setVariantCombinationDropdownOpen(false);
+    setFormProduct((prev) => ({
+      ...prev,
+      variants: [{ variantName: getVariantComboDisplay(combo) }],
+      rawProductCode: combo.variantCode || prev.rawProductCode,
+      hsnNumber: combo.hsnNumber || prev.hsnNumber,
+      modelNumber: combo.modelNumber || prev.modelNumber,
+      gstPercentage:
+        combo.gstPercentage != null && combo.gstPercentage !== ""
+          ? Number(combo.gstPercentage)
+          : prev.gstPercentage,
+      images: imageDocs.length > 0 ? imageDocs : prev.images,
+    }));
+  }, []);
 
   const applyProductFromCatalog = (product) => {
     if (!product) return;
-    const imageDocs = (product.images || [])
-      .map((img) => {
-        if (typeof img === "object" && img?._id) {
-          return { _id: img._id, path: img.path || "" };
-        }
-        if (typeof img === "string" && /^[a-fA-F0-9]{24}$/.test(img)) {
-          return { _id: img, path: "" };
-        }
-        return null;
-      })
-      .filter(Boolean);
+    const imageDocs = mapProductImageDocs(product.images);
+    const productId = product._id || product.id;
+
+    resetCatalogVariantState();
 
     setFormProduct({
       productName: product.name || "",
       quantity: 1,
-      unit: (product.unit && String(product.unit).trim()) || "PCS",
+      unit:
+        (product.salesUnit && String(product.salesUnit).trim()) ||
+        (product.unit && String(product.unit).trim()) ||
+        "PCS",
       hsnNumber: product.hsnNumber || "",
       modelNumber: product.defaultModelNumber || "",
       gstPercentage:
@@ -715,15 +772,11 @@ const QueryForm = () => {
     });
     setProductImagePreviews([]);
     setProductImageFiles([]);
-    const hasOptionalLoaded =
-      Boolean((product.hsnNumber || "").trim()) ||
-      Boolean((product.defaultModelNumber || "").trim()) ||
-      (typeof product.gstPercentage === "number" &&
-        !Number.isNaN(product.gstPercentage)) ||
-      Boolean((product.shortDescription || "").trim()) ||
-      (product.images || []).length > 0;
-    setShowOptionalProductFields(hasOptionalLoaded);
     syncProductQuantityField(1);
+    setProductFormVisible(true);
+    setCatalogProductSearch(product.name || "");
+    setCatalogProductDropdownOpen(false);
+    loadCatalogProductDetail(productId);
     setTimeout(() => {
       if (quantityInputRef.current) {
         quantityInputRef.current.focus();
@@ -732,10 +785,74 @@ const QueryForm = () => {
     toastSuccess("Product details loaded. Review and save to add to the list.");
   };
 
+  const handleSelectCatalogProduct = (product) => {
+    applyProductFromCatalog(product);
+  };
+
+  const handleCatalogVariantAttributeChange = (attributeName, attributeValue) => {
+    setCatalogVariantSelections((previousSelections) => ({
+      ...previousSelections,
+      [attributeName]: attributeValue,
+    }));
+    setSelectedVariantCombinationId("");
+    setVariantCombinationSearch("");
+    setVariantCombinationDropdownOpen(false);
+    setFormProduct((prev) => ({
+      ...prev,
+      variants: [],
+      rawProductCode: prev.productCode || prev.rawProductCode,
+    }));
+  };
+
+  const handleSelectVariantCombination = (combinationId) => {
+    if (!combinationId) {
+      setSelectedVariantCombinationId("");
+      setVariantCombinationSearch("");
+      setFormProduct((prev) => ({
+        ...prev,
+        variants: [],
+        rawProductCode: prev.productCode || prev.rawProductCode,
+      }));
+      return;
+    }
+    const combo = (catalogProductDetail?.variantCombinations || []).find(
+      (item) => String(item._id) === String(combinationId),
+    );
+    if (combo) {
+      applyVariantCombinationToForm(combo);
+    }
+  };
+
+  const handleStartCreateProduct = () => {
+    productImagePreviews.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // ignore
+      }
+    });
+    setProductImagePreviews([]);
+    setProductImageFiles([]);
+    setFormProduct({ ...INITIAL_PRODUCT, isNewProduct: true });
+    setEditingProductIndex(null);
+    resetCatalogVariantState();
+    syncProductQuantityField("");
+    setProductFormVisible(true);
+    setCatalogProductSearch("");
+    setCatalogProductDropdownOpen(false);
+  };
+
+  const handleBackToProductSearch = () => {
+    clearProductForm();
+  };
+
   const clearProductForm = () => {
     setFormProduct({ ...INITIAL_PRODUCT });
     setEditingProductIndex(null);
-    setShowOptionalProductFields(false);
+    setProductFormVisible(false);
+    setCatalogProductSearch("");
+    setCatalogProductDropdownOpen(false);
+    resetCatalogVariantState();
     syncProductQuantityField("");
     productImagePreviews.forEach((url) => {
       try {
@@ -749,6 +866,18 @@ const QueryForm = () => {
   const saveProduct = async () => {
     if (!formProduct.productName?.trim()) {
       toastError("Product name is required");
+      return;
+    }
+    const catalogAttributes = getCatalogProductAttributes(catalogProductDetail);
+    const catalogCombinations = (catalogProductDetail?.variantCombinations || [])
+      .filter((combo) => combo?.isActive !== false);
+    if (
+      !formProduct.isNewProduct &&
+      catalogAttributes.length > 0 &&
+      catalogCombinations.length > 0 &&
+      !selectedVariantCombinationId
+    ) {
+      toastError("Please select a variant combination");
       return;
     }
     const isQuantityValid = await triggerProductQuantityField("quantity");
@@ -879,6 +1008,18 @@ const QueryForm = () => {
         toastError("Product name is required");
       return;
     }
+    const catalogAttributes = getCatalogProductAttributes(catalogProductDetail);
+    const catalogCombinations = (catalogProductDetail?.variantCombinations || [])
+      .filter((combo) => combo?.isActive !== false);
+    if (
+      !formProduct.isNewProduct &&
+      catalogAttributes.length > 0 &&
+      catalogCombinations.length > 0 &&
+      !selectedVariantCombinationId
+    ) {
+      toastError("Please select a variant combination");
+      return;
+    }
     const isQuantityValid = await triggerProductQuantityField("quantity");
     if (!isQuantityValid) {
       return;
@@ -959,16 +1100,25 @@ const QueryForm = () => {
       images: p.images || [],
       sourceQueryNewProductId: p.sourceQueryNewProductId || null,
     });
-    const hasOptional =
-      Boolean((p.hsnNumber || "").trim()) ||
-      Boolean((p.modelNumber || "").trim()) ||
-      (p.gstPercentage != null && typeof p.gstPercentage === "number") ||
-      (p.variants || []).length > 0 ||
-      Boolean((p.remark || "").trim()) ||
-      Boolean((p.description || "").trim()) ||
-      (p.images || []).length > 0;
-    setShowOptionalProductFields(hasOptional);
     setEditingProductIndex(index);
+    setProductFormVisible(true);
+    resetCatalogVariantState();
+    if (p.product_id) {
+      productService
+        .getById(p.product_id)
+        .then((res) => {
+          const detail = res?.data?.data ?? res?.data ?? res;
+          setCatalogProductDetail(detail || null);
+          const variantCode = String(p.rawProductCode || "").trim();
+          const combo = (detail?.variantCombinations || []).find(
+            (item) => String(item.variantCode || "").trim() === variantCode,
+          );
+          if (combo) {
+            applyVariantCombinationToForm(combo);
+          }
+        })
+        .catch(() => setCatalogProductDetail(null));
+    }
     syncProductQuantityField(p.quantity ?? 1);
   };
 
@@ -1222,10 +1372,6 @@ const QueryForm = () => {
       toastError("Shipping address must be at most 500 characters");
       return;
     }
-    if (!String(queryReferenceBy || "").trim()) {
-      toastError("Query reference by is required");
-      return;
-    }
     goToStep(2);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1388,10 +1534,6 @@ const QueryForm = () => {
       toastError("Shipping address must be at most 500 characters");
       return;
     }
-    if (!String(queryReferenceBy || "").trim()) {
-      toastError("Query reference by is required");
-      return;
-    }
     const validProducts = products.filter((p) => (p.productName || "").trim());
     if (validProducts.length === 0) {
       toastError(
@@ -1515,6 +1657,52 @@ const QueryForm = () => {
   const { ref: productQuantityInputRef, ...productQuantityInputProps } =
     registerProductQuantityField("quantity");
 
+  const showProductForm =
+    productFormVisible || editingProductIndex != null;
+
+  const isCatalogProductForm = !formProduct.isNewProduct;
+
+  const catalogProductAttributes = getCatalogProductAttributes(
+    catalogProductDetail,
+  );
+  const activeCatalogCombinations = (
+    catalogProductDetail?.variantCombinations || []
+  ).filter((combo) => combo?.isActive !== false);
+  const filteredCatalogCombinations = activeCatalogCombinations.filter((combo) =>
+    combinationMatchesSelections(combo, catalogVariantSelections),
+  );
+  const variantCombinationSearchResults = getTopVariantCombinationMatches(
+    filteredCatalogCombinations,
+    variantCombinationSearch,
+    3,
+  );
+  const catalogHasVariantCombinations =
+    isCatalogProductForm &&
+    catalogProductAttributes.length > 0 &&
+    activeCatalogCombinations.length > 0;
+
+  useEffect(() => {
+    if (!catalogHasVariantCombinations || !catalogProductDetail) return;
+    const allAttributesSelected = catalogProductAttributes.every((attribute) =>
+      String(catalogVariantSelections[attribute.name] || "").trim(),
+    );
+    if (!allAttributesSelected || selectedVariantCombinationId) return;
+    const matches = activeCatalogCombinations.filter((combo) =>
+      combinationMatchesSelections(combo, catalogVariantSelections),
+    );
+    if (matches.length === 1) {
+      applyVariantCombinationToForm(matches[0]);
+    }
+  }, [
+    activeCatalogCombinations,
+    applyVariantCombinationToForm,
+    catalogHasVariantCombinations,
+    catalogProductAttributes,
+    catalogProductDetail,
+    catalogVariantSelections,
+    selectedVariantCombinationId,
+  ]);
+
   if (loading) {
     return (
       <div className="text-center p-5">
@@ -1635,284 +1823,192 @@ const QueryForm = () => {
                 </div>
               </CCardHeader>
               <CCardBody>
-                <div
-                  className="mb-3 position-relative"
-                  ref={companyDropdownRef}
-                >
-                  <CFormLabel>Client / Company name</CFormLabel>
-                  <CFormInput
-                    type="text"
-                    value={industrySearch}
-                    onChange={(e) => setIndustrySearch(e.target.value)}
-                    onFocus={() => setIndustryDropdownOpen(true)}
-                    onBlur={() =>
-                      setTimeout(() => setIndustryDropdownOpen(false), 200)
-                    }
-                    placeholder="Type to see best 5 matches..."
-                    autoComplete="off"
-                  />
-                  {industryId && (
-                    <div className="mt-2">
-                      <CButton
-                        color="link"
-                        size="sm"
-                        type="button"
-                        onClick={handleClearIndustry}
-                      >
-                        Clear selection
-                      </CButton>
-                    </div>
-                  )}
-                  {industryDropdownOpen && (
-                    <div
-                      className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
-                      style={{ zIndex: 10, maxHeight: 280, overflowY: "auto" }}
-                    >
-                      <CListGroup flush>
-                        {industrySearchLoading && (
-                          <CListGroupItem className="text-muted">
-                            Searching...
-                          </CListGroupItem>
-                        )}
-                        {!industrySearchLoading &&
-                          industrySearchResults.length === 0 &&
-                          industrySearch.trim() && (
-                            <CListGroupItem className="text-muted">
-                              No matches. Enter details manually below.
-                            </CListGroupItem>
-                          )}
-                        {!industrySearchLoading &&
-                          industrySearchResults.map((ind) => (
-                            <CListGroupItem
-                              key={ind._id || ind.id}
-                              component="button"
-                              type="button"
-                              className="text-start"
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleSelectIndustry(ind);
-                              }}
-                            >
-                              <div className="fw-semibold">{ind.name}</div>
-                              {ind.location && (
-                                <div className="text-muted small">
-                                  {ind.location}
-                                </div>
-                              )}
-                            </CListGroupItem>
-                          ))}
-                      </CListGroup>
-                    </div>
-                  )}
-                </div>
-
-                <CRow>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>Company name</CFormLabel>
+                <CRow className="g-3 mb-3">
+                  <CCol xs={12}>
+                    <div className="position-relative" ref={companyDropdownRef}>
+                      <CFormLabel>Client / Company name</CFormLabel>
                       <CFormInput
-                        value={companyInfo.name}
-                        readOnly
-                        className="bg-light"
-                        placeholder="Auto-filled from selected client"
-                      />
-                    </div>
-                  </CCol>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>Zone</CFormLabel>
-                      <CFormInput
-                        value={formatAreaDisplay(
-                          companyInfo.area,
-                          areaNameLookup,
-                        )}
-                        readOnly
-                        className="bg-light"
-                        placeholder="Auto-filled from selected client"
-                      />
-                    </div>
-                  </CCol>
-                </CRow>
-                <CRow>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>Sub-zone</CFormLabel>
-                      <CFormInput
-                        value={
-                          companyInfo.subZoneId
-                            ? (() => {
-                                const sz = querySubZones.find(
-                                  (s) =>
-                                    (s._id || s.id) === companyInfo.subZoneId,
-                                );
-                                return sz
-                                  ? (sz.subZoneCode
-                                      ? `${sz.subZoneCode} — `
-                                      : "") + (sz.name || "")
-                                  : companyInfo.subZoneId;
-                              })()
-                            : ""
+                        type="text"
+                        value={industrySearch}
+                        onChange={(e) => setIndustrySearch(e.target.value)}
+                        onFocus={() => setIndustryDropdownOpen(true)}
+                        onBlur={() =>
+                          setTimeout(() => setIndustryDropdownOpen(false), 200)
                         }
-                        readOnly
-                        className="bg-light"
-                        placeholder="Auto-filled from selected client"
+                        placeholder="Type to see best 5 matches..."
+                        autoComplete="off"
                       />
+                      {industryId && (
+                        <div className="mt-2">
+                          <CButton
+                            color="link"
+                            size="sm"
+                            type="button"
+                            onClick={handleClearIndustry}
+                          >
+                            Clear selection
+                          </CButton>
+                        </div>
+                      )}
+                      {industryDropdownOpen && (
+                        <div
+                          className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                          style={{
+                            zIndex: 10,
+                            maxHeight: 280,
+                            overflowY: "auto",
+                          }}
+                        >
+                          <CListGroup flush>
+                            {industrySearchLoading && (
+                              <CListGroupItem className="text-muted">
+                                Searching...
+                              </CListGroupItem>
+                            )}
+                            {!industrySearchLoading &&
+                              industrySearchResults.length === 0 &&
+                              industrySearch.trim() && (
+                                <CListGroupItem className="text-muted">
+                                  No matches. Enter details manually below.
+                                </CListGroupItem>
+                              )}
+                            {!industrySearchLoading &&
+                              industrySearchResults.map((ind) => (
+                                <CListGroupItem
+                                  key={ind._id || ind.id}
+                                  component="button"
+                                  type="button"
+                                  className="text-start"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleSelectIndustry(ind);
+                                  }}
+                                >
+                                  <div className="fw-semibold">{ind.name}</div>
+                                  {ind.location && (
+                                    <div className="text-muted small">
+                                      {ind.location}
+                                    </div>
+                                  )}
+                                </CListGroupItem>
+                              ))}
+                          </CListGroup>
+                        </div>
+                      )}
                     </div>
                   </CCol>
                 </CRow>
-                <CRow>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>Location Link</CFormLabel>
-                      <CFormInput
-                        value={companyInfo.location}
-                        readOnly
-                        className="bg-light"
-                        placeholder="Auto-filled from selected client"
-                      />
-                    </div>
+
+                <CRow className="g-3 mb-3">
+                  <CCol md={4}>
+                    <CFormLabel>Zone</CFormLabel>
+                    <CFormInput
+                      value={formatAreaDisplay(
+                        companyInfo.area,
+                        areaNameLookup,
+                      )}
+                      readOnly
+                      className="bg-light"
+                      placeholder="Auto-filled from selected client"
+                    />
+                  </CCol>
+                  <CCol md={4}>
+                    <CFormLabel>Sub-zone</CFormLabel>
+                    <CFormInput
+                      value={getSubZoneLabel()}
+                      readOnly
+                      className="bg-light"
+                      placeholder="Auto-filled from selected client"
+                    />
+                  </CCol>
+                  <CCol md={4}>
+                    <CFormLabel>Location Link</CFormLabel>
+                    <CFormInput
+                      value={companyInfo.location}
+                      readOnly
+                      className="bg-light"
+                      placeholder="Auto-filled from selected client"
+                    />
                   </CCol>
                 </CRow>
-                <CRow>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>Query reference by</CFormLabel>
-                      <CFormSelect
-                        value={queryReferenceBy}
-                        onChange={(e) => setQueryReferenceBy(e.target.value)}
-                        disabled={!companyInfo.area}
-                      >
-                        <option value="">
-                          {companyInfo.area
-                            ? "Select query reference"
-                            : "Select a client first"}
-                        </option>
-                        <option value={QUERY_REFERENCE_BY.DIRECTLY_RECEIVED}>
-                          {
-                            QUERY_REFERENCE_BY_LABELS[
-                              QUERY_REFERENCE_BY.DIRECTLY_RECEIVED
-                            ]
-                          }
-                        </option>
-                        <option value={QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT}>
-                          {
-                            QUERY_REFERENCE_BY_LABELS[
-                              QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT
-                            ]
-                          }
-                        </option>
-                        {salesEmployeesLoading ? (
-                          <option value="" disabled>
-                            Loading sales employees…
-                          </option>
-                        ) : null}
-                        {salesEmployees.map((salesEmployee) => {
-                          const email = String(salesEmployee.email || "")
-                            .trim()
-                            .toLowerCase();
-                          if (!email) return null;
-                          return (
-                            <option key={email} value={email}>
-                              {email}
-                            </option>
-                          );
-                        })}
-                        {queryReferenceBy &&
-                        ![
-                          "",
-                          QUERY_REFERENCE_BY.DIRECTLY_RECEIVED,
-                          QUERY_REFERENCE_BY.HEAD_OF_DEPARTMENT,
-                        ].includes(queryReferenceBy) &&
-                        !salesEmployees.some(
-                          (salesEmployee) =>
-                            String(salesEmployee.email || "")
-                              .trim()
-                              .toLowerCase() === queryReferenceBy,
-                        ) ? (
-                          <option value={queryReferenceBy}>
-                            {queryReferenceBy}
-                          </option>
-                        ) : null}
-                      </CFormSelect>
-                    </div>
-                  </CCol>
-                </CRow>
+
                 <div className="mb-3">
                   <CFormLabel className="mb-2">Purchase managers</CFormLabel>
                   {(companyInfo.purchaseManagers || []).length > 0 ? (
-                    <div className="border rounded p-2">
+                    <div className="border rounded p-3">
                       {(companyInfo.purchaseManagers || []).map(
                         (purchaseManager, managerIndex) => (
-                          <CRow
+                          <React.Fragment
                             key={
                               getPurchaseManagerKey(purchaseManager) ||
                               managerIndex
                             }
-                            className="align-items-center mb-2 g-2"
                           >
-                            <CCol
-                              xs="auto"
-                              className="d-flex align-items-center"
-                            >
-                              <CFormCheck
-                                id={`query-purchase-manager-${managerIndex}`}
-                                checked={isPurchaseManagerSelected(
-                                  purchaseManager,
-                                )}
-                                onChange={(event) =>
-                                  setCompanyInfo((currentCompanyInfo) => {
-                                    const nextPurchaseManagers = [
-                                      ...(currentCompanyInfo.purchaseManagers ||
-                                        []),
-                                    ];
-                                    nextPurchaseManagers[managerIndex] = {
-                                      ...nextPurchaseManagers[managerIndex],
-                                      selected: event.target.checked,
-                                    };
-                                    return {
-                                      ...currentCompanyInfo,
-                                      purchaseManagers: nextPurchaseManagers,
-                                    };
-                                  })
-                                }
-                                label=""
-                                aria-label={`Include purchase manager ${purchaseManager.name || managerIndex + 1}`}
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormInput
-                                value={purchaseManager.name || ""}
-                                readOnly
-                                className="bg-light"
-                                placeholder="Name"
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormInput
-                                value={purchaseManager.department || ""}
-                                readOnly
-                                className="bg-light"
-                                placeholder="Department"
-                              />
-                            </CCol>
-                            <CCol md={2}>
-                              <CFormInput
-                                value={purchaseManager.phone || ""}
-                                readOnly
-                                className="bg-light"
-                                placeholder="Phone"
-                              />
-                            </CCol>
-                            <CCol md={3}>
-                              <CFormInput
-                                type="email"
-                                value={purchaseManager.email || ""}
-                                readOnly
-                                className="bg-light"
-                                placeholder="Email"
-                              />
-                            </CCol>
-                          </CRow>
+                            <CRow className="g-3 mb-2 align-items-center">
+                              <CCol md={4}>
+                                <div className="d-flex align-items-center gap-2">
+                                  <CFormCheck
+                                    id={`query-purchase-manager-${managerIndex}`}
+                                    className="flex-shrink-0 mb-0"
+                                    checked={isPurchaseManagerSelected(
+                                      purchaseManager,
+                                    )}
+                                    onChange={(event) =>
+                                      setCompanyInfo((currentCompanyInfo) => {
+                                        const nextPurchaseManagers = [
+                                          ...(currentCompanyInfo.purchaseManagers ||
+                                            []),
+                                        ];
+                                        nextPurchaseManagers[managerIndex] = {
+                                          ...nextPurchaseManagers[managerIndex],
+                                          selected: event.target.checked,
+                                        };
+                                        return {
+                                          ...currentCompanyInfo,
+                                          purchaseManagers: nextPurchaseManagers,
+                                        };
+                                      })
+                                    }
+                                    label=""
+                                    aria-label={`Include purchase manager ${purchaseManager.name || managerIndex + 1}`}
+                                  />
+                                  <CFormInput
+                                    value={purchaseManager.name || ""}
+                                    readOnly
+                                    className="bg-light flex-grow-1"
+                                    placeholder="Name"
+                                  />
+                                </div>
+                              </CCol>
+                              <CCol md={4}>
+                                <CFormInput
+                                  value={purchaseManager.department || ""}
+                                  readOnly
+                                  className="bg-light"
+                                  placeholder="Department"
+                                />
+                              </CCol>
+                              <CCol md={4}>
+                                <CFormInput
+                                  value={purchaseManager.phone || ""}
+                                  readOnly
+                                  className="bg-light"
+                                  placeholder="Phone"
+                                />
+                              </CCol>
+                            </CRow>
+                            <CRow className="g-3 mb-3">
+                              <CCol md={4}>
+                                <CFormInput
+                                  type="email"
+                                  value={purchaseManager.email || ""}
+                                  readOnly
+                                  className="bg-light"
+                                  placeholder="Email"
+                                />
+                              </CCol>
+                            </CRow>
+                          </React.Fragment>
                         ),
                       )}
                     </div>
@@ -1922,34 +2018,29 @@ const QueryForm = () => {
                     </p>
                   )}
                 </div>
-                <CRow>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>
-                        Billing address (max 500 characters)
-                      </CFormLabel>
-                      <CFormTextarea
-                        rows={2}
-                        value={companyInfo.billingAddress}
-                        readOnly
-                        className="bg-light"
-                        placeholder="Auto-filled from selected client"
-                      />
-                    </div>
+
+                <CRow className="g-3">
+                  <CCol md={4}>
+                    <CFormLabel>Billing address (max 500 characters)</CFormLabel>
+                    <CFormTextarea
+                      rows={2}
+                      value={companyInfo.billingAddress}
+                      readOnly
+                      className="bg-light"
+                      placeholder="Auto-filled from selected client"
+                    />
                   </CCol>
-                  <CCol md={6}>
-                    <div className="mb-3">
-                      <CFormLabel>
-                        Shipping address (max 500 characters)
-                      </CFormLabel>
-                      <CFormTextarea
-                        rows={2}
-                        value={companyInfo.shippingAddress}
-                        readOnly
-                        className="bg-light"
-                        placeholder="Auto-filled from selected client"
-                      />
-                    </div>
+                  <CCol md={4}>
+                    <CFormLabel>
+                      Shipping address (max 500 characters)
+                    </CFormLabel>
+                    <CFormTextarea
+                      rows={2}
+                      value={companyInfo.shippingAddress}
+                      readOnly
+                      className="bg-light"
+                      placeholder="Auto-filled from selected client"
+                    />
                   </CCol>
                 </CRow>
               </CCardBody>
@@ -1987,62 +2078,156 @@ const QueryForm = () => {
                     <strong className="mb-0 me-2">
                       {editingProductIndex != null
                         ? "Edit product"
-                        : "Add a product line"}
+                        : "Add products"}
                     </strong>
-                    <div className="d-flex flex-wrap align-items-center gap-3 ms-md-auto">
-                      <CFormSwitch
-                        id="query-new-product-switch"
-                        checked={!!formProduct.isNewProduct}
-                        onChange={(e) =>
-                          updateFormProduct("isNewProduct", e.target.checked)
-                        }
-                        aria-label="Create shared catalog product"
-                      />
-                      <CButton
-                        color="success"
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        className="flex-shrink-0"
-                        onClick={() => setFindProductCatalogSidebarOpen(true)}
-                      >
-                        <CIcon icon={cilSearch} className="me-1" />
-                        Find in products
-                      </CButton>
+                    <div className="d-flex flex-wrap align-items-center gap-2 ms-md-auto">
+                      {!showProductForm ? (
+                        <CButton
+                          color="primary"
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          className="flex-shrink-0"
+                          onClick={handleStartCreateProduct}
+                        >
+                          <CIcon icon={cilPlus} className="me-1" />
+                          Create new product
+                        </CButton>
+                      ) : editingProductIndex == null ? (
+                        <CButton
+                          color="secondary"
+                          variant="outline"
+                          size="sm"
+                          type="button"
+                          onClick={handleBackToProductSearch}
+                        >
+                          Back to search
+                        </CButton>
+                      ) : null}
                     </div>
                   </CCardHeader>
                   <CCardBody>
-                    <div className="mb-3">
-                      <CFormLabel className="fw-semibold">
-                        Product name{" "}
-                        <span className="text-danger" aria-hidden="true">
-                          *
-                        </span>
-                      </CFormLabel>
-                      <CFormInput
-                        value={formProduct.productName}
-                        onChange={(e) =>
-                          updateFormProduct("productName", e.target.value)
-                        }
-                        placeholder="e.g. Copper wire 2.5 sq mm"
-                        autoComplete="off"
-                      />
-                    </div>
-
-                    <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
-                      Classification
-                    </h6>
-                    <CRow>
+                    {!showProductForm ? (
+                      <div
+                        className="position-relative"
+                        ref={catalogProductDropdownRef}
+                      >
+                        <CFormLabel>Search products</CFormLabel>
+                        <CFormInput
+                          type="text"
+                          value={catalogProductSearch}
+                          onChange={(e) =>
+                            setCatalogProductSearch(e.target.value)
+                          }
+                          onFocus={() => setCatalogProductDropdownOpen(true)}
+                          onBlur={() =>
+                            setTimeout(
+                              () => setCatalogProductDropdownOpen(false),
+                              200,
+                            )
+                          }
+                          placeholder="Type to search products..."
+                          autoComplete="off"
+                        />
+                        {catalogProductDropdownOpen && (
+                          <div
+                            className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                            style={{
+                              zIndex: 10,
+                              maxHeight: 320,
+                              overflowY: "auto",
+                            }}
+                          >
+                            <CListGroup flush>
+                              {catalogProductSearchLoading && (
+                                <CListGroupItem className="text-muted">
+                                  Searching...
+                                </CListGroupItem>
+                              )}
+                              {!catalogProductSearchLoading &&
+                                catalogProductSearchResults.length === 0 &&
+                                catalogProductSearch.trim() && (
+                                  <CListGroupItem className="text-muted">
+                                    No products found.
+                                  </CListGroupItem>
+                                )}
+                              {!catalogProductSearchLoading &&
+                                catalogProductSearchResults.map((product) => (
+                                  <CListGroupItem
+                                    key={product._id || product.uniqueId}
+                                    component="button"
+                                    type="button"
+                                    className="text-start"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleSelectCatalogProduct(product);
+                                    }}
+                                  >
+                                    <div className="fw-semibold">
+                                      {product.name || "—"}
+                                    </div>
+                                    <div className="text-muted small">
+                                      {[
+                                        product.productCode
+                                          ? `Code: ${product.productCode}`
+                                          : "",
+                                        product.hsnNumber
+                                          ? `HSN: ${product.hsnNumber}`
+                                          : "",
+                                        product.salesUnit || product.unit
+                                          ? `Sales unit: ${product.salesUnit || product.unit}`
+                                          : "",
+                                      ]
+                                        .filter(Boolean)
+                                        .join(" · ") || "—"}
+                                    </div>
+                                  </CListGroupItem>
+                                ))}
+                            </CListGroup>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                    <CRow className="g-3 mb-3">
                       <CCol md={4}>
-                        <div className="mb-3">
-                          <CFormLabel>
-                            Group
-                            {requireGroupCategory ? (
-                              <span className="text-danger"> *</span>
-                            ) : (
-                              " (optional)"
-                            )}
-                          </CFormLabel>
+                        <CFormLabel className="fw-semibold">
+                          Product name{" "}
+                          <span className="text-danger" aria-hidden="true">
+                            *
+                          </span>
+                        </CFormLabel>
+                        {isCatalogProductForm ? (
+                          <CFormInput
+                            value={formProduct.productName}
+                            readOnly
+                            className="bg-light"
+                          />
+                        ) : (
+                          <CFormInput
+                            value={formProduct.productName}
+                            onChange={(e) =>
+                              updateFormProduct("productName", e.target.value)
+                            }
+                            placeholder="e.g. Copper wire 2.5 sq mm"
+                            autoComplete="off"
+                          />
+                        )}
+                      </CCol>
+                      <CCol md={4}>
+                        <CFormLabel>
+                          Group
+                          {requireGroupCategory ? (
+                            <span className="text-danger"> *</span>
+                          ) : null}
+                        </CFormLabel>
+                        {isCatalogProductForm ? (
+                          <CFormInput
+                            value={resolveGroupName(formProduct.groupId)}
+                            readOnly
+                            className="bg-light"
+                          />
+                        ) : (
                           <CFormSelect
                             value={formProduct.groupId || ""}
                             onChange={(e) =>
@@ -2067,18 +2252,22 @@ const QueryForm = () => {
                               </option>
                             ))}
                           </CFormSelect>
-                        </div>
+                        )}
                       </CCol>
                       <CCol md={4}>
-                        <div className="mb-3">
-                          <CFormLabel>
-                            Category
-                            {requireGroupCategory ? (
-                              <span className="text-danger"> *</span>
-                            ) : (
-                              " (optional)"
-                            )}
-                          </CFormLabel>
+                        <CFormLabel>
+                          Category
+                          {requireGroupCategory ? (
+                            <span className="text-danger"> *</span>
+                          ) : null}
+                        </CFormLabel>
+                        {isCatalogProductForm ? (
+                          <CFormInput
+                            value={resolveCategoryName(formProduct.categoryId)}
+                            readOnly
+                            className="bg-light"
+                          />
+                        ) : (
                           <CFormSelect
                             value={formProduct.categoryId || ""}
                             onChange={(e) =>
@@ -2107,11 +2296,22 @@ const QueryForm = () => {
                               </option>
                             ))}
                           </CFormSelect>
-                        </div>
+                        )}
                       </CCol>
+                    </CRow>
+
+                    <CRow className="g-3 mb-3">
                       <CCol md={4}>
-                        <div className="mb-3">
-                          <CFormLabel>Subcategory (optional)</CFormLabel>
+                        <CFormLabel>Subcategory</CFormLabel>
+                        {isCatalogProductForm ? (
+                          <CFormInput
+                            value={resolveSubcategoryName(
+                              formProduct.subcategoryId,
+                            )}
+                            readOnly
+                            className="bg-light"
+                          />
+                        ) : (
                           <CFormSelect
                             value={formProduct.subcategoryId || ""}
                             onChange={(e) =>
@@ -2133,155 +2333,312 @@ const QueryForm = () => {
                               </option>
                             ))}
                           </CFormSelect>
-                        </div>
+                        )}
                       </CCol>
-                    </CRow>
-
-                    <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
-                      Quantity
-                    </h6>
-                    <CRow className="align-items-end">
-                      <CCol sm={6} md={6}>
-                        <div className="mb-3">
-                          <CFormLabel>
-                            Qty{" "}
-                            <span className="text-danger" aria-hidden="true">
-                              *
-                            </span>
-                          </CFormLabel>
+                      <CCol md={4}>
+                        <CFormLabel>Sales unit</CFormLabel>
+                        {isCatalogProductForm ? (
                           <CFormInput
-                            type="number"
-                            min={0}
-                            max={MAX_PRODUCT_QUANTITY}
-                            step={1}
-                            inputMode="numeric"
-                            placeholder="0"
-                            invalid={!!productQuantityFormErrors.quantity}
-                            {...productQuantityInputProps}
-                            ref={(element) => {
-                              productQuantityInputRef(element);
-                              quantityInputRef.current = element;
-                            }}
+                            value={formProduct.unit || ""}
+                            readOnly
+                            className="bg-light"
                           />
-                          {productQuantityFormErrors.quantity && (
-                            <div className="text-danger small mt-1">
-                              {productQuantityFormErrors.quantity.message}
-                            </div>
-                          )}
-                        </div>
-                      </CCol>
-                      <CCol sm={6} md={6}>
-                        <div className="mb-3">
-                          <CFormLabel>Unit</CFormLabel>
+                        ) : (
                           <ProductUnitSelect
                             value={formProduct.unit || ""}
                             onChange={(e) =>
                               updateFormProduct("unit", e.target.value)
                             }
                           />
-                        </div>
+                        )}
+                      </CCol>
+                      <CCol md={4}>
+                        <CFormLabel>
+                          Qty{" "}
+                          <span className="text-danger" aria-hidden="true">
+                            *
+                          </span>
+                        </CFormLabel>
+                        <CFormInput
+                          type="number"
+                          min={0}
+                          max={MAX_PRODUCT_QUANTITY}
+                          step={1}
+                          inputMode="numeric"
+                          placeholder="0"
+                          invalid={!!productQuantityFormErrors.quantity}
+                          {...productQuantityInputProps}
+                          ref={(element) => {
+                            productQuantityInputRef(element);
+                            quantityInputRef.current = element;
+                          }}
+                        />
+                        {productQuantityFormErrors.quantity && (
+                          <div className="text-danger small mt-1">
+                            {productQuantityFormErrors.quantity.message}
+                          </div>
+                        )}
                       </CCol>
                     </CRow>
 
-                    {formProduct.productCode && (
-                      <CRow className="mb-2">
+                    {isCatalogProductForm ? (
+                      <CRow className="g-3 mb-3">
                         <CCol md={4}>
-                          <div className="mb-3">
+                          <CFormLabel>Product code (catalog)</CFormLabel>
+                          <CFormInput
+                            value={formProduct.productCode || ""}
+                            readOnly
+                            className="bg-light"
+                          />
+                        </CCol>
+                        <CCol md={4}>
+                          <CFormLabel>SN code</CFormLabel>
+                          <CFormInput
+                            value={formProduct.hsnNumber || ""}
+                            readOnly
+                            className="bg-light"
+                          />
+                        </CCol>
+                        {formProduct.query_tracking_code ? (
+                          <CCol md={4}>
+                            <CFormLabel>Query tracking code</CFormLabel>
+                            <CFormInput
+                              value={formProduct.query_tracking_code}
+                              readOnly
+                              className="bg-light"
+                            />
+                          </CCol>
+                        ) : null}
+                      </CRow>
+                    ) : formProduct.productCode ||
+                      formProduct.hsnNumber ||
+                      formProduct.query_tracking_code ? (
+                      <CRow className="g-3 mb-3">
+                        {formProduct.productCode ? (
+                          <CCol md={4}>
                             <CFormLabel>Product code (catalog)</CFormLabel>
                             <CFormInput
                               value={formProduct.productCode}
                               disabled
                               readOnly
+                              className="bg-light"
                             />
-                          </div>
+                          </CCol>
+                        ) : null}
+                        {formProduct.hsnNumber ? (
+                          <CCol md={4}>
+                            <CFormLabel>SN code</CFormLabel>
+                            <CFormInput
+                              value={formProduct.hsnNumber}
+                              onChange={(e) =>
+                                updateFormProduct("hsnNumber", e.target.value)
+                              }
+                            />
+                          </CCol>
+                        ) : null}
+                        {formProduct.query_tracking_code ? (
+                          <CCol md={4}>
+                            <CFormLabel>Query tracking code</CFormLabel>
+                            <CFormInput
+                              value={formProduct.query_tracking_code}
+                              disabled
+                              readOnly
+                              className="bg-light"
+                            />
+                          </CCol>
+                        ) : null}
+                      </CRow>
+                    ) : null}
+
+                    {isCatalogProductForm ? (
+                      <CRow className="g-3 mb-3">
+                        <CCol md={12}>
+                          <CFormLabel>Description</CFormLabel>
+                          <CFormTextarea
+                            value={formProduct.description || ""}
+                            readOnly
+                            className="bg-light"
+                            rows={2}
+                          />
                         </CCol>
                       </CRow>
-                    )}
+                    ) : null}
 
-                    <CButton
-                      color="link"
-                      className="px-0 text-decoration-none d-inline-flex align-items-center gap-2 mb-2"
-                      type="button"
-                      variant="ghost"
-                      onClick={() =>
-                        setShowOptionalProductFields((open) => !open)
-                      }
-                      aria-expanded={showOptionalProductFields}
-                    >
-                      <CIcon
-                        icon={
-                          showOptionalProductFields
-                            ? cilChevronTop
-                            : cilChevronBottom
-                        }
-                      />
-                      {showOptionalProductFields
-                        ? "Hide optional fields"
-                        : "More options — HSN, GST, variants, notes, images"}
-                    </CButton>
-
-                    <CCollapse visible={showOptionalProductFields}>
-                      <div className="border rounded p-3 p-md-4 bg-body-tertiary mb-3">
-                        <CRow>
-                          <CCol md={4}>
-                            <div className="mb-3">
-                              <CFormLabel>HSN (optional)</CFormLabel>
-                              <CFormInput
-                                value={formProduct.hsnNumber || ""}
-                                onChange={(e) =>
-                                  updateFormProduct("hsnNumber", e.target.value)
+                    {catalogHasVariantCombinations ? (
+                      <div className="mb-3">
+                        <h6 className="text-body-secondary text-uppercase small fw-semibold mb-3">
+                          Select variant combination
+                        </h6>
+                        <CRow className="g-3 mb-3">
+                          {catalogProductAttributes.map((attribute) => (
+                            <CCol md={4} key={attribute.name}>
+                              <CFormLabel>{attribute.name}</CFormLabel>
+                              <CFormSelect
+                                value={
+                                  catalogVariantSelections[attribute.name] || ""
                                 }
-                                placeholder="HSN code"
-                              />
-                            </div>
-                          </CCol>
-                          <CCol md={4}>
-                            <div className="mb-3">
-                              <CFormLabel>Model number (optional)</CFormLabel>
-                              <CFormInput
-                                value={formProduct.modelNumber || ""}
-                                onChange={(e) =>
-                                  updateFormProduct(
-                                    "modelNumber",
-                                    e.target.value,
+                                onChange={(event) =>
+                                  handleCatalogVariantAttributeChange(
+                                    attribute.name,
+                                    event.target.value,
                                   )
                                 }
-                                placeholder="Model / SKU"
-                              />
-                            </div>
-                          </CCol>
-                          <CCol md={4}>
-                            <div className="mb-3">
-                              <CFormLabel>GST % (optional)</CFormLabel>
+                              >
+                                <option value="">
+                                  Select {attribute.name}
+                                </option>
+                                {(attribute.options || []).map((option) => (
+                                  <option key={option} value={option}>
+                                    {option}
+                                  </option>
+                                ))}
+                              </CFormSelect>
+                            </CCol>
+                          ))}
+                        </CRow>
+                        <CRow className="g-3">
+                          <CCol md={12}>
+                            <div className="position-relative">
+                              <CFormLabel>Variant combination</CFormLabel>
                               <CFormInput
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={0.01}
-                                value={
-                                  formProduct.gstPercentage == null
-                                    ? ""
-                                    : formProduct.gstPercentage
-                                }
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  if (raw === "") {
-                                    updateFormProduct("gstPercentage", null);
-                                    return;
-                                  }
-                                  const n = Number(raw);
-                                  updateFormProduct(
-                                    "gstPercentage",
-                                    Number.isFinite(n) ? n : null,
-                                  );
+                                type="text"
+                                value={variantCombinationSearch}
+                                onChange={(event) => {
+                                  setVariantCombinationSearch(event.target.value);
+                                  setVariantCombinationDropdownOpen(true);
+                                  setSelectedVariantCombinationId("");
+                                  setFormProduct((prev) => ({
+                                    ...prev,
+                                    variants: [],
+                                    rawProductCode:
+                                      prev.productCode || prev.rawProductCode,
+                                  }));
                                 }}
-                                placeholder="e.g. 18"
+                                onFocus={() =>
+                                  setVariantCombinationDropdownOpen(true)
+                                }
+                                onBlur={() =>
+                                  setTimeout(
+                                    () =>
+                                      setVariantCombinationDropdownOpen(false),
+                                    200,
+                                  )
+                                }
+                                placeholder="Search variant combination..."
+                                autoComplete="off"
                               />
+                              {variantCombinationDropdownOpen &&
+                                variantCombinationSearch.trim() && (
+                                  <div
+                                    className="position-absolute w-100 bg-white border rounded mt-1 shadow-sm"
+                                    style={{
+                                      zIndex: 10,
+                                      maxHeight: 220,
+                                      overflowY: "auto",
+                                    }}
+                                  >
+                                    <CListGroup flush>
+                                      {variantCombinationSearchResults.length ===
+                                      0 ? (
+                                        <CListGroupItem className="text-muted">
+                                          No matching combinations.
+                                        </CListGroupItem>
+                                      ) : (
+                                        variantCombinationSearchResults.map(
+                                          (combo) => (
+                                            <CListGroupItem
+                                              key={combo._id}
+                                              component="button"
+                                              type="button"
+                                              className="text-start"
+                                              onMouseDown={(event) => {
+                                                event.preventDefault();
+                                                handleSelectVariantCombination(
+                                                  combo._id,
+                                                );
+                                              }}
+                                            >
+                                              <div className="fw-semibold">
+                                                {getVariantComboDisplay(combo) ||
+                                                  "—"}
+                                              </div>
+                                              {combo.variantCode ? (
+                                                <div className="text-muted small">
+                                                  {combo.variantCode}
+                                                </div>
+                                              ) : null}
+                                            </CListGroupItem>
+                                          ),
+                                        )
+                                      )}
+                                    </CListGroup>
+                                  </div>
+                                )}
                             </div>
                           </CCol>
                         </CRow>
+                      </div>
+                    ) : null}
 
-                        <div className="mb-3">
+                    <div className="border rounded p-3 p-md-4 bg-body-tertiary mb-3">
+                      <CRow className="g-3">
+                        {!isCatalogProductForm ? (
+                          <CCol md={4}>
+                            <CFormLabel>HSN</CFormLabel>
+                            <CFormInput
+                              value={formProduct.hsnNumber || ""}
+                              onChange={(e) =>
+                                updateFormProduct("hsnNumber", e.target.value)
+                              }
+                              placeholder="HSN code"
+                            />
+                          </CCol>
+                        ) : null}
+                        <CCol md={4}>
+                          <CFormLabel>Model number</CFormLabel>
+                          <CFormInput
+                            value={formProduct.modelNumber || ""}
+                            onChange={(e) =>
+                              updateFormProduct("modelNumber", e.target.value)
+                            }
+                            placeholder="Model / SKU"
+                            readOnly={isCatalogProductForm}
+                            className={isCatalogProductForm ? "bg-light" : ""}
+                          />
+                        </CCol>
+                        <CCol md={4}>
+                          <CFormLabel>GST %</CFormLabel>
+                          <CFormInput
+                            type="number"
+                            min={0}
+                            max={100}
+                            step={0.01}
+                            value={
+                              formProduct.gstPercentage == null
+                                ? ""
+                                : formProduct.gstPercentage
+                            }
+                            onChange={(e) => {
+                              const raw = e.target.value;
+                              if (raw === "") {
+                                updateFormProduct("gstPercentage", null);
+                                return;
+                              }
+                              const n = Number(raw);
+                              updateFormProduct(
+                                "gstPercentage",
+                                Number.isFinite(n) ? n : null,
+                              );
+                            }}
+                            placeholder="e.g. 18"
+                            readOnly={isCatalogProductForm}
+                            className={isCatalogProductForm ? "bg-light" : ""}
+                          />
+                        </CCol>
+                      </CRow>
+
+                      {!isCatalogProductForm ? (
+                        <div className="mb-3 mt-3">
                           <div className="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
                             <CFormLabel className="mb-0">Variants</CFormLabel>
                             <CButton
@@ -2329,9 +2686,11 @@ const QueryForm = () => {
                               ))
                             : null}
                         </div>
+                      ) : null}
 
+                      {!isCatalogProductForm ? (
                         <div className="mb-3">
-                          <CFormLabel>Description (optional)</CFormLabel>
+                          <CFormLabel>Description</CFormLabel>
                           <CFormTextarea
                             rows={2}
                             value={formProduct.description}
@@ -2341,174 +2700,174 @@ const QueryForm = () => {
                             placeholder="Specs, brand, or catalog text"
                           />
                         </div>
-                        <div className="mb-3">
-                          <CFormLabel>Remark (optional)</CFormLabel>
-                          <CFormTextarea
-                            rows={2}
-                            value={formProduct.remark}
-                            onChange={(e) =>
-                              updateFormProduct("remark", e.target.value)
-                            }
-                            placeholder="Internal note for this query"
-                          />
-                        </div>
-                        <div className="mb-0">
-                          <CFormLabel>Images (optional)</CFormLabel>
-                          <CFormInput
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) => {
-                              const files = Array.from(e.target.files || []);
-                              if (!files.length) return;
-                              const existingCount = Array.isArray(
-                                formProduct.images,
-                              )
-                                ? formProduct.images.length
-                                : 0;
-                              const remainingSlots =
-                                MAX_PRODUCT_IMAGES -
-                                existingCount -
-                                productImageFiles.length;
+                      ) : null}
+                      <div className="mb-3">
+                        <CFormLabel>Remark</CFormLabel>
+                        <CFormTextarea
+                          rows={2}
+                          value={formProduct.remark}
+                          onChange={(e) =>
+                            updateFormProduct("remark", e.target.value)
+                          }
+                          placeholder="Internal note for this query"
+                        />
+                      </div>
+                      <div className="mb-0">
+                        <CFormLabel>Images</CFormLabel>
+                        <CFormInput
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => {
+                            const files = Array.from(e.target.files || []);
+                            if (!files.length) return;
+                            const existingCount = Array.isArray(
+                              formProduct.images,
+                            )
+                              ? formProduct.images.length
+                              : 0;
+                            const remainingSlots =
+                              MAX_PRODUCT_IMAGES -
+                              existingCount -
+                              productImageFiles.length;
 
-                              if (remainingSlots <= 0) {
-                                toastError(
-                                  `Only ${MAX_PRODUCT_IMAGES} images allowed per product`,
-                                );
-                                e.target.value = "";
-                                return;
-                              }
-
-                              const acceptedFiles = files.slice(
-                                0,
-                                remainingSlots,
+                            if (remainingSlots <= 0) {
+                              toastError(
+                                `Only ${MAX_PRODUCT_IMAGES} images allowed per product`,
                               );
-                              if (acceptedFiles.length < files.length) {
-                                toastError(
-                                  `Only ${MAX_PRODUCT_IMAGES} images allowed. Extra images were ignored.`,
-                                );
-                              }
-
-                              setProductImageFiles((prev) => [
-                                ...prev,
-                                ...acceptedFiles,
-                              ]);
-                              const previews = acceptedFiles.map((file) =>
-                                URL.createObjectURL(file),
-                              );
-                              setProductImagePreviews((prev) => [
-                                ...prev,
-                                ...previews,
-                              ]);
                               e.target.value = "";
-                            }}
-                          />
-                          {Array.isArray(formProduct.images) &&
-                            formProduct.images.length > 0 && (
-                              <div className="mt-2">
-                                <div className="small text-muted mb-1">
-                                  Existing images
-                                </div>
-                                <div className="d-flex flex-wrap gap-2">
-                                  {formProduct.images.map((img, idx) => {
-                                    const imageUrl = getImageDisplayUrl(img);
-                                    if (!imageUrl) return null;
-                                    return (
-                                      <div
-                                        key={`existing-${idx}`}
-                                        className="position-relative border rounded overflow-hidden"
-                                        style={{ width: 64, height: 64 }}
-                                      >
-                                        <CImage
-                                          src={imageUrl}
-                                          alt={`Existing ${idx + 1}`}
-                                          width={64}
-                                          height={64}
-                                          className="w-100 h-100"
-                                          style={{ objectFit: "cover" }}
-                                        />
-                                        <CButton
-                                          color="danger"
-                                          size="sm"
-                                          shape="rounded-pill"
-                                          className="position-absolute d-flex align-items-center justify-content-center p-0"
-                                          style={{
-                                            top: 2,
-                                            right: 2,
-                                            width: 18,
-                                            height: 18,
-                                            minWidth: 18,
-                                          }}
-                                          onClick={() =>
-                                            removeExistingProductImage(idx)
-                                          }
-                                          title="Remove existing image"
-                                          type="button"
-                                        >
-                                          <CIcon icon={cilX} size="sm" />
-                                        </CButton>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          {productImagePreviews.length > 0 && (
+                              return;
+                            }
+
+                            const acceptedFiles = files.slice(
+                              0,
+                              remainingSlots,
+                            );
+                            if (acceptedFiles.length < files.length) {
+                              toastError(
+                                `Only ${MAX_PRODUCT_IMAGES} images allowed. Extra images were ignored.`,
+                              );
+                            }
+
+                            setProductImageFiles((prev) => [
+                              ...prev,
+                              ...acceptedFiles,
+                            ]);
+                            const previews = acceptedFiles.map((file) =>
+                              URL.createObjectURL(file),
+                            );
+                            setProductImagePreviews((prev) => [
+                              ...prev,
+                              ...previews,
+                            ]);
+                            e.target.value = "";
+                          }}
+                        />
+                        {Array.isArray(formProduct.images) &&
+                          formProduct.images.length > 0 && (
                             <div className="mt-2">
                               <div className="small text-muted mb-1">
-                                New uploads
+                                Existing images
                               </div>
                               <div className="d-flex flex-wrap gap-2">
-                                {productImagePreviews.map((src, idx) => (
-                                  <div
-                                    key={idx}
-                                    className="position-relative border rounded overflow-hidden"
-                                    style={{ width: 64, height: 64 }}
-                                  >
-                                    <CImage
-                                      src={src}
-                                      alt={`Preview ${idx + 1}`}
-                                      width={64}
-                                      height={64}
-                                      className="w-100 h-100"
-                                      style={{ objectFit: "cover" }}
-                                    />
-                                    <CButton
-                                      color="danger"
-                                      size="sm"
-                                      shape="rounded-pill"
-                                      className="position-absolute d-flex align-items-center justify-content-center p-0"
-                                      style={{
-                                        top: 2,
-                                        right: 2,
-                                        width: 18,
-                                        height: 18,
-                                        minWidth: 18,
-                                      }}
-                                      onClick={() =>
-                                        removeSelectedUploadImage(idx)
-                                      }
-                                      title="Remove image"
-                                      type="button"
+                                {formProduct.images.map((img, idx) => {
+                                  const imageUrl = getImageDisplayUrl(img);
+                                  if (!imageUrl) return null;
+                                  return (
+                                    <div
+                                      key={`existing-${idx}`}
+                                      className="position-relative border rounded overflow-hidden"
+                                      style={{ width: 64, height: 64 }}
                                     >
-                                      <CIcon icon={cilX} size="sm" />
-                                    </CButton>
-                                  </div>
-                                ))}
+                                      <CImage
+                                        src={imageUrl}
+                                        alt={`Existing ${idx + 1}`}
+                                        width={64}
+                                        height={64}
+                                        className="w-100 h-100"
+                                        style={{ objectFit: "cover" }}
+                                      />
+                                      <CButton
+                                        color="danger"
+                                        size="sm"
+                                        shape="rounded-pill"
+                                        className="position-absolute d-flex align-items-center justify-content-center p-0"
+                                        style={{
+                                          top: 2,
+                                          right: 2,
+                                          width: 18,
+                                          height: 18,
+                                          minWidth: 18,
+                                        }}
+                                        onClick={() =>
+                                          removeExistingProductImage(idx)
+                                        }
+                                        title="Remove existing image"
+                                        type="button"
+                                      >
+                                        <CIcon icon={cilX} size="sm" />
+                                      </CButton>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
-                          <div className="form-text">
-                            {Math.min(
-                              MAX_PRODUCT_IMAGES,
-                              (formProduct.images || []).length +
-                                productImageFiles.length,
-                            )}
-                            /{MAX_PRODUCT_IMAGES} images
+                        {productImagePreviews.length > 0 && (
+                          <div className="mt-2">
+                            <div className="small text-muted mb-1">
+                              New uploads
+                            </div>
+                            <div className="d-flex flex-wrap gap-2">
+                              {productImagePreviews.map((src, idx) => (
+                                <div
+                                  key={idx}
+                                  className="position-relative border rounded overflow-hidden"
+                                  style={{ width: 64, height: 64 }}
+                                >
+                                  <CImage
+                                    src={src}
+                                    alt={`Preview ${idx + 1}`}
+                                    width={64}
+                                    height={64}
+                                    className="w-100 h-100"
+                                    style={{ objectFit: "cover" }}
+                                  />
+                                  <CButton
+                                    color="danger"
+                                    size="sm"
+                                    shape="rounded-pill"
+                                    className="position-absolute d-flex align-items-center justify-content-center p-0"
+                                    style={{
+                                      top: 2,
+                                      right: 2,
+                                      width: 18,
+                                      height: 18,
+                                      minWidth: 18,
+                                    }}
+                                    onClick={() =>
+                                      removeSelectedUploadImage(idx)
+                                    }
+                                    title="Remove image"
+                                    type="button"
+                                  >
+                                    <CIcon icon={cilX} size="sm" />
+                                  </CButton>
+                                </div>
+                              ))}
+                            </div>
                           </div>
+                        )}
+                        <div className="form-text">
+                          {Math.min(
+                            MAX_PRODUCT_IMAGES,
+                            (formProduct.images || []).length +
+                              productImageFiles.length,
+                          )}
+                          /{MAX_PRODUCT_IMAGES} images
                         </div>
                       </div>
-                    </CCollapse>
+                    </div>
 
                     <div className="d-flex flex-column flex-sm-row justify-content-sm-end gap-2 pt-3 mt-2 border-top">
                       {editingProductIndex != null ? (
@@ -2553,6 +2912,8 @@ const QueryForm = () => {
                         </CButton>
                       )}
                     </div>
+                      </>
+                    )}
                   </CCardBody>
                 </CCard>
 
@@ -2560,8 +2921,8 @@ const QueryForm = () => {
                   <strong className="d-block mb-2">Added products</strong>
                   {products.length === 0 ? (
                     <p className="text-muted small mb-0">
-                      No lines yet. Complete the form above and click{" "}
-                      <strong>Add to query</strong>.
+                      No products yet. Search for a product or click{" "}
+                      <strong>Create new product</strong> to add one.
                     </p>
                   ) : (
                     <CTable responsive hover bordered>
@@ -2684,117 +3045,60 @@ const QueryForm = () => {
                 <strong>3. Preview</strong>
               </CCardHeader>
               <CCardBody>
-                <h6 className="text-body-secondary text-uppercase small fw-semibold border-bottom pb-2 mb-0">
+                <h6 className="text-body-secondary text-uppercase small fw-semibold border-bottom pb-2 mb-3">
                   Company
                 </h6>
-                <CTable
-                  borderless
-                  responsive
-                  className="mb-4 mt-3 align-middle"
-                  style={{ tableLayout: "fixed" }}
-                >
-                  <CTableBody>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
-                        style={{ width: "32%", maxWidth: 220 }}
-                      >
-                        Client / company
-                      </CTableHeaderCell>
-                      <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
-                        {industrySearch || companyInfo.name || "—"}
-                      </CTableDataCell>
-                    </CTableRow>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
-                      >
-                        Zone
-                      </CTableHeaderCell>
-                      <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
-                        {getAreaLabel() || "—"}
-                      </CTableDataCell>
-                    </CTableRow>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
-                      >
-                        Sub-zone
-                      </CTableHeaderCell>
-                      <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
-                        {getSubZoneLabel() || "—"}
-                      </CTableDataCell>
-                    </CTableRow>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
-                      >
-                        Query reference by
-                      </CTableHeaderCell>
-                      <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
-                        {formatQueryReferenceByDisplay(queryReferenceBy)}
-                      </CTableDataCell>
-                    </CTableRow>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-bottom py-3"
-                      >
-                        Location link
-                      </CTableHeaderCell>
-                      <CTableDataCell className="bg-transparent border-bottom py-3 text-break">
-                        {(() => {
-                          const loc = (companyInfo.location || "").trim();
-                          if (!loc) return "—";
-                          if (/^https?:\/\//i.test(loc)) {
-                            return (
-                              <a
-                                href={loc}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {loc}
-                              </a>
-                            );
-                          }
-                          return loc;
-                        })()}
-                      </CTableDataCell>
-                    </CTableRow>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-0 py-3 align-top"
-                      >
-                        Billing address
-                      </CTableHeaderCell>
-                      <CTableDataCell
-                        className="bg-transparent border-0 py-3 text-break"
-                        style={{ whiteSpace: "pre-wrap" }}
-                      >
+                <CRow className="g-3 mb-4">
+                  <CCol xs={12}>
+                    <QueryFormDetailField label="Client / company">
+                      {industrySearch || companyInfo.name || "—"}
+                    </QueryFormDetailField>
+                  </CCol>
+                  <CCol md={4}>
+                    <QueryFormDetailField label="Zone">
+                      {getAreaLabel() || "—"}
+                    </QueryFormDetailField>
+                  </CCol>
+                  <CCol md={4}>
+                    <QueryFormDetailField label="Sub-zone">
+                      {getSubZoneLabel() || "—"}
+                    </QueryFormDetailField>
+                  </CCol>
+                  <CCol md={4}>
+                    <QueryFormDetailField label="Location link">
+                      {(() => {
+                        const loc = (companyInfo.location || "").trim();
+                        if (!loc) return "—";
+                        if (/^https?:\/\//i.test(loc)) {
+                          return (
+                            <a
+                              href={loc}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              {loc}
+                            </a>
+                          );
+                        }
+                        return loc;
+                      })()}
+                    </QueryFormDetailField>
+                  </CCol>
+                  <CCol md={4}>
+                    <QueryFormDetailField label="Billing address">
+                      <span style={{ whiteSpace: "pre-wrap" }}>
                         {companyInfo.billingAddress?.trim() || "—"}
-                      </CTableDataCell>
-                    </CTableRow>
-                    <CTableRow>
-                      <CTableHeaderCell
-                        scope="row"
-                        className="bg-transparent text-body-secondary fw-normal border-0 py-3 align-top"
-                      >
-                        Shipping address
-                      </CTableHeaderCell>
-                      <CTableDataCell
-                        className="bg-transparent border-0 py-3 text-break"
-                        style={{ whiteSpace: "pre-wrap" }}
-                      >
+                      </span>
+                    </QueryFormDetailField>
+                  </CCol>
+                  <CCol md={4}>
+                    <QueryFormDetailField label="Shipping address">
+                      <span style={{ whiteSpace: "pre-wrap" }}>
                         {companyInfo.shippingAddress?.trim() || "—"}
-                      </CTableDataCell>
-                    </CTableRow>
-                  </CTableBody>
-                </CTable>
+                      </span>
+                    </QueryFormDetailField>
+                  </CCol>
+                </CRow>
 
                 <h6 className="text-body-secondary text-uppercase small fw-semibold border-bottom pb-2 mb-0">
                   Purchase managers
@@ -2957,26 +3261,6 @@ const QueryForm = () => {
           </>
         )}
       </CForm>
-
-      <QueryNewProductFindSidebar
-        isOpen={findProductSidebarOpen}
-        onToggle={() => setFindProductSidebarOpen((v) => !v)}
-        showFloatingToggle={false}
-        onSelectProduct={(p) => {
-          applyQueryNewProductFromLibrary(p);
-          setFindProductSidebarOpen(false);
-        }}
-      />
-
-      <QueryProductFindSidebar
-        isOpen={findProductCatalogSidebarOpen}
-        onToggle={() => setFindProductCatalogSidebarOpen((v) => !v)}
-        showFloatingToggle={false}
-        onSelectProduct={(p) => {
-          applyProductFromCatalog(p);
-          setFindProductCatalogSidebarOpen(false);
-        }}
-      />
 
       <CModal
         visible={imagesModal.visible}

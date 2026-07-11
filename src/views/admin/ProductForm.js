@@ -21,6 +21,12 @@ import {
   CSpinner,
   CProgress,
   CProgressBar,
+  CTable,
+  CTableBody,
+  CTableDataCell,
+  CTableHead,
+  CTableHeaderCell,
+  CTableRow,
 } from "@coreui/react";
 import CIcon from "@coreui/icons-react";
 import {
@@ -39,6 +45,7 @@ import industryService from "../../services/industryService";
 import supplierService from "../../services/supplierService";
 import { getAssetsUrl } from "../../api/endpoints";
 import { Loader } from "../../components";
+import StatusLabel from "../../components/StatusLabel/StatusLabel";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { useAuth, ROLES } from "../../context/AuthContext";
 import { normalizeRole } from "../../hooks/usePermissions";
@@ -58,7 +65,11 @@ import {
   formatDateInputValue,
   daysToTimelineForm,
 } from "../../utils/procurementTimeline";
-import { buildVariantCode, getOptionValuesKey } from "../../utils/variantCode";
+import {
+  buildVariantCode,
+  getOptionValuesKey,
+  deriveVariantsFromSelectedCombinations,
+} from "../../utils/variantCode";
 import "../../components/CrudFormPage/CrudFormPage.scss";
 
 const VARIANT_TYPE_OPTIONS = [
@@ -113,7 +124,22 @@ const getProductSteps = (includeHodSections) => {
     steps.push({ id: 5, label: "Map Client Code" });
     steps.push({ id: 6, label: "Map Supplier Code" });
   }
+  steps.push({ id: steps.length + 1, label: "Preview" });
   return steps;
+};
+
+const PREVIEW_EMPTY = "—";
+
+const formatPreviewText = (value) => {
+  if (value == null) return PREVIEW_EMPTY;
+  const text = String(value).trim();
+  return text || PREVIEW_EMPTY;
+};
+
+const getPreviewImageUrl = (image) => {
+  if (!image) return "";
+  if (typeof image === "object" && image?.path) return getAssetsUrl(image.path);
+  return typeof image === "string" ? image : "";
 };
 
 const STEP_FIELD_GROUPS = {
@@ -309,6 +335,15 @@ const ProductForm = () => {
         await validateCompanyProductCodeRows(companyProductCodes);
       if (companyCodeErrors.length > 0) {
         showValidationAlert(companyCodeErrors);
+        return;
+      }
+    }
+
+    if (currentStep === 6 && isHodUser) {
+      const supplierCodeErrors =
+        await validateSupplierProductCodeRows(supplierProductCodes);
+      if (supplierCodeErrors.length > 0) {
+        showValidationAlert(supplierCodeErrors);
         return;
       }
     }
@@ -1207,6 +1242,17 @@ const ProductForm = () => {
         return;
       }
 
+      const selectedCombinations = variantCombinations.filter(
+        (vc) => vc.selected,
+      );
+
+      if (selectedCombinations.length === 0) {
+        showValidationAlert(["Select at least one variant combination."]);
+        setSubmitting(false);
+        goToStep(3);
+        return;
+      }
+
       let uploadedImages = [];
 
       const payload = {
@@ -1224,7 +1270,10 @@ const ProductForm = () => {
             : 0,
         defaultModelNumber: values.defaultModelNumber || "",
         hasVariants: true,
-        variants,
+        variants: deriveVariantsFromSelectedCombinations(
+          selectedCombinations,
+          variants,
+        ),
         images: uploadedImages,
         weight: 0,
         weightUnit: "g",
@@ -1266,51 +1315,44 @@ const ProductForm = () => {
           }));
       }
 
-      const selectedCombinations = variantCombinations.filter(
-        (vc) => vc.selected,
-      );
-      if (selectedCombinations.length > 0) {
-        payload.variantCombinations = selectedCombinations.map((vc) => {
-          const { selected: _selected, ...rest } = vc;
-          const imageIds = (rest.images || []).map((img) =>
-            typeof img === "object" && img?._id ? img._id : img,
-          );
-          let queryQuotationImageId =
-            typeof rest.queryQuotationImageId === "object"
-              ? rest.queryQuotationImageId?._id
-              : rest.queryQuotationImageId;
-          if (
-            queryQuotationImageId &&
-            !imageIds.some((id) => String(id) === String(queryQuotationImageId))
-          ) {
-            queryQuotationImageId = null;
-          }
-          return {
-            ...rest,
-            modelNumber: rest.modelNumber || "",
-            price:
-              rest.price !== "" && rest.price != null
-                ? parseFloat(rest.price)
-                : 0,
-            costPrice:
-              rest.costPrice !== "" && rest.costPrice != null
-                ? parseFloat(rest.costPrice)
-                : 0,
-            isActive: rest.isActive !== false,
-            images: imageIds,
-            queryQuotationImageId: queryQuotationImageId || null,
-            timelineValue:
-              rest.timelineValue !== "" && rest.timelineValue != null
-                ? Number(rest.timelineValue)
-                : undefined,
-            timelineUnit: rest.timelineUnit || "day",
-            nextTimelineDate: rest.nextTimelineDate || undefined,
-            procurementReviewStatus: rest.procurementReviewStatus || "idle",
-          };
-        });
-      } else {
-        payload.variantCombinations = [];
-      }
+      payload.variantCombinations = selectedCombinations.map((vc) => {
+        const { selected: _selected, ...rest } = vc;
+        const imageIds = (rest.images || []).map((img) =>
+          typeof img === "object" && img?._id ? img._id : img,
+        );
+        let queryQuotationImageId =
+          typeof rest.queryQuotationImageId === "object"
+            ? rest.queryQuotationImageId?._id
+            : rest.queryQuotationImageId;
+        if (
+          queryQuotationImageId &&
+          !imageIds.some((id) => String(id) === String(queryQuotationImageId))
+        ) {
+          queryQuotationImageId = null;
+        }
+        return {
+          ...rest,
+          modelNumber: rest.modelNumber || "",
+          price:
+            rest.price !== "" && rest.price != null
+              ? parseFloat(rest.price)
+              : 0,
+          costPrice:
+            rest.costPrice !== "" && rest.costPrice != null
+              ? parseFloat(rest.costPrice)
+              : 0,
+          isActive: rest.isActive !== false,
+          images: imageIds,
+          queryQuotationImageId: queryQuotationImageId || null,
+          timelineValue:
+            rest.timelineValue !== "" && rest.timelineValue != null
+              ? Number(rest.timelineValue)
+              : undefined,
+          timelineUnit: rest.timelineUnit || "day",
+          nextTimelineDate: rest.nextTimelineDate || undefined,
+          procurementReviewStatus: rest.procurementReviewStatus || "idle",
+        };
+      });
 
       const payloadErrors = await validateProductPayload(payload);
       if (payloadErrors.length > 0) {
@@ -1350,6 +1392,473 @@ const ProductForm = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const renderPreviewRow = (label, value, options = {}) => {
+    const { isLast = false, alignTop = false } = options;
+    const borderClass = isLast ? "border-0" : "border-bottom";
+    return (
+      <CTableRow>
+        <CTableHeaderCell
+          scope="row"
+          className={`bg-transparent text-body-secondary fw-normal ${borderClass} py-3 ${alignTop ? "align-top" : ""}`}
+          style={{ width: "32%", maxWidth: 220 }}
+        >
+          {label}
+        </CTableHeaderCell>
+        <CTableDataCell
+          className={`bg-transparent ${borderClass} py-3 text-break ${alignTop ? "align-top" : ""}`}
+          style={alignTop ? { whiteSpace: "pre-wrap" } : undefined}
+        >
+          {value ?? PREVIEW_EMPTY}
+        </CTableDataCell>
+      </CTableRow>
+    );
+  };
+
+  const renderCombinationPreviewCard = (combo, comboIndex) => {
+    const timelineDays = getComboTimelineDays(combo);
+    const nextReviewDate = getComboNextTimelineDate(combo);
+    const reviewStatus =
+      timelineDays > 0
+        ? computeProcurementReviewStatus(timelineDays, nextReviewDate)
+        : "idle";
+    const variantCode =
+      combo.variantCode || buildVariantCode(productCode, combo.optionValues);
+    const queryImageId =
+      typeof combo.queryQuotationImageId === "object"
+        ? combo.queryQuotationImageId?._id
+        : combo.queryQuotationImageId;
+    const timelineUnitLabel = (unit) =>
+      TIMELINE_UNIT_OPTIONS.find((option) => option.value === unit)?.label ||
+      unit ||
+      "day";
+
+    return (
+      <CCol
+        key={getVariantComboKey(combo, comboIndex)}
+        xs={12}
+        sm={6}
+        lg={4}
+        xl={3}
+      >
+        <CCard className="h-100 border border-primary">
+          <CCardHeader className="bg-light py-2">
+            <code className="text-primary small d-block mb-1">
+              {variantCode || PREVIEW_EMPTY}
+            </code>
+            <strong className="small">
+              {combo.optionValues
+                ?.map(
+                  (option) => `${option.variantName}: ${option.variantValue}`,
+                )
+                .join(" · ") || PREVIEW_EMPTY}
+            </strong>
+          </CCardHeader>
+          <CCardBody className="py-3">
+            {(combo.optionValues || []).length > 0 && (
+              <div className="small mb-3">
+                {(combo.optionValues || []).map((option, optionIndex) => (
+                  <div
+                    key={optionIndex}
+                    className="d-flex justify-content-between py-1 border-bottom"
+                  >
+                    <span className="text-muted">{option.variantName}</span>
+                    <span className="fw-medium text-break text-end ms-2">
+                      {formatPreviewText(option.variantValue)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="small mb-3">
+              <div className="d-flex justify-content-between py-1 border-bottom">
+                <span className="text-muted">Status</span>
+                <StatusLabel
+                  status={combo.isActive !== false ? "active" : "inactive"}
+                />
+              </div>
+              <div className="d-flex justify-content-between py-1 border-bottom">
+                <span className="text-muted">Model Number</span>
+                <span className="text-break text-end ms-2">
+                  {formatPreviewText(combo.modelNumber)}
+                </span>
+              </div>
+              <div className="d-flex justify-content-between py-1 border-bottom">
+                <span className="text-muted">Purchase Price</span>
+                <span>
+                  {combo.costPrice !== "" && combo.costPrice != null
+                    ? combo.costPrice
+                    : PREVIEW_EMPTY}
+                </span>
+              </div>
+              <div className="d-flex justify-content-between py-1 border-bottom">
+                <span className="text-muted">Selling Price</span>
+                <span>
+                  {combo.price !== "" && combo.price != null
+                    ? combo.price
+                    : PREVIEW_EMPTY}
+                </span>
+              </div>
+              <div className="d-flex justify-content-between py-1 border-bottom">
+                <span className="text-muted">Procurement Timeline</span>
+                <span className="text-end ms-2">
+                  {combo.timelineValue !== "" && combo.timelineValue != null
+                    ? `${combo.timelineValue} ${timelineUnitLabel(combo.timelineUnit)}`
+                    : PREVIEW_EMPTY}
+                </span>
+              </div>
+              {timelineDays > 0 && (
+                <div className="d-flex justify-content-between py-1 border-bottom">
+                  <span className="text-muted">Stored as</span>
+                  <span>
+                    {timelineDays} day{timelineDays === 1 ? "" : "s"}
+                  </span>
+                </div>
+              )}
+              <div className="d-flex justify-content-between py-1 border-bottom">
+                <span className="text-muted">Next Review Date</span>
+                <span>
+                  {nextReviewDate
+                    ? formatDateInputValue(nextReviewDate)
+                    : PREVIEW_EMPTY}
+                </span>
+              </div>
+              <div className="d-flex justify-content-between py-1">
+                <span className="text-muted">Review Status</span>
+                <span className="text-capitalize">
+                  {formatPreviewText(reviewStatus)}
+                </span>
+              </div>
+            </div>
+            <div>
+              <div className="small text-muted mb-2">Images</div>
+              {(combo.images || []).length === 0 ? (
+                <span className="text-muted small">{PREVIEW_EMPTY}</span>
+              ) : (
+                <div className="d-flex flex-wrap gap-2">
+                  {(combo.images || []).map((image, imageIndex) => {
+                    const imageId =
+                      typeof image === "object" && image?._id
+                        ? image._id
+                        : image;
+                    const isQueryQuotation =
+                      String(queryImageId || "") === String(imageId || "");
+                    const imageUrl = getPreviewImageUrl(image);
+                    if (!imageUrl) return null;
+                    return (
+                      <div
+                        key={imageId || imageIndex}
+                        className="d-flex flex-column align-items-center"
+                        style={{ width: 72 }}
+                      >
+                        <div
+                          className={`rounded border overflow-hidden ${
+                            isQueryQuotation ? "border-primary border-2" : ""
+                          }`}
+                          style={{ width: 64, height: 64 }}
+                        >
+                          <CImage
+                            src={imageUrl}
+                            width={64}
+                            height={64}
+                            className="object-fit-cover w-100 h-100"
+                          />
+                        </div>
+                        {isQueryQuotation && (
+                          <span className="small mt-1">Query</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </CCardBody>
+        </CCard>
+      </CCol>
+    );
+  };
+
+  const renderProductPreview = () => {
+    const previewValues = watch();
+    const filledCompanyCodes = companyProductCodes.filter(
+      (row) => row.industryId && row.code?.trim(),
+    );
+    const filledSupplierCodes = supplierProductCodes.filter(
+      (row) => row.supplierId && row.code?.trim(),
+    );
+    const selectedCombinations = variantCombinations.filter(
+      (combo) => combo.selected,
+    );
+    const savedVariants = deriveVariantsFromSelectedCombinations(
+      selectedCombinations,
+      variants,
+    );
+
+    return (
+      <>
+        <CCard className="mb-4">
+          <CCardHeader style={sectionHeaderStyle}>
+            <strong>Basic Information</strong>
+          </CCardHeader>
+          <CCardBody style={sectionBodyStyle}>
+            <CTable
+              borderless
+              responsive
+              className="mb-0 align-middle"
+              style={{ tableLayout: "fixed" }}
+            >
+              <CTableBody>
+                {renderPreviewRow(
+                  "Product Name",
+                  formatPreviewText(previewValues.name),
+                )}
+                {renderPreviewRow(
+                  "Group",
+                  formatPreviewText(getSelectedGroupName()),
+                )}
+                {renderPreviewRow(
+                  "Category",
+                  formatPreviewText(getSelectedCategoryName()),
+                )}
+                {renderPreviewRow(
+                  "Subcategory",
+                  formatPreviewText(getSelectedSubcategoryName()),
+                )}
+                {renderPreviewRow(
+                  "Status",
+                  previewValues.status ? (
+                    <StatusLabel status={previewValues.status} />
+                  ) : (
+                    PREVIEW_EMPTY
+                  ),
+                )}
+                {renderPreviewRow(
+                  "Description",
+                  formatPreviewText(previewValues.description),
+                  { isLast: true, alignTop: true },
+                )}
+              </CTableBody>
+            </CTable>
+          </CCardBody>
+        </CCard>
+
+        <CCard className="mb-4">
+          <CCardHeader style={sectionHeaderStyle}>
+            <strong>Tax &amp; Accounting</strong>
+          </CCardHeader>
+          <CCardBody style={sectionBodyStyle}>
+            <CTable
+              borderless
+              responsive
+              className="mb-0 align-middle"
+              style={{ tableLayout: "fixed" }}
+            >
+              <CTableBody>
+                {renderPreviewRow(
+                  "GST",
+                  formatPreviewText(previewValues.taxClause),
+                )}
+                {renderPreviewRow(
+                  "HSN Code",
+                  formatPreviewText(previewValues.hsnNumber),
+                )}
+                {renderPreviewRow(
+                  "Unit",
+                  formatPreviewText(previewValues.unit),
+                )}
+                {renderPreviewRow(
+                  "Purchase Unit",
+                  formatPreviewText(previewValues.purchaseUnit),
+                )}
+                {renderPreviewRow(
+                  "Sales Unit",
+                  formatPreviewText(previewValues.salesUnit),
+                  { isLast: true },
+                )}
+              </CTableBody>
+            </CTable>
+          </CCardBody>
+        </CCard>
+
+        <CCard className="mb-4">
+          <CCardHeader style={sectionHeaderStyle}>
+            <strong>Attributes</strong>
+          </CCardHeader>
+          <CCardBody style={sectionBodyStyle}>
+            {savedVariants.length === 0 ? (
+              <p className="text-body-secondary small mb-0">{PREVIEW_EMPTY}</p>
+            ) : (
+              <CTable responsive bordered striped className="mb-0 align-middle">
+                <CTableHead className="table-light">
+                  <CTableRow>
+                    <CTableHeaderCell>Attribute</CTableHeaderCell>
+                    <CTableHeaderCell>Options</CTableHeaderCell>
+                  </CTableRow>
+                </CTableHead>
+                <CTableBody>
+                  {savedVariants.map((attribute, attributeIndex) => (
+                    <CTableRow key={attributeIndex}>
+                      <CTableDataCell className="fw-medium text-break">
+                        {attribute.name}
+                      </CTableDataCell>
+                      <CTableDataCell className="text-break">
+                        {(attribute.options || [])
+                          .map((option) => String(option).trim())
+                          .filter(Boolean)
+                          .join(", ") || PREVIEW_EMPTY}
+                      </CTableDataCell>
+                    </CTableRow>
+                  ))}
+                </CTableBody>
+              </CTable>
+            )}
+          </CCardBody>
+        </CCard>
+
+        <CCard className="mb-4">
+          <CCardHeader style={sectionHeaderStyle}>
+            <strong>Combinations</strong>
+          </CCardHeader>
+          <CCardBody style={sectionBodyStyle}>
+            {variantCombinations.length === 0 ? (
+              <p className="text-body-secondary small mb-0">{PREVIEW_EMPTY}</p>
+            ) : (
+              <>
+                <p className="text-muted small mb-3">
+                  {selectedCombinations.length} of {variantCombinations.length}{" "}
+                  variant(s) selected
+                </p>
+                {selectedCombinations.length === 0 ? (
+                  <p className="text-body-secondary small mb-0">
+                    {PREVIEW_EMPTY}
+                  </p>
+                ) : (
+                  <CRow className="g-3">
+                    {selectedCombinations.map((combo, comboIndex) =>
+                      renderCombinationPreviewCard(combo, comboIndex),
+                    )}
+                  </CRow>
+                )}
+              </>
+            )}
+          </CCardBody>
+        </CCard>
+
+        <CCard className="mb-4">
+          <CCardHeader style={sectionHeaderStyle}>
+            <strong>Inventory</strong>
+          </CCardHeader>
+          <CCardBody style={sectionBodyStyle}>
+            <CTable
+              borderless
+              responsive
+              className="mb-0 align-middle"
+              style={{ tableLayout: "fixed" }}
+            >
+              <CTableBody>
+                {renderPreviewRow(
+                  "Min Stock",
+                  formatPreviewText(previewValues.minStock),
+                )}
+                {renderPreviewRow(
+                  "Max Stock",
+                  formatPreviewText(previewValues.maxStock),
+                )}
+                {renderPreviewRow(
+                  "Expiry",
+                  formatPreviewText(previewValues.expiry),
+                  { isLast: true },
+                )}
+              </CTableBody>
+            </CTable>
+          </CCardBody>
+        </CCard>
+
+        {isHodUser && (
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Map Client Code</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              {filledCompanyCodes.length === 0 ? (
+                <p className="text-body-secondary small mb-0">
+                  {PREVIEW_EMPTY}
+                </p>
+              ) : (
+                <CTable
+                  responsive
+                  bordered
+                  striped
+                  className="mb-0 align-middle"
+                >
+                  <CTableHead className="table-light">
+                    <CTableRow>
+                      <CTableHeaderCell>Client</CTableHeaderCell>
+                      <CTableHeaderCell>Client Code</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {filledCompanyCodes.map((row, rowIndex) => (
+                      <CTableRow key={rowIndex}>
+                        <CTableDataCell className="text-break">
+                          {formatPreviewText(row.industryLabel)}
+                        </CTableDataCell>
+                        <CTableDataCell className="text-break">
+                          {formatPreviewText(row.code)}
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              )}
+            </CCardBody>
+          </CCard>
+        )}
+
+        {isHodUser && (
+          <CCard className="mb-4">
+            <CCardHeader style={sectionHeaderStyle}>
+              <strong>Map Supplier Code</strong>
+            </CCardHeader>
+            <CCardBody style={sectionBodyStyle}>
+              {filledSupplierCodes.length === 0 ? (
+                <p className="text-body-secondary small mb-0">
+                  {PREVIEW_EMPTY}
+                </p>
+              ) : (
+                <CTable
+                  responsive
+                  bordered
+                  striped
+                  className="mb-0 align-middle"
+                >
+                  <CTableHead className="table-light">
+                    <CTableRow>
+                      <CTableHeaderCell>Supplier</CTableHeaderCell>
+                      <CTableHeaderCell>Supplier Code</CTableHeaderCell>
+                    </CTableRow>
+                  </CTableHead>
+                  <CTableBody>
+                    {filledSupplierCodes.map((row, rowIndex) => (
+                      <CTableRow key={rowIndex}>
+                        <CTableDataCell className="text-break">
+                          {formatPreviewText(row.supplierLabel)}
+                        </CTableDataCell>
+                        <CTableDataCell className="text-break">
+                          {formatPreviewText(row.code)}
+                        </CTableDataCell>
+                      </CTableRow>
+                    ))}
+                  </CTableBody>
+                </CTable>
+              )}
+            </CCardBody>
+          </CCard>
+        )}
+      </>
+    );
   };
 
   if (loading) {
@@ -2707,6 +3216,13 @@ const ProductForm = () => {
               </CButton>
             </CCardBody>
           </CCard>
+          {renderStepNav()}
+        </>
+      )}
+
+      {currentStep === totalSteps && (
+        <>
+          {renderProductPreview()}
           {renderStepNav()}
         </>
       )}
