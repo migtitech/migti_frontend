@@ -58,7 +58,12 @@ export const INVENTORY_MANAGER_ALLOWED_PATHS = new Set(["/inventory-bucket"]);
 export const FINANCE_ALLOWED_PATHS = new Set([
   "/billing-requests",
   "/po-payment",
-  "/company-catalog",
+  "/finance",
+  "/sidebar-docs",
+  "/payment/customer",
+  "/payment/supplier",
+  "/payment/overdue-supplier",
+  "/order-tracking/finance",
 ]);
 
 export const ADMIN_ALLOWED_PATHS = new Set([
@@ -287,7 +292,7 @@ export const filterNavigationItems = (navItems, ctx) => {
     list
       .map((item) => {
         if (item.items) {
-          const filteredItems = item.items.filter(filter);
+          const filteredItems = applyGroupFilter(item.items);
           if (filteredItems.length === 0) return null;
           return { ...item, items: filteredItems };
         }
@@ -304,7 +309,9 @@ export const filterNavigationItems = (navItems, ctx) => {
     return applyGroupFilter(items);
   }
 
-  return applyGroupFilter(items.filter(filter));
+  return applyGroupFilter(
+    items.filter((item) => item.items?.length || filter(item)),
+  );
 };
 
 /**

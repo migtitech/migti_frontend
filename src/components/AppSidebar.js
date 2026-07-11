@@ -595,7 +595,7 @@ const AppSidebar = () => {
 
   return (
     <CSidebar
-      className="border-end"
+      className="border-end sidebar-enhanced"
       colorScheme="dark"
       position="fixed"
       unfoldable={unfoldable}

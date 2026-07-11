@@ -30,12 +30,19 @@ const INVENTORY_MANAGER_OPEN_PATHS = new Set([
 const FINANCE_OPEN_PATHS = new Set([
   "/billing-requests",
   "/po-payment",
+  "/finance",
+  "/payment/customer",
+  "/payment/supplier",
+  "/order-tracking/finance",
   "/unauthorized",
 ]);
 
 const isFinanceAllowedPath = (path) => {
   if (FINANCE_OPEN_PATHS.has(path)) return true;
-  return path.startsWith("/billing-requests/");
+  if (path.startsWith("/billing-requests/")) return true;
+  if (path.startsWith("/payment/")) return true;
+  if (path.startsWith("/order-tracking/")) return true;
+  return false;
 };
 
 const normalizePath = (pathname) => {

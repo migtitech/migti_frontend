@@ -1,6 +1,12 @@
 import React from "react";
 
 const Dashboard = React.lazy(() => import("./views/dashboard/Dashboard"));
+const SalesDashboard = React.lazy(
+  () => import("./views/dashboard/SalesDashboard"),
+);
+const PurchaseDashboard = React.lazy(
+  () => import("./views/dashboard/PurchaseDashboard"),
+);
 
 // Admin routes
 const BranchManagement = React.lazy(
@@ -251,12 +257,22 @@ const NotificationsPage = React.lazy(
 // Error pages
 const Page401 = React.lazy(() => import("./views/pages/page401/Page401"));
 
-// Permission-based route configuration
+import sidebarPageRoutes from "./routes/sidebarPageRoutes";
 // 'module' maps to the RBAC module key, 'action' specifies required permission
 // Routes without module are accessible to all authenticated users
 const routes = [
   { path: "/", exact: true, name: "Home" },
   { path: "/dashboard", name: "Dashboard", element: Dashboard },
+  {
+    path: "/sales-dashboard",
+    name: "Sales Dashboard",
+    element: SalesDashboard,
+  },
+  {
+    path: "/purchase-dashboard",
+    name: "Purchase Dashboard",
+    element: PurchaseDashboard,
+  },
 
   // Companies
   {
@@ -1213,6 +1229,9 @@ const routes = [
 
   // Unauthorized page - accessible by all
   { path: "/unauthorized", name: "Unauthorized", element: Page401 },
+
+  // Sidebar module pages (UI entry points – existing workflows unchanged)
+  ...sidebarPageRoutes,
 ];
 
 export default routes;
