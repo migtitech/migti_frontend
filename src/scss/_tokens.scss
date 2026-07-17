@@ -1,0 +1,111 @@
+// Migti Design System tokens.
+// Central source of truth for color / spacing / typography. New shared
+// components and page redesigns should read these instead of hardcoding
+// hex values. Keep the primary/gray scale in sync with
+// src/constants/designTokens.js.
+//
+// This file only *adds* custom properties and re-points a handful of
+// CoreUI's own --cui-* variables at them - it does not change any Sass
+// ($) variables, so CoreUI's component internals are untouched.
+
+:root {
+  // Brand / primary (blue) — matches the sidebar active-state accent that
+  // was previously hardcoded (#2563EB) in AppSidebar.js and style.scss.
+  --mds-primary-25: #f5f8ff;
+  --mds-primary-50: #eff4ff;
+  --mds-primary-100: #d1e0ff;
+  --mds-primary-200: #b2ccff;
+  --mds-primary-300: #84adff;
+  --mds-primary-400: #528bff;
+  --mds-primary-500: #2970ff;
+  --mds-primary-600: #2563eb;
+  --mds-primary-700: #1849a9;
+  --mds-primary-800: #143788;
+  --mds-primary-900: #102a63;
+
+  // Neutral / gray scale — matches the palette already used in
+  // CrudFormPage.scss / StatusLabel / colorTheme.js.
+  --mds-gray-25: #fcfcfd;
+  --mds-gray-50: #f9fafb;
+  --mds-gray-100: #f2f4f7;
+  --mds-gray-200: #eaecf0;
+  --mds-gray-300: #d0d5dd;
+  --mds-gray-400: #98a2b3;
+  --mds-gray-500: #667085;
+  --mds-gray-600: #475467;
+  --mds-gray-700: #344054;
+  --mds-gray-800: #1d2939;
+  --mds-gray-900: #101828;
+
+  // Semantic status colors
+  --mds-success-50: #ecfdf3;
+  --mds-success-500: #12b76a;
+  --mds-success-600: #027a48;
+  --mds-warning-50: #fffaeb;
+  --mds-warning-500: #f79009;
+  --mds-warning-600: #b54708;
+  --mds-danger-50: #fef3f2;
+  --mds-danger-500: #f04438;
+  --mds-danger-600: #d92d20;
+  --mds-info-50: #eff8ff;
+  --mds-info-500: #2e90fa;
+  --mds-info-600: #175cd3;
+
+  // Spacing scale (8px grid, 4px half-step for tight contexts)
+  --mds-space-1: 4px;
+  --mds-space-2: 8px;
+  --mds-space-3: 12px;
+  --mds-space-4: 16px;
+  --mds-space-5: 20px;
+  --mds-space-6: 24px;
+  --mds-space-8: 32px;
+  --mds-space-10: 40px;
+  --mds-space-12: 48px;
+  --mds-space-16: 64px;
+
+  // Typography
+  // Body/UI typeface: Plus Jakarta Sans (professional, geometric, distinct
+  // from the ubiquitous Inter look). Display/heading typeface: Lexend, used
+  // for page titles and section headers to create clear visual hierarchy —
+  // "big things read big, small things read small" at a glance.
+  --mds-font-family-body: "Plus Jakarta Sans", ui-sans-serif, system-ui,
+    -apple-system, sans-serif;
+  --mds-font-family-display: "Lexend", "Plus Jakarta Sans", ui-sans-serif,
+    system-ui, sans-serif;
+
+  --mds-font-size-xs: 12px;
+  --mds-font-size-sm: 13px;
+  --mds-font-size-md: 14px;
+  --mds-font-size-lg: 16px;
+  --mds-font-size-xl: 18px;
+  --mds-font-size-2xl: 24px;
+  // Extended display scale for page/section titles and stat/KPI figures.
+  --mds-font-size-3xl: 30px;
+  --mds-font-size-4xl: 36px;
+  --mds-font-weight-regular: 400;
+  --mds-font-weight-medium: 500;
+  --mds-font-weight-semibold: 600;
+  --mds-font-weight-bold: 700;
+  --mds-font-weight-extrabold: 800;
+  --mds-line-height-tight: 1.3;
+  --mds-line-height-normal: 1.4;
+  --mds-line-height-relaxed: 1.5;
+
+  // Elevation
+  --mds-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --mds-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --mds-shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --mds-radius-sm: 6px;
+  --mds-radius-md: 8px;
+  --mds-radius-lg: 12px;
+
+  // Re-point CoreUI's own primary tokens at the brand blue so buttons,
+  // spinners, links, and focus rings match the sidebar/badge accent
+  // instead of CoreUI's stock indigo default.
+  --cui-primary: var(--mds-primary-600);
+  --cui-primary-rgb: 37, 99, 235;
+  --cui-link-color: var(--mds-primary-600);
+  --cui-link-color-rgb: 37, 99, 235;
+  --cui-link-hover-color: var(--mds-primary-700);
+  --cui-link-hover-color-rgb: 24, 73, 169;
+}

@@ -1,0 +1,13 @@
+develop-indore-deploy:
+  stage: deploy
+  tags:
+    - migti-prod
+    - linux
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  variables:
+    GIT_STRATEGY: none
+    DEPLOY_PATH: /migti/dev/indore/migti_frontend
+    DEPLOY_BRANCH: develop
+  script:
+    - cd "${DEPLOY_PATH}" && bash ci/deploy-frontend.sh

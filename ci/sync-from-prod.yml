@@ -1,0 +1,16 @@
+sync-from-prod:
+  stage: sync
+  tags:
+    - migti-prod
+    - linux
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "prod"
+  needs:
+    - prod-indore-deploy
+    - prod-noida-deploy
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - rm -rf "/migti/ci-sync/${CI_PROJECT_PATH//\//_}"
+    - bash /migti/ci-scripts/sync-branches.sh prod dev_indore dev_noida

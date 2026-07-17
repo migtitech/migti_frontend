@@ -1,0 +1,586 @@
+@use "@coreui/coreui/scss/coreui" as * with (
+  $enable-deprecation-messages: false
+);
+@use "@coreui/chartjs/scss/coreui-chartjs";
+@use "vendors/simplebar";
+@use "tokens";
+@use "color-theme";
+
+// Keeps horizontal scroll working on a wide table while hiding the visible
+// track/thumb (used to wrap `Table` where the native scrollbar bar looks
+// noisy directly under the content, e.g. the quotation product list table).
+.scrollbar-hidden-x {
+  > div {
+    overflow-x: auto;
+    scrollbar-width: none; // Firefox
+    -ms-overflow-style: none; // legacy Edge/IE
+
+    &::-webkit-scrollbar {
+      display: none; // Chrome/Safari/Edge
+    }
+  }
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background-color: var(--cui-tertiary-bg);
+  // Scale up base font size moderately (~1.2x)
+  font-size: 1.2rem;
+  font-family: var(--mds-font-family-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// Headings use the display typeface (Lexend) app-wide for a distinct,
+// professional character. Deliberately NOT setting font-size here: existing
+// pages already size their own headings via Tailwind classes (PageHeader
+// h1, CardTitle h3, etc.) or CoreUI defaults, and unlayered rules like this
+// one would win the cascade over `@layer utilities` and silently blow up
+// those already-tuned sizes. Only family/weight/tracking is safe to force
+// globally without risking overflow/regressions on the ~280 existing pages.
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+  font-family: var(--mds-font-family-display);
+  font-weight: var(--mds-font-weight-semibold);
+  letter-spacing: -0.01em;
+}
+
+// Numeric/KPI figures (stat cards, totals) read best in tabular figures so
+// columns of numbers align — purely a rendering hint, no markup changes.
+.tabular-nums,
+.stat-value {
+  font-variant-numeric: tabular-nums;
+}
+
+// Opt-in display scale for new/high-emphasis surfaces (e.g. Reports
+// section) that want a bigger jump than the shared PageHeader h1. Not
+// applied automatically anywhere — existing pages are unaffected.
+.mds-display-xl {
+  font-family: var(--mds-font-family-display);
+  font-size: var(--mds-font-size-4xl);
+  font-weight: var(--mds-font-weight-extrabold);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.mds-display-lg {
+  font-family: var(--mds-font-family-display);
+  font-size: var(--mds-font-size-3xl);
+  font-weight: var(--mds-font-weight-bold);
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.wrapper {
+  width: 100%;
+  padding-inline: var(--cui-sidebar-occupy-start, 0)
+    var(--cui-sidebar-occupy-end, 0);
+  will-change: auto;
+  @include transition(padding 0.15s);
+}
+
+// Make common controls scale with body font size
+button,
+input,
+select,
+textarea {
+  font-size: inherit;
+}
+
+.btn {
+  font-size: inherit;
+  padding: 0.6rem 1.2rem;
+}
+
+.form-control,
+.form-select {
+  font-size: inherit;
+  padding: 0.6rem 0.9rem;
+  min-height: 2.6rem;
+}
+
+.form-check-label,
+.form-check-input {
+  font-size: inherit;
+}
+
+.table {
+  font-size: inherit;
+}
+
+// Light theme: visually separate header and main content
+@include color-mode(light) {
+  .header {
+    background-color: #ffffff;
+    border-bottom: 1px solid var(--cui-border-color);
+  }
+
+  .body {
+    background-color: #f5f6f8;
+  }
+}
+
+.header > .container-fluid,
+.sidebar-header {
+  min-height: calc(
+    4rem + 1px
+  ); // stylelint-disable-line function-disallowed-list
+}
+
+.sidebar-brand-full {
+  margin-left: 3px;
+}
+
+.sidebar-header {
+  .nav-underline-border {
+    --cui-nav-underline-border-link-padding-x: 1rem;
+    --cui-nav-underline-border-gap: 0;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    min-height: calc(
+      4rem + 1px
+    ); // stylelint-disable-line function-disallowed-list
+  }
+}
+
+.sidebar-toggler {
+  margin-inline-start: auto;
+}
+
+.sidebar-narrow,
+.sidebar-narrow-unfoldable:not(:hover) {
+  .sidebar-toggler {
+    margin-inline-end: auto;
+  }
+}
+
+// Sidebar: click-to-expand groups, active route highlight (~20% larger than compact base)
+.sidebar-enhanced {
+  --cui-sidebar-nav-link-padding-y: 0.36rem;
+  --cui-sidebar-nav-link-padding-x: 0.78rem;
+
+  .sidebar-nav-enhanced {
+    padding-top: 0.24rem;
+    padding-bottom: 0.48rem;
+    font-size: 0.975rem;
+  }
+
+  .nav-icon {
+    width: 1.32rem;
+    height: 1.32rem;
+    flex: 0 0 1.32rem;
+    margin-right: 0.54rem;
+  }
+
+  .nav-link {
+    border-radius: 7px;
+    margin: 1px 0.48rem;
+    padding: 0.36rem 0.66rem;
+    font-size: 0.975rem;
+    line-height: 1.3;
+    transition: background-color 0.18s ease, color 0.18s ease;
+
+    &.active {
+      background: linear-gradient(
+        90deg,
+        var(--mds-primary-600) 0%,
+        var(--mds-primary-500) 100%
+      );
+      color: #fff;
+      font-weight: var(--mds-font-weight-semibold);
+    }
+  }
+
+  .nav-group {
+    .nav-group-toggle {
+      border-radius: 7px;
+      margin: 1px 0.48rem;
+      padding: 0.36rem 0.66rem;
+      font-size: 0.975rem;
+      line-height: 1.3;
+      transition: background-color 0.18s ease, color 0.18s ease;
+    }
+
+    &.show > .nav-group-toggle {
+      color: #fff;
+    }
+
+    &.nav-group-has-active > .nav-group-toggle {
+      background-color: rgba(37, 99, 235, 0.28);
+      color: #fff;
+      box-shadow: inset -3px 0 0 var(--mds-primary-300);
+    }
+  }
+
+  .nav-group-items {
+    padding-inline-start: 0.75rem;
+    padding-inline-end: 0.35rem;
+
+    .nav-link {
+      margin-left: 0;
+      margin-right: 0;
+      font-size: 0.936rem;
+      padding: 0.3rem 0.6rem;
+      padding-inline-start: calc(
+        0.6rem + var(--cui-sidebar-nav-link-padding-x, 0.78rem)
+      );
+    }
+
+    .nav-icon {
+      margin-inline-start: 0;
+    }
+
+    .nav-group .nav-group-toggle {
+      margin-left: 0;
+      margin-right: 0;
+      font-size: 0.936rem;
+      padding: 0.3rem 0.6rem;
+      padding-inline-start: calc(
+        0.6rem + var(--cui-sidebar-nav-link-padding-x, 0.78rem)
+      );
+    }
+
+    .nav-group-items {
+      padding-inline-start: 0.55rem;
+
+      .nav-link,
+      .nav-group .nav-group-toggle {
+        padding-inline-start: calc(
+          1rem + var(--cui-sidebar-nav-link-padding-x, 0.78rem)
+        );
+      }
+    }
+  }
+
+  .badge {
+    font-size: 0.78rem;
+    padding: 0.24em 0.54em;
+  }
+}
+
+.header > .container-fluid + .container-fluid {
+  min-height: 3rem;
+}
+
+.footer {
+  min-height: calc(
+    3rem + 1px
+  ); // stylelint-disable-line function-disallowed-list
+}
+
+@include color-mode(dark) {
+  body {
+    background-color: var(--cui-dark-bg-subtle);
+  }
+
+  .footer {
+    --cui-footer-bg: var(--cui-body-bg);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// App layout shell (shadcn/Tailwind replacement for CoreUI CSidebar/CHeader)
+// ---------------------------------------------------------------------------
+$app-sidebar-width: 16rem;
+$app-sidebar-narrow-width: 4.25rem;
+$app-lg: 992px;
+$app-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+.app-sidebar {
+  --app-sidebar-bg: #0f1729;
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 1030;
+  display: flex;
+  flex-direction: column;
+  width: $app-sidebar-width;
+  max-width: min($app-sidebar-width, 88vw);
+  background: var(--app-sidebar-bg);
+  color: rgba(255, 255, 255, 0.78);
+  transition:
+    transform 0.22s $app-ease,
+    width 0.2s $app-ease,
+    box-shadow 0.2s $app-ease;
+  will-change: transform, width;
+
+  .app-sidebar__brand {
+    display: flex;
+    align-items: center;
+    min-height: calc(4rem + 1px);
+    padding-inline: 1.1rem;
+    padding-top: env(safe-area-inset-top, 0px);
+    color: #fff;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+
+    a {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      min-width: 0;
+    }
+  }
+
+  .app-sidebar__footer {
+    display: flex;
+    align-items: center;
+    margin-top: auto;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    flex: 0 0 auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+
+    .btn {
+      color: rgba(255, 255, 255, 0.78);
+      border-radius: 6px;
+      transition: background-color 0.15s $app-ease, color 0.15s $app-ease;
+
+      &:hover {
+        color: #fff;
+        background-color: rgba(255, 255, 255, 0.08);
+      }
+    }
+  }
+
+  // Search box pinned under the brand row
+  .app-sidebar__search {
+    position: relative;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    margin: 0.6rem 0.75rem;
+
+    .app-sidebar__search-icon {
+      position: absolute;
+      inset-inline-start: 0.6rem;
+      color: rgba(255, 255, 255, 0.45);
+      pointer-events: none;
+    }
+
+    input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 7px;
+      color: #fff;
+      font-size: 0.85rem;
+      padding: 0.4rem 1.9rem;
+      transition: background-color 0.15s $app-ease, border-color 0.15s $app-ease;
+
+      &::placeholder {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
+      &:focus {
+        outline: none;
+        background: rgba(255, 255, 255, 0.11);
+        border-color: rgba(96, 165, 250, 0.6);
+      }
+    }
+
+    .app-sidebar__search-clear {
+      position: absolute;
+      inset-inline-end: 0.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.4rem;
+      height: 1.4rem;
+      color: rgba(255, 255, 255, 0.55);
+      background: transparent;
+      border: 0;
+      border-radius: 4px;
+      cursor: pointer;
+
+      &:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.12);
+      }
+    }
+  }
+
+  .app-sidebar__search-empty {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+  }
+
+  // Nav links inside the dark sidebar
+  .nav-link,
+  .nav-group-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-width: 0;
+    color: rgba(255, 255, 255, 0.78);
+    text-decoration: none;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    transition: background-color 0.15s $app-ease, color 0.15s $app-ease;
+
+    &:hover {
+      color: #fff;
+      background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    &:focus-visible {
+      outline: 2px solid rgba(96, 165, 250, 0.9);
+      outline-offset: -2px;
+    }
+  }
+
+  .app-sidebar__label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  .nav-group-caret {
+    margin-inline-start: auto;
+    flex: 0 0 auto;
+    transition: transform 0.2s $app-ease;
+  }
+
+  .nav-group.show > .nav-group-toggle .nav-group-caret {
+    transform: rotate(180deg);
+  }
+
+  .nav-item,
+  .nav-group {
+    list-style: none;
+  }
+
+  .app-sidebar__nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-block: 0.5rem;
+
+    // SimpleBar owns overflow/scrolling on this element internally — do not
+    // also set overflow-y here, that fights SimpleBar and produces a second,
+    // unstyled native scrollbar layered on top of its own.
+    // Scrolling stays fully functional (wheel/touch/keyboard); the visible
+    // track/thumb is hidden so the many nested sub-menus don't clutter the
+    // rail with a permanent scrollbar.
+    .simplebar-track {
+      display: none;
+    }
+  }
+
+  // Child-group guide rail for clearer hierarchy
+  .nav-group-items {
+    position: relative;
+    margin-inline-start: 0.9rem;
+    border-inline-start: 1px solid rgba(255, 255, 255, 0.1);
+    padding-inline-start: 0.35rem;
+  }
+}
+
+// Collapsed (unfoldable) rail on desktop; expands on hover as an overlay
+@media (min-width: $app-lg) {
+  .app-sidebar--narrow:not(:hover) {
+    width: $app-sidebar-narrow-width;
+
+    .app-sidebar__label,
+    .nav-group-caret,
+    .badge,
+    .sidebar-brand-full,
+    .app-sidebar__search,
+    .app-sidebar__search-empty {
+      display: none;
+    }
+
+    .nav-group-items {
+      display: none;
+    }
+
+    .nav-link,
+    .nav-group-toggle {
+      justify-content: center;
+    }
+
+    .nav-icon {
+      margin-right: 0;
+    }
+  }
+
+  .app-sidebar--narrow:hover {
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.28);
+  }
+
+  .app-sidebar--narrow {
+    .sidebar-brand-narrow {
+      display: inline;
+    }
+  }
+}
+
+.sidebar-brand-narrow {
+  display: none;
+}
+
+// Off-canvas behaviour on small screens
+@media (max-width: ($app-lg - 0.02px)) {
+  .app-sidebar {
+    transform: translateX(-100%);
+    box-shadow: none;
+  }
+  .app-sidebar--show {
+    transform: translateX(0);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+  }
+}
+
+.app-sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1029;
+  background: rgba(15, 23, 41, 0.55);
+  backdrop-filter: blur(1px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s $app-ease, visibility 0.2s $app-ease;
+
+  &--show {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  @media (min-width: $app-lg) {
+    display: none;
+  }
+}
+
+// Content wrapper offset to make room for the fixed sidebar
+.app-wrapper {
+  width: 100%;
+  min-width: 0;
+  transition: padding 0.2s $app-ease;
+
+  @media (min-width: $app-lg) {
+    padding-inline-start: $app-sidebar-width;
+
+    &.app-wrapper--narrow {
+      padding-inline-start: $app-sidebar-narrow-width;
+    }
+  }
+}

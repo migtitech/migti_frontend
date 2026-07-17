@@ -1,0 +1,27 @@
+.searchable-dropdown {
+  width: 100%;
+}
+
+.searchable-dropdown__suggestions {
+  margin-top: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.searchable-dropdown__suggestions .list-group-item {
+  border-left: 0;
+  border-right: 0;
+}
+
+.searchable-dropdown__suggestions .list-group-item:first-child {
+  border-top: 0;
+}
+
+.searchable-dropdown__suggestions .list-group-item:last-child {
+  border-bottom: 0;
+}
+
+.searchable-dropdown__suggestions .list-group-item-action {
+  width: 100%;
+}

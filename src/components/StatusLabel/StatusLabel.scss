@@ -1,0 +1,29 @@
+.status-label {
+  align-items: center;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: var(--mds-font-size-sm);
+  font-weight: var(--mds-font-weight-medium);
+  line-height: var(--mds-line-height-normal);
+  padding: 2px 10px;
+}
+
+.status-label::before {
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+  display: inline-block;
+  height: 6px;
+  margin-right: 6px;
+  width: 6px;
+}
+
+.status-label--active {
+  background: var(--mds-success-50);
+  color: var(--migti-status-active);
+}
+
+.status-label--inactive {
+  background: var(--mds-gray-100);
+  color: var(--migti-status-inactive);
+}
