@@ -182,6 +182,7 @@ export const PRODUCTS = {
   UPDATE: "/products/update",
   DELETE: "/products/delete",
   UPLOAD_IMAGES: "/products/upload-images",
+  PREVIEW_CODE: "/products/preview-code",
 };
 
 export const QUERY_NEW_PRODUCTS = {
@@ -258,6 +259,42 @@ export const INDUSTRY_BRANCHES = {
   GET_BY_ID: "/industry-branches/get-by-id",
   UPDATE: "/industry-branches/update",
   DELETE: "/industry-branches/delete",
+};
+
+export const INDUSTRY_ATTACHMENTS = {
+  CREATE: "/industry-attachments/create",
+  LIST: "/industry-attachments/list",
+  DELETE: "/industry-attachments/delete",
+};
+
+export const INDUSTRY_CONTACT_PERSONS = {
+  CREATE: "/industry-contact-persons/create",
+  LIST: "/industry-contact-persons/list",
+  GET_BY_ID: "/industry-contact-persons/get-by-id",
+  UPDATE: "/industry-contact-persons/update",
+  DELETE: "/industry-contact-persons/delete",
+};
+
+export const SUPPLIER_CONTACT_PERSONS = {
+  CREATE: "/supplier-contact-persons/create",
+  LIST: "/supplier-contact-persons/list",
+  GET_BY_ID: "/supplier-contact-persons/get-by-id",
+  UPDATE: "/supplier-contact-persons/update",
+  DELETE: "/supplier-contact-persons/delete",
+};
+
+export const SUPPLIER_BRANCHES = {
+  CREATE: "/supplier-branches/create",
+  LIST: "/supplier-branches/list",
+  GET_BY_ID: "/supplier-branches/get-by-id",
+  UPDATE: "/supplier-branches/update",
+  DELETE: "/supplier-branches/delete",
+};
+
+export const LOCATION = {
+  STATES: "/location/states",
+  CITIES: "/location/cities",
+  PINCODE: (pincode) => `/location/pincode/${pincode}`,
 };
 
 export const QUERIES = {
@@ -510,6 +547,11 @@ export default {
   AREAS,
   INDUSTRIES,
   INDUSTRY_BRANCHES,
+  INDUSTRY_ATTACHMENTS,
+  INDUSTRY_CONTACT_PERSONS,
+  SUPPLIER_CONTACT_PERSONS,
+  SUPPLIER_BRANCHES,
+  LOCATION,
   QUERIES,
   HOD_DASHBOARD,
   QUOTATIONS,

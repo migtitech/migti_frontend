@@ -23,7 +23,7 @@ const getRelevanceScore = (label, query) => {
 
 const rankOptions = (options, query, getOptionLabel) => {
   const trimmedQuery = query.trim();
-  if (!trimmedQuery) return [];
+  if (!trimmedQuery) return options;
 
   return options
     .map((option) => {
@@ -56,12 +56,16 @@ const SearchableDropdown = ({
   const [inputValue, setInputValue] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const previousValueRef = useRef(value);
+  const resolveValue = (option) => {
+    const raw = getOptionValue(option);
+    return raw == null ? "" : String(raw);
+  };
 
   const normalizedOptions = Array.isArray(options) ? options : [];
+  const valueKey = value == null ? "" : String(value);
 
   const selectedOption = normalizedOptions.find(
-    (option) =>
-      getOptionValue(option) === value || getOptionValue(option) === value?._id,
+    (option) => resolveValue(option) === valueKey,
   );
 
   const suggestions = useMemo(() => {
@@ -87,7 +91,7 @@ const SearchableDropdown = ({
   const handleInputChange = (event) => {
     const nextValue = event.target.value;
     setInputValue(nextValue);
-    setShowSuggestions(Boolean(nextValue.trim()));
+    setShowSuggestions(true);
 
     if (!nextValue.trim()) {
       onChange("");
@@ -95,7 +99,7 @@ const SearchableDropdown = ({
   };
 
   const handleSelect = (option) => {
-    const optionValue = getOptionValue(option);
+    const optionValue = resolveValue(option);
     const optionLabel = getOptionLabel(option);
     setInputValue(optionLabel);
     setShowSuggestions(false);
@@ -117,9 +121,7 @@ const SearchableDropdown = ({
   };
 
   const handleFocus = () => {
-    if (inputValue.trim()) {
-      setShowSuggestions(true);
-    }
+    setShowSuggestions(true);
   };
 
   return (
@@ -135,24 +137,25 @@ const SearchableDropdown = ({
         aria-invalid={invalid || undefined}
         autoComplete="off"
       />
-      {showSuggestions && inputValue.trim() && (
+      {showSuggestions && !disabled && (
         <ul
-          className="absolute z-30 mt-1 max-h-64 w-full overflow-auto rounded-md border border-border bg-popover py-1 shadow-md"
+          className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border border-border bg-popover py-1 shadow-md"
           role="listbox"
         >
           {suggestions.length === 0 ? (
             <li className="px-3 py-2 text-sm text-muted-foreground">
-              No matches
+              {normalizedOptions.length === 0
+                ? "No options available"
+                : "No matches"}
             </li>
           ) : (
             suggestions.map((option) => {
-              const optionValue = getOptionValue(option);
+              const optionValue = resolveValue(option);
               const optionLabel = getOptionLabel(option);
-              const isSelected =
-                optionValue === value || optionValue === value?._id;
+              const isSelected = optionValue === valueKey;
 
               return (
-                <li key={optionValue}>
+                <li key={optionValue || optionLabel}>
                   <button
                     type="button"
                     className={cn(

@@ -78,6 +78,30 @@ const mapToApiPayload = (data) => {
         : "";
   }
 
+  if (data.queryReceivedBy !== undefined) {
+    const receivedBy =
+      data.queryReceivedBy != null
+        ? String(data.queryReceivedBy).trim().toLowerCase()
+        : "";
+    payload.queryReceivedBy = ["mail", "whatsapp", "other"].includes(receivedBy)
+      ? receivedBy
+      : "";
+  }
+
+  if (data.quotationDate !== undefined) {
+    payload.quotationDate =
+      data.quotationDate != null && String(data.quotationDate).trim()
+        ? String(data.quotationDate).trim()
+        : null;
+  }
+
+  if (data.followUpDate !== undefined) {
+    payload.followUpDate =
+      data.followUpDate != null && String(data.followUpDate).trim()
+        ? String(data.followUpDate).trim()
+        : null;
+  }
+
   return payload;
 };
 

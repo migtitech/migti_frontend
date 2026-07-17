@@ -14,14 +14,33 @@ import {
   SearchableDropdown,
   TablePagination,
   FilterLockButton,
+  StatusBadge,
 } from "../../components";
-import { Alert, AlertDescription, Button, Label } from "../../components/ui";
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Label,
+  Select,
+} from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
 
-const SUPPLIER_FILTER_DEFAULTS = { category: "", subcategory: "", area: "" };
+const SUPPLIER_FILTER_DEFAULTS = {
+  category: "",
+  subcategory: "",
+  area: "",
+  status: "",
+};
+
+const getStatusBadge = (isActive) =>
+  isActive !== false ? (
+    <StatusBadge variant="success">Active</StatusBadge>
+  ) : (
+    <StatusBadge variant="secondary">Inactive</StatusBadge>
+  );
 
 const SupplierList = () => {
   const navigate = useNavigate();
@@ -46,6 +65,7 @@ const SupplierList = () => {
     initialValues.subcategory,
   );
   const [filterArea, setFilterArea] = useState(initialValues.area);
+  const [filterStatus, setFilterStatus] = useState(initialValues.status);
   const [categories, setCategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
   const [areas, setAreas] = useState([]);
@@ -68,6 +88,7 @@ const SupplierList = () => {
         const areaObj = areas.find((a) => (a._id || a.id) === filterArea);
         if (areaObj?.name) params.area = areaObj.name;
       }
+      if (filterStatus) params.status = filterStatus;
       const res = await withMinimumDelay(() => supplierService.getAll(params));
       const data = res?.data || res;
       setSuppliers(data?.suppliers || []);
@@ -77,7 +98,15 @@ const SupplierList = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, searchTerm, filterCategory, filterSubcategory, filterArea, areas]);
+  }, [
+    page,
+    searchTerm,
+    filterCategory,
+    filterSubcategory,
+    filterArea,
+    filterStatus,
+    areas,
+  ]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -90,6 +119,7 @@ const SupplierList = () => {
     category: filterCategory,
     subcategory: filterSubcategory,
     area: filterArea,
+    status: filterStatus,
   });
 
   const handleToggleFiltersLock = () => {
@@ -97,6 +127,7 @@ const SupplierList = () => {
       category: filterCategory,
       subcategory: filterSubcategory,
       area: filterArea,
+      status: filterStatus,
     });
   };
 
@@ -121,7 +152,10 @@ const SupplierList = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const res = await areaService.getAll({ pageSize: 100 });
+        const res = await areaService.getAll({
+          pageSize: 100,
+          areaType: "market",
+        });
         const data = res?.data || res;
         if (!cancelled) setAreas(data?.areas || []);
       } catch {
@@ -175,6 +209,11 @@ const SupplierList = () => {
     setPage(1);
   };
 
+  const handleFilterStatusChange = (val) => {
+    setFilterStatus(val || "");
+    setPage(1);
+  };
+
   const handleDeleteClick = (id) => {
     setConfirmDelete({ visible: true, id });
   };
@@ -206,7 +245,25 @@ const SupplierList = () => {
         key: "name",
         label: "Name",
         sortable: true,
-        render: (supplier) => <strong>{supplier.name}</strong>,
+        render: (supplier) => (
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary!">
+              {(supplier.name || "SU").slice(0, 2).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <div className="font-medium text-foreground">
+                {supplier.name || "-"}
+              </div>
+              {supplier.shopname && (
+                <div className="text-xs text-muted-foreground">
+                  {supplier.shopname}
+                </div>
+              )}
+            </div>
+          </div>
+        ),
+        sortValue: (supplier) => supplier.name || "",
+        exportValue: (supplier) => supplier.name || "",
       },
       {
         key: "shopname",
@@ -238,6 +295,14 @@ const SupplierList = () => {
         key: "gst",
         label: "GST",
         render: (supplier) => supplier.gst || "-",
+      },
+      {
+        key: "status",
+        label: "Status",
+        sortValue: (supplier) => (supplier.isActive !== false ? 1 : 0),
+        exportValue: (supplier) =>
+          supplier.isActive !== false ? "Active" : "Inactive",
+        render: (supplier) => getStatusBadge(supplier.isActive),
       },
       {
         key: "actions",
@@ -299,48 +364,61 @@ const SupplierList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Search</Label>
-          <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-        </div>
-        <SearchableDropdown
-          label="Category"
-          options={categories}
-          value={filterCategory}
-          onChange={handleFilterCategoryChange}
-          placeholder="Select category"
-          maxDisplayCount={5}
-          getOptionLabel={(opt) => opt?.name ?? ""}
-          getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
-        />
-        <SearchableDropdown
-          label="Subcategory"
-          options={subcategories}
-          value={filterSubcategory}
-          onChange={handleFilterSubcategoryChange}
-          placeholder="Select subcategory"
-          maxDisplayCount={5}
-          getOptionLabel={(opt) => opt?.name ?? ""}
-          getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
-          disabled={!filterCategory}
-        />
-        <SearchableDropdown
-          label="Zone"
-          options={areas}
-          value={filterArea}
-          onChange={handleFilterAreaChange}
-          placeholder="Select zone"
-          maxDisplayCount={5}
-          getOptionLabel={(opt) => opt?.name ?? ""}
-          getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
-        />
-        <div className="flex items-end">
-          <FilterLockButton
-            filtersLocked={filtersLocked}
-            onToggle={handleToggleFiltersLock}
-            pageLabel="Suppliers"
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-2 lg:grid-cols-6">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Search</Label>
+            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+          </div>
+          <SearchableDropdown
+            label="Category"
+            options={categories}
+            value={filterCategory}
+            onChange={handleFilterCategoryChange}
+            placeholder="Select category"
+            maxDisplayCount={5}
+            getOptionLabel={(opt) => opt?.name ?? ""}
+            getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
           />
+          <SearchableDropdown
+            label="Subcategory"
+            options={subcategories}
+            value={filterSubcategory}
+            onChange={handleFilterSubcategoryChange}
+            placeholder="Select subcategory"
+            maxDisplayCount={5}
+            getOptionLabel={(opt) => opt?.name ?? ""}
+            getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
+            disabled={!filterCategory}
+          />
+          <SearchableDropdown
+            label="Zone"
+            options={areas}
+            value={filterArea}
+            onChange={handleFilterAreaChange}
+            placeholder="Select zone"
+            maxDisplayCount={5}
+            getOptionLabel={(opt) => opt?.name ?? ""}
+            getOptionValue={(opt) => opt?._id ?? opt?.id ?? ""}
+          />
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select
+              value={filterStatus}
+              onChange={(e) => handleFilterStatusChange(e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </Select>
+          </div>
+          <div className="flex items-end">
+            <FilterLockButton
+              filtersLocked={filtersLocked}
+              onToggle={handleToggleFiltersLock}
+              pageLabel="Suppliers"
+            />
+          </div>
         </div>
       </div>
 
@@ -354,7 +432,11 @@ const SupplierList = () => {
         exportFileName="suppliers"
         emptyTitle="No suppliers found"
         emptyMessage={
-          searchTerm || filterCategory || filterSubcategory || filterArea
+          searchTerm ||
+          filterCategory ||
+          filterSubcategory ||
+          filterArea ||
+          filterStatus
             ? "No suppliers match the current search or filters."
             : 'Click "Add Supplier" to create one.'
         }

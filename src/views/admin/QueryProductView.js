@@ -105,6 +105,18 @@ const statusBadge = (s) => {
   }
 };
 
+/** Product name + variant values (combination), same as Query Form / Query View. */
+const getProductDisplayName = (product) => {
+  const name = String(product?.productName || "").trim();
+  const variantText = (product?.variants || [])
+    .map((v) => String(v?.variantName || "").trim())
+    .filter(Boolean)
+    .map((vn) => vn.replace(/,\s*/g, " ").replace(/\s+/g, " ").trim())
+    .join(" ");
+  const full = [name, variantText].filter(Boolean).join(" ");
+  return full || "—";
+};
+
 /* ── component ───────────────────────────────────── */
 const QueryProductView = () => {
   const { id } = useParams();
@@ -583,7 +595,7 @@ const QueryProductView = () => {
       </div>
 
       <PageHeader
-        title={doc?.productName || "Query Product"}
+        title={doc ? getProductDisplayName(doc) : "Query Product"}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {statusBadge(doc?.status)}
@@ -840,14 +852,19 @@ const QueryProductView = () => {
             <CardContent>
               <div className="grid grid-cols-12 gap-3">
                 <div className="col-span-12 space-y-1.5 md:col-span-6">
-                  <Label>
-                    Product Name <span className="text-destructive">*</span>
-                  </Label>
+                  <Label>Product Name</Label>
                   <Input
-                    value={form.productName}
-                    onChange={(e) => setField("productName", e.target.value)}
+                    value={
+                      doc
+                        ? getProductDisplayName({
+                            productName: form.productName,
+                            variants: doc.variants,
+                          })
+                        : form.productName
+                    }
                     placeholder="Product name"
-                    disabled={!canUpdate}
+                    readOnly
+                    className="bg-muted"
                   />
                 </div>
 

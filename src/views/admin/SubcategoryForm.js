@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Trash2 } from "lucide-react";
+import { Trash2, ArrowLeft, Info } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import subcategoryService from "../../services/subcategoryService";
 import categoryService from "../../services/categoryService";
 import {
   Loader,
   SearchableDropdown,
-  StatusBadge,
+  StatusToggle,
   CrudFormPage,
   FormField,
+  FileUpload,
 } from "../../components";
 import {
   Button,
@@ -16,11 +17,36 @@ import {
   AlertDescription,
   Input,
   Textarea,
-  Switch,
   Spinner,
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { cn } from "../../lib/utils";
+
+/**
+ * Section anchor: an icon chip + title + short description used to visually
+ * group each set of fields in the form scaffold (the shared "tile" system).
+ */
+const FormSection = ({ icon: Icon, title, description, first, children }) => (
+  <div
+    className={cn("mt-8 first:mt-0", !first && "border-t border-border pt-8")}
+  >
+    <div className="mb-5 flex items-start gap-3">
+      {Icon && (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className="h-4 w-4 text-primary!" />
+        </span>
+      )}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+    </div>
+    {children}
+  </div>
+);
 
 const SUBCATEGORY_FORM_DRAFT_KEY = "subcategory_form_draft";
 
@@ -96,14 +122,16 @@ const SubcategoryForm = () => {
     try {
       const res = await categoryService.getAll({
         pageNumber: 1,
-        pageSize: 100,
+        pageSize: 1000,
         parent: "null",
+        status: "active",
       });
       const data = res?.data || res;
       const inner = data?.data ?? data;
       setCategories(inner?.categories || []);
     } catch (err) {
       console.error("Failed to fetch categories", err);
+      toastError(err?.message || "Failed to load categories");
     }
   };
 
@@ -260,7 +288,7 @@ const SubcategoryForm = () => {
       if (!isEdit && typeof window !== "undefined") {
         window.localStorage.removeItem(SUBCATEGORY_FORM_DRAFT_KEY);
       }
-      navigate("/subcategories");
+      navigate("/sub-categories");
     } catch (err) {
       toastError(err?.message || "Failed to save subcategory");
     } finally {
@@ -279,188 +307,204 @@ const SubcategoryForm = () => {
   const title = isEdit ? "Edit Subcategory" : "Add Subcategory";
 
   return (
-    <CrudFormPage
-      title={title}
-      actions={
-        !isEdit && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setFormData({
-                category: "",
-                name: "",
-                description: "",
-                status: "active",
-                image: "",
-              });
-              setImageDisplayUrl("");
-              if (typeof window !== "undefined") {
-                window.localStorage.removeItem(SUBCATEGORY_FORM_DRAFT_KEY);
-              }
-            }}
-          >
-            Clear saved data
-          </Button>
-        )
-      }
-    >
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+    <>
+      <div className="mb-4">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => navigate("/sub-categories")}
+          className="px-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Sub Categories
+        </Button>
+      </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {/* Category */}
-          <FormField label="Category" required error={fieldErrors.category}>
-            <SearchableDropdown
-              options={categories}
-              value={formData.category}
-              onChange={(val) => {
-                setFormData((prev) => {
-                  const next = { ...prev, category: val || "" };
-                  persistDraft(next);
-                  return next;
+      <CrudFormPage
+        title={title}
+        actions={
+          !isEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setFormData({
+                  category: "",
+                  name: "",
+                  description: "",
+                  status: "active",
+                  image: "",
                 });
-                if (fieldErrors.category) {
-                  setFieldErrors((prev) => ({
-                    ...prev,
-                    category: undefined,
-                  }));
+                setImageDisplayUrl("");
+                if (typeof window !== "undefined") {
+                  window.localStorage.removeItem(SUBCATEGORY_FORM_DRAFT_KEY);
                 }
               }}
-              placeholder="Select category"
-              maxDisplayCount={10}
-              invalid={!!fieldErrors.category}
-              getOptionLabel={(cat) =>
-                `${cat.name || ""}${cat.categoryCode ? ` (${cat.categoryCode})` : ""}`
-              }
-              getOptionValue={(cat) => cat._id}
-            />
-          </FormField>
-
-          {/* Name */}
-          <FormField label="Name" required error={fieldErrors.name}>
-            <Input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              required
-              aria-invalid={!!fieldErrors.name}
-            />
-          </FormField>
-
-          {/* Status */}
-          <FormField label="Status" required error={fieldErrors.status}>
-            <div className="flex h-9 items-center gap-3">
-              <Switch
-                id="subcategory-status"
-                checked={formData.status === "active"}
-                onCheckedChange={handleStatusToggle}
-                aria-label="Subcategory status"
-              />
-              <StatusBadge
-                status={formData.status === "active" ? "Active" : "Inactive"}
-              />
-            </div>
-          </FormField>
-
-          {/* Subcategory image */}
-          <FormField label="Subcategory image" htmlFor="subcategory-image">
-            <div className="flex items-center gap-3">
-              {hasSubcategoryImage ? (
-                <>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded-md border border-border p-0"
-                    onClick={() => imageInputRef.current?.click()}
-                    disabled={imageUploading || submitting}
-                    aria-label="Change subcategory image"
-                  >
-                    <img
-                      className="h-12 w-12 rounded-md object-contain"
-                      src={imageDisplayUrl || formData.image}
-                      alt=""
-                    />
-                  </button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    className="text-destructive hover:text-destructive"
-                    onClick={handleRemoveImage}
-                    disabled={imageUploading || submitting}
-                    aria-label="Remove subcategory image"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </>
-              ) : (
-                <Input
-                  id="subcategory-image"
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={handleImageChange}
-                  disabled={imageUploading || submitting}
-                  className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
-                />
-              )}
-              <input
-                ref={imageInputRef}
-                className="hidden"
-                type="file"
-                accept="image/jpeg,image/png,image/gif,image/webp"
-                onChange={handleImageChange}
-                disabled={imageUploading || submitting}
-                tabIndex={-1}
-                aria-hidden="true"
-              />
-              {imageUploading && <Spinner size="sm" />}
-            </div>
-          </FormField>
-
-          {/* Description */}
-          <div className="md:col-span-2">
-            <FormField
-              label="Description"
-              required
-              error={fieldErrors.description}
             >
-              <Textarea
-                name="description"
-                rows={4}
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Enter subcategory description..."
-                aria-invalid={!!fieldErrors.description}
-              />
-            </FormField>
-          </div>
-        </div>
+              Clear saved data
+            </Button>
+          )
+        }
+      >
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-        <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-5">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/subcategories")}
+        <form onSubmit={handleSubmit}>
+          <FormSection
+            icon={Info}
+            title="Subcategory details"
+            description="Parent category, name, status and description."
+            first
           >
-            Cancel
-          </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? (
-              <Spinner size="sm" />
-            ) : isEdit ? (
-              "Update Subcategory"
-            ) : (
-              "Create Subcategory"
-            )}
-          </Button>
-        </div>
-      </form>
-    </CrudFormPage>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Category */}
+              <FormField label="Category" required error={fieldErrors.category}>
+                <SearchableDropdown
+                  options={categories}
+                  value={formData.category}
+                  onChange={(val) => {
+                    setFormData((prev) => {
+                      const next = { ...prev, category: val || "" };
+                      persistDraft(next);
+                      return next;
+                    });
+                    if (fieldErrors.category) {
+                      setFieldErrors((prev) => ({
+                        ...prev,
+                        category: undefined,
+                      }));
+                    }
+                  }}
+                  placeholder="Select category"
+                  maxDisplayCount={10}
+                  invalid={!!fieldErrors.category}
+                  getOptionLabel={(cat) =>
+                    `${cat.name || ""}${cat.categoryCode ? ` (${cat.categoryCode})` : ""}`
+                  }
+                  getOptionValue={(cat) => cat._id}
+                />
+              </FormField>
+
+              {/* Name */}
+              <FormField label="Name" required error={fieldErrors.name}>
+                <Input
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  aria-invalid={!!fieldErrors.name}
+                />
+              </FormField>
+
+              {/* Status */}
+              <FormField label="Status" required error={fieldErrors.status}>
+                <StatusToggle
+                  id="subcategory-status"
+                  status={formData.status}
+                  onCheckedChange={handleStatusToggle}
+                  aria-label="Subcategory status"
+                  className="h-9 gap-3"
+                />
+              </FormField>
+
+              {/* Category icon */}
+              <FormField label="Category icon" htmlFor="subcategory-icon">
+                <div className="flex items-center gap-3">
+                  {hasSubcategoryImage ? (
+                    <>
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md border border-border p-0"
+                        onClick={() => imageInputRef.current?.click()}
+                        disabled={imageUploading || submitting}
+                        aria-label="Change category icon"
+                      >
+                        <img
+                          className="h-12 w-12 rounded-md object-contain"
+                          src={imageDisplayUrl || formData.image}
+                          alt=""
+                        />
+                      </button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        type="button"
+                        className="text-destructive hover:text-destructive"
+                        onClick={handleRemoveImage}
+                        disabled={imageUploading || submitting}
+                        aria-label="Remove category icon"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <FileUpload
+                      accept="image/jpeg,image/png,image/gif,image/webp"
+                      hint="JPEG, PNG, GIF or WebP"
+                      disabled={imageUploading || submitting}
+                      onChange={handleImageChange}
+                      className="max-w-sm"
+                    />
+                  )}
+                  <input
+                    ref={imageInputRef}
+                    className="hidden"
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleImageChange}
+                    disabled={imageUploading || submitting}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                  {imageUploading && <Spinner size="sm" />}
+                </div>
+              </FormField>
+
+              {/* Description */}
+              <div className="md:col-span-2">
+                <FormField
+                  label="Description"
+                  required
+                  error={fieldErrors.description}
+                >
+                  <Textarea
+                    name="description"
+                    rows={4}
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="Enter subcategory description..."
+                    aria-invalid={!!fieldErrors.description}
+                  />
+                </FormField>
+              </div>
+            </div>
+          </FormSection>
+
+          <div className="-mx-6 -mb-6 mt-8 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/30 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => navigate("/sub-categories")}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? (
+                <Spinner size="sm" />
+              ) : isEdit ? (
+                "Update Subcategory"
+              ) : (
+                "Create Subcategory"
+              )}
+            </Button>
+          </div>
+        </form>
+      </CrudFormPage>
+    </>
   );
 };
 

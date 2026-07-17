@@ -8,10 +8,10 @@ import {
   DataTable,
   PageHeader,
   RowActions,
+  StatusToggle,
   TablePagination,
-  StatusLabel,
 } from "../../components";
-import { Button, Alert, AlertDescription, Switch } from "../../components/ui";
+import { Button, Alert, AlertDescription, Label } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions, { isHodRole } from "../../hooks/usePermissions";
@@ -140,7 +140,19 @@ const CategoryList = () => {
         sortValue: (cat) => cat.name ?? "",
         exportValue: (cat) => cat.name ?? "—",
         render: (cat) => (
-          <StackedNameCode name={cat.name} code={cat.categoryCode} bold />
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary!">
+              {(cat.name || "CT").slice(0, 2).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <div className="font-medium text-foreground">
+                {cat.name || "—"}
+              </div>
+              <code className="text-xs text-muted-foreground">
+                {cat.categoryCode || "—"}
+              </code>
+            </div>
+          </div>
         ),
       },
       {
@@ -165,15 +177,13 @@ const CategoryList = () => {
         sortValue: (cat) => cat.status ?? "",
         exportValue: (cat) => cat.status ?? "—",
         render: (cat) => (
-          <div className="flex items-center justify-center gap-2">
-            <Switch
-              checked={cat.status === "active"}
-              disabled={!canToggleStatus || togglingId === cat._id}
-              onCheckedChange={(checked) => handleStatusToggle(cat, checked)}
-              aria-label={`Toggle status for ${cat.name}`}
-            />
-            <StatusLabel status={cat.status} />
-          </div>
+          <StatusToggle
+            status={cat.status}
+            disabled={!canToggleStatus || togglingId === cat._id}
+            onCheckedChange={(checked) => handleStatusToggle(cat, checked)}
+            aria-label={`Toggle status for ${cat.name}`}
+            className="justify-center"
+          />
         ),
       },
       {
@@ -226,8 +236,13 @@ const CategoryList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 max-w-sm">
-        <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="max-w-sm">
+          <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Search
+          </Label>
+          <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        </div>
       </div>
 
       <DataTable

@@ -153,6 +153,18 @@ const IndustryBranchList = () => {
         render: (branch) => branch.location || "-",
       },
       {
+        key: "cityState",
+        label: "City / State",
+        render: (branch) =>
+          branch.city || branch.state
+            ? `${branch.city || "-"}, ${branch.state || "-"}`
+            : "-",
+        exportValue: (branch) =>
+          branch.city || branch.state
+            ? `${branch.city || "-"}, ${branch.state || "-"}`
+            : "-",
+      },
+      {
         key: "gst",
         label: "GST",
         render: (branch) => branch.gst || "-",

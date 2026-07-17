@@ -8,7 +8,7 @@ import {
   DataTable,
   PageHeader,
   RowActions,
-  StatusBadge,
+  StatusToggle,
   TablePagination,
 } from "../../components";
 import {
@@ -18,7 +18,7 @@ import {
   AvatarImage,
   AvatarFallback,
   Button,
-  Switch,
+  Label,
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -169,15 +169,13 @@ const GroupList = () => {
         sortValue: (grp) => grp.status,
         exportValue: (grp) => grp.status,
         render: (grp) => (
-          <div className="flex items-center justify-center gap-2">
-            <Switch
-              checked={grp.status === "active"}
-              disabled={!canToggleStatus || togglingId === grp._id}
-              onCheckedChange={(checked) => handleStatusToggle(grp, checked)}
-              aria-label={`Toggle status for ${grp.name}`}
-            />
-            <StatusBadge status={grp.status} />
-          </div>
+          <StatusToggle
+            status={grp.status}
+            disabled={!canToggleStatus || togglingId === grp._id}
+            onCheckedChange={(checked) => handleStatusToggle(grp, checked)}
+            aria-label={`Toggle status for ${grp.name}`}
+            className="justify-center"
+          />
         ),
       },
       {
@@ -226,8 +224,13 @@ const GroupList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 max-w-sm">
-        <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="max-w-sm">
+          <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Search
+          </Label>
+          <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        </div>
       </div>
 
       <DataTable

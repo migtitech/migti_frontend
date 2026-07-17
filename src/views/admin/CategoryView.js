@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye } from "lucide-react";
+import { ArrowLeft, Eye, Info, Layers, Tags } from "lucide-react";
 import categoryService from "../../services/categoryService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, PageHeader, StatusLabel } from "../../components";
+import { Loader, StatusLabel, StatusBadge } from "../../components";
 import {
   Button,
   Card,
@@ -22,6 +22,24 @@ import {
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
+
+/** InfoCard: card with an icon-chip + border-b header (shared "tile" system). */
+const InfoCard = ({ icon: Icon, title, action, className, children }) => (
+  <Card className={className}>
+    <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 border-b border-border">
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="h-4 w-4 text-primary!" />
+          </span>
+        )}
+        <CardTitle className="text-sm">{title}</CardTitle>
+      </div>
+      {action}
+    </CardHeader>
+    {children}
+  </Card>
+);
 
 const getBrandAvatarLabel = (name) => {
   const trimmed = (name || "").trim();
@@ -43,9 +61,11 @@ const matchesSearch = (searchTerm, ...values) => {
 };
 
 const DetailRow = ({ label, children }) => (
-  <div className="flex items-start justify-between gap-4 py-3">
-    <span className="text-sm font-medium text-muted-foreground">{label}</span>
-    <span className="text-sm text-foreground">{children}</span>
+  <div className="flex items-start justify-between gap-4 py-2.5">
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <span className="min-w-0 break-words text-right text-sm font-medium text-foreground">
+      {children}
+    </span>
   </div>
 );
 
@@ -125,6 +145,9 @@ const CategoryView = () => {
     matchesSearch(brandSearch, brand.name),
   );
 
+  const categoryIconSrc =
+    category.imageDisplayUrl || category.image || undefined;
+
   return (
     <div>
       <div className="mb-4">
@@ -138,44 +161,86 @@ const CategoryView = () => {
         </Button>
       </div>
 
-      <PageHeader
-        title={category.name}
-        description={category.categoryCode || undefined}
-      />
+      {/* Summary banner */}
+      <Card className="mb-6">
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                {categoryIconSrc ? (
+                  <AvatarImage src={categoryIconSrc} alt={category.name} />
+                ) : null}
+                <AvatarFallback className="text-lg">
+                  {(category.name || "CT").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-semibold leading-tight">
+                    {category.name || "—"}
+                  </h3>
+                  <StatusBadge status={category.status} />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {category.categoryCode || "Code pending"}
+                  {category.group?.name ? ` · ${category.group.name}` : ""}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t">
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Subcategories</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {subcategories.length}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Mapped brands</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {mappedBrands.length}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="flex h-full flex-col">
-          <CardHeader>
-            <CardTitle>Category Details</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <dl className="divide-y divide-border">
-              <DetailRow label="Category Code">
-                <code>{category.categoryCode || "—"}</code>
-              </DetailRow>
-              <DetailRow label="Name">{category.name}</DetailRow>
-              <DetailRow label="Group">{category.group?.name || "—"}</DetailRow>
-              <DetailRow label="Description">
-                {category.description || "—"}
-              </DetailRow>
-              <DetailRow label="Status">
-                <StatusLabel status={category.status} />
-              </DetailRow>
-            </dl>
+        <InfoCard
+          icon={Info}
+          title="Category Details"
+          className="flex h-full flex-col"
+        >
+          <CardContent className="divide-y divide-border">
+            <DetailRow label="Category Code">
+              <code>{category.categoryCode || "—"}</code>
+            </DetailRow>
+            <DetailRow label="Name">{category.name}</DetailRow>
+            <DetailRow label="Group">{category.group?.name || "—"}</DetailRow>
+            <DetailRow label="Description">
+              {category.description || "—"}
+            </DetailRow>
+            <DetailRow label="Status">
+              <StatusLabel status={category.status} />
+            </DetailRow>
           </CardContent>
-        </Card>
+        </InfoCard>
 
-        <Card className="flex h-full flex-col">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
-            <CardTitle>Subcategories</CardTitle>
+        <InfoCard
+          icon={Layers}
+          title="Subcategories"
+          className="flex h-full flex-col"
+          action={
             <Button
               size="sm"
-              onClick={() => navigate(`/subcategories/new?category=${id}`)}
+              onClick={() => navigate(`/sub-categories/new?category=${id}`)}
             >
               Add Subcategory
             </Button>
-          </CardHeader>
-          <CardContent className="pt-0">
+          }
+        >
+          <CardContent>
             {subcategories.length > 0 && (
               <div className="mb-3">
                 <Filtered
@@ -188,7 +253,7 @@ const CategoryView = () => {
               filteredSubcategories.length > 0 ? (
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50">
                       <TableHead>Code</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Status</TableHead>
@@ -210,7 +275,7 @@ const CategoryView = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() =>
-                              navigate(`/subcategories/${sub._id}`)
+                              navigate(`/sub-categories/${sub._id}`)
                             }
                             title="View"
                           >
@@ -233,14 +298,11 @@ const CategoryView = () => {
               </p>
             )}
           </CardContent>
-        </Card>
+        </InfoCard>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Mapped Brands</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
+      <InfoCard icon={Tags} title="Mapped Brands">
+        <CardContent>
           {mappedBrands.length > 0 && (
             <div className="mb-3 max-w-sm">
               <Filtered
@@ -291,7 +353,7 @@ const CategoryView = () => {
             </p>
           )}
         </CardContent>
-      </Card>
+      </InfoCard>
     </div>
   );
 };

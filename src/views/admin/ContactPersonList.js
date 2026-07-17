@@ -1,7 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
-import bpDummy from "../../data/businessPartnerDummy";
+import industryContactPersonService from "../../services/industryContactPersonService";
+import supplierContactPersonService from "../../services/supplierContactPersonService";
 import {
   ConfirmDialog,
   DataTable,
@@ -9,14 +10,18 @@ import {
   RowActions,
   StatusBadge,
 } from "../../components";
-import { Alert, AlertDescription, Button, Input } from "../../components/ui";
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Input,
+  Label,
+} from "../../components/ui";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
 
 /**
- * Frontend-only "Contact Person" list, shared by Customer Contacts and
- * Supplier Contacts. Data lives in localStorage (see
- * data/businessPartnerDummy.js) — there is no backend entity for this yet.
+ * Shared Contact Person list for Customer Contacts and Supplier Contacts.
  */
 const PARENT_CONFIG = {
   industry: {
@@ -25,6 +30,9 @@ const PARENT_CONFIG = {
     description: "Manage contact persons mapped to your clients.",
     basePath: "/customer-contacts",
     emptyMessage: "Add a contact person and map them to a client.",
+    mappedKey: "industryId",
+    list: (params) => industryContactPersonService.getAll(params),
+    remove: (id) => industryContactPersonService.delete(id),
   },
   supplier: {
     module: "suppliers",
@@ -32,17 +40,34 @@ const PARENT_CONFIG = {
     description: "Manage contact persons mapped to your suppliers.",
     basePath: "/supplier-contacts",
     emptyMessage: "Add a contact person and map them to a supplier.",
+    mappedKey: "supplierId",
+    list: (params) => supplierContactPersonService.getAll(params),
+    remove: (id) => supplierContactPersonService.delete(id),
   },
 };
+
+const getMappedName = (cp, mappedKey) => {
+  if (cp.mappedName) return cp.mappedName;
+  const ref = cp[mappedKey];
+  if (ref && typeof ref === "object") {
+    return ref.name || "Unassigned";
+  }
+  return "Unassigned";
+};
+
+const normalizeContact = (cp, mappedKey) => ({
+  ...cp,
+  id: cp._id || cp.id,
+  mappedName: getMappedName(cp, mappedKey),
+});
 
 const ContactPersonListBase = ({ parentType }) => {
   const navigate = useNavigate();
   const { canCreate, canUpdate, canDelete } = usePermissions();
   const config = PARENT_CONFIG[parentType];
 
-  const [contacts, setContacts] = useState(() =>
-    bpDummy.listContactPersons({ parentType }),
-  );
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [confirmDelete, setConfirmDelete] = useState({
@@ -50,14 +75,31 @@ const ContactPersonListBase = ({ parentType }) => {
     id: null,
   });
 
-  const loadContacts = () => {
+  const loadContacts = useCallback(async () => {
+    setLoading(true);
     try {
-      setContacts(bpDummy.listContactPersons({ parentType }));
+      const res = await config.list({
+        pageNumber: 1,
+        pageSize: 1000,
+      });
+      const data = res?.data ?? res;
+      const list = data?.contactPersons ?? data?.data?.contactPersons ?? [];
+      setContacts(
+        (Array.isArray(list) ? list : []).map((cp) =>
+          normalizeContact(cp, config.mappedKey),
+        ),
+      );
       setError("");
     } catch (err) {
       setError(err?.message || "Failed to load contact persons");
+    } finally {
+      setLoading(false);
     }
-  };
+  }, [config]);
+
+  useEffect(() => {
+    loadContacts();
+  }, [loadContacts]);
 
   const filteredContacts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -73,12 +115,12 @@ const ContactPersonListBase = ({ parentType }) => {
   }, [contacts, searchTerm]);
 
   const handleDeleteClick = (id) => setConfirmDelete({ visible: true, id });
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     const cid = confirmDelete.id;
     setConfirmDelete({ visible: false, id: null });
     if (!cid) return;
     try {
-      bpDummy.deleteContactPerson(cid);
+      await config.remove(cid);
       toastSuccess("Contact person deleted successfully");
       loadContacts();
     } catch (err) {
@@ -91,11 +133,31 @@ const ContactPersonListBase = ({ parentType }) => {
       {
         key: "name",
         label: "Name",
-        render: (cp) => (
-          <span className="font-semibold text-foreground">
-            {`${cp.firstName || ""} ${cp.lastName || ""}`.trim() || "-"}
-          </span>
-        ),
+        render: (cp) => {
+          const fullName =
+            `${cp.firstName || ""} ${cp.lastName || ""}`.trim() || "-";
+          const initials =
+            `${cp.firstName?.[0] || ""}${cp.lastName?.[0] || ""}`
+              .trim()
+              .toUpperCase() || "CP";
+          return (
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary!">
+                {initials}
+              </span>
+              <div className="min-w-0">
+                <div className="font-medium text-foreground">{fullName}</div>
+                {cp.designation && (
+                  <div className="text-xs text-muted-foreground">
+                    {cp.designation}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        },
+        exportValue: (cp) =>
+          `${cp.firstName || ""} ${cp.lastName || ""}`.trim(),
       },
       {
         key: "designation",
@@ -177,16 +239,23 @@ const ContactPersonListBase = ({ parentType }) => {
         </Alert>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search contacts..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1">
+            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Search
+            </Label>
+            <div className="relative max-w-sm">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search by name, email or company..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -194,7 +263,7 @@ const ContactPersonListBase = ({ parentType }) => {
         columns={columns}
         rows={filteredContacts}
         rowKey={(cp) => cp.id}
-        loading={false}
+        loading={loading}
         showSearch={false}
         exportFileName={`${parentType}-contacts`}
         emptyTitle="No contact persons found"

@@ -8,7 +8,36 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
+  Package,
+  Percent,
+  Ruler,
+  Boxes,
+  Building2,
+  Truck,
 } from "lucide-react";
+import { cn } from "../../lib/utils";
+
+/**
+ * Section card header: an icon chip + title + optional description used to
+ * visually anchor each section card in the form (the shared "tile" system).
+ */
+const SectionCardHeader = ({ icon: Icon, title, description }) => (
+  <CardHeader className="flex flex-row items-start gap-3 border-b border-border">
+    {Icon && (
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+        <Icon className="h-4 w-4 text-primary!" />
+      </span>
+    )}
+    <div>
+      <CardTitle className="text-sm">{title}</CardTitle>
+      {description && (
+        <p className="mt-0.5 text-xs font-normal text-muted-foreground">
+          {description}
+        </p>
+      )}
+    </div>
+  </CardHeader>
+);
 import {
   Card,
   CardHeader,
@@ -20,7 +49,6 @@ import {
   Textarea,
   Select,
   Checkbox,
-  Switch,
   Alert,
   AlertDescription,
   Spinner,
@@ -40,7 +68,7 @@ import groupService from "../../services/groupService";
 import industryService from "../../services/industryService";
 import supplierService from "../../services/supplierService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader } from "../../components";
+import { Loader, StatusToggle } from "../../components";
 import StatusLabel from "../../components/StatusLabel/StatusLabel";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { useAuth, ROLES } from "../../context/AuthContext";
@@ -60,6 +88,9 @@ import {
   computeProcurementReviewStatus,
   formatDateInputValue,
   daysToTimelineForm,
+  getTomorrowDateInputValue,
+  getTodayDateInputValue,
+  isFutureDate,
 } from "../../utils/procurementTimeline";
 import {
   buildVariantCode,
@@ -140,7 +171,7 @@ const getPreviewImageUrl = (image) => {
 
 const STEP_FIELD_GROUPS = {
   1: ["name", "group", "category", "status", "description", "subcategory"],
-  2: ["taxClause", "hsnNumber", "unit", "purchaseUnit", "salesUnit"],
+  2: ["gstPercentage", "hsnNumber", "unit", "purchaseUnit", "salesUnit"],
   4: ["minStock", "maxStock", "expiry"],
 };
 
@@ -268,7 +299,6 @@ const ProductForm = () => {
   const selectedBrand = watch("brand");
   const selectedStatus = watch("status");
 
-  const sectionHeaderStyle = { padding: "1rem 1.5rem", fontSize: "1.1rem" };
   const sectionBodyStyle = { padding: "1.5rem 1.5rem" };
   const productSteps = getProductSteps(isHodUser);
   const totalSteps = productSteps.length;
@@ -305,6 +335,102 @@ const ProductForm = () => {
     return true;
   };
 
+  const getVariantComboLabel = (combo, index) =>
+    combo.optionValues
+      ?.map((o) => `${o.variantName}: ${o.variantValue}`)
+      .join(" · ") || `Variant ${index + 1}`;
+
+  const getDisplayVariantCode = (combo) => {
+    if (combo.variantCode && !String(combo.variantCode).includes("?")) {
+      return combo.variantCode;
+    }
+    return buildVariantCode(productCode, combo.optionValues);
+  };
+
+  const validateSelectedVariantCombinations = () => {
+    const selected = variantCombinations.filter((vc) => vc.selected);
+    if (selected.length === 0) {
+      return ["Select at least one variant combination."];
+    }
+
+    const errors = [];
+    selected.forEach((combo, index) => {
+      const label = getVariantComboLabel(combo, index);
+
+      if (!String(combo.modelNumber || "").trim()) {
+        errors.push(`${label}: Model number is required`);
+      }
+
+      if (!(combo.images || []).length) {
+        errors.push(`${label}: At least one image is required`);
+      }
+
+      const purchase =
+        combo.costPrice === "" || combo.costPrice == null
+          ? null
+          : Number(combo.costPrice);
+      const selling =
+        combo.price === "" || combo.price == null ? null : Number(combo.price);
+
+      if (purchase == null || !Number.isFinite(purchase)) {
+        errors.push(`${label}: Purchase price is required`);
+      } else if (purchase < 0) {
+        errors.push(`${label}: Purchase price cannot be negative`);
+      }
+
+      if (selling == null || !Number.isFinite(selling)) {
+        errors.push(`${label}: Selling price is required`);
+      } else if (selling < 0) {
+        errors.push(`${label}: Selling price cannot be negative`);
+      }
+
+      if (
+        purchase != null &&
+        selling != null &&
+        Number.isFinite(purchase) &&
+        Number.isFinite(selling) &&
+        selling <= purchase
+      ) {
+        errors.push(
+          `${label}: Selling price must be greater than purchase price`,
+        );
+      }
+
+      const timelineVal =
+        combo.timelineValue === "" || combo.timelineValue == null
+          ? null
+          : Number(combo.timelineValue);
+      if (
+        timelineVal != null &&
+        Number.isFinite(timelineVal) &&
+        timelineVal < 0
+      ) {
+        errors.push(`${label}: Procurement timeline cannot be negative`);
+      }
+
+      let nextDate = null;
+      if (combo.nextTimelineDate) {
+        const stored = new Date(combo.nextTimelineDate);
+        if (!Number.isNaN(stored.getTime())) nextDate = stored;
+      }
+      if (!nextDate) {
+        const timelineDays =
+          combo.timeline != null && Number(combo.timeline) > 0
+            ? Number(combo.timeline)
+            : convertTimelineToDays(
+                combo.timelineValue,
+                combo.timelineUnit || "day",
+              );
+        nextDate = computeNextTimelineDate(timelineDays);
+      }
+      if (nextDate && !isFutureDate(nextDate)) {
+        errors.push(`${label}: Next review date must be a future date`);
+      }
+    });
+
+    return errors;
+  };
+
   const handleNextStep = async () => {
     clearValidationAlert();
 
@@ -324,6 +450,14 @@ const ProductForm = () => {
 
     if (currentStep === 3 && !validateAttributesStep()) {
       return;
+    }
+
+    if (currentStep === 3) {
+      const comboErrors = validateSelectedVariantCombinations();
+      if (comboErrors.length > 0) {
+        showValidationAlert(comboErrors);
+        return;
+      }
     }
 
     if (currentStep === 5 && isHodUser) {
@@ -348,7 +482,7 @@ const ProductForm = () => {
   };
 
   const renderStepNav = () => (
-    <div className="mb-4 flex flex-col items-stretch justify-between gap-2 sm:flex-row sm:items-center">
+    <div className="mb-4 flex flex-col items-stretch justify-between gap-2 rounded-xl border border-border bg-muted/30 px-4 py-3 sm:flex-row sm:items-center">
       {currentStep > 1 ? (
         <Button
           variant="secondary"
@@ -448,6 +582,33 @@ const ProductForm = () => {
     return () => subscription.unsubscribe();
   }, [watch, isEdit, companyProductCodes, supplierProductCodes, currentStep]);
 
+  // Preview the next product code from the selected group so variant codes
+  // show a complete code (e.g. PRD-ELC-1-1R) instead of PRD-???-…
+  useEffect(() => {
+    if (isEdit) return;
+    if (!selectedGroup) {
+      setProductCode("");
+      return;
+    }
+    let cancelled = false;
+    const loadPreviewCode = async () => {
+      try {
+        const res = await productService.previewCode(selectedGroup);
+        const data = res?.data?.data || res?.data || res;
+        const code = data?.productCode || res?.productCode;
+        if (!cancelled && code && !String(code).includes("?")) {
+          setProductCode(code);
+        }
+      } catch {
+        if (!cancelled) setProductCode("");
+      }
+    };
+    loadPreviewCode();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedGroup, isEdit]);
+
   useEffect(() => {
     const timers = {};
     companyProductCodes.forEach((row, index) => {
@@ -504,7 +665,7 @@ const ProductForm = () => {
     try {
       const [brandRes, groupRes] = await Promise.all([
         brandService.getAll({ pageNumber: 1, pageSize: 100 }),
-        groupService.getAll({ pageNumber: 1, pageSize: 100 }),
+        groupService.getAll({ pageNumber: 1, pageSize: 100, status: "active" }),
       ]);
       const brandData = brandRes?.data || brandRes;
       const groupData = groupRes?.data || groupRes;
@@ -627,6 +788,7 @@ const ProductForm = () => {
     try {
       const res = await subcategoryService.getAllSubcategories({
         category: parentId,
+        status: "active",
       });
       const data = res?.data || res;
       const inner = data?.data ?? data;
@@ -641,7 +803,12 @@ const ProductForm = () => {
     let cancelled = false;
     const load = async () => {
       try {
-        const params = { pageNumber: 1, pageSize: 100, parent: "null" };
+        const params = {
+          pageNumber: 1,
+          pageSize: 100,
+          parent: "null",
+          status: "active",
+        };
         if (selectedGroup) params.group = selectedGroup;
         const res = await categoryService.getAll(params);
         if (cancelled) return;
@@ -1162,7 +1329,21 @@ const ProductForm = () => {
   const updateVariantComboField = (comboIndex, field, value) => {
     setVariantCombinations((prev) => {
       const next = [...prev];
-      next[comboIndex] = { ...next[comboIndex], [field]: value };
+      const combo = { ...next[comboIndex], [field]: value };
+      if (field === "nextTimelineDate") {
+        const timelineDays =
+          combo.timeline != null && Number(combo.timeline) > 0
+            ? Number(combo.timeline)
+            : convertTimelineToDays(
+                combo.timelineValue,
+                combo.timelineUnit || "day",
+              );
+        combo.procurementReviewStatus = computeProcurementReviewStatus(
+          timelineDays,
+          value ? new Date(value) : null,
+        );
+      }
+      next[comboIndex] = combo;
       return next;
     });
   };
@@ -1226,6 +1407,18 @@ const ProductForm = () => {
         return;
       }
 
+      const selectedCombinations = variantCombinations.filter(
+        (vc) => vc.selected,
+      );
+
+      const comboErrors = validateSelectedVariantCombinations();
+      if (comboErrors.length > 0) {
+        showValidationAlert(comboErrors);
+        setSubmitting(false);
+        goToStep(3);
+        return;
+      }
+
       const companyCodeErrors = isHodUser
         ? await validateCompanyProductCodeRows(companyProductCodes)
         : [];
@@ -1237,10 +1430,6 @@ const ProductForm = () => {
         setSubmitting(false);
         return;
       }
-
-      const selectedCombinations = variantCombinations.filter(
-        (vc) => vc.selected,
-      );
 
       if (selectedCombinations.length === 0) {
         showValidationAlert(["Select at least one variant combination."]);
@@ -1259,11 +1448,15 @@ const ProductForm = () => {
         brand: values.brand || null,
         group: values.group,
         hsnNumber: values.hsnNumber.trim(),
-        taxClause: values.taxClause.trim(),
+        taxClause:
+          (values.taxClause && values.taxClause.trim()) ||
+          (values.gstPercentage !== "" && values.gstPercentage != null
+            ? `${values.gstPercentage}% GST`
+            : ""),
         gstPercentage:
           values.gstPercentage !== "" && values.gstPercentage != null
             ? parseFloat(values.gstPercentage)
-            : 0,
+            : undefined,
         defaultModelNumber: values.defaultModelNumber || "",
         hasVariants: true,
         variants: deriveVariantsFromSelectedCombinations(
@@ -1328,15 +1521,9 @@ const ProductForm = () => {
         }
         return {
           ...rest,
-          modelNumber: rest.modelNumber || "",
-          price:
-            rest.price !== "" && rest.price != null
-              ? parseFloat(rest.price)
-              : 0,
-          costPrice:
-            rest.costPrice !== "" && rest.costPrice != null
-              ? parseFloat(rest.costPrice)
-              : 0,
+          modelNumber: String(rest.modelNumber || "").trim(),
+          price: parseFloat(rest.price),
+          costPrice: parseFloat(rest.costPrice),
           isActive: rest.isActive !== false,
           images: imageIds,
           queryQuotationImageId: queryQuotationImageId || null,
@@ -1419,8 +1606,7 @@ const ProductForm = () => {
       timelineDays > 0
         ? computeProcurementReviewStatus(timelineDays, nextReviewDate)
         : "idle";
-    const variantCode =
-      combo.variantCode || buildVariantCode(productCode, combo.optionValues);
+    const variantCode = getDisplayVariantCode(combo);
     const queryImageId =
       typeof combo.queryQuotationImageId === "object"
         ? combo.queryQuotationImageId?._id
@@ -1595,9 +1781,7 @@ const ProductForm = () => {
     return (
       <>
         <Card className="mb-4">
-          <CardHeader style={sectionHeaderStyle}>
-            <CardTitle>Basic Information</CardTitle>
-          </CardHeader>
+          <SectionCardHeader icon={Package} title="Basic Information" />
           <CardContent style={sectionBodyStyle}>
             <Table style={{ tableLayout: "fixed" }}>
               <TableBody>
@@ -1636,15 +1820,16 @@ const ProductForm = () => {
         </Card>
 
         <Card className="mb-4">
-          <CardHeader style={sectionHeaderStyle}>
-            <CardTitle>Tax &amp; Accounting</CardTitle>
-          </CardHeader>
+          <SectionCardHeader icon={Percent} title="Tax & Accounting" />
           <CardContent style={sectionBodyStyle}>
             <Table style={{ tableLayout: "fixed" }}>
               <TableBody>
                 {renderPreviewRow(
                   "GST",
-                  formatPreviewText(previewValues.taxClause),
+                  previewValues.gstPercentage !== "" &&
+                    previewValues.gstPercentage != null
+                    ? `${previewValues.gstPercentage}%`
+                    : "—",
                 )}
                 {renderPreviewRow(
                   "HSN Code",
@@ -1669,9 +1854,7 @@ const ProductForm = () => {
         </Card>
 
         <Card className="mb-4">
-          <CardHeader style={sectionHeaderStyle}>
-            <CardTitle>Attributes</CardTitle>
-          </CardHeader>
+          <SectionCardHeader icon={Ruler} title="Attributes" />
           <CardContent style={sectionBodyStyle}>
             {savedVariants.length === 0 ? (
               <p className="mb-0 text-sm text-muted-foreground">
@@ -1708,9 +1891,7 @@ const ProductForm = () => {
         </Card>
 
         <Card className="mb-4">
-          <CardHeader style={sectionHeaderStyle}>
-            <CardTitle>Combinations</CardTitle>
-          </CardHeader>
+          <SectionCardHeader icon={Boxes} title="Combinations" />
           <CardContent style={sectionBodyStyle}>
             {variantCombinations.length === 0 ? (
               <p className="mb-0 text-sm text-muted-foreground">
@@ -1739,9 +1920,7 @@ const ProductForm = () => {
         </Card>
 
         <Card className="mb-4">
-          <CardHeader style={sectionHeaderStyle}>
-            <CardTitle>Inventory</CardTitle>
-          </CardHeader>
+          <SectionCardHeader icon={Boxes} title="Inventory" />
           <CardContent style={sectionBodyStyle}>
             <Table style={{ tableLayout: "fixed" }}>
               <TableBody>
@@ -1765,9 +1944,7 @@ const ProductForm = () => {
 
         {isHodUser && (
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Map Client Code</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Building2} title="Map Client Code" />
             <CardContent style={sectionBodyStyle}>
               {filledCompanyCodes.length === 0 ? (
                 <p className="mb-0 text-sm text-muted-foreground">
@@ -1803,9 +1980,7 @@ const ProductForm = () => {
 
         {isHodUser && (
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Map Supplier Code</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Truck} title="Map Supplier Code" />
             <CardContent style={sectionBodyStyle}>
               {filledSupplierCodes.length === 0 ? (
                 <p className="mb-0 text-sm text-muted-foreground">
@@ -1928,11 +2103,13 @@ const ProductForm = () => {
       {currentStep === 1 && (
         <>
           <Card className="mb-4">
-            <CardHeader
-              style={sectionHeaderStyle}
-              className="flex flex-row items-center justify-between"
-            >
-              <CardTitle>Basic Information</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between border-b border-border">
+              <div className="flex items-center gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Package className="h-4 w-4 text-primary!" />
+                </span>
+                <CardTitle className="text-sm">Basic Information</CardTitle>
+              </div>
               {!isEdit && (
                 <Button
                   size="sm"
@@ -1949,7 +2126,11 @@ const ProductForm = () => {
                 <Label className="mb-1.5 block">
                   Product Name <span className="text-destructive">*</span>
                 </Label>
-                <Input placeholder="Enter product name" {...register("name")} />
+                <Input
+                  placeholder="Enter product name"
+                  maxLength={100}
+                  {...register("name")}
+                />
                 {errors.name && (
                   <p className="mt-1 text-sm text-destructive">
                     {errors.name.message}
@@ -2135,16 +2316,11 @@ const ProductForm = () => {
                   </Label>
                   <div className="flex h-9 items-center gap-3">
                     <input type="hidden" {...register("status")} />
-                    <Switch
+                    <StatusToggle
                       id="product-status"
-                      checked={selectedStatus === "active"}
+                      status={selectedStatus}
                       onCheckedChange={(checked) => handleStatusToggle(checked)}
                       aria-label="Product status"
-                    />
-                    <StatusLabel
-                      status={
-                        selectedStatus === "active" ? "active" : "inactive"
-                      }
                     />
                   </div>
                   {errors.status && (
@@ -2176,9 +2352,7 @@ const ProductForm = () => {
       {currentStep === 2 && (
         <>
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Tax &amp; Accounting</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Percent} title="Tax & Accounting" />
             <CardContent style={sectionBodyStyle}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="mb-3">
@@ -2186,12 +2360,16 @@ const ProductForm = () => {
                     GST <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    placeholder="e.g., 18% GST"
-                    {...register("taxClause")}
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={0.01}
+                    placeholder="e.g., 18"
+                    {...register("gstPercentage")}
                   />
-                  {errors.taxClause && (
+                  {errors.gstPercentage && (
                     <p className="mt-1 text-sm text-destructive">
-                      {errors.taxClause.message}
+                      {errors.gstPercentage.message}
                     </p>
                   )}
                 </div>
@@ -2199,7 +2377,11 @@ const ProductForm = () => {
                   <Label className="mb-1.5 block">
                     HSN Code <span className="text-destructive">*</span>
                   </Label>
-                  <Input placeholder="e.g., 8471" {...register("hsnNumber")} />
+                  <Input
+                    placeholder="e.g., 8471"
+                    maxLength={25}
+                    {...register("hsnNumber")}
+                  />
                   {errors.hsnNumber && (
                     <p className="mt-1 text-sm text-destructive">
                       {errors.hsnNumber.message}
@@ -2284,9 +2466,7 @@ const ProductForm = () => {
       {currentStep === 4 && (
         <>
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Inventory</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Boxes} title="Inventory" />
             <CardContent style={sectionBodyStyle}>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                 <div className="mb-3">
@@ -2297,6 +2477,11 @@ const ProductForm = () => {
                     step="1"
                     placeholder="0"
                     {...register("minStock")}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e" || e.key === "E") {
+                        e.preventDefault();
+                      }
+                    }}
                   />
                   {errors.minStock && (
                     <p className="mt-1 text-sm text-destructive">
@@ -2312,6 +2497,11 @@ const ProductForm = () => {
                     step="1"
                     placeholder="0"
                     {...register("maxStock")}
+                    onKeyDown={(e) => {
+                      if (e.key === "-" || e.key === "e" || e.key === "E") {
+                        e.preventDefault();
+                      }
+                    }}
                   />
                   {errors.maxStock && (
                     <p className="mt-1 text-sm text-destructive">
@@ -2321,7 +2511,11 @@ const ProductForm = () => {
                 </div>
                 <div className="mb-3">
                   <Label className="mb-1.5 block">Expiry</Label>
-                  <Input type="date" {...register("expiry")} />
+                  <Input
+                    type="date"
+                    min={getTodayDateInputValue()}
+                    {...register("expiry")}
+                  />
                   {errors.expiry && (
                     <p className="mt-1 text-sm text-destructive">
                       {errors.expiry.message}
@@ -2338,9 +2532,7 @@ const ProductForm = () => {
       {currentStep === 3 && (
         <>
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Attributes</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Ruler} title="Attributes" />
             <CardContent style={sectionBodyStyle}>
               {variants.map((variant, vIndex) => (
                 <Card key={vIndex} className="mb-3 border border-border">
@@ -2602,16 +2794,15 @@ const ProductForm = () => {
                                           )
                                           .join(" · ") || "Variant"}
                                       </strong>
-                                      {(combo.variantCode ||
-                                        combo.optionValues?.length > 0) && (
+                                      {(combo.variantCode &&
+                                        !String(combo.variantCode).includes(
+                                          "?",
+                                        )) ||
+                                      productCode ? (
                                         <code className="text-sm text-primary!">
-                                          {combo.variantCode ||
-                                            buildVariantCode(
-                                              productCode,
-                                              combo.optionValues,
-                                            )}
+                                          {getDisplayVariantCode(combo)}
                                         </code>
-                                      )}
+                                      ) : null}
                                     </span>
                                   </label>
                                 </div>
@@ -2623,7 +2814,7 @@ const ProductForm = () => {
                                           Status
                                         </Label>
                                         <div className="flex h-9 items-center gap-3">
-                                          <Switch
+                                          <StatusToggle
                                             id={`combo-status-${getVariantComboKey(combo, cIdx)}`}
                                             checked={combo.isActive !== false}
                                             onCheckedChange={(checked) =>
@@ -2635,18 +2826,14 @@ const ProductForm = () => {
                                             }
                                             aria-label="Variant status"
                                           />
-                                          <StatusLabel
-                                            status={
-                                              combo.isActive !== false
-                                                ? "active"
-                                                : "inactive"
-                                            }
-                                          />
                                         </div>
                                       </div>
                                       <div>
                                         <Label className="mb-1 block text-sm text-muted-foreground">
-                                          Model Number
+                                          Model Number{" "}
+                                          <span className="text-destructive">
+                                            *
+                                          </span>
                                         </Label>
                                         <Input
                                           type="text"
@@ -2661,11 +2848,15 @@ const ProductForm = () => {
                                           }
                                           className="h-8"
                                           maxLength={100}
+                                          required
                                         />
                                       </div>
                                       <div>
                                         <Label className="mb-1 block text-sm text-muted-foreground">
-                                          Purchase Price
+                                          Purchase Price{" "}
+                                          <span className="text-destructive">
+                                            *
+                                          </span>
                                         </Label>
                                         <Input
                                           type="number"
@@ -2688,11 +2879,15 @@ const ProductForm = () => {
                                             )
                                           }
                                           className="h-8"
+                                          required
                                         />
                                       </div>
                                       <div>
                                         <Label className="mb-1 block text-sm text-muted-foreground">
-                                          Selling Price
+                                          Selling Price{" "}
+                                          <span className="text-destructive">
+                                            *
+                                          </span>
                                         </Label>
                                         <Input
                                           type="number"
@@ -2715,6 +2910,7 @@ const ProductForm = () => {
                                             )
                                           }
                                           className="h-8"
+                                          required
                                         />
                                       </div>
                                     </div>
@@ -2726,15 +2922,22 @@ const ProductForm = () => {
                                         <div className="flex gap-1">
                                           <Input
                                             type="number"
-                                            min="1"
+                                            min="0"
                                             step="1"
                                             placeholder="e.g., 2"
                                             value={combo.timelineValue ?? ""}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
+                                              const raw = e.target.value;
+                                              if (
+                                                raw !== "" &&
+                                                Number(raw) < 0
+                                              ) {
+                                                return;
+                                              }
                                               updateVariantComboTimeline(cIdx, {
-                                                timelineValue: e.target.value,
-                                              })
-                                            }
+                                                timelineValue: raw,
+                                              });
+                                            }}
                                             className="h-8"
                                           />
                                           <Select
@@ -2775,11 +2978,35 @@ const ProductForm = () => {
                                         </Label>
                                         <Input
                                           type="date"
-                                          readOnly
-                                          disabled
+                                          min={getTomorrowDateInputValue()}
                                           value={formatDateInputValue(
                                             getComboNextTimelineDate(combo),
                                           )}
+                                          onChange={(e) => {
+                                            const raw = e.target.value;
+                                            if (!raw) {
+                                              updateVariantComboField(
+                                                cIdx,
+                                                "nextTimelineDate",
+                                                null,
+                                              );
+                                              return;
+                                            }
+                                            const selected = new Date(
+                                              `${raw}T00:00:00`,
+                                            );
+                                            if (!isFutureDate(selected)) {
+                                              toastError(
+                                                "Next review date must be a future date",
+                                              );
+                                              return;
+                                            }
+                                            updateVariantComboField(
+                                              cIdx,
+                                              "nextTimelineDate",
+                                              selected.toISOString(),
+                                            );
+                                          }}
                                           className="h-8"
                                         />
                                       </div>
@@ -2807,7 +3034,10 @@ const ProductForm = () => {
                                     </div>
                                     <div className="mb-1">
                                       <Label className="mb-1 block text-sm text-muted-foreground">
-                                        Images
+                                        Images{" "}
+                                        <span className="text-destructive">
+                                          *
+                                        </span>
                                       </Label>
                                     </div>
                                     <div className="flex flex-wrap items-start gap-2">
@@ -2967,9 +3197,7 @@ const ProductForm = () => {
       {currentStep === 5 && isHodUser && (
         <>
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Map Client Code</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Building2} title="Map Client Code" />
             <CardContent style={sectionBodyStyle}>
               {companyProductCodes.map((row, index) => (
                 <div
@@ -3070,9 +3298,7 @@ const ProductForm = () => {
       {currentStep === 6 && isHodUser && (
         <>
           <Card className="mb-4">
-            <CardHeader style={sectionHeaderStyle}>
-              <CardTitle>Map Supplier Code</CardTitle>
-            </CardHeader>
+            <SectionCardHeader icon={Truck} title="Map Supplier Code" />
             <CardContent style={sectionBodyStyle}>
               {supplierProductCodes.map((row, index) => (
                 <div

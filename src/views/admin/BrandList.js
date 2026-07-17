@@ -18,6 +18,7 @@ import {
   Avatar,
   AvatarImage,
   AvatarFallback,
+  Label,
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -183,8 +184,13 @@ const BrandList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 max-w-sm">
-        <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="max-w-sm">
+          <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Search
+          </Label>
+          <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        </div>
       </div>
 
       <DataTable

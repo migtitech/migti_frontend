@@ -9,12 +9,28 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Building2,
+  Mail,
+  Landmark,
+  MapPin,
+  CreditCard,
+  Paperclip,
+  StickyNote,
+  GitBranch,
+  Tags,
+} from "lucide-react";
 import supplierService from "../../services/supplierService";
+import supplierContactPersonService from "../../services/supplierContactPersonService";
+import supplierBranchService from "../../services/supplierBranchService";
 import categoryService from "../../services/categoryService";
 import branchService from "../../services/branchService";
+import locationService from "../../services/locationService";
 import bpDummy from "../../data/businessPartnerDummy";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import { Loader, CrudFormPage, FormField, FileUpload } from "../../components";
 import {
   Button,
   Alert,
@@ -31,6 +47,44 @@ import { toastSuccess, toastError } from "../../utils/toast";
 import { dateTimeFormatter } from "../../utils/dateFormatter";
 import useBranchContext from "../../hooks/useBranchContext";
 import { IFSC_PATTERN, MSG, phoneOptional } from "../../utils/validation";
+import { cn } from "../../lib/utils";
+
+/**
+ * Section anchor: an icon chip + title + short description used to visually
+ * group each set of fields in the form scaffold (the shared "tile" system).
+ */
+const FormSection = ({
+  icon: Icon,
+  title,
+  description,
+  action,
+  first,
+  children,
+}) => (
+  <div
+    className={cn("mt-8 first:mt-0", !first && "border-t border-border pt-8")}
+  >
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {Icon && (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="h-4 w-4 text-primary!" />
+          </span>
+        )}
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {description && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+      {action}
+    </div>
+    {children}
+  </div>
+);
 
 // Indian GSTIN: 15 chars - 2 digit state + 5 letter + 4 digit + 1 letter (PAN) + 1 entity + Z + 1 checksum
 const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
@@ -108,6 +162,7 @@ function getSupplierSchema() {
     categories: yup.array().of(yup.string()).optional().default([]),
     remark: yup.string().notRequired().default(""),
     branchId: yup.string().optional().nullable(),
+    isActive: yup.boolean().optional().default(true),
     includeBankDetails: yup.boolean().default(false),
     bankDetails: yup.mixed().when("includeBankDetails", {
       is: true,
@@ -117,9 +172,7 @@ function getSupplierSchema() {
   });
 }
 
-// Extra fields with no backend column yet — persisted client-side only via
-// data/businessPartnerDummy.js (see onSubmit). All optional so they can
-// never block a real save; merged into getSupplierSchema()'s resolver below.
+// Business/address/financial info — real Supplier fields (persisted).
 // Note: Supplier already has real "remark" and "gst"/"address" fields, so
 // this schema does not duplicate those.
 function getSupplierNewFieldsSchema() {
@@ -179,7 +232,6 @@ function getSupplierNewFieldsSchema() {
     registeredAddress: yup.string().trim().optional(),
     billingAddress: yup.string().trim().optional(),
     shippingAddress: yup.string().trim().optional(),
-    country: yup.string().trim().optional(),
     state: yup.string().trim().optional(),
     city: yup.string().trim().optional(),
     pincode: yup
@@ -193,7 +245,6 @@ function getSupplierNewFieldsSchema() {
         "Pincode must be 6 digits",
         (v) => !v || /^\d{6}$/.test(v),
       ),
-    currency: yup.string().trim().optional(),
     paymentTerms: yup.string().trim().optional(),
     creditLimit: yup
       .number()
@@ -208,6 +259,7 @@ function getSupplierNewFieldsSchema() {
       .array()
       .of(
         yup.object({
+          _id: yup.string().optional(),
           name: yup.string().trim().optional(),
           address: yup.string().trim().optional(),
           city: yup.string().trim().optional(),
@@ -246,41 +298,45 @@ const supplierOverlayDefaultValues = {
   registeredAddress: "",
   billingAddress: "",
   shippingAddress: "",
-  country: "",
   state: "",
   city: "",
   pincode: "",
-  currency: "",
   paymentTerms: "",
   creditLimit: "",
   internalComments: "",
 };
 
-// Fields from the dummy overlay this form actually renders/submits.
-const extractSupplierOverlayFields = (values) => ({
+// Real Supplier fields accepted by the backend — used to build a clean
+// create/update payload (hasBranches/branches/companyLogoBase64 are handled
+// separately and must never be sent to supplierService directly).
+const buildBusinessInfoPayload = (values) => ({
   clientType: values.clientType || "",
   industrySector: values.industrySector || "",
   registrationNumber: values.registrationNumber || "",
-  pan: values.pan || "",
+  pan: (values.pan || "").trim().toUpperCase(),
   category: values.category || "",
-  hasBranches: Boolean(values.hasBranches),
-  branches: values.branches || [],
   website: values.website || "",
   companyEmail: values.companyEmail || "",
   companyPhone: values.companyPhone || "",
-  companyLogoBase64: values.companyLogoBase64 || "",
-  numberOfEmployees: values.numberOfEmployees ?? "",
-  annualRevenue: values.annualRevenue ?? "",
+  numberOfEmployees:
+    values.numberOfEmployees === "" || values.numberOfEmployees == null
+      ? null
+      : Number(values.numberOfEmployees),
+  annualRevenue:
+    values.annualRevenue === "" || values.annualRevenue == null
+      ? null
+      : Number(values.annualRevenue),
   registeredAddress: values.registeredAddress || "",
   billingAddress: values.billingAddress || "",
   shippingAddress: values.shippingAddress || "",
-  country: values.country || "",
   state: values.state || "",
   city: values.city || "",
   pincode: values.pincode || "",
-  currency: values.currency || "",
   paymentTerms: values.paymentTerms || "",
-  creditLimit: values.creditLimit ?? "",
+  creditLimit:
+    values.creditLimit === "" || values.creditLimit == null
+      ? null
+      : Number(values.creditLimit),
   internalComments: values.internalComments || "",
 });
 
@@ -298,6 +354,7 @@ const defaultValues = {
   categories: [],
   remark: "",
   branchId: "",
+  isActive: true,
   includeBankDetails: false,
   bankDetails: {
     accountNumber: "",
@@ -353,7 +410,12 @@ const SupplierForm = () => {
   const [supplierCode, setSupplierCode] = useState("");
   const [attachments, setAttachments] = useState([]);
   const [contactPersons, setContactPersons] = useState([]);
+  const [states, setStates] = useState([]);
+  const [citiesByState, setCitiesByState] = useState({});
   const catalogInputRef = useRef(null);
+  const prevStateRef = useRef("");
+  const originalBranchIdsRef = useRef([]);
+  const citiesByStateRef = useRef({});
 
   const {
     register,
@@ -386,6 +448,141 @@ const SupplierForm = () => {
   const hasBranches = watch("hasBranches");
   const companyLogoBase64 = watch("companyLogoBase64");
   const supplierCategory = watch("category");
+  const selectedState = watch("state");
+
+  useEffect(() => {
+    citiesByStateRef.current = citiesByState;
+  }, [citiesByState]);
+
+  const ensureCitiesForState = async (state) => {
+    if (!state || citiesByStateRef.current[state]) return;
+    try {
+      const res = await locationService.getCitiesByState(state);
+      const data = res?.data || res;
+      setCitiesByState((prev) => ({ ...prev, [state]: data?.cities || [] }));
+    } catch (err) {
+      toastError(err?.message || "Failed to load cities for this state");
+      setCitiesByState((prev) => ({ ...prev, [state]: [] }));
+    }
+  };
+
+  const cityOptionsFor = (state, currentCity) => {
+    const list = citiesByState[state] || [];
+    if (currentCity && !list.includes(currentCity)) {
+      return [currentCity, ...list];
+    }
+    return list;
+  };
+
+  const lookupPincode = async (pincode) => {
+    if (!/^\d{6}$/.test(pincode || "")) return null;
+    try {
+      const res = await locationService.getByPincode(pincode);
+      const data = res?.data || res;
+      return data?.state ? data : null;
+    } catch (err) {
+      toastError(err?.message || "Could not find location for this pincode");
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedState) {
+      prevStateRef.current = "";
+      return;
+    }
+    if (prevStateRef.current && prevStateRef.current !== selectedState) {
+      setValue("city", "");
+    }
+    prevStateRef.current = selectedState;
+    ensureCitiesForState(selectedState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedState]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await locationService.getStates();
+        const data = res?.data || res;
+        if (!cancelled) setStates(data?.states || []);
+      } catch (err) {
+        if (!cancelled) {
+          setStates([]);
+          toastError(err?.message || "Failed to load states");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const fetchSupplierBranches = async (supplierId) => {
+    try {
+      const res = await supplierBranchService.getAll({
+        supplierId,
+        pageSize: 100,
+      });
+      const data = res?.data || res;
+      const list = data?.branches || [];
+      const mapped = list.map((b) => ({
+        _id: b._id,
+        name: b.name || "",
+        address: b.address || "",
+        state: b.state || "",
+        city: b.city || "",
+        pincode: b.pincode || "",
+        contactPersonId: b.contactPersonId?._id || b.contactPersonId || "",
+      }));
+      originalBranchIdsRef.current = mapped.map((b) => b._id);
+      setValue("branches", mapped);
+      setValue("hasBranches", mapped.length > 0);
+      mapped.forEach((b) => {
+        if (b.state) ensureCitiesForState(b.state);
+      });
+    } catch (err) {
+      toastError(err?.message || "Failed to load branches");
+    }
+  };
+
+  const syncSupplierBranches = async (supplierId, branches) => {
+    const rows = (branches || []).filter((b) => (b.name || "").trim());
+    const keptIds = [];
+    for (const row of rows) {
+      const payload = {
+        supplierId,
+        name: (row.name || "").trim(),
+        address: row.address || "",
+        state: row.state || "",
+        city: row.city || "",
+        pincode: row.pincode || "",
+        contactPersonId: row.contactPersonId || null,
+      };
+      try {
+        if (row._id) {
+          await supplierBranchService.update(row._id, payload);
+          keptIds.push(row._id);
+        } else {
+          const res = await supplierBranchService.create(payload);
+          const created = res?.data?.data || res?.data || res;
+          if (created?._id) keptIds.push(created._id);
+        }
+      } catch (err) {
+        toastError(err?.message || "Failed to save a branch");
+      }
+    }
+    const removedIds = originalBranchIdsRef.current.filter(
+      (oid) => !keptIds.includes(oid),
+    );
+    for (const removedId of removedIds) {
+      try {
+        await supplierBranchService.delete(removedId);
+      } catch (err) {
+        toastError(err?.message || "Failed to remove a branch");
+      }
+    }
+  };
 
   useEffect(() => {
     fetchCategories();
@@ -424,9 +621,32 @@ const SupplierForm = () => {
   }, [userBranchId]);
 
   useEffect(() => {
-    setContactPersons(bpDummy.listContactPersons({ parentType: "supplier" }));
+    let cancelled = false;
+    const loadContactPersons = async () => {
+      try {
+        const res = await supplierContactPersonService.getAll({
+          pageNumber: 1,
+          pageSize: 1000,
+          status: "active",
+        });
+        const data = res?.data ?? res;
+        const list = data?.contactPersons ?? data?.data?.contactPersons ?? [];
+        if (!cancelled) {
+          setContactPersons(
+            (Array.isArray(list) ? list : []).map((cp) => ({
+              ...cp,
+              id: cp._id || cp.id,
+            })),
+          );
+        }
+      } catch {
+        if (!cancelled) setContactPersons([]);
+      }
+    };
+    loadContactPersons();
     if (isEdit) {
       fetchSupplier();
+      fetchSupplierBranches(id);
     } else {
       // Load draft for new supplier form, if present
       try {
@@ -442,7 +662,11 @@ const SupplierForm = () => {
       }
       setSupplierCode("");
       setAttachments([]);
+      originalBranchIdsRef.current = [];
     }
+    return () => {
+      cancelled = true;
+    };
   }, [id, isEdit, reset]);
 
   // Autosave draft for new supplier
@@ -499,10 +723,33 @@ const SupplierForm = () => {
           typeof cat === "string" ? cat : cat?._id,
         ),
         remark: data?.remark || "",
+        isActive: data?.isActive !== false,
         includeBankDetails: supplierHasBankDetails(existingBankDetails),
         bankDetails: existingBankDetails,
-        ...bpDummy.getOverlay("supplier", id),
+        clientType: data?.clientType || "",
+        industrySector: data?.industrySector || "",
+        registrationNumber: data?.registrationNumber || "",
+        pan: data?.pan || "",
+        category: data?.category || "",
+        website: data?.website || "",
+        companyEmail: data?.companyEmail || "",
+        companyPhone: data?.companyPhone || "",
+        companyLogoBase64:
+          bpDummy.getOverlay("supplier", id)?.companyLogoBase64 || "",
+        numberOfEmployees: data?.numberOfEmployees ?? "",
+        annualRevenue: data?.annualRevenue ?? "",
+        registeredAddress: data?.registeredAddress || "",
+        billingAddress: data?.billingAddress || "",
+        shippingAddress: data?.shippingAddress || "",
+        state: data?.state || "",
+        city: data?.city || "",
+        pincode: data?.pincode || "",
+        paymentTerms: data?.paymentTerms || "",
+        creditLimit: data?.creditLimit ?? "",
+        internalComments: data?.internalComments || "",
       });
+      prevStateRef.current = data?.state || "";
+      if (data?.state) ensureCitiesForState(data.state);
       if (data?.catalog?.url) {
         setCatalogPreview(data.catalog);
       } else {
@@ -603,62 +850,46 @@ const SupplierForm = () => {
     setError("");
     try {
       if (isEdit) {
-        const {
-          bankDetails,
-          includeBankDetails: withBankDetails,
-          ...restValues
-        } = values;
+        const { bankDetails, includeBankDetails: withBankDetails } = values;
         const payload = {
-          address: restValues.address || "",
-          phone_1: restValues.phone_1 || "",
-          phone_2: restValues.phone_2 || "",
-          categories: restValues.categories || [],
-          remark: restValues.remark || "",
+          address: values.address || "",
+          phone_1: values.phone_1 || "",
+          phone_2: values.phone_2 || "",
+          categories: values.categories || [],
+          remark: values.remark || "",
           bankDetails: buildBankDetailsPayload(bankDetails, withBankDetails),
+          isActive: values.isActive !== false,
+          ...buildBusinessInfoPayload(values),
         };
         await supplierService.update(id, payload);
+        if (values.hasBranches) {
+          await syncSupplierBranches(id, values.branches);
+        }
+        if (values.companyLogoBase64) {
+          bpDummy.saveOverlay("supplier", id, {
+            companyLogoBase64: values.companyLogoBase64,
+            attachments,
+          });
+        }
         toastSuccess("Supplier updated successfully");
-        bpDummy.saveOverlay("supplier", id, {
-          ...extractSupplierOverlayFields(values),
-          attachments,
-        });
       } else {
-        // Only real Supplier fields go to the API — new dummy fields (see
-        // getSupplierNewFieldsSchema) are intentionally excluded via
-        // destructuring so they never leak into the real create payload.
-        const {
-          bankDetails,
-          includeBankDetails: withBankDetails,
-          clientType,
-          industrySector,
-          registrationNumber,
-          pan,
-          category,
-          hasBranches: _hasBranches,
-          branches,
-          website,
-          companyEmail,
-          companyPhone,
-          companyLogoBase64,
-          numberOfEmployees,
-          annualRevenue,
-          registeredAddress,
-          billingAddress,
-          shippingAddress,
-          country,
-          state,
-          city,
-          pincode,
-          currency,
-          paymentTerms,
-          creditLimit,
-          internalComments,
-          ...restValues
-        } = values;
+        const { bankDetails, includeBankDetails: withBankDetails } = values;
         const payload = {
-          ...restValues,
-          branchId,
+          name: values.name,
+          shopname: values.shopname || "",
+          address: values.address || "",
+          phone_1: values.phone_1 || "",
+          phone_2: values.phone_2 || "",
+          email: values.email || "",
+          other_contact: values.other_contact || "",
+          label: values.label || "",
+          shop_location: values.shop_location || "",
+          gst: values.gst || "",
           categories: values.categories || [],
+          remark: values.remark || "",
+          branchId,
+          isActive: values.isActive !== false,
+          ...buildBusinessInfoPayload(values),
         };
         if (withBankDetails) {
           payload.bankDetails = buildBankDetailsPayload(
@@ -686,14 +917,19 @@ const SupplierForm = () => {
           }
         }
 
-        toastSuccess("Supplier created successfully");
         if (supplierId) {
-          bpDummy.saveOverlay("supplier", supplierId, {
-            ...extractSupplierOverlayFields(values),
-            attachments,
-          });
+          if (values.hasBranches) {
+            await syncSupplierBranches(supplierId, values.branches);
+          }
+          if (values.companyLogoBase64 || attachments.length) {
+            bpDummy.saveOverlay("supplier", supplierId, {
+              companyLogoBase64: values.companyLogoBase64 || "",
+              attachments,
+            });
+          }
           bpDummy.getOrCreateCode("supplier", supplierId);
         }
+        toastSuccess("Supplier created successfully");
       }
       if (!isEdit) {
         try {
@@ -724,6 +960,8 @@ const SupplierForm = () => {
   }
 
   const editReadOnlyClass = isEdit ? "bg-muted" : "";
+  const stateFieldProps = register("state");
+  const pincodeFieldProps = register("pincode");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -765,348 +1003,421 @@ const SupplierForm = () => {
           )
         }
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField label="Name" required error={errors.name?.message}>
-            <Input
-              {...register("name")}
-              readOnly={isEdit}
-              disabled={isEdit}
-              className={editReadOnlyClass}
-            />
-          </FormField>
-          <FormField label="Shop Name" error={errors.shopname?.message}>
-            <Input
-              {...register("shopname")}
-              readOnly={isEdit}
-              disabled={isEdit}
-              className={editReadOnlyClass}
-            />
-          </FormField>
-
-          <FormField label="Supplier Code" helper="Auto-generated on save">
-            <Input
-              value={supplierCode}
-              readOnly
-              disabled
-              className="bg-muted"
-            />
-          </FormField>
-
-          <FormField label="Client Type" error={errors.clientType?.message}>
-            <Select {...register("clientType")}>
-              <option value="">Select type</option>
-              <option value="Customer">Customer</option>
-              <option value="Vendor">Vendor</option>
-            </Select>
-          </FormField>
-
-          <FormField
-            label="Industry (Sector)"
-            error={errors.industrySector?.message}
-            helper="Business sector, e.g. Manufacturing, IT"
-          >
-            <Input {...register("industrySector")} />
-          </FormField>
-
-          <FormField
-            label="Registration Number"
-            error={errors.registrationNumber?.message}
-          >
-            <Input {...register("registrationNumber")} />
-          </FormField>
-
-          <FormField label="PAN" error={errors.pan?.message}>
-            <Input
-              {...register("pan")}
-              placeholder="e.g. ABCDE1234F"
-              maxLength={10}
-              style={{ textTransform: "uppercase" }}
-            />
-          </FormField>
-
-          <div className="md:col-span-2">
-            <FormField label="Category" error={errors.category?.message}>
-              <div className="flex h-9 items-center gap-4">
-                {["A", "B", "C", "D"].map((cat) => (
-                  <label
-                    key={cat}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      value={cat}
-                      className="h-4 w-4 cursor-pointer accent-primary"
-                      checked={supplierCategory === cat}
-                      onChange={() => setValue("category", cat)}
-                    />
-                    {cat}
-                  </label>
-                ))}
-              </div>
-            </FormField>
-          </div>
-
-          <FormField label="Email" error={errors.email?.message}>
-            <Input
-              type="email"
-              {...register("email")}
-              readOnly={isEdit}
-              disabled={isEdit}
-              className={editReadOnlyClass}
-            />
-          </FormField>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Phone 1" error={errors.phone_1?.message}>
-              <Input {...register("phone_1")} placeholder="10 digits" />
-            </FormField>
-            <FormField label="Phone 2" error={errors.phone_2?.message}>
-              <Input {...register("phone_2")} placeholder="10 digits" />
-            </FormField>
-          </div>
-
-          <FormField
-            label="Other Contact"
-            error={errors.other_contact?.message}
-          >
-            <Input
-              {...register("other_contact")}
-              readOnly={isEdit}
-              disabled={isEdit}
-              className={editReadOnlyClass}
-            />
-          </FormField>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label="Label" error={errors.label?.message}>
+        <FormSection
+          icon={Building2}
+          title="Basic details"
+          description="Identity, classification and status of this supplier."
+          first
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Name" required error={errors.name?.message}>
               <Input
-                {...register("label")}
+                {...register("name")}
                 readOnly={isEdit}
                 disabled={isEdit}
                 className={editReadOnlyClass}
               />
             </FormField>
-            <FormField
-              label="Shop Location"
-              error={errors.shop_location?.message}
-            >
+            <FormField label="Shop Name" error={errors.shopname?.message}>
               <Input
-                {...register("shop_location")}
+                {...register("shopname")}
                 readOnly={isEdit}
                 disabled={isEdit}
                 className={editReadOnlyClass}
               />
             </FormField>
-          </div>
 
-          <FormField
-            label="GST Number"
-            error={errors.gst?.message}
-            helper={!errors.gst ? "15-character GSTIN (optional)" : undefined}
-          >
-            <Input
-              placeholder="e.g. 22AABCU9603R1ZX"
-              maxLength={15}
-              {...register("gst")}
-              readOnly={isEdit}
-              disabled={isEdit}
-              className={editReadOnlyClass}
-            />
-          </FormField>
-
-          <div className="md:col-span-2">
-            <FormField label="Categories">
+            <FormField label="Supplier Code" helper="Auto-generated on save">
               <Input
-                placeholder="Search categories..."
-                value={categorySearch}
-                onChange={(e) => setCategorySearch(e.target.value)}
+                value={supplierCode}
+                readOnly
+                disabled
+                className="bg-muted"
               />
-              <div
-                className="mt-2 grid gap-x-4 gap-y-1.5 rounded-lg border border-border p-3"
-                style={{
-                  maxHeight: 200,
-                  overflowY: "auto",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                }}
-              >
-                {filteredCategories.length > 0 ? (
-                  filteredCategories.map((cat) => {
-                    const inputId = `cat-${cat._id}`;
-                    const checked = selectedCategories.includes(cat._id);
-                    return (
-                      <label
-                        key={cat._id}
-                        htmlFor={inputId}
-                        className="flex cursor-pointer items-center gap-2 text-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          id={inputId}
-                          className="h-4 w-4 accent-primary"
-                          checked={checked}
-                          onChange={() => toggleCategory(cat._id)}
-                        />
-                        <span>{cat.name}</span>
-                      </label>
-                    );
+            </FormField>
+
+            <FormField label="Client Type" error={errors.clientType?.message}>
+              <Select {...register("clientType")}>
+                <option value="">Select type</option>
+                <option value="Customer">Customer</option>
+                <option value="Vendor">Vendor</option>
+              </Select>
+            </FormField>
+
+            <FormField label="Status" error={errors.isActive?.message}>
+              <Select
+                value={watch("isActive") === false ? "inactive" : "active"}
+                onChange={(e) =>
+                  setValue("isActive", e.target.value === "active", {
+                    shouldValidate: true,
                   })
-                ) : (
-                  <small
-                    className="text-muted-foreground"
-                    style={{ gridColumn: "1 / -1" }}
-                  >
-                    No categories found
-                  </small>
-                )}
-              </div>
-              {selectedCategoryBadges.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {selectedCategoryBadges.map((cat) => (
-                    <Badge variant="secondary" key={cat.id}>
-                      {cat.name}
-                    </Badge>
+                }
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Industry (Sector)"
+              error={errors.industrySector?.message}
+              helper="Business sector, e.g. Manufacturing, IT"
+            >
+              <Input {...register("industrySector")} />
+            </FormField>
+
+            <FormField
+              label="Registration Number"
+              error={errors.registrationNumber?.message}
+            >
+              <Input {...register("registrationNumber")} />
+            </FormField>
+
+            <FormField label="PAN" error={errors.pan?.message}>
+              <Input
+                {...register("pan")}
+                placeholder="e.g. ABCDE1234F"
+                maxLength={10}
+                style={{ textTransform: "uppercase" }}
+              />
+            </FormField>
+
+            <div className="md:col-span-2">
+              <FormField
+                label="Category"
+                helper="Used to prioritise and segment suppliers."
+                error={errors.category?.message}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {["A", "B", "C", "D"].map((cat) => (
+                    <label
+                      key={cat}
+                      className={cn(
+                        "relative flex! h-10 min-w-[3.5rem] cursor-pointer items-center justify-center rounded-md border px-4 text-sm font-medium leading-none transition-colors",
+                        "border-input bg-background text-foreground hover:bg-muted",
+                        "has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary!",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        value={cat}
+                        className="sr-only"
+                        checked={supplierCategory === cat}
+                        onChange={() => setValue("category", cat)}
+                      />
+                      <span className="leading-none">{cat}</span>
+                    </label>
                   ))}
                 </div>
-              )}
-            </FormField>
+              </FormField>
+            </div>
           </div>
+        </FormSection>
 
-          <div className="md:col-span-2">
-            <FormField label="Address" error={errors.address?.message}>
-              <Textarea rows={3} {...register("address")} />
-            </FormField>
-          </div>
-
-          <div className="md:col-span-2">
-            <FormField label="Remark" error={errors.remark?.message}>
-              <Textarea rows={2} {...register("remark")} />
-            </FormField>
-          </div>
-
-          <div className="md:col-span-2">
-            <label
-              htmlFor="includeBankDetails"
-              className="flex cursor-pointer items-center gap-2"
-            >
-              <Checkbox
-                id="includeBankDetails"
-                checked={Boolean(includeBankDetails)}
-                onCheckedChange={(checked) =>
-                  handleIncludeBankDetailsChange(Boolean(checked))
-                }
+        <FormSection
+          icon={Mail}
+          title="Contact information"
+          description="How to reach this supplier and their tax identity."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Email" error={errors.email?.message}>
+              <Input
+                type="email"
+                {...register("email")}
+                readOnly={isEdit}
+                disabled={isEdit}
+                className={editReadOnlyClass}
               />
-              <span className="text-sm">Include bank details</span>
-            </label>
-          </div>
+            </FormField>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField label="Phone 1" error={errors.phone_1?.message}>
+                <Input {...register("phone_1")} placeholder="10 digits" />
+              </FormField>
+              <FormField label="Phone 2" error={errors.phone_2?.message}>
+                <Input {...register("phone_2")} placeholder="10 digits" />
+              </FormField>
+            </div>
 
-          {includeBankDetails && (
-            <>
-              <FormField
-                label="Account Holder Name"
-                required
-                htmlFor="accountHolderName"
-                error={errors.bankDetails?.accountHolderName?.message}
-              >
-                <Input
-                  id="accountHolderName"
-                  {...register("bankDetails.accountHolderName")}
-                />
-              </FormField>
-              <FormField
-                label="Account Number"
-                required
-                htmlFor="accountNumber"
-                error={errors.bankDetails?.accountNumber?.message}
-              >
-                <Input
-                  id="accountNumber"
-                  inputMode="numeric"
-                  {...register("bankDetails.accountNumber")}
-                />
-              </FormField>
-              <FormField
-                label="Bank Name"
-                required
-                htmlFor="bankName"
-                error={errors.bankDetails?.bankName?.message}
-              >
-                <Input id="bankName" {...register("bankDetails.bankName")} />
-              </FormField>
-              <FormField
-                label="IFSC Code"
-                required
-                htmlFor="ifscCode"
-                error={errors.bankDetails?.ifscCode?.message}
-              >
-                <Input id="ifscCode" {...register("bankDetails.ifscCode")} />
-              </FormField>
-              <FormField
-                label="UPI Details"
-                required
-                htmlFor="upiDetails"
-                error={errors.bankDetails?.upiDetails?.message}
-              >
-                <Input
-                  id="upiDetails"
-                  {...register("bankDetails.upiDetails")}
-                />
-              </FormField>
-            </>
-          )}
-
-          <div className="md:col-span-2">
             <FormField
-              label="Catalog (PDF, Excel, or Images)"
-              helper="Stored in S3. Supports PDF, Excel, or images. For new suppliers, the catalog is uploaded after the supplier is created."
+              label="Other Contact"
+              error={errors.other_contact?.message}
             >
-              <div className="flex flex-wrap items-center gap-3">
+              <Input
+                {...register("other_contact")}
+                readOnly={isEdit}
+                disabled={isEdit}
+                className={editReadOnlyClass}
+              />
+            </FormField>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <FormField label="Label" error={errors.label?.message}>
                 <Input
-                  ref={catalogInputRef}
-                  type="file"
-                  accept=".pdf,.xlsx,.xls,image/*"
-                  onChange={
-                    isEdit
-                      ? handleCatalogUpload
-                      : (e) => {
-                          const file = e?.target?.files?.[0] || null;
-                          setNewCatalogFile(file);
-                        }
-                  }
-                  disabled={catalogUploading || submitting}
-                  className="max-w-[280px] cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
+                  {...register("label")}
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={editReadOnlyClass}
                 />
-                {catalogUploading && <Spinner size="sm" />}
-                {isEdit && catalogPreview?.url && (
-                  <div className="text-sm text-muted-foreground">
-                    <a
-                      href={catalogPreview.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary! hover:underline"
+              </FormField>
+              <FormField
+                label="Shop Location"
+                error={errors.shop_location?.message}
+              >
+                <Input
+                  {...register("shop_location")}
+                  readOnly={isEdit}
+                  disabled={isEdit}
+                  className={editReadOnlyClass}
+                />
+              </FormField>
+            </div>
+
+            <FormField
+              label="GST Number"
+              error={errors.gst?.message}
+              helper={!errors.gst ? "15-character GSTIN (optional)" : undefined}
+            >
+              <Input
+                placeholder="e.g. 22AABCU9603R1ZX"
+                maxLength={15}
+                {...register("gst")}
+                readOnly={isEdit}
+                disabled={isEdit}
+                className={editReadOnlyClass}
+              />
+            </FormField>
+          </div>
+        </FormSection>
+
+        <FormSection
+          icon={Tags}
+          title="Categories & address"
+          description="Sourcing categories and the primary address."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <FormField label="Categories">
+                <Input
+                  placeholder="Search categories..."
+                  value={categorySearch}
+                  onChange={(e) => setCategorySearch(e.target.value)}
+                />
+                <div
+                  className="mt-2 grid gap-x-4 gap-y-1.5 rounded-lg border border-border bg-muted/30 p-3"
+                  style={{
+                    maxHeight: 200,
+                    overflowY: "auto",
+                    gridTemplateColumns: "repeat(4, 1fr)",
+                  }}
+                >
+                  {filteredCategories.length > 0 ? (
+                    filteredCategories.map((cat) => {
+                      const inputId = `cat-${cat._id}`;
+                      const checked = selectedCategories.includes(cat._id);
+                      return (
+                        <label
+                          key={cat._id}
+                          htmlFor={inputId}
+                          className="flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            id={inputId}
+                            className="h-4 w-4 accent-primary"
+                            checked={checked}
+                            onChange={() => toggleCategory(cat._id)}
+                          />
+                          <span>{cat.name}</span>
+                        </label>
+                      );
+                    })
+                  ) : (
+                    <small
+                      className="text-muted-foreground"
+                      style={{ gridColumn: "1 / -1" }}
                     >
-                      {catalogPreview.fileName || "View catalog"}
-                    </a>
-                    {catalogPreview.uploadedAt && (
-                      <span className="ml-2">
-                        uploaded{" "}
-                        {dateTimeFormatter(catalogPreview.uploadedAt, "—")}
-                      </span>
+                      No categories found
+                    </small>
+                  )}
+                </div>
+                {selectedCategoryBadges.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selectedCategoryBadges.map((cat) => (
+                      <Badge variant="secondary" key={cat.id}>
+                        {cat.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </FormField>
+            </div>
+
+            <div className="md:col-span-2">
+              <FormField label="Address" error={errors.address?.message}>
+                <Textarea rows={3} {...register("address")} />
+              </FormField>
+            </div>
+
+            <div className="md:col-span-2">
+              <FormField label="Remark" error={errors.remark?.message}>
+                <Textarea rows={2} {...register("remark")} />
+              </FormField>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection
+          icon={Landmark}
+          title="Bank details"
+          description="Optional banking information for payments."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <label
+                htmlFor="includeBankDetails"
+                className="flex cursor-pointer items-center gap-2"
+              >
+                <Checkbox
+                  id="includeBankDetails"
+                  checked={Boolean(includeBankDetails)}
+                  onCheckedChange={(checked) =>
+                    handleIncludeBankDetailsChange(Boolean(checked))
+                  }
+                />
+                <span className="text-sm">Include bank details</span>
+              </label>
+            </div>
+
+            {includeBankDetails ? (
+              <>
+                <FormField
+                  label="Account Holder Name"
+                  required
+                  htmlFor="accountHolderName"
+                  error={errors.bankDetails?.accountHolderName?.message}
+                >
+                  <Input
+                    id="accountHolderName"
+                    {...register("bankDetails.accountHolderName")}
+                  />
+                </FormField>
+                <FormField
+                  label="Account Number"
+                  required
+                  htmlFor="accountNumber"
+                  error={errors.bankDetails?.accountNumber?.message}
+                >
+                  <Input
+                    id="accountNumber"
+                    inputMode="numeric"
+                    {...register("bankDetails.accountNumber")}
+                  />
+                </FormField>
+                <FormField
+                  label="Bank Name"
+                  required
+                  htmlFor="bankName"
+                  error={errors.bankDetails?.bankName?.message}
+                >
+                  <Input id="bankName" {...register("bankDetails.bankName")} />
+                </FormField>
+                <FormField
+                  label="IFSC Code"
+                  required
+                  htmlFor="ifscCode"
+                  error={errors.bankDetails?.ifscCode?.message}
+                >
+                  <Input id="ifscCode" {...register("bankDetails.ifscCode")} />
+                </FormField>
+                <FormField
+                  label="UPI Details"
+                  required
+                  htmlFor="upiDetails"
+                  error={errors.bankDetails?.upiDetails?.message}
+                >
+                  <Input
+                    id="upiDetails"
+                    {...register("bankDetails.upiDetails")}
+                  />
+                </FormField>
+              </>
+            ) : (
+              <div className="md:col-span-2">
+                <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
+                  Bank details are not included. Tick the box above to add them.
+                </p>
+              </div>
+            )}
+          </div>
+        </FormSection>
+
+        <FormSection
+          icon={Paperclip}
+          title="Catalog"
+          description="Product catalog stored in S3 (PDF, Excel, or images)."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <FormField
+                label="Catalog (PDF, Excel, or Images)"
+                helper="For new suppliers, the catalog is uploaded after the supplier is created."
+              >
+                <div className="space-y-3">
+                  <Input
+                    ref={catalogInputRef}
+                    type="file"
+                    accept=".pdf,.xlsx,.xls,image/*"
+                    onChange={
+                      isEdit
+                        ? handleCatalogUpload
+                        : (e) => {
+                            const file = e?.target?.files?.[0] || null;
+                            setNewCatalogFile(file);
+                          }
+                    }
+                    disabled={catalogUploading || submitting}
+                    className="max-w-[280px] cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
+                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    {catalogUploading && <Spinner size="sm" />}
+                    {isEdit && catalogPreview?.url && (
+                      <div className="text-sm text-muted-foreground">
+                        <a
+                          href={catalogPreview.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary! hover:underline"
+                        >
+                          {catalogPreview.fileName || "View catalog"}
+                        </a>
+                        {catalogPreview.uploadedAt && (
+                          <span className="ml-2">
+                            uploaded{" "}
+                            {dateTimeFormatter(catalogPreview.uploadedAt, "—")}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {!isEdit && newCatalogFile && (
+                      <div className="text-sm text-muted-foreground">
+                        Selected file:{" "}
+                        <strong className="text-foreground">
+                          {newCatalogFile.name}
+                        </strong>
+                      </div>
                     )}
                   </div>
-                )}
-                {!isEdit && newCatalogFile && (
-                  <div className="text-sm text-muted-foreground">
-                    Selected file:{" "}
-                    <strong className="text-foreground">
-                      {newCatalogFile.name}
-                    </strong>
-                  </div>
-                )}
-              </div>
-            </FormField>
+                </div>
+              </FormField>
+            </div>
           </div>
-        </div>
+        </FormSection>
 
         {/* Branches */}
-        <div className="mt-6 border-t border-border pt-5">
+        <FormSection
+          icon={GitBranch}
+          title="Branches"
+          description="Additional locations registered under this supplier."
+        >
           <label className="flex cursor-pointer items-center gap-2">
             <Checkbox
               checked={Boolean(hasBranches)}
@@ -1120,11 +1431,8 @@ const SupplierForm = () => {
           </label>
 
           {hasBranches && (
-            <div className="mt-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-foreground">
-                  Branches
-                </span>
+            <div className="mt-4">
+              <div className="mb-3 flex items-center justify-end">
                 <Button
                   type="button"
                   variant="outline"
@@ -1145,94 +1453,152 @@ const SupplierForm = () => {
                 </Button>
               </div>
               {branchFields.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
                   No branches added. Click &quot;Add Branch&quot; to add.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {branchFields.map((field, index) => (
-                    <div
-                      key={field.id}
-                      className="rounded-lg border border-border p-3"
-                    >
-                      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
-                        <div className="md:col-span-3">
-                          <FormField label="Name">
-                            <Input
-                              {...register(`branches.${index}.name`)}
-                              placeholder="Branch name"
-                            />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-3">
-                          <FormField label="Address">
-                            <Input
-                              {...register(`branches.${index}.address`)}
-                              placeholder="Address"
-                            />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-2">
-                          <FormField label="City">
-                            <Input {...register(`branches.${index}.city`)} />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-2">
-                          <FormField label="State">
-                            <Input {...register(`branches.${index}.state`)} />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-1">
-                          <FormField
-                            label="Pincode"
-                            error={errors.branches?.[index]?.pincode?.message}
-                          >
-                            <Input
-                              {...register(`branches.${index}.pincode`)}
-                              maxLength={6}
-                            />
-                          </FormField>
-                        </div>
-                        <div className="flex md:col-span-1 md:justify-center md:pt-7">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => removeBranch(index)}
-                            title="Remove"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="md:col-span-12">
-                          <FormField label="Contact Person">
-                            <Select
-                              {...register(`branches.${index}.contactPersonId`)}
+                  {branchFields.map((field, index) => {
+                    const rowState = watch(`branches.${index}.state`);
+                    const rowCity = watch(`branches.${index}.city`);
+                    const rowStateFieldProps = register(
+                      `branches.${index}.state`,
+                    );
+                    const rowPincodeFieldProps = register(
+                      `branches.${index}.pincode`,
+                    );
+                    return (
+                      <div
+                        key={field.id}
+                        className="rounded-lg border border-border bg-muted/30 p-4"
+                      >
+                        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
+                          <div className="md:col-span-3">
+                            <FormField label="Name">
+                              <Input
+                                {...register(`branches.${index}.name`)}
+                                placeholder="Branch name"
+                              />
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-3">
+                            <FormField label="Address">
+                              <Input
+                                {...register(`branches.${index}.address`)}
+                                placeholder="Address"
+                              />
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-2">
+                            <FormField
+                              label="Pincode"
+                              error={errors.branches?.[index]?.pincode?.message}
                             >
-                              <option value="">Unassigned</option>
-                              {contactPersons.map((cp) => (
-                                <option key={cp.id} value={cp.id}>
-                                  {`${cp.firstName} ${cp.lastName}`.trim()}
+                              <Input
+                                {...rowPincodeFieldProps}
+                                maxLength={6}
+                                onBlur={async (e) => {
+                                  rowPincodeFieldProps.onBlur(e);
+                                  const found = await lookupPincode(
+                                    e.target.value,
+                                  );
+                                  if (found?.state) {
+                                    setValue(
+                                      `branches.${index}.state`,
+                                      found.state,
+                                    );
+                                    await ensureCitiesForState(found.state);
+                                  }
+                                  if (found?.city) {
+                                    setValue(
+                                      `branches.${index}.city`,
+                                      found.city,
+                                    );
+                                  }
+                                }}
+                              />
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-2">
+                            <FormField label="State">
+                              <Select
+                                {...rowStateFieldProps}
+                                onChange={(e) => {
+                                  rowStateFieldProps.onChange(e);
+                                  setValue(`branches.${index}.city`, "");
+                                  ensureCitiesForState(e.target.value);
+                                }}
+                              >
+                                <option value="">Select state</option>
+                                {states.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </Select>
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-1">
+                            <FormField label="City">
+                              <Select
+                                {...register(`branches.${index}.city`)}
+                                disabled={!rowState}
+                              >
+                                <option value="">
+                                  {rowState ? "Select" : "Select state first"}
                                 </option>
-                              ))}
-                            </Select>
-                          </FormField>
+                                {cityOptionsFor(rowState, rowCity).map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </Select>
+                            </FormField>
+                          </div>
+                          <div className="flex md:col-span-1 md:justify-center md:pt-7">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => removeBranch(index)}
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <div className="md:col-span-12">
+                            <FormField label="Contact Person">
+                              <Select
+                                {...register(
+                                  `branches.${index}.contactPersonId`,
+                                )}
+                              >
+                                <option value="">Unassigned</option>
+                                {contactPersons.map((cp) => (
+                                  <option key={cp.id} value={cp.id}>
+                                    {`${cp.firstName} ${cp.lastName}`.trim()}
+                                  </option>
+                                ))}
+                              </Select>
+                            </FormField>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
-        </div>
+        </FormSection>
 
         {/* Business Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Business Information
-          </span>
+        <FormSection
+          icon={Building2}
+          title="Business information"
+          description="Company profile, scale and branding."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Website" error={errors.website?.message}>
               <Input
@@ -1259,9 +1625,9 @@ const SupplierForm = () => {
               <Input type="number" min={0} {...register("annualRevenue")} />
             </FormField>
             <FormField label="Company Logo">
-              <Input
-                type="file"
+              <FileUpload
                 accept="image/*"
+                hint="PNG or JPG"
                 onChange={(e) => {
                   const file = e?.target?.files?.[0];
                   if (!file) return;
@@ -1280,13 +1646,14 @@ const SupplierForm = () => {
               )}
             </FormField>
           </div>
-        </div>
+        </FormSection>
 
         {/* Address Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Address Information
-          </span>
+        <FormSection
+          icon={MapPin}
+          title="Address information"
+          description="Registered, billing and shipping addresses."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Registered Address">
               <Textarea rows={2} {...register("registeredAddress")} />
@@ -1297,36 +1664,53 @@ const SupplierForm = () => {
             <FormField label="Shipping Address">
               <Textarea rows={2} {...register("shippingAddress")} />
             </FormField>
-            <FormField label="Country">
-              <Input {...register("country")} />
+            <FormField label="Pin Code" error={errors.pincode?.message}>
+              <Input
+                {...pincodeFieldProps}
+                maxLength={6}
+                onBlur={async (e) => {
+                  pincodeFieldProps.onBlur(e);
+                  const found = await lookupPincode(e.target.value);
+                  if (found?.state) {
+                    setValue("state", found.state);
+                    await ensureCitiesForState(found.state);
+                  }
+                  if (found?.city) setValue("city", found.city);
+                }}
+              />
             </FormField>
             <FormField label="State">
-              <Input {...register("state")} />
-            </FormField>
-            <FormField label="City">
-              <Input {...register("city")} />
-            </FormField>
-            <FormField label="Pin Code" error={errors.pincode?.message}>
-              <Input {...register("pincode")} maxLength={6} />
-            </FormField>
-          </div>
-        </div>
-
-        {/* Financial Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Financial Information
-          </span>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Currency">
-              <Select {...register("currency")}>
-                <option value="">Select currency</option>
-                <option value="INR">INR</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+              <Select {...stateFieldProps}>
+                <option value="">Select state</option>
+                {states.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </Select>
             </FormField>
+            <FormField label="City">
+              <Select {...register("city")} disabled={!selectedState}>
+                <option value="">
+                  {selectedState ? "Select city" : "Select state first"}
+                </option>
+                {cityOptionsFor(selectedState, watch("city")).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          </div>
+        </FormSection>
+
+        {/* Financial Information */}
+        <FormSection
+          icon={CreditCard}
+          title="Financial information"
+          description="Payment terms and credit exposure."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Payment Terms">
               <Input {...register("paymentTerms")} placeholder="e.g. Net 30" />
             </FormField>
@@ -1334,20 +1718,20 @@ const SupplierForm = () => {
               <Input type="number" min={0} {...register("creditLimit")} />
             </FormField>
           </div>
-        </div>
+        </FormSection>
 
         {/* Attachments */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Attachments
-          </span>
+        <FormSection
+          icon={Paperclip}
+          title="Attachments"
+          description="Reference documents (file name recorded only)."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
               label="Company Registration Certificate"
               helper="File name only — not uploaded"
             >
-              <Input
-                type="file"
+              <FileUpload
                 onChange={(e) => {
                   const file = e?.target?.files?.[0];
                   if (!file) return;
@@ -1366,8 +1750,7 @@ const SupplierForm = () => {
               label="Business Documents"
               helper="File name only — not uploaded"
             >
-              <Input
-                type="file"
+              <FileUpload
                 onChange={(e) => {
                   const file = e?.target?.files?.[0];
                   if (!file) return;
@@ -1384,25 +1767,26 @@ const SupplierForm = () => {
             </FormField>
           </div>
           {attachments.length > 0 && (
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
               {attachments.map((att) => (
                 <li key={att.id}>{att.fileName}</li>
               ))}
             </ul>
           )}
-        </div>
+        </FormSection>
 
         {/* Additional Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Additional Information
-          </span>
+        <FormSection
+          icon={StickyNote}
+          title="Additional information"
+          description="Free-form notes visible to your team."
+        >
           <FormField label="Internal Comments">
             <Textarea rows={2} {...register("internalComments")} />
           </FormField>
-        </div>
+        </FormSection>
 
-        <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-5">
+        <div className="-mx-6 -mb-6 mt-8 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/30 px-6 py-4">
           <Button
             type="button"
             variant="outline"

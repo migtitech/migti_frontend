@@ -21,8 +21,9 @@ import {
   Tag,
 } from "lucide-react";
 import supplierService from "../../services/supplierService";
+import supplierBranchService from "../../services/supplierBranchService";
 import bpDummy from "../../data/businessPartnerDummy";
-import { Loader } from "../../components";
+import { Loader, StatusBadge } from "../../components";
 import {
   Button,
   Card,
@@ -41,102 +42,42 @@ import { toastError } from "../../utils/toast";
 import { dateTimeFormatter } from "../../utils/dateFormatter";
 import { openAttachmentPreview } from "../../utils/attachmentPreview";
 
-// Fallback sample values shown when a field has no real/overlay data yet, so
-// the redesigned Supplier Details page always demonstrates its full layout.
-const DUMMY_FALLBACK = {
-  clientType: "Vendor",
-  industrySector: "Trading & Distribution",
-  registrationNumber: "REG-2024-00987",
-  pan: "ABCPS9876K",
-  category: "A",
-  website: "https://www.suppliersamples.com",
-  companyEmail: "sales@suppliersamples.com",
-  companyPhone: "+91 98765 12345",
-  numberOfEmployees: 80,
-  annualRevenue: 12000000,
-  registeredAddress: "Warehouse 7, MIDC Industrial Estate",
-  billingAddress: "Warehouse 7, MIDC Industrial Estate, Nashik",
-  shippingAddress: "Gate 3, Logistics Park, Nashik",
-  country: "India",
-  state: "Maharashtra",
-  city: "Nashik",
-  pincode: "422007",
-  currency: "INR",
-  paymentTerms: "Net 45",
-  creditLimit: 250000,
-  internalComments: "Reliable vendor, on-time deliveries for 2+ years.",
-  label: "Preferred Vendor",
-  shop_location: "Shop No. 14, Wholesale Market",
-  other_contact: "+91 91234 56789",
-  gst: "27ABCPS9876K1ZQ",
-};
-
-const DUMMY_BANK_DETAILS = {
-  accountHolderName: "Acme Trading Co.",
-  accountNumber: "123456789012",
-  bankName: "HDFC Bank",
-  ifscCode: "HDFC0001234",
-  upiDetails: "acmetrading@hdfcbank",
-};
-
-const DUMMY_BRANCH = {
-  name: "Nashik Warehouse",
-  address: "Plot 9, MIDC Ambad",
-  city: "Nashik",
-  state: "Maharashtra",
-  pincode: "422010",
-};
-
-const DUMMY_ATTACHMENTS = [
-  { id: "dummy_att_1", fileName: "supplier_agreement.pdf" },
-  { id: "dummy_att_2", fileName: "gst_certificate.pdf" },
-];
-
-const DUMMY_CATEGORIES = ["Electronics", "Hardware", "Packaging"];
-
 const formatINRCurrency = (value) => {
+  if (value === "" || value === null || value === undefined) return "-";
   const amount = Number(value);
   if (Number.isNaN(amount)) return "-";
   return `₹${new Intl.NumberFormat("en-IN").format(amount)}`;
 };
 
-const overlayOr = (overlay, key) => {
-  const value = overlay?.[key];
-  if (value === "" || value === null || value === undefined) {
-    return DUMMY_FALLBACK[key];
-  }
-  return value;
-};
-
-const fieldOr = (value, key) => {
-  if (value === "" || value === null || value === undefined) {
-    return DUMMY_FALLBACK[key];
-  }
-  return value;
-};
-
-const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-3 py-2">
-    {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
-    <div className="min-w-0 flex-1">
+const InfoRow = ({ label, value }) => {
+  const hasValue = value || value === 0;
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="truncate text-sm font-medium text-foreground">
-        {value || value === 0 ? String(value) : "-"}
+      <div
+        className={
+          hasValue
+            ? "min-w-0 break-words text-right text-sm font-medium text-foreground"
+            : "text-right text-sm font-medium text-muted-foreground/60"
+        }
+      >
+        {hasValue ? String(value) : "NA"}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-const InfoCard = ({ icon, title, children }) => (
+const InfoCard = ({ icon: Icon, title, children }) => (
   <Card>
-    <CardHeader className="flex flex-row items-center gap-2 pb-2">
-      {icon &&
-        React.createElement(icon, { className: "h-4 w-4 text-primary!" })}
+    <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+      {Icon && (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className="h-4 w-4 text-primary!" />
+        </span>
+      )}
       <CardTitle className="text-sm">{title}</CardTitle>
     </CardHeader>
-    <CardContent className="divide-y divide-border pt-0">
-      {children}
-    </CardContent>
+    <CardContent className="divide-y divide-border">{children}</CardContent>
   </Card>
 );
 
@@ -146,6 +87,7 @@ const SupplierView = () => {
   const [supplier, setSupplier] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [branches, setBranches] = useState([]);
 
   useEffect(() => {
     const fetchSupplier = async () => {
@@ -164,6 +106,27 @@ const SupplierView = () => {
     fetchSupplier();
   }, [id]);
 
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const loadBranches = async () => {
+      try {
+        const res = await supplierBranchService.getAll({
+          supplierId: id,
+          pageSize: 100,
+        });
+        const data = res?.data || res;
+        if (!cancelled) setBranches(data?.branches || []);
+      } catch {
+        if (!cancelled) setBranches([]);
+      }
+    };
+    loadBranches();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   const overlay = useMemo(
     () => (id ? bpDummy.getOverlay("supplier", id) : bpDummy.defaultOverlay()),
     [id, supplier],
@@ -176,35 +139,14 @@ const SupplierView = () => {
 
   const displayCategories = useMemo(() => {
     const cats = supplier?.categories || [];
-    if (cats.length > 0) {
-      return cats.map((cat) => (typeof cat === "string" ? cat : cat?.name));
-    }
-    return DUMMY_CATEGORIES;
+    return cats.map((cat) => (typeof cat === "string" ? cat : cat?.name));
   }, [supplier]);
 
-  const displayBankDetails = useMemo(() => {
-    const bd = supplier?.bankDetails || {};
-    const hasReal = [
-      bd.accountHolderName,
-      bd.accountNumber,
-      bd.bankName,
-      bd.ifscCode,
-      bd.upiDetails,
-    ].some((v) => String(v || "").trim());
-    return hasReal ? bd : DUMMY_BANK_DETAILS;
-  }, [supplier]);
+  const displayBankDetails = supplier?.bankDetails || {};
 
-  const displayBranches =
-    (overlay?.branches || []).length > 0 ? overlay.branches : [DUMMY_BRANCH];
+  const displayAttachments = overlay?.attachments || [];
 
-  const displayAttachments =
-    (overlay?.attachments || []).length > 0
-      ? overlay.attachments
-      : DUMMY_ATTACHMENTS;
-
-  const displayCatalog = supplier?.catalog?.url
-    ? supplier.catalog
-    : { url: "#", fileName: "sample_catalog.pdf", uploadedAt: null };
+  const displayCatalog = supplier?.catalog?.url ? supplier.catalog : null;
 
   if (loading) {
     return (
@@ -284,9 +226,14 @@ const SupplierView = () => {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="text-xl font-semibold leading-tight">
-                  {supplier.name || "-"}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-semibold leading-tight">
+                    {supplier.name || "-"}
+                  </h3>
+                  <StatusBadge
+                    status={supplier.isActive !== false ? "Active" : "Inactive"}
+                  />
+                </div>
                 <p className="text-sm text-muted-foreground">
                   {supplierCode || "Supplier code pending"}
                   {supplier.shopname ? ` · ${supplier.shopname}` : ""}
@@ -294,13 +241,42 @@ const SupplierView = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="info">{overlayOr(overlay, "clientType")}</Badge>
-              <Badge variant="secondary">
-                {overlayOr(overlay, "industrySector")}
-              </Badge>
-              <Badge variant="outline">
-                Category {overlayOr(overlay, "category")}
-              </Badge>
+              {supplier.clientType && (
+                <Badge variant="info">{supplier.clientType}</Badge>
+              )}
+              {supplier.industrySector && (
+                <Badge variant="secondary">{supplier.industrySector}</Badge>
+              )}
+              {supplier.category && (
+                <Badge variant="outline">Category {supplier.category}</Badge>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t sm:grid-cols-4">
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Categories</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {displayCategories.length}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Branches</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {branches.length}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Attachments</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {displayAttachments.length}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Status</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {supplier.isActive !== false ? "Active" : "Inactive"}
+              </div>
             </div>
           </div>
         </CardContent>
@@ -317,27 +293,15 @@ const SupplierView = () => {
           <InfoRow
             icon={Briefcase}
             label="Registration Number"
-            value={overlayOr(overlay, "registrationNumber")}
+            value={supplier.registrationNumber}
           />
-          <InfoRow
-            icon={FileBadge}
-            label="PAN"
-            value={overlayOr(overlay, "pan")}
-          />
-          <InfoRow
-            icon={FileBadge}
-            label="GST Number"
-            value={fieldOr(supplier.gst, "gst")}
-          />
-          <InfoRow
-            icon={Tag}
-            label="Label"
-            value={fieldOr(supplier.label, "label")}
-          />
+          <InfoRow icon={FileBadge} label="PAN" value={supplier.pan} />
+          <InfoRow icon={FileBadge} label="GST Number" value={supplier.gst} />
+          <InfoRow icon={Tag} label="Label" value={supplier.label} />
           <InfoRow
             icon={MapPin}
             label="Shop Location"
-            value={fieldOr(supplier.shop_location, "shop_location")}
+            value={supplier.shop_location}
           />
         </InfoCard>
 
@@ -348,22 +312,18 @@ const SupplierView = () => {
           <InfoRow
             icon={Phone}
             label="Other Contact"
-            value={fieldOr(supplier.other_contact, "other_contact")}
+            value={supplier.other_contact}
           />
-          <InfoRow
-            icon={Globe}
-            label="Website"
-            value={overlayOr(overlay, "website")}
-          />
+          <InfoRow icon={Globe} label="Website" value={supplier.website} />
           <InfoRow
             icon={Mail}
             label="Company Email"
-            value={overlayOr(overlay, "companyEmail")}
+            value={supplier.companyEmail}
           />
           <InfoRow
             icon={Phone}
             label="Company Phone"
-            value={overlayOr(overlay, "companyPhone")}
+            value={supplier.companyPhone}
           />
         </InfoCard>
 
@@ -371,12 +331,12 @@ const SupplierView = () => {
           <InfoRow
             icon={Users}
             label="Number of Employees"
-            value={overlayOr(overlay, "numberOfEmployees")}
+            value={supplier.numberOfEmployees}
           />
           <InfoRow
             icon={Landmark}
             label="Annual Revenue"
-            value={formatINRCurrency(overlayOr(overlay, "annualRevenue"))}
+            value={formatINRCurrency(supplier.annualRevenue)}
           />
         </InfoCard>
 
@@ -384,41 +344,31 @@ const SupplierView = () => {
           <InfoRow label="Address" value={supplier.address} />
           <InfoRow
             label="Registered Address"
-            value={overlayOr(overlay, "registeredAddress")}
+            value={supplier.registeredAddress}
           />
-          <InfoRow
-            label="Billing Address"
-            value={overlayOr(overlay, "billingAddress")}
-          />
-          <InfoRow
-            label="Shipping Address"
-            value={overlayOr(overlay, "shippingAddress")}
-          />
+          <InfoRow label="Billing Address" value={supplier.billingAddress} />
+          <InfoRow label="Shipping Address" value={supplier.shippingAddress} />
           <InfoRow
             label="City / State"
-            value={`${overlayOr(overlay, "city")}, ${overlayOr(overlay, "state")}`}
+            value={
+              supplier.city || supplier.state
+                ? `${supplier.city || "-"}, ${supplier.state || "-"}`
+                : ""
+            }
           />
-          <InfoRow
-            label="Country / Pincode"
-            value={`${overlayOr(overlay, "country")} - ${overlayOr(overlay, "pincode")}`}
-          />
+          <InfoRow label="Pincode" value={supplier.pincode} />
         </InfoCard>
 
         <InfoCard icon={CreditCard} title="Financial Information">
           <InfoRow
-            icon={CreditCard}
-            label="Currency"
-            value={overlayOr(overlay, "currency")}
-          />
-          <InfoRow
             icon={Briefcase}
             label="Payment Terms"
-            value={overlayOr(overlay, "paymentTerms")}
+            value={supplier.paymentTerms}
           />
           <InfoRow
             icon={Landmark}
             label="Credit Limit"
-            value={formatINRCurrency(overlayOr(overlay, "creditLimit"))}
+            value={formatINRCurrency(supplier.creditLimit)}
           />
         </InfoCard>
 
@@ -451,101 +401,132 @@ const SupplierView = () => {
         </InfoCard>
 
         <InfoCard icon={Tag} title="Categories">
-          <div className="flex flex-wrap gap-2 py-2">
-            {displayCategories.map((cat, idx) => (
-              <Badge variant="info" key={idx}>
-                {cat}
-              </Badge>
-            ))}
-          </div>
+          {displayCategories.length > 0 ? (
+            <div className="flex flex-wrap gap-2 py-2">
+              {displayCategories.map((cat, idx) => (
+                <Badge variant="info" key={idx}>
+                  {cat}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="py-2 text-sm text-muted-foreground">
+              No categories assigned.
+            </p>
+          )}
         </InfoCard>
 
         <InfoCard icon={BookOpen} title="Catalog">
-          <div className="py-2">
-            <div className="mb-1 break-all text-sm font-medium text-foreground">
-              {displayCatalog.fileName}
+          {displayCatalog ? (
+            <div className="py-2">
+              <div className="mb-1 break-all text-sm font-medium text-foreground">
+                {displayCatalog.fileName}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={displayCatalog.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Button size="sm" type="button">
+                    View
+                  </Button>
+                </a>
+                <a
+                  href={displayCatalog.url}
+                  download={displayCatalog.fileName || true}
+                >
+                  <Button size="sm" variant="outline" type="button">
+                    Download
+                  </Button>
+                </a>
+              </div>
+              {displayCatalog.uploadedAt && (
+                <small className="mt-2 block text-muted-foreground">
+                  Uploaded: {dateTimeFormatter(displayCatalog.uploadedAt, "-")}
+                </small>
+              )}
             </div>
-            <div className="flex flex-wrap gap-2">
-              <a
-                href={displayCatalog.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button size="sm" type="button">
-                  View
-                </Button>
-              </a>
-              <a
-                href={displayCatalog.url}
-                download={displayCatalog.fileName || true}
-              >
-                <Button size="sm" variant="outline" type="button">
-                  Download
-                </Button>
-              </a>
-            </div>
-            {displayCatalog.uploadedAt && (
-              <small className="mt-2 block text-muted-foreground">
-                Uploaded: {dateTimeFormatter(displayCatalog.uploadedAt, "-")}
-              </small>
-            )}
-          </div>
+          ) : (
+            <p className="py-2 text-sm text-muted-foreground">
+              No catalog uploaded.
+            </p>
+          )}
         </InfoCard>
 
         <InfoCard icon={StickyNote} title="Additional Information">
           <InfoRow label="Remark" value={supplier.remark} />
           <InfoRow
             label="Internal Comments"
-            value={overlayOr(overlay, "internalComments")}
+            value={supplier.internalComments}
           />
         </InfoCard>
 
         <InfoCard icon={Paperclip} title="Attachments">
-          {displayAttachments.map((att) => (
-            <button
-              key={att.id}
-              type="button"
-              onClick={() => openAttachmentPreview(att)}
-              className="flex w-full items-start gap-3 py-2 text-left transition-colors hover:opacity-80"
-            >
-              <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <div className="text-xs text-muted-foreground">File</div>
-                <div className="truncate text-sm font-medium text-primary! underline-offset-2 hover:underline">
-                  {att.fileName || "-"}
+          {displayAttachments.length > 0 ? (
+            displayAttachments.map((att) => (
+              <button
+                key={att.id}
+                type="button"
+                onClick={() => openAttachmentPreview(att)}
+                className="flex w-full items-start gap-3 py-2 text-left transition-colors hover:opacity-80"
+              >
+                <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs text-muted-foreground">File</div>
+                  <div className="truncate text-sm font-medium text-primary! underline-offset-2 hover:underline">
+                    {att.fileName || "-"}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+          ) : (
+            <p className="py-2 text-sm text-muted-foreground">
+              No attachments uploaded.
+            </p>
+          )}
         </InfoCard>
       </div>
 
       {/* Branches */}
       <div>
-        <h6 className="mb-2 flex items-center gap-2 font-semibold">
-          <Building2 className="h-4 w-4 text-primary!" />
-          Branches
-        </h6>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {displayBranches.map((branch, idx) => (
-            <Card key={branch._id || idx}>
-              <CardContent className="p-4">
-                <div className="text-sm font-semibold">
-                  {branch.name || "-"}
-                </div>
-                <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                  <span>
-                    {branch.address || "-"}
-                    {branch.city ? `, ${branch.city}` : ""}
-                    {branch.state ? `, ${branch.state}` : ""}
-                    {branch.pincode ? ` - ${branch.pincode}` : ""}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="mb-3 flex items-center gap-3">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Building2 className="h-4 w-4 text-primary!" />
+          </span>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Branches</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Locations registered under this supplier.
+            </p>
+          </div>
         </div>
+        {branches.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No branches added for this supplier.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {branches.map((branch, idx) => (
+              <Card key={branch._id || idx}>
+                <CardContent className="p-4">
+                  <div className="text-sm font-semibold">
+                    {branch.name || "-"}
+                  </div>
+                  <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
+                    <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>
+                      {branch.address || "-"}
+                      {branch.city ? `, ${branch.city}` : ""}
+                      {branch.state ? `, ${branch.state}` : ""}
+                      {branch.pincode ? ` - ${branch.pincode}` : ""}
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

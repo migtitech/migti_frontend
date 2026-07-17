@@ -51,6 +51,7 @@ import {
 } from "../../components/ui";
 import queryService from "../../services/queryService";
 import industryService from "../../services/industryService";
+import industryContactPersonService from "../../services/industryContactPersonService";
 import bpDummy from "../../data/businessPartnerDummy";
 import areaService from "../../services/areaService";
 import {
@@ -65,6 +66,7 @@ import categoryService from "../../services/categoryService";
 import subcategoryService from "../../services/subcategoryService";
 import productService from "../../services/productService";
 import documentService from "../../services/documentService";
+import employeeService from "../../services/employeeService";
 import { useAuth } from "../../context/AuthContext";
 import usePermissions, { canEditQuery } from "../../hooks/usePermissions";
 import { Loader } from "../../components";
@@ -166,7 +168,36 @@ const getVariantComboDisplay = (combo) => {
   const parts = (combo?.optionValues || [])
     .map((option) => option?.variantValue || "")
     .filter(Boolean);
-  return parts.join(", ");
+  return parts.join(" ");
+};
+
+/** Product name plus variant values, e.g. "Asis blue medium". */
+const getProductDisplayName = (product) => {
+  const name = String(product?.productName || "").trim();
+  const variantText = (product?.variants || [])
+    .map((v) => String(v?.variantName || "").trim())
+    .filter(Boolean)
+    .map((vn) => vn.replace(/,\s*/g, " ").replace(/\s+/g, " ").trim())
+    .join(" ");
+  const full = [name, variantText].filter(Boolean).join(" ");
+  return full || "–";
+};
+
+/** Normalize group/category/subcategory refs (id string or populated object). */
+const getRefId = (ref) => {
+  if (ref == null || ref === "") return "";
+  if (typeof ref === "object") {
+    const id = ref._id ?? ref.id;
+    return id != null && id !== "" ? String(id) : "";
+  }
+  return String(ref);
+};
+
+const getRefName = (ref) => {
+  if (ref != null && typeof ref === "object" && ref.name) {
+    return String(ref.name).trim();
+  }
+  return "";
 };
 
 const getCatalogProductAttributes = (product) =>
@@ -188,20 +219,28 @@ const combinationMatchesSelections = (combo, selections = {}) => {
   );
 };
 
-const getVariantCombinationLabel = (combo) =>
-  [getVariantComboDisplay(combo), combo?.variantCode]
+const getVariantCombinationTitle = (combo, productName = "") => {
+  const name = String(productName || "").trim();
+  const variants = getVariantComboDisplay(combo);
+  return [name, variants].filter(Boolean).join(" ");
+};
+
+const getVariantCombinationLabel = (combo, productName = "") =>
+  [getVariantCombinationTitle(combo, productName), combo?.variantCode]
     .filter(Boolean)
     .join(" · ");
 
-const rankVariantCombinationMatch = (combo, term) => {
+const rankVariantCombinationMatch = (combo, term, productName = "") => {
   if (!term) return 0;
-  const label = getVariantCombinationLabel(combo).toLowerCase();
+  const label = getVariantCombinationLabel(combo, productName).toLowerCase();
+  const title = getVariantCombinationTitle(combo, productName).toLowerCase();
   const display = getVariantComboDisplay(combo).toLowerCase();
   const code = String(combo?.variantCode || "").toLowerCase();
-  if (label === term || code === term) return 100;
-  if (label.startsWith(term) || code.startsWith(term)) return 85;
+  if (label === term || code === term || title === term) return 100;
+  if (label.startsWith(term) || code.startsWith(term) || title.startsWith(term))
+    return 85;
   if (display.startsWith(term)) return 75;
-  if (label.includes(term)) return 60;
+  if (label.includes(term) || title.includes(term)) return 60;
   const words = term.split(/\s+/).filter(Boolean);
   if (words.length > 0 && words.every((word) => label.includes(word))) {
     return 45;
@@ -213,13 +252,14 @@ const getTopVariantCombinationMatches = (
   combinations,
   searchTerm,
   limit = 3,
+  productName = "",
 ) => {
   const term = searchTerm.trim().toLowerCase();
   if (!term) return [];
   return combinations
     .map((combo) => ({
       combo,
-      score: rankVariantCombinationMatch(combo, term),
+      score: rankVariantCombinationMatch(combo, term, productName),
     }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score)
@@ -261,6 +301,9 @@ const INITIAL_PRODUCT = {
   groupId: "",
   categoryId: "",
   subcategoryId: "",
+  /** Denormalized labels so the products table can show names without a lookup race. */
+  groupName: "",
+  categoryName: "",
   isNewProduct: true,
   images: [],
   /** Set when the row was prefilled from an existing `query_new_product` (skip re-create on save). */
@@ -270,8 +313,43 @@ const INITIAL_PRODUCT = {
 const STEPS = [
   { id: 1, label: "Company Information" },
   { id: 2, label: "Products" },
-  { id: 3, label: "Preview" },
+  { id: 3, label: "Query Settings" },
+  { id: 4, label: "Preview" },
 ];
+
+const QUERY_REFERENCE_HOD = "hod_directly_received";
+
+const QUERY_RECEIVED_BY_OPTIONS = [
+  { value: "mail", label: "Mail" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "other", label: "Other" },
+];
+
+const formatLocalDateYmd = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const getDefaultQuotationDate = () => formatLocalDateYmd(new Date());
+
+const getDefaultFollowUpDate = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 2);
+  return formatLocalDateYmd(d);
+};
+
+/** Normalize API Date / ISO string to YYYY-MM-DD for date inputs. */
+const toDateInputValue = (value) => {
+  if (value == null || value === "") return "";
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+    return value.slice(0, 10);
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return formatLocalDateYmd(d);
+};
 
 const DRAFT_STORAGE_KEY = "migticrm_query_draft";
 const MAX_PRODUCT_IMAGES = 3;
@@ -319,6 +397,11 @@ const QueryForm = () => {
     category: "",
   });
   const [queryReferenceBy, setQueryReferenceBy] = useState("");
+  const [queryReceivedBy, setQueryReceivedBy] = useState("");
+  const [quotationDate, setQuotationDate] = useState(getDefaultQuotationDate);
+  const [followUpDate, setFollowUpDate] = useState(getDefaultFollowUpDate);
+  const [salesEmployees, setSalesEmployees] = useState([]);
+  const [salesEmployeesLoading, setSalesEmployeesLoading] = useState(false);
   const [areas, setAreas] = useState([]);
   const [querySubZones, setQuerySubZones] = useState([]);
   const [allSubZones, setAllSubZones] = useState([]);
@@ -360,6 +443,8 @@ const QueryForm = () => {
   const [allTableCategories, setAllTableCategories] = useState([]);
   /** categoryId (string) -> name for rows not in allTableCategories / productCategories (e.g. subcategories) */
   const [categoryNameById, setCategoryNameById] = useState({});
+  /** groupId (string) -> name when group is not in the first page of productGroups */
+  const [groupNameById, setGroupNameById] = useState({});
 
   const {
     register: registerProductQuantityField,
@@ -440,9 +525,23 @@ const QueryForm = () => {
       if (typeof draft.queryReferenceBy === "string") {
         setQueryReferenceBy(draft.queryReferenceBy);
       }
+      if (typeof draft.queryReceivedBy === "string") {
+        setQueryReceivedBy(draft.queryReceivedBy);
+      }
+      if (typeof draft.quotationDate === "string" && draft.quotationDate) {
+        setQuotationDate(toDateInputValue(draft.quotationDate));
+      }
+      if (typeof draft.followUpDate === "string" && draft.followUpDate) {
+        setFollowUpDate(toDateInputValue(draft.followUpDate));
+      }
       if (draft.industryId) setIndustryId(draft.industryId);
-      if (typeof draft.currentStep === "number")
-        setCurrentStep(draft.currentStep);
+      if (typeof draft.currentStep === "number") {
+        const step = Math.min(
+          Math.max(1, draft.currentStep),
+          STEPS.length,
+        );
+        setCurrentStep(step);
+      }
       if (typeof draft.industrySearch === "string")
         setIndustrySearch(draft.industrySearch);
       if (Array.isArray(draft.products)) setProducts(draft.products);
@@ -452,25 +551,80 @@ const QueryForm = () => {
   }, [isEdit]);
 
   useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setSalesEmployeesLoading(true);
+      try {
+        const merged = [];
+        let page = 1;
+        let hasNext = true;
+        while (hasNext && page <= 40 && !cancelled) {
+          const res = await employeeService.getAll({
+            pageNumber: page,
+            pageSize: 100,
+            rolePrefix: "sales",
+          });
+          const payload = res?.data?.data ?? res?.data ?? res;
+          const batch = payload?.employees ?? [];
+          merged.push(...batch);
+          hasNext = !!payload?.pagination?.hasNextPage;
+          page += 1;
+        }
+        if (!cancelled) {
+          const withEmail = merged.filter((e) =>
+            String(e?.email || "").trim(),
+          );
+          setSalesEmployees(withEmail);
+        }
+      } catch {
+        if (!cancelled) setSalesEmployees([]);
+      } finally {
+        if (!cancelled) setSalesEmployeesLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
     const fetchAreas = async () => {
       try {
         const res = await areaService.getAll({ pageSize: 100 });
         const data = res?.data || res;
-        setAreas(data?.areas || []);
+        if (!cancelled) setAreas(data?.areas || []);
       } catch {
-        setAreas([]);
+        if (!cancelled) setAreas([]);
       }
     };
     fetchAreas();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      const merged = [];
+      const pageSize = 100;
       try {
-        const res = await groupService.getAll({ pageNumber: 1, pageSize: 100 });
-        const data = res?.data || res;
-        if (!cancelled) setProductGroups(data?.groups || []);
+        let page = 1;
+        let hasMore = true;
+        while (hasMore && !cancelled) {
+          const res = await groupService.getAll({
+            pageNumber: page,
+            pageSize,
+          });
+          const data = res?.data || res;
+          const list = data?.groups || [];
+          merged.push(...list);
+          if (list.length < pageSize) hasMore = false;
+          else page += 1;
+        }
+        if (!cancelled) setProductGroups(merged);
       } catch {
         if (!cancelled) setProductGroups([]);
       }
@@ -523,6 +677,7 @@ const QueryForm = () => {
       const c = p?.categoryId;
       if (c == null || c === "") continue;
       if (typeof c === "object" && c?.name) continue;
+      if (p?.categoryName) continue;
       const sid = String(typeof c === "object" && c?._id ? c._id : c).trim();
       if (!/^[a-f0-9]{24}$/i.test(sid)) continue;
       if (inLists(sid)) continue;
@@ -570,6 +725,56 @@ const QueryForm = () => {
       cancelled = true;
     };
   }, [products, allTableCategories, productCategories, categoryNameById]);
+
+  /** Resolve group labels for product rows when id is not in productGroups. */
+  useEffect(() => {
+    const ids = new Set();
+    for (const p of products) {
+      if (p?.groupName) continue;
+      const g = p?.groupId;
+      if (g == null || g === "") continue;
+      if (typeof g === "object" && g?.name) continue;
+      const sid = getRefId(g);
+      if (!/^[a-f0-9]{24}$/i.test(sid)) continue;
+      if (productGroups.some((x) => String(x._id || x.id) === sid)) continue;
+      if (groupNameById[sid]) continue;
+      ids.add(sid);
+    }
+    // Also resolve form product while editing/adding
+    if (!formProduct.groupName && formProduct.groupId) {
+      const sid = getRefId(formProduct.groupId);
+      if (
+        /^[a-f0-9]{24}$/i.test(sid) &&
+        !productGroups.some((x) => String(x._id || x.id) === sid) &&
+        !groupNameById[sid]
+      ) {
+        ids.add(sid);
+      }
+    }
+    if (ids.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const updates = {};
+      await Promise.all(
+        [...ids].map(async (sid) => {
+          try {
+            const res = await groupService.getById(sid);
+            const data = res?.data || res;
+            const group = data?.data ?? data;
+            if (group?.name) updates[sid] = group.name;
+          } catch {
+            // ignore
+          }
+        }),
+      );
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setGroupNameById((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [products, productGroups, groupNameById, formProduct.groupId, formProduct.groupName]);
 
   useEffect(() => {
     let cancelled = false;
@@ -623,6 +828,9 @@ const QueryForm = () => {
       const draft = {
         companyInfo,
         queryReferenceBy,
+        queryReceivedBy,
+        quotationDate,
+        followUpDate,
         industryId,
         industrySearch,
         products,
@@ -635,6 +843,9 @@ const QueryForm = () => {
   }, [
     companyInfo,
     queryReferenceBy,
+    queryReceivedBy,
+    quotationDate,
+    followUpDate,
     industryId,
     industrySearch,
     products,
@@ -700,11 +911,32 @@ const QueryForm = () => {
     return () => clearTimeout(t);
   }, [catalogProductSearch, fetchCatalogProductSearch]);
 
-  const loadContactPersonsForIndustry = (indId) => {
-    const linked = bpDummy
-      .listContactPersons({ parentType: "industry" })
-      .filter((cp) => cp.mappedId === indId && cp.status !== "inactive");
-    setContactPersons(linked.map((cp) => ({ ...cp, selected: true })));
+  const loadContactPersonsForIndustry = async (indId) => {
+    if (!indId) {
+      setContactPersons([]);
+      return;
+    }
+    try {
+      const res = await industryContactPersonService.getAll({
+        pageNumber: 1,
+        pageSize: 1000,
+        industryId: indId,
+        status: "active",
+      });
+      const data = res?.data ?? res;
+      const list =
+        data?.contactPersons ?? data?.data?.contactPersons ?? [];
+      setContactPersons(
+        (Array.isArray(list) ? list : []).map((cp) => ({
+          ...cp,
+          id: cp._id || cp.id,
+          selected: true,
+        })),
+      );
+    } catch (err) {
+      console.error("Failed to load contact persons", err);
+      setContactPersons([]);
+    }
   };
 
   const handleSelectIndustry = async (industry) => {
@@ -715,7 +947,7 @@ const QueryForm = () => {
         (industry.location ? ` (${industry.location})` : ""),
     );
     setIndustryDropdownOpen(false);
-    loadContactPersonsForIndustry(indId);
+    await loadContactPersonsForIndustry(indId);
     setClientCode(bpDummy.getOrCreateCode("industry", indId));
     setClientOverlay(bpDummy.getOverlay("industry", indId));
     try {
@@ -772,6 +1004,9 @@ const QueryForm = () => {
     setClientOverlay(null);
     setClientRealFields({ gstNumber: "", category: "" });
     setQueryReferenceBy("");
+    setQueryReceivedBy("");
+    setQuotationDate(getDefaultQuotationDate());
+    setFollowUpDate(getDefaultFollowUpDate());
   };
 
   const resetCatalogVariantState = () => {
@@ -791,12 +1026,44 @@ const QueryForm = () => {
       const res = await productService.getById(productId);
       const detail = res?.data?.data ?? res?.data ?? res;
       setCatalogProductDetail(detail || null);
+      if (detail) {
+        const activeCombos = (detail.variantCombinations || []).filter(
+          (combo) => combo?.isActive !== false,
+        );
+        setFormProduct((prev) => {
+          if (String(prev.product_id || "") !== String(productId)) return prev;
+          const currentCode = String(prev.rawProductCode || "").trim();
+          const baseCode = String(
+            detail.productCode || prev.productCode || "",
+          ).trim();
+          // If this catalog product has combinations, do not keep base product code
+          // as rawProductCode — wait for the selected combination code.
+          const nextRaw =
+            activeCombos.length > 0 && currentCode && currentCode === baseCode
+              ? ""
+              : activeCombos.length > 0 && !currentCode
+                ? ""
+                : activeCombos.length === 0 && !currentCode
+                  ? baseCode
+                  : prev.rawProductCode;
+          return {
+            ...prev,
+            productCode: detail.productCode || prev.productCode,
+            rawProductCode: nextRaw,
+            groupId: getRefId(detail.group) || prev.groupId,
+            categoryId: getRefId(detail.category) || prev.categoryId,
+            subcategoryId: getRefId(detail.subcategory) || prev.subcategoryId,
+            groupName: getRefName(detail.group) || prev.groupName,
+            categoryName: getRefName(detail.category) || prev.categoryName,
+          };
+        });
+      }
     } catch {
       setCatalogProductDetail(null);
     }
   };
 
-  const applyVariantCombinationToForm = useCallback((combo) => {
+  const applyVariantCombinationToForm = useCallback((combo, productName = "") => {
     if (!combo) return;
     const imageDocs = mapProductImageDocs(combo.images);
     const selections = {};
@@ -805,14 +1072,18 @@ const QueryForm = () => {
         selections[option.variantName] = option.variantValue || "";
       }
     });
+    const combinationCode = String(combo.variantCode || "").trim();
     setCatalogVariantSelections(selections);
     setSelectedVariantCombinationId(String(combo._id || ""));
-    setVariantCombinationSearch(getVariantCombinationLabel(combo));
+    setVariantCombinationSearch(
+      getVariantCombinationLabel(combo, productName),
+    );
     setVariantCombinationDropdownOpen(false);
     setFormProduct((prev) => ({
       ...prev,
       variants: [{ variantName: getVariantComboDisplay(combo) }],
-      rawProductCode: combo.variantCode || prev.rawProductCode,
+      // Always store combination code (not base product code) for tracking.
+      rawProductCode: combinationCode,
       hsnNumber: combo.hsnNumber || prev.hsnNumber,
       modelNumber: combo.modelNumber || prev.modelNumber,
       gstPercentage:
@@ -827,6 +1098,9 @@ const QueryForm = () => {
     if (!product) return;
     const imageDocs = mapProductImageDocs(product.images);
     const productId = product._id || product.id;
+    const mayHaveCombinations =
+      Number(product.variantCombinationCount) > 0 ||
+      (Array.isArray(product.variants) && product.variants.length > 0);
 
     resetCatalogVariantState();
 
@@ -849,15 +1123,15 @@ const QueryForm = () => {
       description: product.shortDescription || "",
       product_id: product._id || null,
       productCode: product.productCode || "",
-      rawProductCode: product.productCode || "",
+      // Combination code is set only after a variant combination is selected.
+      // Do not seed base productCode here when variants exist.
+      rawProductCode: mayHaveCombinations ? "" : product.productCode || "",
       query_tracking_code: "",
-      groupId: (product.group && (product.group._id || product.group)) || "",
-      categoryId:
-        (product.category && (product.category._id || product.category)) || "",
-      subcategoryId:
-        (product.subcategory &&
-          (product.subcategory._id || product.subcategory)) ||
-        "",
+      groupId: getRefId(product.group),
+      categoryId: getRefId(product.category),
+      subcategoryId: getRefId(product.subcategory),
+      groupName: getRefName(product.group),
+      categoryName: getRefName(product.category),
       isNewProduct: false,
       images: imageDocs,
       sourceQueryNewProductId: null,
@@ -903,7 +1177,7 @@ const QueryForm = () => {
     setFormProduct((prev) => ({
       ...prev,
       variants: [],
-      rawProductCode: prev.productCode || prev.rawProductCode,
+      rawProductCode: "",
     }));
   };
 
@@ -914,7 +1188,7 @@ const QueryForm = () => {
       setFormProduct((prev) => ({
         ...prev,
         variants: [],
-        rawProductCode: prev.productCode || prev.rawProductCode,
+        rawProductCode: "",
       }));
       return;
     }
@@ -922,7 +1196,10 @@ const QueryForm = () => {
       (item) => String(item._id) === String(combinationId),
     );
     if (combo) {
-      applyVariantCombinationToForm(combo);
+      applyVariantCombinationToForm(
+        combo,
+        formProduct.productName || catalogProductDetail?.name || "",
+      );
     }
   };
 
@@ -966,6 +1243,14 @@ const QueryForm = () => {
     setProductImageFiles([]);
   };
 
+  const resolveCatalogCombinationCode = () => {
+    if (!selectedVariantCombinationId) return "";
+    const combo = (catalogProductDetail?.variantCombinations || []).find(
+      (item) => String(item._id) === String(selectedVariantCombinationId),
+    );
+    return String(combo?.variantCode || "").trim();
+  };
+
   const saveProduct = async () => {
     if (!formProduct.productName?.trim()) {
       toastError("Product name is required");
@@ -984,12 +1269,33 @@ const QueryForm = () => {
       toastError("Please select a variant combination");
       return;
     }
+    const combinationCode = resolveCatalogCombinationCode();
+    if (
+      !formProduct.isNewProduct &&
+      catalogCombinations.length > 0 &&
+      selectedVariantCombinationId &&
+      !combinationCode
+    ) {
+      toastError("Selected variant combination has no combination code");
+      return;
+    }
     const isQuantityValid = await triggerProductQuantityField("quantity");
     if (!isQuantityValid) {
       return;
     }
     const validatedQuantity = getProductQuantityFormValues("quantity");
-    const productLine = { ...formProduct, quantity: validatedQuantity };
+    const resolvedRawProductCode = combinationCode
+      ? combinationCode
+      : catalogCombinations.length > 0
+        ? ""
+        : String(
+            formProduct.rawProductCode || formProduct.productCode || "",
+          ).trim();
+    const productLine = {
+      ...formProduct,
+      quantity: validatedQuantity,
+      rawProductCode: resolvedRawProductCode,
+    };
     if (requireGroupCategory) {
       if (!String(formProduct.groupId || "").trim()) {
         toastError("Group is required");
@@ -1125,6 +1431,16 @@ const QueryForm = () => {
       toastError("Please select a variant combination");
       return;
     }
+    const combinationCode = resolveCatalogCombinationCode();
+    if (
+      !formProduct.isNewProduct &&
+      catalogCombinations.length > 0 &&
+      selectedVariantCombinationId &&
+      !combinationCode
+    ) {
+      toastError("Selected variant combination has no combination code");
+      return;
+    }
     const isQuantityValid = await triggerProductQuantityField("quantity");
     if (!isQuantityValid) {
       return;
@@ -1155,9 +1471,18 @@ const QueryForm = () => {
       }
     }
 
+    const resolvedRawProductCode = combinationCode
+      ? combinationCode
+      : catalogCombinations.length > 0
+        ? String(formProduct.rawProductCode || "").trim()
+        : String(
+            formProduct.rawProductCode || formProduct.productCode || "",
+          ).trim();
+
     const updatedProduct = {
       ...formProduct,
       quantity: validatedQuantity,
+      rawProductCode: resolvedRawProductCode,
       images: (formProduct.images || [])
         .concat(uploadedDocs)
         .slice(0, MAX_PRODUCT_IMAGES),
@@ -1197,10 +1522,11 @@ const QueryForm = () => {
       productCode: p.productCode || "",
       rawProductCode: p.rawProductCode || "",
       query_tracking_code: p.query_tracking_code || "",
-      groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
-      categoryId: (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
-      subcategoryId:
-        (p.subcategoryId && (p.subcategoryId._id || p.subcategoryId)) || "",
+      groupId: getRefId(p.groupId),
+      categoryId: getRefId(p.categoryId),
+      subcategoryId: getRefId(p.subcategoryId),
+      groupName: p.groupName || getRefName(p.groupId),
+      categoryName: p.categoryName || getRefName(p.categoryId),
       isNewProduct: p.isNewProduct ?? !p.productCode,
       images: p.images || [],
       sourceQueryNewProductId: p.sourceQueryNewProductId || null,
@@ -1214,12 +1540,26 @@ const QueryForm = () => {
         .then((res) => {
           const detail = res?.data?.data ?? res?.data ?? res;
           setCatalogProductDetail(detail || null);
+          if (detail) {
+            setFormProduct((prev) => ({
+              ...prev,
+              groupId: getRefId(detail.group) || prev.groupId,
+              categoryId: getRefId(detail.category) || prev.categoryId,
+              subcategoryId:
+                getRefId(detail.subcategory) || prev.subcategoryId,
+              groupName: getRefName(detail.group) || prev.groupName,
+              categoryName: getRefName(detail.category) || prev.categoryName,
+            }));
+          }
           const variantCode = String(p.rawProductCode || "").trim();
           const combo = (detail?.variantCombinations || []).find(
             (item) => String(item.variantCode || "").trim() === variantCode,
           );
           if (combo) {
-            applyVariantCombinationToForm(combo);
+            applyVariantCombinationToForm(
+              combo,
+              p.productName || detail?.name || "",
+            );
           }
         })
         .catch(() => setCatalogProductDetail(null));
@@ -1380,8 +1720,20 @@ const QueryForm = () => {
           purchaseManagers,
         });
         setQueryReferenceBy(q.queryReferenceBy || "");
+        setQueryReceivedBy(q.queryReceivedBy || "");
+        setQuotationDate(
+          toDateInputValue(q.quotationDate) || getDefaultQuotationDate(),
+        );
+        setFollowUpDate(
+          toDateInputValue(q.followUpDate) || getDefaultFollowUpDate(),
+        );
         setIndustryId(queryIndustryId);
         setIndustrySearch(q.industry_id?.name || ci.name || "");
+        if (queryIndustryId) {
+          await loadContactPersonsForIndustry(queryIndustryId);
+        } else {
+          setContactPersons([]);
+        }
 
         const prods = q.products?.length
           ? q.products.map((p) => ({
@@ -1405,12 +1757,11 @@ const QueryForm = () => {
                 "",
               rawProductCode: p.rawProductCode || "",
               query_tracking_code: p.query_tracking_code || "",
-              groupId: (p.groupId && (p.groupId._id || p.groupId)) || "",
-              categoryId:
-                (p.categoryId && (p.categoryId._id || p.categoryId)) || "",
-              subcategoryId:
-                (p.subcategoryId && (p.subcategoryId._id || p.subcategoryId)) ||
-                "",
+              groupId: getRefId(p.groupId),
+              categoryId: getRefId(p.categoryId),
+              subcategoryId: getRefId(p.subcategoryId),
+              groupName: getRefName(p.groupId),
+              categoryName: getRefName(p.categoryId),
               isNewProduct: p.isNewProduct ?? !p.productCode,
               images: Array.isArray(p.images) ? p.images : [],
               sourceQueryNewProductId: p.sourceQueryNewProductId || null,
@@ -1493,6 +1844,27 @@ const QueryForm = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleNextFromQuerySettings = () => {
+    if (!String(queryReferenceBy || "").trim()) {
+      toastError("Query reference by is required");
+      return;
+    }
+    if (!String(queryReceivedBy || "").trim()) {
+      toastError("Query received by is required");
+      return;
+    }
+    if (!String(quotationDate || "").trim()) {
+      toastError("Quotation date is required");
+      return;
+    }
+    if (!String(followUpDate || "").trim()) {
+      toastError("Follow-up date is required");
+      return;
+    }
+    goToStep(4);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const openImagesModal = (product) => {
     const urls = (product?.images || [])
       .map((img) => (typeof img === "string" ? img : img?.path || ""))
@@ -1565,17 +1937,25 @@ const QueryForm = () => {
     return `${match.subZoneCode ? `${match.subZoneCode} — ` : ""}${match.name || ""}`;
   };
 
-  const resolveGroupName = (id) => {
+  const resolveGroupName = (id, fallbackName = "") => {
+    if (fallbackName && String(fallbackName).trim()) {
+      return String(fallbackName).trim();
+    }
     if (id != null && typeof id === "object" && id?.name) return id.name;
     if (id == null || id === "") return "–";
-    const sid = String(typeof id === "object" && id?._id ? id._id : id);
+    const sid = getRefId(id);
     const g = productGroups.find((x) => String(x._id || x.id) === sid);
-    return g?.name || "–";
+    if (g?.name) return g.name;
+    if (groupNameById[sid]) return groupNameById[sid];
+    return "–";
   };
-  const resolveCategoryName = (id) => {
+  const resolveCategoryName = (id, fallbackName = "") => {
+    if (fallbackName && String(fallbackName).trim()) {
+      return String(fallbackName).trim();
+    }
     if (id != null && typeof id === "object" && id?.name) return id.name;
     if (id == null || id === "") return "–";
-    const sid = String(typeof id === "object" && id?._id ? id._id : id);
+    const sid = getRefId(id);
     if (!sid) return "–";
     const c =
       allTableCategories.find((x) => String(x._id || x.id) === sid) ||
@@ -1587,7 +1967,7 @@ const QueryForm = () => {
   const resolveSubcategoryName = (id) => {
     if (id != null && typeof id === "object" && id?.name) return id.name;
     if (id == null || id === "") return "–";
-    const sid = String(typeof id === "object" && id?._id ? id._id : id);
+    const sid = getRefId(id);
     if (!sid) return "–";
     const s = productSubcategories.find((x) => String(x._id || x.id) === sid);
     if (s?.name) return s.name;
@@ -1599,6 +1979,31 @@ const QueryForm = () => {
     if (stepId < currentStep) return "completed";
     if (stepId === currentStep) return "active";
     return "upcoming";
+  };
+
+  const formatQueryReferenceByLabel = (value) => {
+    const v = String(value || "")
+      .trim()
+      .toLowerCase();
+    if (!v) return "—";
+    if (v === QUERY_REFERENCE_HOD) return "HOD Directly Received";
+    const emp = salesEmployees.find(
+      (e) => String(e.email || "").trim().toLowerCase() === v,
+    );
+    if (emp) {
+      const name = String(emp.name || "").trim();
+      const email = String(emp.email || "").trim();
+      return name ? `${name} (${email})` : email || v;
+    }
+    return String(value).trim() || "—";
+  };
+
+  const formatQueryReceivedByLabel = (value) => {
+    const v = String(value || "")
+      .trim()
+      .toLowerCase();
+    const match = QUERY_RECEIVED_BY_OPTIONS.find((o) => o.value === v);
+    return match?.label || (v ? v : "—");
   };
 
   const handleSubmit = async (e) => {
@@ -1644,6 +2049,22 @@ const QueryForm = () => {
       toastError(
         "Add at least one product using the form above, then use Add to query.",
       );
+      return;
+    }
+    if (!String(queryReferenceBy || "").trim()) {
+      toastError("Query reference by is required");
+      return;
+    }
+    if (!String(queryReceivedBy || "").trim()) {
+      toastError("Query received by is required");
+      return;
+    }
+    if (!String(quotationDate || "").trim()) {
+      toastError("Quotation date is required");
+      return;
+    }
+    if (!String(followUpDate || "").trim()) {
+      toastError("Follow-up date is required");
       return;
     }
     for (let i = 0; i < products.length; i++) {
@@ -1700,6 +2121,11 @@ const QueryForm = () => {
         queryReferenceBy: String(queryReferenceBy || "")
           .trim()
           .toLowerCase(),
+        queryReceivedBy: String(queryReceivedBy || "")
+          .trim()
+          .toLowerCase(),
+        quotationDate: String(quotationDate || "").trim() || null,
+        followUpDate: String(followUpDate || "").trim() || null,
         products: products
           .map((p) => ({
             productName: p.productName?.trim() || "",
@@ -1778,6 +2204,7 @@ const QueryForm = () => {
     filteredCatalogCombinations,
     variantCombinationSearch,
     3,
+    formProduct.productName || catalogProductDetail?.name || "",
   );
   const catalogHasVariantCombinations =
     isCatalogProductForm &&
@@ -1794,7 +2221,10 @@ const QueryForm = () => {
       combinationMatchesSelections(combo, catalogVariantSelections),
     );
     if (matches.length === 1) {
-      applyVariantCombinationToForm(matches[0]);
+      applyVariantCombinationToForm(
+        matches[0],
+        formProduct.productName || catalogProductDetail?.name || "",
+      );
     }
   }, [
     activeCatalogCombinations,
@@ -1803,6 +2233,7 @@ const QueryForm = () => {
     catalogProductAttributes,
     catalogProductDetail,
     catalogVariantSelections,
+    formProduct.productName,
     selectedVariantCombinationId,
   ]);
 
@@ -1937,6 +2368,9 @@ const QueryForm = () => {
                         }
                         setCompanyInfo({ ...INITIAL_COMPANY });
                         setQueryReferenceBy("");
+                        setQueryReceivedBy("");
+                        setQuotationDate(getDefaultQuotationDate());
+                        setFollowUpDate(getDefaultFollowUpDate());
                         setIndustryId(null);
                         setIndustrySearch("");
                         setContactPersons([]);
@@ -2445,21 +2879,31 @@ const QueryForm = () => {
                             </Label>
                             {isCatalogProductForm ? (
                               <Input
-                                value={resolveGroupName(formProduct.groupId)}
+                                value={resolveGroupName(
+                                  formProduct.groupId,
+                                  formProduct.groupName,
+                                )}
                                 readOnly
                                 className="bg-muted"
                               />
                             ) : (
                               <Select
                                 value={formProduct.groupId || ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const nextId = e.target.value;
+                                  const selected = productGroups.find(
+                                    (g) =>
+                                      String(g._id || g.id) === String(nextId),
+                                  );
                                   setFormProduct((prev) => ({
                                     ...prev,
-                                    groupId: e.target.value,
+                                    groupId: nextId,
+                                    groupName: selected?.name || "",
                                     categoryId: "",
+                                    categoryName: "",
                                     subcategoryId: "",
-                                  }))
-                                }
+                                  }));
+                                }}
                                 aria-label="Group"
                                 aria-required={requireGroupCategory}
                               >
@@ -2487,6 +2931,7 @@ const QueryForm = () => {
                               <Input
                                 value={resolveCategoryName(
                                   formProduct.categoryId,
+                                  formProduct.categoryName,
                                 )}
                                 readOnly
                                 className="bg-muted"
@@ -2494,13 +2939,26 @@ const QueryForm = () => {
                             ) : (
                               <Select
                                 value={formProduct.categoryId || ""}
-                                onChange={(e) =>
+                                onChange={(e) => {
+                                  const nextId = e.target.value;
+                                  const selected =
+                                    productCategories.find(
+                                      (c) =>
+                                        String(c._id || c.id) ===
+                                        String(nextId),
+                                    ) ||
+                                    allTableCategories.find(
+                                      (c) =>
+                                        String(c._id || c.id) ===
+                                        String(nextId),
+                                    );
                                   setFormProduct((prev) => ({
                                     ...prev,
-                                    categoryId: e.target.value,
+                                    categoryId: nextId,
+                                    categoryName: selected?.name || "",
                                     subcategoryId: "",
-                                  }))
-                                }
+                                  }));
+                                }}
                                 aria-label="Category"
                                 aria-required={requireGroupCategory}
                                 disabled={
@@ -2751,8 +3209,7 @@ const QueryForm = () => {
                                     setFormProduct((prev) => ({
                                       ...prev,
                                       variants: [],
-                                      rawProductCode:
-                                        prev.productCode || prev.rawProductCode,
+                                      rawProductCode: "",
                                     }));
                                   }}
                                   onFocus={() =>
@@ -2801,8 +3258,11 @@ const QueryForm = () => {
                                                 }}
                                               >
                                                 <div className="font-semibold">
-                                                  {getVariantComboDisplay(
+                                                  {getVariantCombinationTitle(
                                                     combo,
+                                                    formProduct.productName ||
+                                                      catalogProductDetail?.name ||
+                                                      "",
                                                   ) || "—"}
                                                 </div>
                                                 {combo.variantCode ? (
@@ -3181,13 +3641,10 @@ const QueryForm = () => {
                             <TableHead>Product name</TableHead>
                             <TableHead>Group</TableHead>
                             <TableHead>Category</TableHead>
-                            <TableHead>Subcategory</TableHead>
                             <TableHead>Quantity</TableHead>
                             <TableHead>Unit</TableHead>
-                            <TableHead>Variants</TableHead>
                             <TableHead>HSN Number</TableHead>
                             <TableHead>GST %</TableHead>
-                            <TableHead>Description</TableHead>
                             <TableHead>Remark</TableHead>
                             <TableHead>Images</TableHead>
                             <TableHead className="text-right">
@@ -3199,25 +3656,20 @@ const QueryForm = () => {
                           {products.map((p, index) => (
                             <TableRow key={index}>
                               <TableCell>{index + 1}</TableCell>
-                              <TableCell>{p.productName || "–"}</TableCell>
-                              <TableCell className="break-words text-sm">
-                                {resolveGroupName(p.groupId)}
+                              <TableCell className="break-words">
+                                {getProductDisplayName(p)}
                               </TableCell>
                               <TableCell className="break-words text-sm">
-                                {resolveCategoryName(p.categoryId)}
+                                {resolveGroupName(p.groupId, p.groupName)}
                               </TableCell>
                               <TableCell className="break-words text-sm">
-                                {resolveSubcategoryName(p.subcategoryId)}
+                                {resolveCategoryName(
+                                  p.categoryId,
+                                  p.categoryName,
+                                )}
                               </TableCell>
                               <TableCell>{p.quantity ?? "–"}</TableCell>
                               <TableCell>{p.unit || "–"}</TableCell>
-                              <TableCell>
-                                {(p.variants || []).length > 0
-                                  ? (p.variants || [])
-                                      .map((v) => v.variantName || "–")
-                                      .join(", ")
-                                  : "–"}
-                              </TableCell>
                               <TableCell className="text-sm">
                                 {p.hsnNumber || "–"}
                               </TableCell>
@@ -3225,10 +3677,6 @@ const QueryForm = () => {
                                 {typeof p.gstPercentage === "number"
                                   ? `${p.gstPercentage}%`
                                   : "–"}
-                              </TableCell>
-                              <TableCell>
-                                {(p.description || "").slice(0, 40)}
-                                {(p.description || "").length > 40 ? "…" : ""}
                               </TableCell>
                               <TableCell>
                                 {(p.remark || "").slice(0, 40)}
@@ -3276,7 +3724,7 @@ const QueryForm = () => {
                 Back to Company
               </Button>
               <Button type="button" onClick={handleNextFromProducts}>
-                Next: Preview
+                Next: Query Settings
               </Button>
             </div>
           </>
@@ -3284,10 +3732,129 @@ const QueryForm = () => {
 
         {currentStep === 3 && (
           <>
-            {/* 3. Preview */}
             <Card className="mb-4">
               <CardHeader>
-                <CardTitle>3. Preview</CardTitle>
+                <CardTitle>3. Query Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="p-6 pt-0">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>
+                      Query reference by
+                      <span className="text-destructive"> *</span>
+                    </Label>
+                    <Select
+                      value={queryReferenceBy || ""}
+                      onChange={(e) => setQueryReferenceBy(e.target.value)}
+                      aria-label="Query reference by"
+                      aria-required
+                      disabled={salesEmployeesLoading}
+                    >
+                      <option value="">
+                        {salesEmployeesLoading
+                          ? "Loading options…"
+                          : "Select reference…"}
+                      </option>
+                      <option value={QUERY_REFERENCE_HOD}>
+                        HOD Directly Received
+                      </option>
+                      {queryReferenceBy &&
+                        queryReferenceBy !== QUERY_REFERENCE_HOD &&
+                        !salesEmployees.some(
+                          (emp) =>
+                            String(emp.email || "")
+                              .trim()
+                              .toLowerCase() ===
+                            String(queryReferenceBy).trim().toLowerCase(),
+                        ) && (
+                          <option value={queryReferenceBy}>
+                            {queryReferenceBy}
+                          </option>
+                        )}
+                      {salesEmployees.map((emp) => {
+                        const email = String(emp.email || "")
+                          .trim()
+                          .toLowerCase();
+                        if (!email) return null;
+                        const name = String(emp.name || "").trim();
+                        return (
+                          <option key={emp._id || email} value={email}>
+                            {name ? `${name} (${email})` : email}
+                          </option>
+                        );
+                      })}
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>
+                      Query received by
+                      <span className="text-destructive"> *</span>
+                    </Label>
+                    <Select
+                      value={queryReceivedBy || ""}
+                      onChange={(e) => setQueryReceivedBy(e.target.value)}
+                      aria-label="Query received by"
+                      aria-required
+                    >
+                      <option value="">Select channel…</option>
+                      {QUERY_RECEIVED_BY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>
+                      Quotation date
+                      <span className="text-destructive"> *</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      value={quotationDate || ""}
+                      onChange={(e) => setQuotationDate(e.target.value)}
+                      aria-label="Quotation date"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>
+                      Follow-up date
+                      <span className="text-destructive"> *</span>
+                    </Label>
+                    <Input
+                      type="date"
+                      value={followUpDate || ""}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      aria-label="Follow-up date"
+                      required
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="mb-4 flex justify-between">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => goToStep(2)}
+              >
+                Back to Products
+              </Button>
+              <Button type="button" onClick={handleNextFromQuerySettings}>
+                Next: Preview
+              </Button>
+            </div>
+          </>
+        )}
+
+        {currentStep === 4 && (
+          <>
+            {/* 4. Preview */}
+            <Card className="mb-4">
+              <CardHeader>
+                <CardTitle>4. Preview</CardTitle>
               </CardHeader>
               <CardContent className="p-6 pt-0">
                 <h6 className="mb-3 border-b border-border pb-2 text-sm font-semibold uppercase text-muted-foreground">
@@ -3333,6 +3900,24 @@ const QueryForm = () => {
                     <span style={{ whiteSpace: "pre-wrap" }}>
                       {companyInfo.shippingAddress?.trim() || "—"}
                     </span>
+                  </QueryFormDetailField>
+                </div>
+
+                <h6 className="mb-3 border-b border-border pb-2 text-sm font-semibold uppercase text-muted-foreground">
+                  Query settings
+                </h6>
+                <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <QueryFormDetailField label="Query reference by">
+                    {formatQueryReferenceByLabel(queryReferenceBy)}
+                  </QueryFormDetailField>
+                  <QueryFormDetailField label="Query received by">
+                    {formatQueryReceivedByLabel(queryReceivedBy)}
+                  </QueryFormDetailField>
+                  <QueryFormDetailField label="Quotation date">
+                    {quotationDate || "—"}
+                  </QueryFormDetailField>
+                  <QueryFormDetailField label="Follow-up date">
+                    {followUpDate || "—"}
                   </QueryFormDetailField>
                 </div>
 
@@ -3393,15 +3978,10 @@ const QueryForm = () => {
                           <TableHead>Product</TableHead>
                           <TableHead>Group</TableHead>
                           <TableHead>Category</TableHead>
-                          <TableHead>Subcategory</TableHead>
                           <TableHead className="text-right">Qty</TableHead>
                           <TableHead>Unit</TableHead>
-                          <TableHead>Variants</TableHead>
                           <TableHead>HSN</TableHead>
                           <TableHead className="text-right">GST %</TableHead>
-                          <TableHead style={{ minWidth: 180 }}>
-                            Description
-                          </TableHead>
                           <TableHead style={{ minWidth: 140 }}>
                             Remark
                           </TableHead>
@@ -3415,28 +3995,21 @@ const QueryForm = () => {
                               {index + 1}
                             </TableCell>
                             <TableCell className="break-words font-medium">
-                              {p.productName || "—"}
+                              {getProductDisplayName(p)}
                             </TableCell>
                             <TableCell className="break-words text-sm">
-                              {resolveGroupName(p.groupId)}
+                              {resolveGroupName(p.groupId, p.groupName)}
                             </TableCell>
                             <TableCell className="break-words text-sm">
-                              {resolveCategoryName(p.categoryId)}
-                            </TableCell>
-                            <TableCell className="break-words text-sm">
-                              {resolveSubcategoryName(p.subcategoryId)}
+                              {resolveCategoryName(
+                                p.categoryId,
+                                p.categoryName,
+                              )}
                             </TableCell>
                             <TableCell className="whitespace-nowrap text-right">
                               {p.quantity ?? "—"}
                             </TableCell>
                             <TableCell>{p.unit || "—"}</TableCell>
-                            <TableCell className="break-words text-sm">
-                              {(p.variants || []).length > 0
-                                ? (p.variants || [])
-                                    .map((v) => v.variantName || "—")
-                                    .join(", ")
-                                : "—"}
-                            </TableCell>
                             <TableCell className="break-words text-sm">
                               {p.hsnNumber || "—"}
                             </TableCell>
@@ -3444,12 +4017,6 @@ const QueryForm = () => {
                               {typeof p.gstPercentage === "number"
                                 ? `${p.gstPercentage}%`
                                 : "—"}
-                            </TableCell>
-                            <TableCell
-                              className="break-words text-sm"
-                              style={{ whiteSpace: "pre-wrap" }}
-                            >
-                              {p.description?.trim() || "—"}
                             </TableCell>
                             <TableCell
                               className="break-words text-sm"
@@ -3471,9 +4038,9 @@ const QueryForm = () => {
               <Button
                 variant="secondary"
                 type="button"
-                onClick={() => goToStep(2)}
+                onClick={() => goToStep(3)}
               >
-                Back to Products
+                Back to Query Settings
               </Button>
               <Button type="submit" disabled={submitting}>
                 {submitting && <Spinner size="sm" className="mr-2" />}

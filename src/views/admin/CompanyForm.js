@@ -6,14 +6,13 @@ import * as yup from "yup";
 import { ArrowLeft } from "lucide-react";
 import { gstinOptional, urlOptional, MSG } from "../../utils/validation";
 import companyService from "../../services/companyService";
-import { Loader, CrudFormPage, FormField, StatusBadge } from "../../components";
+import { Loader, CrudFormPage, FormField, StatusToggle } from "../../components";
 import {
   Button,
   Alert,
   AlertDescription,
   Input,
   Textarea,
-  Switch,
   Spinner,
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -309,15 +308,14 @@ const CompanyForm = () => {
               control={control}
               defaultValue={true}
               render={({ field: { value, onChange, onBlur } }) => (
-                <div className="flex h-9 items-center gap-3">
-                  <Switch
-                    id="company-isActive"
-                    checked={Boolean(value)}
-                    onCheckedChange={(checked) => onChange(checked)}
-                    onBlur={onBlur}
-                  />
-                  <StatusBadge status={value ? "Active" : "Inactive"} />
-                </div>
+                <StatusToggle
+                  id="company-isActive"
+                  checked={Boolean(value)}
+                  onCheckedChange={onChange}
+                  onBlur={onBlur}
+                  aria-label="Company status"
+                  className="h-9 gap-3"
+                />
               )}
             />
           </FormField>

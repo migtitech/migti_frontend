@@ -8,20 +8,23 @@ import { Label } from "../ui";
  * presentation moved to the shadcn design system.
  */
 const FormField = ({ label, required, helper, error, children, htmlFor }) => (
-  <div className="space-y-1.5">
+  <div className="space-y-2">
     {label && (
-      <Label htmlFor={htmlFor} className="flex items-center gap-1">
+      <Label
+        htmlFor={htmlFor}
+        className="flex items-center gap-1 text-[0.8125rem] font-medium text-foreground"
+      >
         {label}
         {required && <span className="text-destructive">*</span>}
       </Label>
     )}
     {children}
     {error ? (
-      <p className="text-sm text-destructive" role="alert">
+      <p className="text-xs text-destructive" role="alert">
         {error}
       </p>
     ) : helper ? (
-      <p className="text-sm text-muted-foreground">{helper}</p>
+      <p className="text-xs text-muted-foreground">{helper}</p>
     ) : null}
   </div>
 );

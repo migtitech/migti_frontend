@@ -14,7 +14,13 @@ import {
   RowActions,
   StatusBadge,
 } from "../../components";
-import { Button, Alert, AlertDescription, Select } from "../../components/ui";
+import {
+  Button,
+  Alert,
+  AlertDescription,
+  Select,
+  Label,
+} from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -175,18 +181,21 @@ const ProductList = () => {
         sortable: true,
         exportValue: (product) => product.name,
         render: (product) => (
-          <div>
-            <strong>{product.name}</strong>
-            {product.hasVariants && (
-              <div>
-                <small className="text-muted-foreground">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary!">
+              {(product.name || "PR").slice(0, 2).toUpperCase()}
+            </span>
+            <div className="min-w-0">
+              <div className="font-medium text-foreground">{product.name}</div>
+              {product.hasVariants && (
+                <div className="text-xs text-muted-foreground">
                   {product.variantCombinationCount ??
                     product.variantCombinations?.length ??
                     0}{" "}
                   variants
-                </small>
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         ),
       },
@@ -267,65 +276,77 @@ const ProductList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-6 md:items-end">
-        <div className="md:col-span-2">
-          <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
-        </div>
-        <Select
-          value={filterCategory}
-          onChange={(e) => {
-            setFilterCategory(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Categories</option>
-          {categories.map((cat) => (
-            <option key={cat._id} value={cat._id}>
-              {cat.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={filterBrand}
-          onChange={(e) => {
-            setFilterBrand(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Brands</option>
-          {brands.map((b) => (
-            <option key={b._id} value={b._id}>
-              {b.name}
-            </option>
-          ))}
-        </Select>
-        <Select
-          value={filterStatus}
-          onChange={(e) => {
-            setFilterStatus(e.target.value);
-            setPage(1);
-          }}
-        >
-          <option value="">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-          <option value="draft">Draft</option>
-        </Select>
-        <div className="flex items-center gap-2">
-          <FilterLockButton
-            filtersLocked={filtersLocked}
-            onToggle={handleToggleFiltersLock}
-            pageLabel="Products"
-          />
-          <Button
-            variant="outline"
-            disabled={!hasActiveFilters}
-            onClick={handleClearFilters}
-            title="Clear all filters"
-          >
-            <X className="h-4 w-4" />
-            Clear filters
-          </Button>
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-6 md:items-end">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label className="text-xs text-muted-foreground">Search</Label>
+            <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Category</Label>
+            <Select
+              value={filterCategory}
+              onChange={(e) => {
+                setFilterCategory(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Categories</option>
+              {categories.map((cat) => (
+                <option key={cat._id} value={cat._id}>
+                  {cat.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Brand</Label>
+            <Select
+              value={filterBrand}
+              onChange={(e) => {
+                setFilterBrand(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Brands</option>
+              {brands.map((b) => (
+                <option key={b._id} value={b._id}>
+                  {b.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select
+              value={filterStatus}
+              onChange={(e) => {
+                setFilterStatus(e.target.value);
+                setPage(1);
+              }}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+              <option value="draft">Draft</option>
+            </Select>
+          </div>
+          <div className="flex items-center gap-2">
+            <FilterLockButton
+              filtersLocked={filtersLocked}
+              onToggle={handleToggleFiltersLock}
+              pageLabel="Products"
+            />
+            <Button
+              variant="outline"
+              disabled={!hasActiveFilters}
+              onClick={handleClearFilters}
+              title="Clear all filters"
+            >
+              <X className="h-4 w-4" />
+              Clear filters
+            </Button>
+          </div>
         </div>
       </div>
 

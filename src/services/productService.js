@@ -15,6 +15,13 @@ const productService = {
     return response;
   },
 
+  previewCode: async (groupId) => {
+    const response = await api.get(PRODUCTS.PREVIEW_CODE, {
+      params: { groupId },
+    });
+    return response;
+  },
+
   create: async (data) => {
     const response = await api.post(PRODUCTS.CREATE, data);
     return response;

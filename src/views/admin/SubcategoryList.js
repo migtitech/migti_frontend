@@ -8,7 +8,7 @@ import {
   DataTable,
   PageHeader,
   RowActions,
-  StatusBadge,
+  StatusToggle,
   TablePagination,
 } from "../../components";
 import {
@@ -18,7 +18,7 @@ import {
   AvatarImage,
   AvatarFallback,
   Button,
-  Switch,
+  Label,
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -200,15 +200,13 @@ const SubcategoryList = () => {
         sortValue: (sub) => sub.status,
         exportValue: (sub) => sub.status,
         render: (sub) => (
-          <div className="flex items-center justify-center gap-2">
-            <Switch
-              checked={sub.status === "active"}
-              disabled={!canToggleStatus || togglingId === sub._id}
-              onCheckedChange={(checked) => handleStatusToggle(sub, checked)}
-              aria-label={`Toggle status for ${sub.name}`}
-            />
-            <StatusBadge status={sub.status} />
-          </div>
+          <StatusToggle
+            status={sub.status}
+            disabled={!canToggleStatus || togglingId === sub._id}
+            onCheckedChange={(checked) => handleStatusToggle(sub, checked)}
+            aria-label={`Toggle status for ${sub.name}`}
+            className="justify-center"
+          />
         ),
       },
       {
@@ -222,7 +220,7 @@ const SubcategoryList = () => {
           <RowActions
             onEdit={
               canUpdate("subcategories")
-                ? () => navigate(`/subcategories/edit/${sub._id}`)
+                ? () => navigate(`/sub-categories/edit/${sub._id}`)
                 : undefined
             }
             onDelete={
@@ -241,11 +239,11 @@ const SubcategoryList = () => {
   return (
     <div>
       <PageHeader
-        title="Subcategories"
+        title="Sub Categories"
         description="Manage product subcategories and their parent categories."
         actions={
           canCreate("subcategories") && (
-            <Button onClick={() => navigate("/subcategories/new")}>
+            <Button onClick={() => navigate("/sub-categories/new")}>
               <Plus className="h-4 w-4" />
               Add Subcategory
             </Button>
@@ -270,8 +268,13 @@ const SubcategoryList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 max-w-sm">
-        <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="max-w-sm">
+          <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+            Search
+          </Label>
+          <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        </div>
       </div>
 
       <DataTable
@@ -279,6 +282,7 @@ const SubcategoryList = () => {
         rows={subcategories}
         rowKey={(sub) => sub._id}
         loading={loading}
+        onRowClick={(sub) => navigate(`/sub-categories/${sub._id}`)}
         showSearch={false}
         exportFileName="subcategories"
         emptyTitle="No subcategories found"

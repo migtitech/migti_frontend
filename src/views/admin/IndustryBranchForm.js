@@ -6,6 +6,7 @@ import * as yup from "yup";
 import { ArrowLeft } from "lucide-react";
 import industryBranchService from "../../services/industryBranchService";
 import industryService from "../../services/industryService";
+import locationService from "../../services/locationService";
 import { Loader, CrudFormPage, FormField } from "../../components";
 import {
   Button,
@@ -24,6 +25,19 @@ const schema = yup.object({
   name: yup.string().required("Branch name is required").min(1).max(100),
   location: yup.string().optional().max(200),
   address: yup.string().optional().max(500),
+  state: yup.string().trim().optional(),
+  city: yup.string().trim().optional(),
+  pincode: yup
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v))
+    .test(
+      "pincode",
+      "Pincode must be 6 digits",
+      (v) => !v || /^\d{6}$/.test(v),
+    ),
   gst: yup
     .string()
     .optional()
@@ -45,6 +59,9 @@ const defaultValues = {
   name: "",
   location: "",
   address: "",
+  state: "",
+  city: "",
+  pincode: "",
   gst: "",
 };
 
@@ -57,11 +74,15 @@ const IndustryBranchForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [industries, setIndustries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [citiesByState, setCitiesByState] = useState({});
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm({
     resolver: yupResolver(schema),
@@ -69,13 +90,52 @@ const IndustryBranchForm = () => {
     mode: "onBlur",
   });
 
+  const selectedState = watch("state");
+
+  const ensureCitiesForState = async (state) => {
+    if (!state || citiesByState[state]) return;
+    try {
+      const res = await locationService.getCitiesByState(state);
+      const data = res?.data || res;
+      setCitiesByState((prev) => ({ ...prev, [state]: data?.cities || [] }));
+    } catch (err) {
+      toastError(err?.message || "Failed to load cities for this state");
+      setCitiesByState((prev) => ({ ...prev, [state]: [] }));
+    }
+  };
+
+  const cityOptions = (() => {
+    const list = citiesByState[selectedState] || [];
+    const currentCity = watch("city");
+    if (currentCity && !list.includes(currentCity)) {
+      return [currentCity, ...list];
+    }
+    return list;
+  })();
+
   useEffect(() => {
     fetchIndustries();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await locationService.getStates();
+        const data = res?.data || res;
+        if (!cancelled) setStates(data?.states || []);
+      } catch (err) {
+        if (!cancelled) {
+          setStates([]);
+          toastError(err?.message || "Failed to load states");
+        }
+      }
+    })();
     if (isEdit) {
       fetchBranch();
     } else {
       reset(defaultValues);
     }
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   // Refetch industries when form becomes visible (e.g. after adding industry in another tab)
@@ -119,8 +179,12 @@ const IndustryBranchForm = () => {
         name: data?.name || "",
         location: data?.location || "",
         address: data?.address || "",
+        state: data?.state || "",
+        city: data?.city || "",
+        pincode: data?.pincode || "",
         gst: data?.gst || "",
       });
+      if (data?.state) ensureCitiesForState(data.state);
     } catch (err) {
       toastError(err?.message || "Failed to fetch client branch");
     } finally {
@@ -137,6 +201,9 @@ const IndustryBranchForm = () => {
         name: values.name?.trim() || "",
         location: values.location?.trim() || "",
         address: values.address?.trim() || "",
+        state: values.state || "",
+        city: values.city || "",
+        pincode: values.pincode || "",
         gst: values.gst?.trim() || "",
       };
       if (isEdit) {
@@ -226,6 +293,61 @@ const IndustryBranchForm = () => {
               />
             </FormField>
           </div>
+
+          <FormField label="Pincode" error={errors.pincode?.message}>
+            <Input
+              {...register("pincode")}
+              maxLength={6}
+              onBlur={async (e) => {
+                const pincode = e.target.value;
+                if (!/^\d{6}$/.test(pincode)) return;
+                try {
+                  const res = await locationService.getByPincode(pincode);
+                  const data = res?.data || res;
+                  if (data?.state) {
+                    setValue("state", data.state);
+                    await ensureCitiesForState(data.state);
+                  }
+                  if (data?.city) setValue("city", data.city);
+                } catch (err) {
+                  toastError(
+                    err?.message || "Could not find location for this pincode",
+                  );
+                }
+              }}
+            />
+          </FormField>
+
+          <FormField label="State">
+            <Select
+              {...register("state")}
+              onChange={(e) => {
+                setValue("state", e.target.value);
+                setValue("city", "");
+                ensureCitiesForState(e.target.value);
+              }}
+            >
+              <option value="">Select state</option>
+              {states.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
+          <FormField label="City">
+            <Select {...register("city")} disabled={!selectedState}>
+              <option value="">
+                {selectedState ? "Select city" : "Select state first"}
+              </option>
+              {cityOptions.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
+          </FormField>
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-5">

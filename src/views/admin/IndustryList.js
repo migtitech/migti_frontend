@@ -65,7 +65,11 @@ const IndustryList = () => {
         let pageNumber = 1;
         let hasNextPage = true;
         while (hasNextPage) {
-          const res = await areaService.getAll({ pageNumber, pageSize: 100 });
+          const res = await areaService.getAll({
+            pageNumber,
+            pageSize: 100,
+            areaType: "industry",
+          });
           const data = res?.data || res;
           const payload = data || {};
           const pageAreas = payload?.areas || [];
@@ -157,10 +161,10 @@ const IndustryList = () => {
     if (!id) return;
     try {
       await industryService.delete(id);
-      toastSuccess("Client deleted successfully");
+      toastSuccess("Customer deleted successfully");
       fetchIndustries();
     } catch (err) {
-      toastError(err?.message || "Failed to delete client");
+      toastError(err?.message || "Failed to delete customer");
     }
   };
 
@@ -201,9 +205,25 @@ const IndustryList = () => {
         render: (_row, index) => (page - 1) * 10 + index + 1,
       },
       {
+        key: "customerCode",
+        label: "Customer Code",
+        render: (industry) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {industry.customerCode || "-"}
+          </span>
+        ),
+      },
+      {
         key: "name",
-        label: "Client name",
-        render: (industry) => <strong>{industry.name}</strong>,
+        label: "Customer name",
+        render: (industry) => (
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-xs font-semibold text-primary!">
+              {(industry.name || "CL").slice(0, 2).toUpperCase()}
+            </span>
+            <span className="font-medium text-foreground">{industry.name}</span>
+          </div>
+        ),
         exportValue: (industry) => industry.name || "",
       },
       {
@@ -222,14 +242,6 @@ const IndustryList = () => {
         label: "Purchase Manager",
         render: (industry) => getPurchaseManagerLabel(industry),
         exportValue: (industry) => getPurchaseManagerLabel(industry),
-      },
-      {
-        key: "shippingAddress",
-        label: "Shipping address",
-        render: (industry) =>
-          industry.shippingAddress || industry.address || "-",
-        exportValue: (industry) =>
-          industry.shippingAddress || industry.address || "-",
       },
       {
         key: "actions",
@@ -262,13 +274,13 @@ const IndustryList = () => {
   return (
     <div>
       <PageHeader
-        title="Clients"
-        description="Manage the clients your organization supplies and procures for."
+        title="Customers"
+        description="Manage the customers your organization supplies and procures for."
         actions={
           canCreate("industries") && (
             <Button onClick={() => navigate("/industries/new")}>
               <Plus className="h-4 w-4" />
-              Add client
+              Add customer
             </Button>
           )
         }
@@ -280,49 +292,56 @@ const IndustryList = () => {
         </Alert>
       )}
 
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="w-full max-w-sm">
-          <Filtered
-            searchTerm={searchTerm}
-            setSearchTerm={(value) => {
-              setSearchTerm(value);
-              setPage(1);
-            }}
-            placeholder="Search industries..."
-          />
-        </div>
-        {!isSalesRole && (
-          <div className="w-56">
-            <Label className="mb-1.5 block text-xs text-muted-foreground">
-              Zones
+      <div className="mb-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1">
+            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Search
             </Label>
-            <Select
-              value={selectedAreaId}
-              onChange={(e) => {
-                setSelectedAreaId(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All Zones</option>
-              {areas.map((a) => {
-                const id = String(a._id || a.id);
-                return (
-                  <option key={id} value={id}>
-                    {a.name}
-                    {a.city ? ` - ${a.city}` : ""}
-                  </option>
-                );
-              })}
-            </Select>
+            <div className="max-w-sm">
+              <Filtered
+                searchTerm={searchTerm}
+                setSearchTerm={(value) => {
+                  setSearchTerm(value);
+                  setPage(1);
+                }}
+                placeholder="Search by name, code or GST..."
+              />
+            </div>
           </div>
-        )}
-        {!isSalesRole && (
-          <FilterLockButton
-            filtersLocked={filtersLocked}
-            onToggle={handleToggleFiltersLock}
-            pageLabel="Industries"
-          />
-        )}
+          {!isSalesRole && (
+            <div className="w-full sm:w-56">
+              <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Zone
+              </Label>
+              <Select
+                value={selectedAreaId}
+                onChange={(e) => {
+                  setSelectedAreaId(e.target.value);
+                  setPage(1);
+                }}
+              >
+                <option value="">All Zones</option>
+                {areas.map((a) => {
+                  const id = String(a._id || a.id);
+                  return (
+                    <option key={id} value={id}>
+                      {a.name}
+                      {a.city ? ` - ${a.city}` : ""}
+                    </option>
+                  );
+                })}
+              </Select>
+            </div>
+          )}
+          {!isSalesRole && (
+            <FilterLockButton
+              filtersLocked={filtersLocked}
+              onToggle={handleToggleFiltersLock}
+              pageLabel="Industries"
+            />
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -334,43 +353,61 @@ const IndustryList = () => {
               {industries.length === 0 ? (
                 <div className="py-8 text-center text-sm text-muted-foreground">
                   {searchTerm
-                    ? "No clients match the current search."
-                    : 'No clients found. Click "Add client" to create one.'}
+                    ? "No customers match the current search."
+                    : 'No customers found. Click "Add customer" to create one.'}
                 </div>
               ) : (
                 industries.map((industry, index) => (
                   <div
                     key={industry._id}
-                    className="cursor-pointer rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:bg-accent/50"
+                    className="cursor-pointer rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40 hover:bg-accent/40"
                     onClick={() => navigate(`/industries/${industry._id}`)}
                   >
-                    <div className="mb-2 flex items-start justify-between">
-                      <div>
-                        <div className="text-xs text-muted-foreground">
-                          #{(page - 1) * 10 + index + 1}
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary!">
+                          {(industry.name || "CL").slice(0, 2).toUpperCase()}
+                        </span>
+                        <div className="min-w-0">
+                          <h6 className="truncate text-base font-semibold leading-tight">
+                            {industry.name || "-"}
+                          </h6>
+                          <div className="text-xs text-muted-foreground">
+                            {industry.customerCode || "Code pending"}
+                          </div>
                         </div>
-                        <h6 className="text-base font-semibold">
-                          {industry.name || "-"}
-                        </h6>
                       </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        #{(page - 1) * 10 + index + 1}
+                      </span>
                     </div>
-                    <div className="space-y-1 text-sm">
-                      <div>
-                        <span className="font-medium">GST No:</span>{" "}
-                        {industry.gstNumber || "-"}
+                    <dl className="grid grid-cols-1 gap-y-1.5 border-t border-border pt-3 text-sm">
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">GST No</dt>
+                        <dd className="truncate text-right font-medium">
+                          {industry.gstNumber || "-"}
+                        </dd>
                       </div>
-                      <div>
-                        <span className="font-medium">Zone:</span>{" "}
-                        {getZoneLabel(industry)}
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">Zone</dt>
+                        <dd className="truncate text-right font-medium">
+                          {getZoneLabel(industry)}
+                        </dd>
                       </div>
-                      <div>
-                        <span className="font-medium">Purchase Manager:</span>{" "}
-                        {getPurchaseManagerLabel(industry)}
+                      <div className="flex justify-between gap-3">
+                        <dt className="text-muted-foreground">
+                          Purchase Manager
+                        </dt>
+                        <dd className="truncate text-right font-medium">
+                          {getPurchaseManagerLabel(industry)}
+                        </dd>
                       </div>
-                    </div>
-                    <div className="mt-3" onClick={(e) => e.stopPropagation()}>
+                    </dl>
+                    <div
+                      className="mt-3 flex justify-end border-t border-border pt-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <RowActions
-                        className="justify-start"
                         onView={() => navigate(`/industries/${industry._id}`)}
                         onEdit={
                           canUpdate("industries")
@@ -395,12 +432,12 @@ const IndustryList = () => {
               rowKey={(industry) => industry._id}
               onRowClick={(industry) => navigate(`/industries/${industry._id}`)}
               showSearch={false}
-              exportFileName="clients"
-              emptyTitle="No clients found"
+              exportFileName="customers"
+              emptyTitle="No customers found"
               emptyMessage={
                 searchTerm
-                  ? "No clients match the current search."
-                  : 'Click "Add client" to create one.'
+                  ? "No customers match the current search."
+                  : 'Click "Add customer" to create one.'
               }
             />
           )}
@@ -419,8 +456,8 @@ const IndustryList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete client?"
-        message="Are you sure you want to delete this client? This action cannot be undone."
+        title="Delete customer?"
+        message="Are you sure you want to delete this customer? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"
       />

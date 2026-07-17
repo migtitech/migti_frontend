@@ -3,14 +3,34 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Building2,
+  MapPin,
+  Users,
+  Landmark,
+  CreditCard,
+  Paperclip,
+  StickyNote,
+  GitBranch,
+} from "lucide-react";
 import { gstinOptional, MSG, phoneOptional } from "../../utils/validation";
 import industryService from "../../services/industryService";
+import industryBranchService from "../../services/industryBranchService";
+import industryAttachmentService from "../../services/industryAttachmentService";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
 import branchService from "../../services/branchService";
+import locationService from "../../services/locationService";
 import bpDummy from "../../data/businessPartnerDummy";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import {
+  INDUSTRY_SECTORS,
+  OTHER_SECTOR_VALUE,
+} from "../../constants/industrySectors";
+import { Loader, CrudFormPage, FormField, FileUpload } from "../../components";
+import { cn } from "../../lib/utils";
 import {
   Button,
   Alert,
@@ -38,6 +58,19 @@ const phoneOptional10 = () =>
       (v) => !v || /^\d{10}$/.test(v),
     );
 
+const pincodeOptional = () =>
+  yup
+    .string()
+    .trim()
+    .optional()
+    .nullable()
+    .transform((v, o) => (o === "" ? null : v))
+    .test(
+      "pincode",
+      "Pincode must be 6 digits",
+      (v) => !v || /^\d{6}$/.test(v),
+    );
+
 const purchaseManagerSchema = yup.object({
   name: yup
     .string()
@@ -62,8 +95,17 @@ const purchaseManagerSchema = yup.object({
     .transform((v, o) => (o === "" ? "" : v)),
 });
 
+const branchRowSchema = yup.object({
+  _id: yup.string().optional(),
+  name: yup.string().trim().optional(),
+  address: yup.string().trim().optional(),
+  state: yup.string().trim().optional(),
+  city: yup.string().trim().optional(),
+  pincode: pincodeOptional(),
+});
+
 const industrySchema = yup.object({
-  name: yup.string().required("Client name is required").min(2).max(100),
+  name: yup.string().required("Customer name is required").min(2).max(100),
   category: yup
     .string()
     .oneOf(["A", "B", "C", "D", ""], "Invalid category")
@@ -103,15 +145,11 @@ const industrySchema = yup.object({
     .optional()
     .default([]),
   branchId: yup.string().optional().nullable(),
-});
-
-// Extra fields with no backend column yet — persisted client-side only via
-// data/businessPartnerDummy.js (see onSubmit). All optional so they can
-// never block a real save; merged into industrySchema's resolver below.
-const newFieldsSchema = yup.object({
+  // Business/address/financial info — real Industry fields (persisted).
   clientType: yup.string().oneOf(["", "Customer", "Vendor"]).optional(),
   industrySector: yup.string().trim().max(100).optional(),
-  registrationNumber: yup.string().trim().max(50).optional(),
+  industrySectorOtherText: yup.string().trim().max(100).optional(),
+  registrationNumber: yup.string().trim().max(100).optional(),
   pan: yup
     .string()
     .trim()
@@ -157,21 +195,9 @@ const newFieldsSchema = yup.object({
     .min(0)
     .transform((v, o) => (o === "" ? null : v)),
   registeredAddress: yup.string().trim().optional(),
-  country: yup.string().trim().optional(),
   state: yup.string().trim().optional(),
   city: yup.string().trim().optional(),
-  pincode: yup
-    .string()
-    .trim()
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v))
-    .test(
-      "pincode",
-      "Pincode must be 6 digits",
-      (v) => !v || /^\d{6}$/.test(v),
-    ),
-  currency: yup.string().trim().optional(),
+  pincode: pincodeOptional(),
   paymentTerms: yup.string().trim().optional(),
   creditLimit: yup
     .number()
@@ -182,32 +208,10 @@ const newFieldsSchema = yup.object({
     .transform((v, o) => (o === "" ? null : v)),
   remarks: yup.string().trim().optional(),
   internalComments: yup.string().trim().optional(),
+  // Branches — UI-only toggle + real industryBranch rows synced on submit.
   hasBranches: yup.boolean().default(false),
-  branches: yup
-    .array()
-    .of(
-      yup.object({
-        name: yup.string().trim().optional(),
-        address: yup.string().trim().optional(),
-        city: yup.string().trim().optional(),
-        state: yup.string().trim().optional(),
-        pincode: yup
-          .string()
-          .trim()
-          .optional()
-          .test(
-            "pincode",
-            "Pincode must be 6 digits",
-            (v) => !v || /^\d{6}$/.test(v),
-          ),
-        contactPersonId: yup.string().optional(),
-      }),
-    )
-    .optional()
-    .default([]),
+  branches: yup.array().of(branchRowSchema).optional().default([]),
 });
-
-const overlayDefaultValues = bpDummy.defaultOverlay();
 
 const defaultValues = {
   name: "",
@@ -223,36 +227,100 @@ const defaultValues = {
   email: "",
   purchaseManagers: [],
   branchId: "",
-  ...overlayDefaultValues,
+  clientType: "",
+  industrySector: "",
+  industrySectorOtherText: "",
+  registrationNumber: "",
+  pan: "",
+  website: "",
+  companyEmail: "",
+  companyPhone: "",
+  companyLogoBase64: "",
+  numberOfEmployees: "",
+  annualRevenue: "",
+  registeredAddress: "",
+  state: "",
+  city: "",
+  pincode: "",
+  paymentTerms: "",
+  creditLimit: "",
+  remarks: "",
+  internalComments: "",
+  hasBranches: false,
+  branches: [],
 };
 
-// Fields from the dummy overlay this form actually renders/submits (skip
-// billingAddress/shippingAddress/category/attachments which are real fields
-// here, or not applicable — Attachments handled separately via state).
-const extractOverlayFields = (values) => ({
+// Real Industry fields accepted by the backend — used to build a clean
+// create/update payload (hasBranches/branches/companyLogoBase64 are handled
+// separately and must never be sent to industryService directly).
+const buildBusinessInfoPayload = (values) => ({
   clientType: values.clientType || "",
-  industrySector: values.industrySector || "",
+  industrySector:
+    values.industrySector === OTHER_SECTOR_VALUE
+      ? (values.industrySectorOtherText || "").trim()
+      : values.industrySector || "",
   registrationNumber: values.registrationNumber || "",
-  pan: values.pan || "",
-  hasBranches: Boolean(values.hasBranches),
-  branches: values.branches || [],
+  pan: (values.pan || "").trim().toUpperCase(),
   website: values.website || "",
   companyEmail: values.companyEmail || "",
   companyPhone: values.companyPhone || "",
-  companyLogoBase64: values.companyLogoBase64 || "",
-  numberOfEmployees: values.numberOfEmployees ?? "",
-  annualRevenue: values.annualRevenue ?? "",
+  numberOfEmployees:
+    values.numberOfEmployees === "" || values.numberOfEmployees == null
+      ? null
+      : Number(values.numberOfEmployees),
+  annualRevenue:
+    values.annualRevenue === "" || values.annualRevenue == null
+      ? null
+      : Number(values.annualRevenue),
   registeredAddress: values.registeredAddress || "",
-  country: values.country || "",
   state: values.state || "",
   city: values.city || "",
   pincode: values.pincode || "",
-  currency: values.currency || "",
   paymentTerms: values.paymentTerms || "",
-  creditLimit: values.creditLimit ?? "",
+  creditLimit:
+    values.creditLimit === "" || values.creditLimit == null
+      ? null
+      : Number(values.creditLimit),
   remarks: values.remarks || "",
   internalComments: values.internalComments || "",
 });
+
+/**
+ * Consistent section header (icon chip + title + optional description) used
+ * to visually anchor each group of fields in the long-form scaffold.
+ */
+const FormSection = ({
+  icon: Icon,
+  title,
+  description,
+  action,
+  first,
+  children,
+}) => (
+  <div
+    className={cn("mt-8 first:mt-0", !first && "border-t border-border pt-8")}
+  >
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div className="flex items-start gap-3">
+        {Icon && (
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Icon className="h-4 w-4 text-primary!" />
+          </span>
+        )}
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {description && (
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {description}
+            </p>
+          )}
+        </div>
+      </div>
+      {action}
+    </div>
+    {children}
+  </div>
+);
 
 const IndustryForm = () => {
   const navigate = useNavigate();
@@ -266,10 +334,15 @@ const IndustryForm = () => {
   const [error, setError] = useState("");
   const [areas, setAreas] = useState([]);
   const [subZones, setSubZones] = useState([]);
-  const [clientCode, setClientCode] = useState("");
+  const [states, setStates] = useState([]);
+  const [citiesByState, setCitiesByState] = useState({});
   const [attachments, setAttachments] = useState([]);
-  const [contactPersons, setContactPersons] = useState([]);
+  const [pendingAttachments, setPendingAttachments] = useState([]);
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
   const prevAreaRef = useRef("");
+  const prevStateRef = useRef("");
+  const originalBranchIdsRef = useRef([]);
+  const citiesByStateRef = useRef({});
 
   const {
     register,
@@ -280,7 +353,7 @@ const IndustryForm = () => {
     control,
     formState: { errors },
   } = useForm({
-    resolver: yupResolver(industrySchema.concat(newFieldsSchema)),
+    resolver: yupResolver(industrySchema),
     context: { isEdit },
     defaultValues,
     mode: "onBlur",
@@ -303,17 +376,73 @@ const IndustryForm = () => {
   const selectedAreaId = watch("area");
   const hasBranches = watch("hasBranches");
   const companyLogoBase64 = watch("companyLogoBase64");
+  const selectedState = watch("state");
+  const selectedSector = watch("industrySector");
+
+  useEffect(() => {
+    citiesByStateRef.current = citiesByState;
+  }, [citiesByState]);
+
+  const ensureCitiesForState = async (state) => {
+    if (!state || citiesByStateRef.current[state]) return;
+    try {
+      const res = await locationService.getCitiesByState(state);
+      const data = res?.data || res;
+      setCitiesByState((prev) => ({ ...prev, [state]: data?.cities || [] }));
+    } catch (err) {
+      toastError(err?.message || "Failed to load cities for this state");
+      setCitiesByState((prev) => ({ ...prev, [state]: [] }));
+    }
+  };
+
+  const cityOptionsFor = (state, currentCity) => {
+    const list = citiesByState[state] || [];
+    if (currentCity && !list.includes(currentCity)) {
+      return [currentCity, ...list];
+    }
+    return list;
+  };
+
+  const lookupPincode = async (pincode) => {
+    if (!/^\d{6}$/.test(pincode || "")) return null;
+    try {
+      const res = await locationService.getByPincode(pincode);
+      const data = res?.data || res;
+      return data?.state ? data : null;
+    } catch (err) {
+      toastError(err?.message || "Could not find location for this pincode");
+      return null;
+    }
+  };
 
   useEffect(() => {
     fetchAreas();
-    setContactPersons(bpDummy.listContactPersons({ parentType: "industry" }));
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await locationService.getStates();
+        const data = res?.data || res;
+        if (!cancelled) setStates(data?.states || []);
+      } catch (err) {
+        if (!cancelled) {
+          setStates([]);
+          toastError(err?.message || "Failed to load states");
+        }
+      }
+    })();
     if (isEdit) {
       fetchIndustry();
+      fetchBranches();
+      fetchAttachments();
     } else {
       reset(defaultValues);
-      setClientCode("");
       setAttachments([]);
+      setPendingAttachments([]);
+      originalBranchIdsRef.current = [];
     }
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   useEffect(() => {
@@ -382,13 +511,66 @@ const IndustryForm = () => {
     };
   }, [selectedAreaId, setValue]);
 
+  useEffect(() => {
+    if (!selectedState) {
+      prevStateRef.current = "";
+      return;
+    }
+    if (prevStateRef.current && prevStateRef.current !== selectedState) {
+      setValue("city", "");
+    }
+    prevStateRef.current = selectedState;
+    ensureCitiesForState(selectedState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedState]);
+
   const fetchAreas = async () => {
     try {
-      const res = await areaService.getAll({ pageSize: 100 });
+      const res = await areaService.getAll({
+        pageSize: 100,
+        areaType: "industry",
+      });
       const data = res?.data || res;
       setAreas(data?.areas || []);
     } catch (err) {
       console.error("Failed to fetch areas", err);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const res = await industryBranchService.getAll({
+        industryId: id,
+        pageSize: 100,
+      });
+      const data = res?.data || res;
+      const list = data?.branches || [];
+      const mapped = list.map((b) => ({
+        _id: b._id,
+        name: b.name || "",
+        address: b.address || "",
+        state: b.state || "",
+        city: b.city || "",
+        pincode: b.pincode || "",
+      }));
+      originalBranchIdsRef.current = mapped.map((b) => b._id);
+      setValue("branches", mapped);
+      setValue("hasBranches", mapped.length > 0);
+      mapped.forEach((b) => {
+        if (b.state) ensureCitiesForState(b.state);
+      });
+    } catch (err) {
+      toastError(err?.message || "Failed to load branches");
+    }
+  };
+
+  const fetchAttachments = async () => {
+    try {
+      const res = await industryAttachmentService.list({ industryId: id });
+      const data = res?.data || res;
+      setAttachments(data?.attachments || []);
+    } catch (err) {
+      toastError(err?.message || "Failed to load attachments");
     }
   };
 
@@ -408,7 +590,10 @@ const IndustryForm = () => {
         data?.branchId ||
         (data?.branch && (data.branch._id || data.branch.id)) ||
         "";
+      const rawSector = data?.industrySector || "";
+      const isKnownSector = INDUSTRY_SECTORS.includes(rawSector);
       reset({
+        ...defaultValues,
         name: data?.name || "",
         category: data?.category || "",
         area:
@@ -428,18 +613,129 @@ const IndustryForm = () => {
         email: data?.email || "",
         purchaseManagers: purchaseManagers.length ? purchaseManagers : [],
         branchId: branchId || "",
-        ...bpDummy.getOverlay("industry", id),
+        clientType: data?.clientType || "",
+        industrySector: rawSector
+          ? isKnownSector
+            ? rawSector
+            : OTHER_SECTOR_VALUE
+          : "",
+        industrySectorOtherText: rawSector && !isKnownSector ? rawSector : "",
+        registrationNumber: data?.registrationNumber || "",
+        pan: data?.pan || "",
+        website: data?.website || "",
+        companyEmail: data?.companyEmail || "",
+        companyPhone: data?.companyPhone || "",
+        companyLogoBase64:
+          bpDummy.getOverlay("industry", id)?.companyLogoBase64 || "",
+        numberOfEmployees: data?.numberOfEmployees ?? "",
+        annualRevenue: data?.annualRevenue ?? "",
+        registeredAddress: data?.registeredAddress || "",
+        state: data?.state || "",
+        city: data?.city || "",
+        pincode: data?.pincode || "",
+        paymentTerms: data?.paymentTerms || "",
+        creditLimit: data?.creditLimit ?? "",
+        remarks: data?.remarks || "",
+        internalComments: data?.internalComments || "",
       });
       prevAreaRef.current =
         typeof data?.area === "object"
           ? data?.area?._id || ""
           : data?.area || "";
-      setClientCode(bpDummy.getOrCreateCode("industry", id));
-      setAttachments(bpDummy.getOverlay("industry", id).attachments || []);
+      prevStateRef.current = data?.state || "";
+      if (data?.state) ensureCitiesForState(data.state);
     } catch (err) {
-      toastError(err?.message || "Failed to fetch client");
+      toastError(err?.message || "Failed to fetch customer");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAttachmentFileChange = async (e, label) => {
+    const file = e?.target?.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (isEdit) {
+      setAttachmentBusy(true);
+      try {
+        await industryAttachmentService.create({
+          industryId: id,
+          label,
+          file,
+        });
+        await fetchAttachments();
+        toastSuccess("Attachment uploaded");
+      } catch (err) {
+        toastError(err?.message || "Failed to upload attachment");
+      } finally {
+        setAttachmentBusy(false);
+      }
+    } else {
+      setPendingAttachments((prev) => [...prev, { file, label }]);
+    }
+  };
+
+  const handleDeleteAttachment = async (attachmentId) => {
+    try {
+      await industryAttachmentService.delete(attachmentId);
+      setAttachments((prev) => prev.filter((a) => a._id !== attachmentId));
+    } catch (err) {
+      toastError(err?.message || "Failed to delete attachment");
+    }
+  };
+
+  const removePendingAttachment = (index) => {
+    setPendingAttachments((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const syncBranches = async (industryId, branches) => {
+    const rows = (branches || []).filter((b) => (b.name || "").trim());
+    const keptIds = [];
+    for (const row of rows) {
+      const payload = {
+        industryId,
+        name: (row.name || "").trim(),
+        address: row.address || "",
+        state: row.state || "",
+        city: row.city || "",
+        pincode: row.pincode || "",
+      };
+      try {
+        if (row._id) {
+          await industryBranchService.update(row._id, payload);
+          keptIds.push(row._id);
+        } else {
+          const res = await industryBranchService.create(payload);
+          const created = res?.data?.data || res?.data || res;
+          if (created?._id) keptIds.push(created._id);
+        }
+      } catch (err) {
+        toastError(err?.message || "Failed to save a branch");
+      }
+    }
+    const removedIds = originalBranchIdsRef.current.filter(
+      (oid) => !keptIds.includes(oid),
+    );
+    for (const removedId of removedIds) {
+      try {
+        await industryBranchService.delete(removedId);
+      } catch (err) {
+        toastError(err?.message || "Failed to remove a branch");
+      }
+    }
+  };
+
+  const uploadPendingAttachments = async (industryId) => {
+    for (const pending of pendingAttachments) {
+      try {
+        await industryAttachmentService.create({
+          industryId,
+          label: pending.label,
+          file: pending.file,
+        });
+      } catch (err) {
+        toastError(err?.message || "Failed to upload an attachment");
+      }
     }
   };
 
@@ -468,46 +764,31 @@ const IndustryForm = () => {
               email: (pm.email || "").trim(),
               department: (pm.department || "").trim(),
             })),
+          ...buildBusinessInfoPayload(values),
         };
         await industryService.update(id, payload);
-        toastSuccess("Client updated successfully");
-        bpDummy.saveOverlay("industry", id, {
-          ...extractOverlayFields(values),
-          attachments,
-        });
+        if (values.hasBranches) {
+          await syncBranches(id, values.branches);
+        }
+        if (values.companyLogoBase64) {
+          bpDummy.saveOverlay("industry", id, {
+            companyLogoBase64: values.companyLogoBase64,
+          });
+        }
+        toastSuccess("Customer updated successfully");
       } else {
-        // Only real Industry fields go to the API — new dummy fields (see
-        // newFieldsSchema) are intentionally excluded via destructuring so
-        // they never leak into the real create payload.
-        const {
-          clientType,
-          industrySector,
-          registrationNumber,
-          pan,
-          hasBranches: _hasBranches,
-          branches,
-          website,
-          companyEmail,
-          companyPhone,
-          companyLogoBase64,
-          numberOfEmployees,
-          annualRevenue,
-          registeredAddress,
-          country,
-          state,
-          city,
-          pincode,
-          currency,
-          paymentTerms,
-          creditLimit,
-          remarks,
-          internalComments,
-          ...realValues
-        } = values;
         const payload = {
-          ...realValues,
+          name: values.name,
+          category: values.category || "",
           area: values.area || null,
+          subZoneId: values.subZoneId || null,
+          location: values.location || "",
+          shippingAddress: values.shippingAddress || "",
+          billingAddress: values.billingAddress || "",
           gstNumber: (values.gstNumber || "").trim().toUpperCase(),
+          purchase_manager_name: values.purchase_manager_name || "",
+          purchase_manager_phone: values.purchase_manager_phone || "",
+          email: values.email || "",
           branchId: branchId || undefined,
           purchaseManagers: (values.purchaseManagers || [])
             .filter((pm) => (pm.name || "").trim())
@@ -517,22 +798,27 @@ const IndustryForm = () => {
               email: (pm.email || "").trim(),
               department: (pm.department || "").trim(),
             })),
+          ...buildBusinessInfoPayload(values),
         };
         const res = await industryService.create(payload);
         const created = res?.data?.data || res?.data || res;
         const newId = created?._id || created?.id;
-        toastSuccess("Client created successfully");
         if (newId) {
-          bpDummy.saveOverlay("industry", newId, {
-            ...extractOverlayFields(values),
-            attachments,
-          });
-          bpDummy.getOrCreateCode("industry", newId);
+          if (values.hasBranches) {
+            await syncBranches(newId, values.branches);
+          }
+          await uploadPendingAttachments(newId);
+          if (values.companyLogoBase64) {
+            bpDummy.saveOverlay("industry", newId, {
+              companyLogoBase64: values.companyLogoBase64,
+            });
+          }
         }
+        toastSuccess("Customer created successfully");
       }
       navigate("/industries");
     } catch (err) {
-      toastError(err?.message || "Failed to save client");
+      toastError(err?.message || "Failed to save customer");
     } finally {
       setSubmitting(false);
     }
@@ -541,10 +827,13 @@ const IndustryForm = () => {
   if (loading) {
     return (
       <div className="text-center p-5">
-        <Loader message="Loading client..." />
+        <Loader message="Loading customer..." />
       </div>
     );
   }
+
+  const stateFieldProps = register("state");
+  const pincodeFieldProps = register("pincode");
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -556,7 +845,7 @@ const IndustryForm = () => {
           className="px-2 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to clients
+          Back to customers
         </Button>
       </div>
 
@@ -567,138 +856,179 @@ const IndustryForm = () => {
       )}
 
       <CrudFormPage
-        title={isEdit ? "Edit client" : "Add client"}
+        title={isEdit ? "Edit customer" : "Add customer"}
         description={
           isEdit
             ? "You can update location, purchase managers and addresses."
-            : "Fill in client details below."
+            : "Fill in customer details below."
         }
       >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField label="Client name" required error={errors.name?.message}>
-            <Input
-              {...register("name")}
-              readOnly={isEdit}
-              disabled={isEdit}
-              className={isEdit ? "bg-muted" : ""}
-            />
-          </FormField>
-
-          <FormField label="GST Number" error={errors.gstNumber?.message}>
-            <Input
-              {...register("gstNumber")}
-              placeholder="e.g. 27AABCU9603R1ZM"
-            />
-          </FormField>
-
-          <FormField label="Client Code" helper="Auto-generated on save">
-            <Input value={clientCode} readOnly disabled className="bg-muted" />
-          </FormField>
-
-          <FormField label="Client Type" error={errors.clientType?.message}>
-            <Select {...register("clientType")}>
-              <option value="">Select type</option>
-              <option value="Customer">Customer</option>
-              <option value="Vendor">Vendor</option>
-            </Select>
-          </FormField>
-
-          <FormField
-            label="Industry (Sector)"
-            error={errors.industrySector?.message}
-            helper="Business sector, e.g. Manufacturing, IT"
-          >
-            <Input {...register("industrySector")} />
-          </FormField>
-
-          <FormField
-            label="Registration Number"
-            error={errors.registrationNumber?.message}
-          >
-            <Input {...register("registrationNumber")} />
-          </FormField>
-
-          <FormField label="PAN" error={errors.pan?.message}>
-            <Input
-              {...register("pan")}
-              placeholder="e.g. ABCDE1234F"
-              maxLength={10}
-              style={{ textTransform: "uppercase" }}
-            />
-          </FormField>
-
-          <div className="md:col-span-2">
+        <FormSection
+          icon={Building2}
+          title="Basic Details"
+          description="Core identity and classification for this customer."
+          first
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField
-              label="Company Category"
-              error={errors.category?.message}
+              label="Customer name"
+              required
+              error={errors.name?.message}
             >
-              <div className="flex h-9 items-center gap-4">
-                {["A", "B", "C", "D"].map((cat) => (
-                  <label
-                    key={cat}
-                    className="flex cursor-pointer items-center gap-2 text-sm"
-                  >
-                    <input
-                      type="radio"
-                      id={`category-${cat}`}
-                      value={cat}
-                      className="h-4 w-4 cursor-pointer accent-primary"
-                      {...register("category")}
-                      disabled={isEdit}
-                    />
-                    {cat}
-                  </label>
-                ))}
-              </div>
+              <Input
+                {...register("name")}
+                readOnly={isEdit}
+                disabled={isEdit}
+                className={isEdit ? "bg-muted" : ""}
+              />
             </FormField>
-          </div>
 
-          <FormField label="Zone" required error={errors.area?.message}>
-            <Select
-              {...register("area")}
-              disabled={isEdit}
-              className={isEdit ? "bg-muted" : ""}
+            <FormField label="GST Number" error={errors.gstNumber?.message}>
+              <Input
+                {...register("gstNumber")}
+                placeholder="e.g. 27AABCU9603R1ZM"
+              />
+            </FormField>
+
+            <FormField label="Customer Type" error={errors.clientType?.message}>
+              <Select {...register("clientType")}>
+                <option value="">Select type</option>
+                <option value="Customer">Customer</option>
+                <option value="Vendor">Vendor</option>
+              </Select>
+            </FormField>
+
+            <FormField
+              label="Industry (Sector)"
+              error={errors.industrySector?.message}
             >
-              <option value="">Select Zone</option>
-              {areas.map((a) => (
-                <option key={a._id} value={a._id}>
-                  {a.name} {a.city ? `- ${a.city}` : ""}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-
-          <FormField label="Sub-zone">
-            <Select {...register("subZoneId")} disabled={!subZones.length}>
-              <option value="">
-                {subZones.length ? "Optional" : "No sub-zones for this zone"}
-              </option>
-              {subZones.map((sz) => {
-                const sid = sz._id || sz.id;
-                return (
-                  <option key={sid} value={sid}>
-                    {(sz.subZoneCode ? `${sz.subZoneCode} — ` : "") +
-                      (sz.name || "")}
+              <Select {...register("industrySector")}>
+                <option value="">Select sector</option>
+                {INDUSTRY_SECTORS.map((sector) => (
+                  <option key={sector} value={sector}>
+                    {sector}
                   </option>
-                );
-              })}
-            </Select>
-          </FormField>
+                ))}
+                <option value={OTHER_SECTOR_VALUE}>{OTHER_SECTOR_VALUE}</option>
+              </Select>
+            </FormField>
 
-          <FormField
-            label="Location ( Google Map URL )"
-            error={errors.location?.message}
-          >
-            <Input {...register("location")} />
-          </FormField>
-        </div>
+            {selectedSector === OTHER_SECTOR_VALUE && (
+              <FormField
+                label="Specify Sector"
+                error={errors.industrySectorOtherText?.message}
+              >
+                <Input
+                  {...register("industrySectorOtherText")}
+                  placeholder="Enter industry sector"
+                />
+              </FormField>
+            )}
 
-        {/* Purchase Managers */}
-        <div className="mt-6">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-sm font-medium text-foreground">
-              Purchase Managers
-            </span>
+            <FormField
+              label="Registration Number"
+              error={errors.registrationNumber?.message}
+            >
+              <Input {...register("registrationNumber")} />
+            </FormField>
+
+            <FormField label="PAN" error={errors.pan?.message}>
+              <Input
+                {...register("pan")}
+                placeholder="e.g. ABCDE1234F"
+                maxLength={10}
+                style={{ textTransform: "uppercase" }}
+              />
+            </FormField>
+
+            <div className="md:col-span-2">
+              <FormField
+                label="Company Category"
+                helper="Used to prioritise and segment customers."
+                error={errors.category?.message}
+              >
+                <div className="flex flex-wrap gap-2">
+                  {["A", "B", "C", "D"].map((cat) => (
+                    <label
+                      key={cat}
+                      className={cn(
+                        "relative flex! h-10 min-w-[3.5rem] cursor-pointer items-center justify-center rounded-md border px-4 text-sm font-medium leading-none transition-colors",
+                        "border-input bg-background text-foreground hover:bg-muted",
+                        "has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:text-primary!",
+                        isEdit && "cursor-not-allowed opacity-60",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        id={`category-${cat}`}
+                        value={cat}
+                        className="sr-only"
+                        {...register("category")}
+                        disabled={isEdit}
+                      />
+                      <span className="leading-none">{cat}</span>
+                    </label>
+                  ))}
+                </div>
+              </FormField>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection
+          icon={MapPin}
+          title="Location"
+          description="Zone assignment and map reference used for routing and reporting."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Zone" required error={errors.area?.message}>
+              <Select
+                {...register("area")}
+                disabled={isEdit}
+                className={isEdit ? "bg-muted" : ""}
+              >
+                <option value="">Select Zone</option>
+                {areas.map((a) => (
+                  <option key={a._id} value={a._id}>
+                    {a.name} {a.city ? `- ${a.city}` : ""}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Sub-zone">
+              <Select {...register("subZoneId")} disabled={!subZones.length}>
+                <option value="">
+                  {subZones.length ? "Optional" : "No sub-zones for this zone"}
+                </option>
+                {subZones.map((sz) => {
+                  const sid = sz._id || sz.id;
+                  return (
+                    <option key={sid} value={sid}>
+                      {(sz.subZoneCode ? `${sz.subZoneCode} — ` : "") +
+                        (sz.name || "")}
+                    </option>
+                  );
+                })}
+              </Select>
+            </FormField>
+
+            <div className="md:col-span-2">
+              <FormField
+                label="Location ( Google Map URL )"
+                error={errors.location?.message}
+              >
+                <Input {...register("location")} />
+              </FormField>
+            </div>
+          </div>
+        </FormSection>
+
+        <FormSection
+          icon={Users}
+          title="Purchase Managers"
+          description="Key procurement contacts at this customer."
+          action={
             <Button
               type="button"
               variant="outline"
@@ -710,9 +1040,10 @@ const IndustryForm = () => {
               <Plus className="h-4 w-4" />
               Add Purchase Manager
             </Button>
-          </div>
+          }
+        >
           {fields.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
               No purchase managers added. Click &quot;Add Purchase Manager&quot;
               to add.
             </p>
@@ -721,7 +1052,7 @@ const IndustryForm = () => {
               {fields.map((field, index) => (
                 <div
                   key={field.id}
-                  className="rounded-lg border border-border p-3"
+                  className="rounded-lg border border-border bg-muted/30 p-4"
                 >
                   <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
                     <div className="md:col-span-3">
@@ -792,27 +1123,36 @@ const IndustryForm = () => {
               ))}
             </div>
           )}
-        </div>
+        </FormSection>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField
-            label="Shipping address"
-            required
-            error={errors.shippingAddress?.message}
-          >
-            <Textarea rows={3} {...register("shippingAddress")} />
-          </FormField>
-          <FormField
-            label="Billing address"
-            required
-            error={errors.billingAddress?.message}
-          >
-            <Textarea rows={3} {...register("billingAddress")} />
-          </FormField>
-        </div>
+        <FormSection
+          icon={MapPin}
+          title="Addresses"
+          description="Shipping and billing destinations for orders and invoices."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField
+              label="Shipping address"
+              required
+              error={errors.shippingAddress?.message}
+            >
+              <Textarea rows={3} {...register("shippingAddress")} />
+            </FormField>
+            <FormField
+              label="Billing address"
+              required
+              error={errors.billingAddress?.message}
+            >
+              <Textarea rows={3} {...register("billingAddress")} />
+            </FormField>
+          </div>
+        </FormSection>
 
-        {/* Branches */}
-        <div className="mt-6 border-t border-border pt-5">
+        <FormSection
+          icon={GitBranch}
+          title="Branches"
+          description="Additional branch locations for this customer, if any."
+        >
           <label className="flex cursor-pointer items-center gap-2">
             <Checkbox
               checked={Boolean(hasBranches)}
@@ -826,10 +1166,10 @@ const IndustryForm = () => {
           </label>
 
           {hasBranches && (
-            <div className="mt-3">
+            <div className="mt-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-medium text-foreground">
-                  Branches
+                  Branch locations
                 </span>
                 <Button
                   type="button"
@@ -839,10 +1179,9 @@ const IndustryForm = () => {
                     appendBranch({
                       name: "",
                       address: "",
-                      city: "",
                       state: "",
+                      city: "",
                       pincode: "",
-                      contactPersonId: "",
                     })
                   }
                 >
@@ -851,94 +1190,137 @@ const IndustryForm = () => {
                 </Button>
               </div>
               {branchFields.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
+                <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
                   No branches added. Click &quot;Add Branch&quot; to add.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {branchFields.map((field, index) => (
-                    <div
-                      key={field.id}
-                      className="rounded-lg border border-border p-3"
-                    >
-                      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
-                        <div className="md:col-span-3">
-                          <FormField label="Name">
-                            <Input
-                              {...register(`branches.${index}.name`)}
-                              placeholder="Branch name"
-                            />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-3">
-                          <FormField label="Address">
-                            <Input
-                              {...register(`branches.${index}.address`)}
-                              placeholder="Address"
-                            />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-2">
-                          <FormField label="City">
-                            <Input {...register(`branches.${index}.city`)} />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-2">
-                          <FormField label="State">
-                            <Input {...register(`branches.${index}.state`)} />
-                          </FormField>
-                        </div>
-                        <div className="md:col-span-1">
-                          <FormField
-                            label="Pincode"
-                            error={errors.branches?.[index]?.pincode?.message}
-                          >
-                            <Input
-                              {...register(`branches.${index}.pincode`)}
-                              maxLength={6}
-                            />
-                          </FormField>
-                        </div>
-                        <div className="flex md:col-span-1 md:justify-center md:pt-7">
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive hover:text-destructive"
-                            onClick={() => removeBranch(index)}
-                            title="Remove"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="md:col-span-12">
-                          <FormField label="Contact Person">
-                            <Select
-                              {...register(`branches.${index}.contactPersonId`)}
+                  {branchFields.map((field, index) => {
+                    const rowState = watch(`branches.${index}.state`);
+                    const rowCity = watch(`branches.${index}.city`);
+                    const rowStateFieldProps = register(
+                      `branches.${index}.state`,
+                    );
+                    const rowPincodeFieldProps = register(
+                      `branches.${index}.pincode`,
+                    );
+                    return (
+                      <div
+                        key={field.id}
+                        className="rounded-lg border border-border bg-muted/30 p-4"
+                      >
+                        <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
+                          <div className="md:col-span-3">
+                            <FormField label="Name">
+                              <Input
+                                {...register(`branches.${index}.name`)}
+                                placeholder="Branch name"
+                              />
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-3">
+                            <FormField label="Address">
+                              <Input
+                                {...register(`branches.${index}.address`)}
+                                placeholder="Address"
+                              />
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-2">
+                            <FormField
+                              label="Pincode"
+                              error={errors.branches?.[index]?.pincode?.message}
                             >
-                              <option value="">Unassigned</option>
-                              {contactPersons.map((cp) => (
-                                <option key={cp.id} value={cp.id}>
-                                  {`${cp.firstName} ${cp.lastName}`.trim()}
+                              <Input
+                                {...rowPincodeFieldProps}
+                                maxLength={6}
+                                onBlur={async (e) => {
+                                  rowPincodeFieldProps.onBlur(e);
+                                  const found = await lookupPincode(
+                                    e.target.value,
+                                  );
+                                  if (found?.state) {
+                                    setValue(
+                                      `branches.${index}.state`,
+                                      found.state,
+                                    );
+                                    await ensureCitiesForState(found.state);
+                                  }
+                                  if (found?.city) {
+                                    setValue(
+                                      `branches.${index}.city`,
+                                      found.city,
+                                    );
+                                  }
+                                }}
+                              />
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-2">
+                            <FormField label="State">
+                              <Select
+                                {...rowStateFieldProps}
+                                onChange={(e) => {
+                                  rowStateFieldProps.onChange(e);
+                                  setValue(`branches.${index}.city`, "");
+                                  ensureCitiesForState(e.target.value);
+                                }}
+                              >
+                                <option value="">Select state</option>
+                                {states.map((s) => (
+                                  <option key={s} value={s}>
+                                    {s}
+                                  </option>
+                                ))}
+                              </Select>
+                            </FormField>
+                          </div>
+                          <div className="md:col-span-2">
+                            <FormField label="City">
+                              <Select
+                                {...register(`branches.${index}.city`)}
+                                disabled={!rowState}
+                              >
+                                <option value="">
+                                  {rowState
+                                    ? "Select city"
+                                    : "Select state first"}
                                 </option>
-                              ))}
-                            </Select>
-                          </FormField>
+                                {cityOptionsFor(rowState, rowCity).map((c) => (
+                                  <option key={c} value={c}>
+                                    {c}
+                                  </option>
+                                ))}
+                              </Select>
+                            </FormField>
+                          </div>
+                          <div className="flex md:col-span-12 md:justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => removeBranch(index)}
+                              title="Remove"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           )}
-        </div>
+        </FormSection>
 
-        {/* Business Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Business Information
-          </span>
+        <FormSection
+          icon={Landmark}
+          title="Business Information"
+          description="Public-facing company details and branding."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Website" error={errors.website?.message}>
               <Input
@@ -965,70 +1347,91 @@ const IndustryForm = () => {
               <Input type="number" min={0} {...register("annualRevenue")} />
             </FormField>
             <FormField label="Company Logo">
-              <Input
-                type="file"
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e?.target?.files?.[0];
-                  if (!file) return;
-                  const reader = new FileReader();
-                  reader.onload = () =>
-                    setValue("companyLogoBase64", String(reader.result || ""));
-                  reader.readAsDataURL(file);
-                }}
-              />
-              {companyLogoBase64 && (
-                <img
-                  src={companyLogoBase64}
-                  alt="Company logo preview"
-                  className="mt-2 h-12 w-12 rounded object-contain"
+              <div className="flex items-start gap-3">
+                {companyLogoBase64 && (
+                  <img
+                    src={companyLogoBase64}
+                    alt="Company logo preview"
+                    className="h-16 w-16 shrink-0 rounded-lg border border-border object-contain p-1"
+                  />
+                )}
+                <FileUpload
+                  accept="image/*"
+                  hint="PNG, JPG or SVG"
+                  onChange={(e) => {
+                    const file = e?.target?.files?.[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = () =>
+                      setValue(
+                        "companyLogoBase64",
+                        String(reader.result || ""),
+                      );
+                    reader.readAsDataURL(file);
+                  }}
                 />
-              )}
+              </div>
             </FormField>
           </div>
-        </div>
+        </FormSection>
 
-        {/* Address Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Address Information
-          </span>
+        <FormSection
+          icon={MapPin}
+          title="Address Information"
+          description="Registered address used for compliance and correspondence."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
               <FormField label="Registered Address">
                 <Textarea rows={2} {...register("registeredAddress")} />
               </FormField>
             </div>
-            <FormField label="Country">
-              <Input {...register("country")} />
+            <FormField label="Pin Code" error={errors.pincode?.message}>
+              <Input
+                {...pincodeFieldProps}
+                maxLength={6}
+                onBlur={async (e) => {
+                  pincodeFieldProps.onBlur(e);
+                  const found = await lookupPincode(e.target.value);
+                  if (found?.state) {
+                    setValue("state", found.state);
+                    await ensureCitiesForState(found.state);
+                  }
+                  if (found?.city) setValue("city", found.city);
+                }}
+              />
             </FormField>
             <FormField label="State">
-              <Input {...register("state")} />
-            </FormField>
-            <FormField label="City">
-              <Input {...register("city")} />
-            </FormField>
-            <FormField label="Pin Code" error={errors.pincode?.message}>
-              <Input {...register("pincode")} maxLength={6} />
-            </FormField>
-          </div>
-        </div>
-
-        {/* Financial Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Financial Information
-          </span>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Currency">
-              <Select {...register("currency")}>
-                <option value="">Select currency</option>
-                <option value="INR">INR</option>
-                <option value="USD">USD</option>
-                <option value="EUR">EUR</option>
-                <option value="GBP">GBP</option>
+              <Select {...stateFieldProps}>
+                <option value="">Select state</option>
+                {states.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </Select>
             </FormField>
+            <FormField label="City">
+              <Select {...register("city")} disabled={!selectedState}>
+                <option value="">
+                  {selectedState ? "Select city" : "Select state first"}
+                </option>
+                {cityOptionsFor(selectedState, watch("city")).map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+          </div>
+        </FormSection>
+
+        <FormSection
+          icon={CreditCard}
+          title="Financial Information"
+          description="Payment terms and credit exposure for this customer."
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Payment Terms">
               <Input {...register("paymentTerms")} placeholder="e.g. Net 30" />
             </FormField>
@@ -1036,69 +1439,85 @@ const IndustryForm = () => {
               <Input type="number" min={0} {...register("creditLimit")} />
             </FormField>
           </div>
-        </div>
+        </FormSection>
 
-        {/* Attachments */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Attachments
-          </span>
+        <FormSection
+          icon={Paperclip}
+          title="Attachments"
+          description="Supporting documents for verification and records."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField
-              label="Company Registration Certificate"
-              helper="File name only — not uploaded"
-            >
-              <Input
-                type="file"
-                onChange={(e) => {
-                  const file = e?.target?.files?.[0];
-                  if (!file) return;
-                  setAttachments((prev) => [
-                    ...prev,
-                    {
-                      id: `att_${Date.now()}`,
-                      fileName: file.name,
-                      uploadedAt: new Date().toISOString(),
-                    },
-                  ]);
-                }}
+            <FormField label="Company Registration Certificate">
+              <FileUpload
+                hint="PDF, JPG or PNG"
+                disabled={attachmentBusy}
+                onChange={(e) =>
+                  handleAttachmentFileChange(
+                    e,
+                    "Company Registration Certificate",
+                  )
+                }
               />
             </FormField>
-            <FormField
-              label="Business Documents"
-              helper="File name only — not uploaded"
-            >
-              <Input
-                type="file"
-                onChange={(e) => {
-                  const file = e?.target?.files?.[0];
-                  if (!file) return;
-                  setAttachments((prev) => [
-                    ...prev,
-                    {
-                      id: `att_${Date.now()}`,
-                      fileName: file.name,
-                      uploadedAt: new Date().toISOString(),
-                    },
-                  ]);
-                }}
+            <FormField label="Business Documents">
+              <FileUpload
+                hint="PDF, JPG or PNG"
+                disabled={attachmentBusy}
+                onChange={(e) =>
+                  handleAttachmentFileChange(e, "Business Documents")
+                }
               />
             </FormField>
           </div>
-          {attachments.length > 0 && (
-            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+          {(attachments.length > 0 || pendingAttachments.length > 0) && (
+            <ul className="mt-3 space-y-1.5 text-sm text-muted-foreground">
               {attachments.map((att) => (
-                <li key={att.id}>{att.fileName}</li>
+                <li
+                  key={att._id}
+                  className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1 truncate">
+                    {att.label ? `${att.label}: ` : ""}
+                    {att.documentId?.originalName || "Attachment"}
+                  </span>
+                  <button
+                    type="button"
+                    className="text-destructive hover:underline"
+                    onClick={() => handleDeleteAttachment(att._id)}
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+              {pendingAttachments.map((pending, index) => (
+                <li
+                  key={`pending_${index}`}
+                  className="flex items-center gap-2 rounded-md border border-border bg-muted/30 px-3 py-2"
+                >
+                  <Paperclip className="h-3.5 w-3.5 shrink-0" />
+                  <span className="flex-1 truncate">
+                    {pending.label ? `${pending.label}: ` : ""}
+                    {pending.file.name} (will upload on save)
+                  </span>
+                  <button
+                    type="button"
+                    className="text-destructive hover:underline"
+                    onClick={() => removePendingAttachment(index)}
+                  >
+                    Remove
+                  </button>
+                </li>
               ))}
             </ul>
           )}
-        </div>
+        </FormSection>
 
-        {/* Additional Information */}
-        <div className="mt-6 border-t border-border pt-5">
-          <span className="mb-2 block text-sm font-medium text-foreground">
-            Additional Information
-          </span>
+        <FormSection
+          icon={StickyNote}
+          title="Additional Information"
+          description="Free-form notes visible to your team."
+        >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormField label="Remarks">
               <Textarea rows={2} {...register("remarks")} />
@@ -1107,9 +1526,9 @@ const IndustryForm = () => {
               <Textarea rows={2} {...register("internalComments")} />
             </FormField>
           </div>
-        </div>
+        </FormSection>
 
-        <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-5">
+        <div className="-mx-6 -mb-6 mt-8 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/30 px-6 py-4">
           <Button
             type="button"
             variant="outline"
@@ -1121,9 +1540,9 @@ const IndustryForm = () => {
             {submitting ? (
               <Spinner size="sm" />
             ) : isEdit ? (
-              "Update client"
+              "Update customer"
             ) : (
-              "Create client"
+              "Create customer"
             )}
           </Button>
         </div>

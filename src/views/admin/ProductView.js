@@ -18,10 +18,12 @@ import {
 } from "lucide-react";
 import productService from "../../services/productService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, PageHeader } from "../../components";
+import { Loader } from "../../components";
 import {
   Alert,
   AlertDescription,
+  Avatar,
+  AvatarFallback,
   Badge,
   Button,
   Card,
@@ -88,28 +90,35 @@ const fieldOr = (value, key) => {
   return value;
 };
 
-const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-3 py-2">
-    {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
-    <div className="min-w-0 flex-1">
+const InfoRow = ({ label, value }) => {
+  const hasValue = value || value === 0;
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5">
       <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="truncate text-sm font-medium text-foreground">
-        {value || value === 0 ? String(value) : "-"}
+      <div
+        className={
+          hasValue
+            ? "min-w-0 break-words text-right text-sm font-medium text-foreground"
+            : "text-right text-sm font-medium text-muted-foreground/60"
+        }
+      >
+        {hasValue ? String(value) : "NA"}
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-const InfoCard = ({ icon, title, children }) => (
+const InfoCard = ({ icon: Icon, title, children }) => (
   <Card>
-    <CardHeader className="flex flex-row items-center gap-2 pb-2">
-      {icon &&
-        React.createElement(icon, { className: "h-4 w-4 text-primary!" })}
+    <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+      {Icon && (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className="h-4 w-4 text-primary!" />
+        </span>
+      )}
       <CardTitle className="text-sm">{title}</CardTitle>
     </CardHeader>
-    <CardContent className="divide-y divide-border pt-0">
-      {children}
-    </CardContent>
+    <CardContent className="divide-y divide-border">{children}</CardContent>
   </Card>
 );
 
@@ -266,43 +275,87 @@ const ProductView = () => {
         </Button>
       </div>
 
-      <PageHeader
-        title={
-          <span className="flex items-center gap-2">
-            {product.name}
-            {getStatusBadge(product.status)}
-          </span>
-        }
-        description={
-          product.productCode
-            ? `Product Code: ${product.productCode}`
-            : undefined
-        }
-        actions={
-          !isBackOfficeUser ? (
-            <>
-              <Button onClick={() => navigate(`/products/edit/${id}`)}>
-                <Pencil className="h-4 w-4" />
-                Edit
-              </Button>
-              {product?.status !== "hod_approved" && (
-                <Button
-                  className="bg-success! text-success-foreground hover:opacity-90"
-                  onClick={() => setShowConfirmModal(true)}
-                >
-                  <CheckCircle className="h-4 w-4" />
-                  HOD Approve
+      {/* Summary banner */}
+      <Card>
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarFallback className="text-lg">
+                  {(product.name || "PR").slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-xl font-semibold leading-tight">
+                    {product.name || "-"}
+                  </h3>
+                  {getStatusBadge(product.status)}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {product.productCode
+                    ? `Product Code: ${product.productCode}`
+                    : "Product code pending"}
+                  {product.category?.name ? ` · ${product.category.name}` : ""}
+                </p>
+              </div>
+            </div>
+            {!isBackOfficeUser ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <Button onClick={() => navigate(`/products/edit/${id}`)}>
+                  <Pencil className="h-4 w-4" />
+                  Edit
                 </Button>
-              )}
-              {product?.status === "hod_approved" && (
-                <Badge variant="success" className="px-3 py-1.5 text-sm">
-                  HOD Approved
-                </Badge>
-              )}
-            </>
-          ) : null
-        }
-      />
+                {product?.status !== "hod_approved" && (
+                  <Button
+                    className="bg-success! text-success-foreground hover:opacity-90"
+                    onClick={() => setShowConfirmModal(true)}
+                  >
+                    <CheckCircle className="h-4 w-4" />
+                    HOD Approve
+                  </Button>
+                )}
+                {product?.status === "hod_approved" && (
+                  <Badge variant="success" className="px-3 py-1.5 text-sm">
+                    HOD Approved
+                  </Badge>
+                )}
+              </div>
+            ) : null}
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 divide-x divide-y divide-border border-t sm:grid-cols-4">
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Variants</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {product.hasVariants
+                  ? (product.variantCombinationCount ??
+                    product.variantCombinations?.length ??
+                    0)
+                  : 0}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Images</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {product.images?.length || 0}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Brand</div>
+              <div className="mt-0.5 truncate text-lg font-semibold text-foreground">
+                {product.brand?.name || "NA"}
+              </div>
+            </div>
+            <div className="px-4 py-3">
+              <div className="text-xs text-muted-foreground">Unit</div>
+              <div className="mt-0.5 text-lg font-semibold text-foreground">
+                {product.unit || "PCS"}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="space-y-4 md:col-span-2">
@@ -392,10 +445,13 @@ const ProductView = () => {
         {/* Main product images sidebar */}
         <div>
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Product images</CardTitle>
+            <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <ImageIcon className="h-4 w-4 text-primary!" />
+              </span>
+              <CardTitle className="text-sm">Product images</CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent>
               {product.images?.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {product.images.map((img, index) => {
@@ -440,8 +496,11 @@ const ProductView = () => {
       {/* Variant definitions */}
       {product.hasVariants && product.variants?.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Variant types</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Boxes className="h-4 w-4 text-primary!" />
+            </span>
+            <CardTitle className="text-sm">Variant types</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {product.variants.map((variant, idx) => (
@@ -462,14 +521,17 @@ const ProductView = () => {
 
       {product.hasVariants && product.variantCombinations?.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Variant combinations</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+              <Boxes className="h-4 w-4 text-primary!" />
+            </span>
+            <CardTitle className="text-sm">Variant combinations</CardTitle>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="bg-muted/50">
                     <TableHead>Variant Code</TableHead>
                     <TableHead>Options</TableHead>
                     <TableHead>Status</TableHead>

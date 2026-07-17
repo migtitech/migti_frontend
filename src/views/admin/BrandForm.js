@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import brandService from "../../services/brandService";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import { Loader, CrudFormPage, FormField, FileUpload } from "../../components";
 import {
   Button,
   Alert,
@@ -14,6 +14,32 @@ import {
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { cn } from "../../lib/utils";
+
+/**
+ * Section anchor: an icon chip + title + short description used to visually
+ * group each set of fields in the form scaffold (the shared "tile" system).
+ */
+const FormSection = ({ icon: Icon, title, description, first, children }) => (
+  <div
+    className={cn("mt-8 first:mt-0", !first && "border-t border-border pt-8")}
+  >
+    <div className="mb-5 flex items-start gap-3">
+      {Icon && (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className="h-4 w-4 text-primary!" />
+        </span>
+      )}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+    </div>
+    {children}
+  </div>
+);
 
 const BrandForm = () => {
   const navigate = useNavigate();
@@ -192,88 +218,93 @@ const BrandForm = () => {
           </Alert>
         )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField label="Brand name" required error={fieldErrors.name}>
-            <Input
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              aria-invalid={!!fieldErrors.name}
-            />
-          </FormField>
-
-          <FormField label="Status" required error={fieldErrors.status}>
-            <Select
-              name="status"
-              value={formData.status}
-              onChange={handleChange}
-              aria-invalid={!!fieldErrors.status}
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </Select>
-          </FormField>
-
-          <div className="md:col-span-2">
-            <FormField
-              label="Brand icon"
-              htmlFor="brand-icon"
-              helper={iconUploading ? "Uploading to S3..." : undefined}
-            >
-              <div className="space-y-3">
-                <Input
-                  id="brand-icon"
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={handleIconChange}
-                  disabled={iconUploading || submitting}
-                  className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
-                />
-                {(iconDisplayUrl || formData.iconUrl) && (
-                  <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-3">
-                    <img
-                      src={iconDisplayUrl || formData.iconUrl}
-                      alt=""
-                      style={{
-                        maxHeight: 80,
-                        maxWidth: 160,
-                        objectFit: "contain",
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRemoveIcon}
-                      disabled={iconUploading || submitting}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </FormField>
-          </div>
-
-          <div className="md:col-span-2">
-            <FormField
-              label="Description"
-              required
-              error={fieldErrors.description}
-            >
-              <Textarea
-                name="description"
-                rows={4}
-                value={formData.description}
+        <FormSection
+          icon={Info}
+          title="Brand details"
+          description="Name, status, icon and description of this brand."
+          first
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <FormField label="Brand name" required error={fieldErrors.name}>
+              <Input
+                name="name"
+                value={formData.name}
                 onChange={handleChange}
-                placeholder="Enter brand description..."
-                aria-invalid={!!fieldErrors.description}
+                aria-invalid={!!fieldErrors.name}
               />
             </FormField>
-          </div>
-        </div>
 
-        <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-5">
+            <FormField label="Status" required error={fieldErrors.status}>
+              <Select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                aria-invalid={!!fieldErrors.status}
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </Select>
+            </FormField>
+
+            <div className="md:col-span-2">
+              <FormField
+                label="Brand icon"
+                htmlFor="brand-icon"
+                helper={iconUploading ? "Uploading to S3..." : undefined}
+              >
+                <div className="space-y-3">
+                  <FileUpload
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    hint="JPEG, PNG, GIF or WebP"
+                    disabled={iconUploading || submitting}
+                    onChange={handleIconChange}
+                  />
+                  {(iconDisplayUrl || formData.iconUrl) && (
+                    <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-3">
+                      <img
+                        src={iconDisplayUrl || formData.iconUrl}
+                        alt=""
+                        style={{
+                          maxHeight: 80,
+                          maxWidth: 160,
+                          objectFit: "contain",
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveIcon}
+                        disabled={iconUploading || submitting}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </FormField>
+            </div>
+
+            <div className="md:col-span-2">
+              <FormField
+                label="Description"
+                required
+                error={fieldErrors.description}
+              >
+                <Textarea
+                  name="description"
+                  rows={4}
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Enter brand description..."
+                  aria-invalid={!!fieldErrors.description}
+                />
+              </FormField>
+            </div>
+          </div>
+        </FormSection>
+
+        <div className="-mx-6 -mb-6 mt-8 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/30 px-6 py-4">
           <Button
             type="button"
             variant="outline"

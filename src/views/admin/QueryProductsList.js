@@ -86,6 +86,18 @@ const parseListResponse = (res) => {
 
 const normalizeQueryCode = (code) => String(code || "").trim();
 
+/** Product name + variant values (combination), same as Query Form / Query View. */
+const getProductDisplayName = (product) => {
+  const name = String(product?.productName || "").trim();
+  const variantText = (product?.variants || [])
+    .map((v) => String(v?.variantName || "").trim())
+    .filter(Boolean)
+    .map((vn) => vn.replace(/,\s*/g, " ").replace(/\s+/g, " ").trim())
+    .join(" ");
+  const full = [name, variantText].filter(Boolean).join(" ");
+  return full || "—";
+};
+
 const QUERY_CODE_FILTER_PAGE_SIZE = 100;
 
 const QueryProductsList = () => {
@@ -285,10 +297,10 @@ const QueryProductsList = () => {
       {
         key: "productName",
         label: "Product Name",
-        exportValue: (row) => row.productName || "—",
+        exportValue: (row) => getProductDisplayName(row),
         render: (row) => (
           <div>
-            <div className="font-semibold">{row.productName || "—"}</div>
+            <div className="font-semibold">{getProductDisplayName(row)}</div>
             {row.rawProductCode && (
               <div className="font-mono text-sm text-muted-foreground">
                 {row.rawProductCode}
@@ -365,7 +377,7 @@ const QueryProductsList = () => {
                 setImgModal({
                   visible: true,
                   images,
-                  title: row.productName || "Images",
+                  title: getProductDisplayName(row) || "Images",
                 })
               }
               title={`View ${images.length} image(s)`}
@@ -373,7 +385,7 @@ const QueryProductsList = () => {
               {firstImgUrl && (
                 <img
                   src={firstImgUrl}
-                  alt={row.productName}
+                  alt={getProductDisplayName(row)}
                   style={{
                     width: 52,
                     height: 52,

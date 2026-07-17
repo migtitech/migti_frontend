@@ -36,9 +36,19 @@ export const variantCombinationSchema = yup.object({
     .of(variantOptionValueSchema)
     .min(1, '"optionValues" must contain at least 1 items')
     .required(),
-  price: optionalNumber("price"),
+  price: yup
+    .number()
+    .typeError('"price" must be a number')
+    .min(0, '"price" must be greater than or equal to 0')
+    .required('"price" (selling price) is required')
+    .transform((value, original) => (original === "" ? undefined : value)),
   mrp: optionalNumber("mrp"),
-  costPrice: optionalNumber("costPrice"),
+  costPrice: yup
+    .number()
+    .typeError('"costPrice" must be a number')
+    .min(0, '"costPrice" must be greater than or equal to 0')
+    .required('"costPrice" (purchase price) is required')
+    .transform((value, original) => (original === "" ? undefined : value)),
   quantity: optionalNumber("quantity", { integer: true }),
   weight: optionalNumber("weight"),
   weightUnit: yup
@@ -51,16 +61,21 @@ export const variantCombinationSchema = yup.object({
   images: yup
     .array()
     .of(yup.string().matches(OBJECT_ID_PATTERN))
-    .optional()
-    .default([]),
+    .min(1, "At least one image is required")
+    .required("At least one image is required"),
   queryQuotationImageId: yup
     .string()
     .matches(OBJECT_ID_PATTERN)
     .nullable()
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
-  modelNumber: yup.string().max(100).nullable().optional().default(""),
-  hsnNumber: yup.string().max(50).nullable().optional().default(""),
+  modelNumber: yup
+    .string()
+    .trim()
+    .required("Model number is required")
+    .min(1, "Model number is required")
+    .max(100, "Model number must be at most 100 characters"),
+  hsnNumber: yup.string().max(25).nullable().optional().default(""),
   gstPercentage: yup
     .number()
     .min(0)
@@ -72,13 +87,13 @@ export const variantCombinationSchema = yup.object({
   timeline: yup
     .number()
     .integer()
-    .min(1)
+    .min(0, "Procurement timeline cannot be negative")
     .nullable()
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
   timelineValue: yup
     .number()
-    .min(1, '"timeline" must be at least 1')
+    .min(0, "Procurement timeline cannot be negative")
     .transform((value, original) => (original === "" ? undefined : value))
     .optional(),
   timelineUnit: yup
@@ -86,13 +101,39 @@ export const variantCombinationSchema = yup.object({
     .oneOf(["day", "week", "month", "year"])
     .optional()
     .default("day"),
-  nextTimelineDate: yup.string().nullable().optional(),
+  nextTimelineDate: yup
+    .string()
+    .nullable()
+    .optional()
+    .test(
+      "future-date",
+      "Next review date must be a future date",
+      (value) => {
+        if (!value) return true;
+        const d = new Date(value);
+        if (Number.isNaN(d.getTime())) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        d.setHours(0, 0, 0, 0);
+        return d > today;
+      },
+    ),
   procurementReviewStatus: yup
     .string()
     .oneOf(["idle", "overdue", "activated", "active"])
     .optional()
     .default("idle"),
-});
+}).test(
+  "selling-gt-purchase",
+  "Selling price must be greater than purchase price",
+  function (combo) {
+    if (!combo) return true;
+    const selling = Number(combo.price);
+    const purchase = Number(combo.costPrice);
+    if (!Number.isFinite(selling) || !Number.isFinite(purchase)) return true;
+    return selling > purchase;
+  },
+);
 
 export const variantSchema = yup.object({
   name: yup.string().required('"name" is required'),
@@ -173,8 +214,8 @@ export const createProductPayloadSchema = yup.object({
     .required('"name" is required')
     .min(2, '"name" length must be at least 2 characters long')
     .max(
-      200,
-      '"name" length must be less than or equal to 200 characters long',
+      100,
+      '"name" length must be less than or equal to 100 characters long',
     ),
   description: yup.string().optional().default(""),
   shortDescription: yup.string().optional().default(""),
@@ -189,16 +230,17 @@ export const createProductPayloadSchema = yup.object({
     .required('"hsnNumber" is required')
     .min(1, '"hsnNumber" is not allowed to be empty')
     .max(
-      50,
-      '"hsnNumber" length must be less than or equal to 50 characters long',
+      25,
+      '"hsnNumber" length must be less than or equal to 25 characters long',
     ),
-  taxClause: yup
-    .string()
-    .trim()
+  taxClause: yup.string().trim().optional().default(""),
+  gstPercentage: yup
+    .number()
+    .transform((value, original) => (original === "" || original == null ? undefined : value))
+    .typeError("GST is required")
     .required("GST is required")
-    .min(1, "GST is not allowed to be empty")
-    .max(200, "GST must be at most 200 characters"),
-  gstPercentage: yup.number().min(0).max(100).optional().default(0),
+    .min(0, "GST must be greater than or equal to 0")
+    .max(100, "GST must be less than or equal to 100"),
   defaultModelNumber: yup.string().max(100).optional().default(""),
   price: optionalNumber("price"),
   mrp: optionalNumber("mrp"),
@@ -267,19 +309,42 @@ export const createProductPayloadSchema = yup.object({
     .transform((value, original) => (original === "" ? null : value)),
   minStock: yup
     .number()
-    .integer()
-    .min(0)
+    .typeError("Min stock must be a number")
+    .integer("Min stock must be an integer")
+    .min(0, "Min stock cannot be negative")
     .nullable()
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
   maxStock: yup
     .number()
-    .integer()
-    .min(0)
+    .typeError("Max stock must be a number")
+    .integer("Max stock must be an integer")
+    .min(0, "Max stock cannot be negative")
     .nullable()
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
-  expiry: yup.string().nullable().optional(),
+  expiry: yup
+    .string()
+    .nullable()
+    .optional()
+    .transform((value, original) => (original === "" ? null : value))
+    .test(
+      "not-past-expiry",
+      "Expiry cannot be earlier than the current date",
+      (value) => {
+        if (!value) return true;
+        const d = new Date(
+          typeof value === "string" && value.length <= 10
+            ? `${value}T00:00:00`
+            : value,
+        );
+        if (Number.isNaN(d.getTime())) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        d.setHours(0, 0, 0, 0);
+        return d >= today;
+      },
+    ),
   companyProductCodes: yup
     .array()
     .of(companyProductCodeSchema)
@@ -316,8 +381,8 @@ export const productFormSchema = yup.object({
     .required('"name" is required')
     .min(2, '"name" length must be at least 2 characters long')
     .max(
-      200,
-      '"name" length must be less than or equal to 200 characters long',
+      100,
+      '"name" length must be less than or equal to 100 characters long',
     ),
   description: yup.string().trim().optional().default(""),
   category: yup.string().required('"category" is required'),
@@ -341,23 +406,17 @@ export const productFormSchema = yup.object({
     .required('"hsnNumber" is required')
     .min(1, '"hsnNumber" is not allowed to be empty')
     .max(
-      50,
-      '"hsnNumber" length must be less than or equal to 50 characters long',
+      25,
+      '"hsnNumber" length must be less than or equal to 25 characters long',
     ),
-  taxClause: yup
-    .string()
-    .trim()
-    .required("GST is required")
-    .min(1, "GST is not allowed to be empty")
-    .max(200, "GST must be at most 200 characters"),
+  taxClause: yup.string().trim().optional().default(""),
   gstPercentage: yup
     .number()
-    .typeError('"gstPercentage" must be a number')
-    .min(0, '"gstPercentage" must be greater than or equal to 0')
-    .max(100, '"gstPercentage" must be less than or equal to 100')
-    .optional()
-    .nullable()
-    .transform((value, original) => (original === "" ? undefined : value)),
+    .transform((value, original) => (original === "" || original == null ? undefined : value))
+    .typeError("GST is required")
+    .required("GST is required")
+    .min(0, "GST must be greater than or equal to 0")
+    .max(100, "GST must be less than or equal to 100"),
   defaultModelNumber: yup
     .string()
     .trim()
@@ -443,17 +502,17 @@ export const productFormSchema = yup.object({
     .transform((value, original) => (original === "" ? null : value)),
   minStock: yup
     .number()
-    .typeError('"minStock" must be a number')
-    .integer('"minStock" must be an integer')
-    .min(0, '"minStock" must be greater than or equal to 0')
+    .typeError("Min stock must be a number")
+    .integer("Min stock must be an integer")
+    .min(0, "Min stock cannot be negative")
     .nullable()
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
   maxStock: yup
     .number()
-    .typeError('"maxStock" must be a number')
-    .integer('"maxStock" must be an integer')
-    .min(0, '"maxStock" must be greater than or equal to 0')
+    .typeError("Max stock must be a number")
+    .integer("Max stock must be an integer")
+    .min(0, "Max stock cannot be negative")
     .nullable()
     .optional()
     .transform((value, original) => (original === "" ? null : value)),
@@ -461,7 +520,24 @@ export const productFormSchema = yup.object({
     .string()
     .nullable()
     .optional()
-    .transform((value, original) => (original === "" ? null : value)),
+    .transform((value, original) => (original === "" ? null : value))
+    .test(
+      "not-past-expiry",
+      "Expiry cannot be earlier than the current date",
+      (value) => {
+        if (!value) return true;
+        const d = new Date(
+          typeof value === "string" && value.length <= 10
+            ? `${value}T00:00:00`
+            : value,
+        );
+        if (Number.isNaN(d.getTime())) return false;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        d.setHours(0, 0, 0, 0);
+        return d >= today;
+      },
+    ),
 });
 
 export const collectYupErrors = (err) => {

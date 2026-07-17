@@ -1,10 +1,6 @@
 import React from "react";
 import createSidebarPlaceholderPage from "../views/sidebar/createSidebarPlaceholderPage";
 
-const SubCategoriesPage = createSidebarPlaceholderPage(
-  "Sub Categories",
-  "Manage product sub categories separately from the main categories list.",
-);
 const LostQuotationsPage = createSidebarPlaceholderPage(
   "Lost Quotation",
   "Track quotations that were lost or not converted.",
@@ -129,13 +125,6 @@ const sidebarPageRoutes = [
     element: PendingActionsPage,
     module: null,
     allowedRoles: ["head_of_department", "hod"],
-  },
-  {
-    path: "/sub-categories",
-    name: "Sub Categories",
-    element: SubCategoriesPage,
-    module: "categories",
-    action: "read",
   },
   {
     path: "/product-sale-list",

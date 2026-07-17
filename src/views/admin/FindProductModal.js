@@ -470,7 +470,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                 : null,
           variants: [{ variantName: getVariantComboDisplay(combo) }],
           remark: "",
-          rawProductCode: combo?.variantCode || p?.productCode || "",
+          rawProductCode: String(combo?.variantCode || "").trim(),
           product_id: pid,
           images: toImageRefs(combo?.images?.length ? combo.images : p?.images),
         });

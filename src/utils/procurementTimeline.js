@@ -33,6 +33,42 @@ export const formatDateInputValue = (date) => {
   return d.toISOString().slice(0, 10);
 };
 
+/** Calendar day for "today" date inputs (local). */
+export const getTodayDateInputValue = () => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return formatDateInputValue(today);
+};
+
+/** Minimum selectable calendar day for "future only" date inputs (tomorrow). */
+export const getTomorrowDateInputValue = () => {
+  const tomorrow = new Date();
+  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return formatDateInputValue(tomorrow);
+};
+
+export const isFutureDate = (date) => {
+  if (!date) return false;
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return d > today;
+};
+
+/** True when date is today or any later day (not in the past). */
+export const isTodayOrFutureDate = (date) => {
+  if (!date) return false;
+  const d = date instanceof Date ? date : new Date(date);
+  if (Number.isNaN(d.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  d.setHours(0, 0, 0, 0);
+  return d >= today;
+};
+
 export const computeNextTimelineDate = (
   timelineDays,
   baseDate = new Date(),

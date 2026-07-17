@@ -42,92 +42,73 @@ import {
   TableCell,
 } from "../../components/ui";
 import industryService from "../../services/industryService";
+import industryBranchService from "../../services/industryBranchService";
+import industryAttachmentService from "../../services/industryAttachmentService";
 import queryService from "../../services/queryService";
 import quotationService from "../../services/quotationService";
 import poBillingService from "../../services/poBillingService";
 import bpDummy from "../../data/businessPartnerDummy";
+import axiosClient from "../../api/axiosClient";
+import { DOCUMENTS } from "../../api/endpoints";
 import { EyeIcon, Loader, TablePagination } from "../../components";
+import { cn } from "../../lib/utils";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
 import { dateTimeFormatter } from "../../utils/dateFormatter";
-import { openAttachmentPreview } from "../../utils/attachmentPreview";
 import useAreaNameLookup from "../../hooks/useAreaNameLookup";
 import { formatAreaDisplayOrDash } from "../../utils/areaDisplay";
 
-// Fallback sample values shown when a field has no real/overlay data yet, so
-// the redesigned Company Information tab always demonstrates its full layout.
-const DUMMY_FALLBACK = {
-  clientType: "Customer",
-  industrySector: "Manufacturing",
-  registrationNumber: "REG-2024-00123",
-  pan: "ABCPL4321F",
-  website: "https://www.acmeindustries.com",
-  companyEmail: "contact@acmeindustries.com",
-  companyPhone: "+91 98765 43210",
-  numberOfEmployees: 250,
-  annualRevenue: 50000000,
-  registeredAddress: "Plot 45, Industrial Area, Phase II, MIDC",
-  country: "India",
-  state: "Maharashtra",
-  city: "Mumbai",
-  pincode: "400001",
-  currency: "INR",
-  paymentTerms: "Net 30",
-  creditLimit: 500000,
-  remarks: "Key account with steady quarterly orders.",
-  internalComments: "Prefers email communication over phone calls.",
-};
-
-const DUMMY_PURCHASE_MANAGER = {
-  name: "Rahul Sharma",
-  department: "Procurement",
-  phone: "9876543210",
-  email: "rahul.sharma@acmeindustries.com",
-};
-
-const DUMMY_BRANCH = {
-  name: "Pune Branch",
-  address: "Plot 12, Hinjewadi Phase I",
-  city: "Pune",
-  state: "Maharashtra",
-  pincode: "411057",
-};
-
-const DUMMY_ATTACHMENTS = [
-  { id: "dummy_att_1", fileName: "company_registration_certificate.pdf" },
-  { id: "dummy_att_2", fileName: "gst_document.pdf" },
-];
-
-const overlayOr = (overlay, key) => {
-  const value = overlay?.[key];
-  if (value === "" || value === null || value === undefined) {
-    return DUMMY_FALLBACK[key];
+const openAttachment = async (attachment) => {
+  const docId = attachment?.documentId?._id || attachment?.documentId;
+  if (!docId) return;
+  try {
+    const response = await axiosClient.get(DOCUMENTS.SERVE(docId), {
+      responseType: "blob",
+    });
+    const blob = response.data ?? response;
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (err) {
+    toastError(err?.message || "Failed to open attachment");
   }
-  return value;
 };
 
-const InfoRow = ({ icon: Icon, label, value }) => (
-  <div className="flex items-start gap-3 py-2">
-    {Icon && <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
-    <div className="min-w-0 flex-1">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="truncate text-sm font-medium text-foreground">
-        {value || value === 0 ? String(value) : "-"}
+const InfoRow = ({ icon: Icon, label, value }) => {
+  const hasValue = value || value === 0;
+  return (
+    <div className="flex items-start gap-3 py-2.5">
+      {Icon && (
+        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+      )}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div
+          className={cn(
+            "mt-0.5 break-words text-sm font-medium",
+            hasValue ? "text-foreground" : "text-muted-foreground/60",
+          )}
+        >
+          {hasValue ? String(value) : "NA"}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const InfoCard = ({ icon, title, children }) => (
-  <Card>
-    <CardHeader className="flex flex-row items-center gap-2 pb-2">
-      {icon &&
-        React.createElement(icon, {
-          className: "h-4 w-4 text-primary!",
-        })}
+  <Card className="h-full">
+    <CardHeader className="flex flex-row items-center gap-2 border-b border-border pb-3">
+      {icon && (
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+          {React.createElement(icon, {
+            className: "h-4 w-4 text-primary!",
+          })}
+        </span>
+      )}
       <CardTitle className="text-sm">{title}</CardTitle>
     </CardHeader>
-    <CardContent className="divide-y divide-border pt-0">
+    <CardContent className="divide-y divide-border pt-1">
       {children}
     </CardContent>
   </Card>
@@ -185,6 +166,8 @@ const IndustryView = () => {
   const [quotationPage, setQuotationPage] = useState(1);
   const [poPage, setPoPage] = useState(1);
   const [billingPage, setBillingPage] = useState(1);
+  const [branches, setBranches] = useState([]);
+  const [attachments, setAttachments] = useState([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -199,7 +182,7 @@ const IndustryView = () => {
         setIndustry(industryRes?.data || industryRes);
       } catch (err) {
         if (!cancelled) {
-          const message = err?.message || "Failed to fetch client";
+          const message = err?.message || "Failed to fetch customer";
           setError(message);
           toastError(message);
           setIndustry(null);
@@ -209,6 +192,34 @@ const IndustryView = () => {
       }
     };
     loadIndustry();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const loadBranchesAndAttachments = async () => {
+      try {
+        const res = await industryBranchService.getAll({
+          industryId: id,
+          pageSize: 100,
+        });
+        const data = res?.data || res;
+        if (!cancelled) setBranches(data?.branches || []);
+      } catch {
+        if (!cancelled) setBranches([]);
+      }
+      try {
+        const res = await industryAttachmentService.list({ industryId: id });
+        const data = res?.data || res;
+        if (!cancelled) setAttachments(data?.attachments || []);
+      } catch {
+        if (!cancelled) setAttachments([]);
+      }
+    };
+    loadBranchesAndAttachments();
     return () => {
       cancelled = true;
     };
@@ -430,32 +441,19 @@ const IndustryView = () => {
     }, 0);
   }, [billingAmount, billings]);
 
+  // Company logo is still a client-side-only overlay field (out of scope for
+  // real persistence — see IndustryForm.js), everything else on `industry`
+  // is real backend data.
   const overlay = useMemo(
     () => (id ? bpDummy.getOverlay("industry", id) : bpDummy.defaultOverlay()),
     [id, industry],
   );
 
-  const clientCode = useMemo(
-    () => (id ? bpDummy.getOrCreateCode("industry", id) : ""),
-    [id, industry],
-  );
-
-  const displayPurchaseManagers =
-    purchaseManagers.length > 0 ? purchaseManagers : [DUMMY_PURCHASE_MANAGER];
-
-  const displayBranches =
-    (overlay?.branches || []).length > 0 ? overlay.branches : [DUMMY_BRANCH];
-
-  const displayAttachments =
-    (overlay?.attachments || []).length > 0
-      ? overlay.attachments
-      : DUMMY_ATTACHMENTS;
-
   if (loadingIndustry) {
     return (
       <Card>
         <CardContent className="p-6">
-          <Loader message="Loading client..." />
+          <Loader message="Loading customer..." />
         </CardContent>
       </Card>
     );
@@ -471,7 +469,7 @@ const IndustryView = () => {
             variant="outline"
             onClick={() => navigate("/industries")}
           >
-            Back to clients
+            Back to customers
           </Button>
         </AlertDescription>
       </Alert>
@@ -482,13 +480,13 @@ const IndustryView = () => {
     return (
       <Alert variant="warning">
         <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
-          <span>Client not found.</span>
+          <span>Customer not found.</span>
           <Button
             type="button"
             variant="outline"
             onClick={() => navigate("/industries")}
           >
-            Back to clients
+            Back to customers
           </Button>
         </AlertDescription>
       </Alert>
@@ -497,43 +495,94 @@ const IndustryView = () => {
 
   return (
     <div>
-      <div className="mb-3 flex gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <Button
           type="button"
-          variant="outline"
+          variant="ghost"
           onClick={() => navigate("/industries")}
+          className="px-2 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to clients
+          Back to customers
         </Button>
         <Button
           type="button"
           onClick={() => navigate(`/industries/edit/${id}`)}
         >
           <Pencil className="h-4 w-4" />
-          Edit
+          Edit customer
         </Button>
       </div>
 
-      <Card className="mb-4">
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
-          <CardTitle>{industry.name || "Client details"}</CardTitle>
-          <div className="flex flex-wrap gap-2">
-            <Badge>Queries: {queryPagination?.totalItems ?? 0}</Badge>
-            <Badge variant="info">
-              Quotations: {quotationPagination?.totalItems ?? 0}
-            </Badge>
-            <Badge variant="success">
-              Sales Order: {poPagination?.totalItems ?? 0}
-            </Badge>
-            <Badge variant="secondary">
-              Billing: {billingPagination?.totalItems ?? 0}
-            </Badge>
+      {/* Customer summary banner */}
+      <Card className="mb-4 overflow-hidden">
+        <div className="flex items-start gap-4 p-5">
+          <Avatar className="h-16 w-16 shrink-0 rounded-xl">
+            {overlay?.companyLogoBase64 && (
+              <AvatarImage
+                src={overlay.companyLogoBase64}
+                alt={industry.name}
+              />
+            )}
+            <AvatarFallback className="rounded-xl bg-primary/10 text-lg font-semibold text-primary!">
+              {(industry.name || "CL").slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-xl font-semibold leading-tight text-foreground">
+              {industry.name || "Customer details"}
+            </h2>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {industry.customerCode || "Customer code pending"}
+              </span>
+              {industry.clientType && (
+                <Badge variant="info">{industry.clientType}</Badge>
+              )}
+              {industry.industrySector && (
+                <Badge variant="secondary">{industry.industrySector}</Badge>
+              )}
+              {industry.category && (
+                <Badge variant="outline">Category {industry.category}</Badge>
+              )}
+            </div>
           </div>
-        </CardHeader>
-        <CardContent>
+        </div>
+        <div className="grid grid-cols-2 divide-x divide-y divide-border border-t border-border sm:grid-cols-4 sm:divide-y-0">
+          {[
+            {
+              label: "Queries",
+              value: queryPagination?.totalItems ?? 0,
+            },
+            {
+              label: "Quotations",
+              value: quotationPagination?.totalItems ?? 0,
+            },
+            {
+              label: "Sales Order",
+              value: poPagination?.totalItems ?? 0,
+            },
+            {
+              label: "Billing",
+              value: billingPagination?.totalItems ?? 0,
+            },
+          ].map((stat) => (
+            <div key={stat.label} className="px-4 py-3 text-center">
+              <div className="text-xl font-semibold leading-none text-foreground">
+                {stat.value}
+              </div>
+              <div className="mt-1.5 text-xs text-muted-foreground">
+                {stat.label}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card className="mb-4">
+        <CardContent className="pt-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-3 flex-wrap">
+            <TabsList className="mb-5 flex-wrap">
               <TabsTrigger value="company">Company Information</TabsTrigger>
               <TabsTrigger value="queries">Queries</TabsTrigger>
               <TabsTrigger value="quotations">Quotations</TabsTrigger>
@@ -542,67 +591,21 @@ const IndustryView = () => {
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="company" className="space-y-4">
-              {/* Header summary */}
-              <Card>
-                <CardContent className="p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16">
-                        {overlay?.companyLogoBase64 && (
-                          <AvatarImage
-                            src={overlay.companyLogoBase64}
-                            alt={industry.name}
-                          />
-                        )}
-                        <AvatarFallback className="text-lg">
-                          {(industry.name || "CL").slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <h3 className="text-xl font-semibold leading-tight">
-                          {industry.name || "-"}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {clientCode || "Client code pending"}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="info">
-                        {overlayOr(overlay, "clientType")}
-                      </Badge>
-                      <Badge variant="secondary">
-                        {overlayOr(overlay, "industrySector")}
-                      </Badge>
-                      {industry.category && (
-                        <Badge variant="outline">
-                          Category {industry.category}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
+            <TabsContent value="company" className="space-y-6">
               {/* Info card grid */}
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <InfoCard icon={Building2} title="Basic Details">
                   <InfoRow
                     icon={Hash}
-                    label="Client Code"
-                    value={clientCode || "Pending"}
+                    label="Customer Code"
+                    value={industry.customerCode}
                   />
                   <InfoRow
                     icon={Briefcase}
                     label="Registration Number"
-                    value={overlayOr(overlay, "registrationNumber")}
+                    value={industry.registrationNumber}
                   />
-                  <InfoRow
-                    icon={FileBadge}
-                    label="PAN"
-                    value={overlayOr(overlay, "pan")}
-                  />
+                  <InfoRow icon={FileBadge} label="PAN" value={industry.pan} />
                   <InfoRow
                     icon={FileBadge}
                     label="GST Number"
@@ -624,36 +627,34 @@ const IndustryView = () => {
                   <InfoRow
                     icon={Globe}
                     label="Website"
-                    value={overlayOr(overlay, "website")}
+                    value={industry.website}
                   />
                   <InfoRow
                     icon={Mail}
                     label="Company Email"
-                    value={overlayOr(overlay, "companyEmail")}
+                    value={industry.companyEmail}
                   />
                   <InfoRow
                     icon={Phone}
                     label="Company Phone"
-                    value={overlayOr(overlay, "companyPhone")}
+                    value={industry.companyPhone}
                   />
                   <InfoRow
                     icon={Users}
                     label="Number of Employees"
-                    value={overlayOr(overlay, "numberOfEmployees")}
+                    value={industry.numberOfEmployees}
                   />
                   <InfoRow
                     icon={Landmark}
                     label="Annual Revenue"
-                    value={formatINRCurrency(
-                      overlayOr(overlay, "annualRevenue"),
-                    )}
+                    value={formatINRCurrency(industry.annualRevenue)}
                   />
                 </InfoCard>
 
                 <InfoCard icon={MapPin} title="Address Information">
                   <InfoRow
                     label="Registered Address"
-                    value={overlayOr(overlay, "registeredAddress")}
+                    value={industry.registeredAddress}
                   />
                   <InfoRow
                     label="Shipping Address"
@@ -665,132 +666,151 @@ const IndustryView = () => {
                   />
                   <InfoRow
                     label="City / State"
-                    value={`${overlayOr(overlay, "city")}, ${overlayOr(overlay, "state")}`}
+                    value={
+                      industry.city || industry.state
+                        ? `${industry.city || "NA"}, ${industry.state || "NA"}`
+                        : ""
+                    }
                   />
-                  <InfoRow
-                    label="Country / Pincode"
-                    value={`${overlayOr(overlay, "country")} - ${overlayOr(overlay, "pincode")}`}
-                  />
+                  <InfoRow label="Pincode" value={industry.pincode} />
                 </InfoCard>
 
                 <InfoCard icon={CreditCard} title="Financial Information">
                   <InfoRow
-                    icon={CreditCard}
-                    label="Currency"
-                    value={overlayOr(overlay, "currency")}
-                  />
-                  <InfoRow
                     icon={Briefcase}
                     label="Payment Terms"
-                    value={overlayOr(overlay, "paymentTerms")}
+                    value={industry.paymentTerms}
                   />
                   <InfoRow
                     icon={Landmark}
                     label="Credit Limit"
-                    value={formatINRCurrency(overlayOr(overlay, "creditLimit"))}
+                    value={formatINRCurrency(industry.creditLimit)}
                   />
                 </InfoCard>
 
                 <InfoCard icon={StickyNote} title="Additional Information">
-                  <InfoRow
-                    label="Remarks"
-                    value={overlayOr(overlay, "remarks")}
-                  />
+                  <InfoRow label="Remarks" value={industry.remarks} />
                   <InfoRow
                     label="Internal Comments"
-                    value={overlayOr(overlay, "internalComments")}
+                    value={industry.internalComments}
                   />
                 </InfoCard>
 
                 <InfoCard icon={Paperclip} title="Attachments">
-                  {displayAttachments.map((att) => (
-                    <button
-                      key={att.id}
-                      type="button"
-                      onClick={() => openAttachmentPreview(att)}
-                      className="flex w-full items-start gap-3 py-2 text-left transition-colors hover:opacity-80"
-                    >
-                      <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-muted-foreground">
-                          File
+                  {attachments.length === 0 ? (
+                    <p className="py-2 text-sm text-muted-foreground">
+                      No attachments uploaded.
+                    </p>
+                  ) : (
+                    attachments.map((att) => (
+                      <button
+                        key={att._id}
+                        type="button"
+                        onClick={() => openAttachment(att)}
+                        className="flex w-full items-start gap-3 py-2 text-left transition-colors hover:opacity-80"
+                      >
+                        <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-muted-foreground">
+                            {att.label || "File"}
+                          </div>
+                          <div className="truncate text-sm font-medium text-primary! underline-offset-2 hover:underline">
+                            {att.documentId?.originalName || "Attachment"}
+                          </div>
                         </div>
-                        <div className="truncate text-sm font-medium text-primary! underline-offset-2 hover:underline">
-                          {att.fileName || "-"}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))
+                  )}
                 </InfoCard>
               </div>
 
               {/* Purchase Managers */}
               <div>
-                <h6 className="mb-2 flex items-center gap-2 font-semibold">
-                  <Users className="h-4 w-4 text-primary!" />
-                  Purchase Managers
-                </h6>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {displayPurchaseManagers.map((pm, idx) => (
-                    <Card key={pm._id || idx}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-9 w-9">
-                            <AvatarFallback>
-                              {(pm.name || "PM").slice(0, 2).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold">
-                              {pm.name || "-"}
-                            </div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              {pm.department || "-"}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <Phone className="h-3.5 w-3.5" />
-                            {pm.phone || "-"}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Mail className="h-3.5 w-3.5" />
-                            {pm.email || "-"}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+                    <Users className="h-4 w-4 text-primary!" />
+                  </span>
+                  <h3 className="text-sm font-semibold leading-none">
+                    Purchase Managers
+                  </h3>
                 </div>
+                {purchaseManagers.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
+                    No purchase managers added for this customer.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {purchaseManagers.map((pm, idx) => (
+                      <Card key={pm._id || idx}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9">
+                              <AvatarFallback>
+                                {(pm.name || "PM").slice(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">
+                                {pm.name || "NA"}
+                              </div>
+                              <div className="truncate text-xs text-muted-foreground">
+                                {pm.department || "NA"}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-2">
+                              <Phone className="h-3.5 w-3.5" />
+                              {pm.phone || "NA"}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-3.5 w-3.5" />
+                              {pm.email || "NA"}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Branches */}
               <div>
-                <h6 className="mb-2 flex items-center gap-2 font-semibold">
-                  <Building2 className="h-4 w-4 text-primary!" />
-                  Branches
-                </h6>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {displayBranches.map((branch, idx) => (
-                    <Card key={branch._id || idx}>
-                      <CardContent className="p-4">
-                        <div className="text-sm font-semibold">
-                          {branch.name || "-"}
-                        </div>
-                        <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
-                          <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                          <span>
-                            {branch.address || "-"}
-                            {branch.city ? `, ${branch.city}` : ""}
-                            {branch.state ? `, ${branch.state}` : ""}
-                            {branch.pincode ? ` - ${branch.pincode}` : ""}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                <div className="mb-3 flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+                    <Building2 className="h-4 w-4 text-primary!" />
+                  </span>
+                  <h3 className="text-sm font-semibold leading-none">
+                    Branches
+                  </h3>
                 </div>
+                {branches.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
+                    No branches added for this customer.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {branches.map((branch, idx) => (
+                      <Card key={branch._id || idx}>
+                        <CardContent className="p-4">
+                          <div className="text-sm font-semibold">
+                            {branch.name || "NA"}
+                          </div>
+                          <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">
+                            <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                            <span>
+                              {branch.address || "NA"}
+                              {branch.city ? `, ${branch.city}` : ""}
+                              {branch.state ? `, ${branch.state}` : ""}
+                              {branch.pincode ? ` - ${branch.pincode}` : ""}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
 
@@ -803,7 +823,7 @@ const IndustryView = () => {
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead>S No</TableHead>
                       <TableHead>Query Code</TableHead>
                       <TableHead>Status</TableHead>
@@ -873,7 +893,7 @@ const IndustryView = () => {
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead>S No</TableHead>
                       <TableHead>Quotation Code</TableHead>
                       <TableHead>Status</TableHead>
@@ -947,7 +967,7 @@ const IndustryView = () => {
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead>S No</TableHead>
                       <TableHead>Sales Order Number</TableHead>
                       <TableHead>Salesperson</TableHead>
@@ -1005,7 +1025,7 @@ const IndustryView = () => {
               <div className="overflow-x-auto rounded-lg border border-border">
                 <Table>
                   <TableHeader>
-                    <TableRow>
+                    <TableRow className="bg-muted/50 hover:bg-muted/50">
                       <TableHead>S No</TableHead>
                       <TableHead>Billing Number</TableHead>
                       <TableHead>Salesperson</TableHead>
@@ -1052,92 +1072,76 @@ const IndustryView = () => {
               />
             </TabsContent>
 
-            <TabsContent value="analytics">
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Total Queries
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {queryPagination?.totalItems ?? 0}
-                    </h4>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Total Quotations
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {quotationPagination?.totalItems ?? 0}
-                    </h4>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Sales Order Received
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {poPagination?.totalItems ?? 0}
-                    </h4>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Total Billing
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {billingPagination?.totalItems ?? 0}
-                    </h4>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Quotation Value
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {formatINRCurrency(totalQuotationValue)}
-                    </h4>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Sales Order Amount
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {formatINRCurrency(totalPoAmount)}
-                    </h4>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-4">
-                    <div className="text-sm text-muted-foreground">
-                      Billing Amount
-                    </div>
-                    <h4 className="text-xl font-semibold">
-                      {formatINRCurrency(totalBillingAmount)}
-                    </h4>
-                  </CardContent>
-                </Card>
+            <TabsContent value="analytics" className="space-y-6">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                {[
+                  {
+                    label: "Total Queries",
+                    value: queryPagination?.totalItems ?? 0,
+                    accent: "bg-[#5856d6]",
+                  },
+                  {
+                    label: "Total Quotations",
+                    value: quotationPagination?.totalItems ?? 0,
+                    accent: "bg-[#39f]",
+                  },
+                  {
+                    label: "Sales Order Received",
+                    value: poPagination?.totalItems ?? 0,
+                    accent: "bg-[#2eb85c]",
+                  },
+                  {
+                    label: "Total Billing",
+                    value: billingPagination?.totalItems ?? 0,
+                    accent: "bg-[#f9b115]",
+                  },
+                  {
+                    label: "Quotation Value",
+                    value: formatINRCurrency(totalQuotationValue),
+                    accent: "bg-[#39f]",
+                  },
+                  {
+                    label: "Sales Order Amount",
+                    value: formatINRCurrency(totalPoAmount),
+                    accent: "bg-[#2eb85c]",
+                  },
+                  {
+                    label: "Billing Amount",
+                    value: formatINRCurrency(totalBillingAmount),
+                    accent: "bg-[#f9b115]",
+                  },
+                ].map((stat) => (
+                  <Card key={stat.label} className="overflow-hidden">
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <span
+                        className={cn(
+                          "h-9 w-1.5 shrink-0 rounded-full",
+                          stat.accent,
+                        )}
+                      />
+                      <div className="min-w-0">
+                        <div className="text-xs text-muted-foreground">
+                          {stat.label}
+                        </div>
+                        <div className="mt-1 truncate text-xl font-semibold text-foreground">
+                          {stat.value}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
 
-              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-12">
-                <div className="md:col-span-5">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Value Split</CardTitle>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div className="lg:col-span-6">
+                  <Card className="h-full">
+                    <CardHeader className="border-b border-border">
+                      <CardTitle className="text-sm">Value Split</CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-4">
                       <div
                         style={{
-                          height: "220px",
-                          maxWidth: "360px",
-                          margin: "0 auto",
+                          height: "280px",
                         }}
                       >
                         <CChartBar
@@ -1155,6 +1159,8 @@ const IndustryView = () => {
                                   Math.max(0, totalBillingAmount),
                                 ],
                                 backgroundColor: ["#39f", "#2eb85c", "#f9b115"],
+                                borderRadius: 6,
+                                maxBarThickness: 64,
                               },
                             ],
                           }}
@@ -1174,17 +1180,17 @@ const IndustryView = () => {
                     </CardContent>
                   </Card>
                 </div>
-                <div className="md:col-span-7">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Records Overview</CardTitle>
+                <div className="lg:col-span-6">
+                  <Card className="h-full">
+                    <CardHeader className="border-b border-border">
+                      <CardTitle className="text-sm">
+                        Records Overview
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent>
+                    <CardContent className="pt-4">
                       <div
                         style={{
-                          height: "180px",
-                          maxWidth: "360px",
-                          margin: "0 auto",
+                          height: "280px",
                         }}
                       >
                         <CChartBar
@@ -1204,6 +1210,8 @@ const IndustryView = () => {
                                   "#2eb85c",
                                   "#f9b115",
                                 ],
+                                borderRadius: 6,
+                                maxBarThickness: 64,
                                 data: [
                                   queryPagination?.totalItems ?? 0,
                                   quotationPagination?.totalItems ?? 0,

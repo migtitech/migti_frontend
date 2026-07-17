@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { ArrowLeft, Pencil, Info } from "lucide-react";
 import subcategoryService from "../../services/subcategoryService";
-import { Loader, PageHeader, StatusLabel } from "../../components";
+import { Loader, StatusLabel, StatusBadge } from "../../components";
 import {
   Button,
   Card,
@@ -23,9 +23,11 @@ const getSubcategoryAvatarLabel = (name) => {
 };
 
 const DetailRow = ({ label, children }) => (
-  <div className="flex items-center justify-between gap-4 py-3">
-    <span className="text-sm font-medium text-muted-foreground">{label}</span>
-    <span className="text-sm text-foreground">{children}</span>
+  <div className="flex items-start justify-between gap-4 py-2.5">
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <span className="min-w-0 break-words text-right text-sm font-medium text-foreground">
+      {children}
+    </span>
   </div>
 );
 
@@ -73,8 +75,8 @@ const SubcategoryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-destructive">{error}</p>
-          <Button onClick={() => navigate("/subcategories")}>
-            Back to Subcategories
+          <Button onClick={() => navigate("/sub-categories")}>
+            Back to Sub Categories
           </Button>
         </CardContent>
       </Card>
@@ -86,8 +88,8 @@ const SubcategoryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <h4 className="text-lg font-semibold">Subcategory not found</h4>
-          <Button onClick={() => navigate("/subcategories")}>
-            Back to Subcategories
+          <Button onClick={() => navigate("/sub-categories")}>
+            Back to Sub Categories
           </Button>
         </CardContent>
       </Card>
@@ -103,7 +105,7 @@ const SubcategoryView = () => {
       navigate(`/categories/${categoryId}`);
       return;
     }
-    navigate("/subcategories");
+    navigate("/sub-categories");
   };
 
   return (
@@ -119,55 +121,71 @@ const SubcategoryView = () => {
         </Button>
       </div>
 
-      <PageHeader
-        title={subcategory.name}
-        description={subcategory.subcategoryCode || undefined}
-        actions={
-          <Button onClick={() => navigate(`/subcategories/edit/${id}`)}>
-            <Pencil className="h-4 w-4" />
-            Edit Subcategory
-          </Button>
-        }
-      />
+      {/* Summary banner */}
+      <Card className="mb-6">
+        <CardContent className="p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarImage src={imageSrc} alt={subcategory.name} />
+                <AvatarFallback className="text-lg">
+                  {getSubcategoryAvatarLabel(subcategory.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xl font-semibold leading-tight">
+                    {subcategory.name || "—"}
+                  </h3>
+                  <StatusBadge status={subcategory.status} />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {subcategory.subcategoryCode || "Code pending"}
+                  {subcategory.category?.name
+                    ? ` · ${subcategory.category.name}`
+                    : ""}
+                </p>
+              </div>
+            </div>
+            <Button onClick={() => navigate(`/sub-categories/edit/${id}`)}>
+              <Pencil className="h-4 w-4" />
+              Edit Subcategory
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Subcategory Details</CardTitle>
+        <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+            <Info className="h-4 w-4 text-primary!" />
+          </span>
+          <CardTitle className="text-sm">Subcategory Details</CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="mb-4 flex justify-center">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={imageSrc} alt={subcategory.name} />
-              <AvatarFallback>
-                {getSubcategoryAvatarLabel(subcategory.name)}
-              </AvatarFallback>
-            </Avatar>
-          </div>
-          <dl className="divide-y divide-border">
-            <DetailRow label="Subcategory Code">
-              <code>{subcategory.subcategoryCode || "—"}</code>
-            </DetailRow>
-            <DetailRow label="Name">{subcategory.name}</DetailRow>
-            <DetailRow label="Category">
-              {categoryId ? (
-                <Button
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => navigate(`/categories/${categoryId}`)}
-                >
-                  {subcategory.category?.name || "—"}
-                </Button>
-              ) : (
-                subcategory.category?.name || "—"
-              )}
-            </DetailRow>
-            <DetailRow label="Description">
-              {subcategory.description || "—"}
-            </DetailRow>
-            <DetailRow label="Status">
-              <StatusLabel status={subcategory.status} />
-            </DetailRow>
-          </dl>
+        <CardContent className="divide-y divide-border">
+          <DetailRow label="Subcategory Code">
+            <code>{subcategory.subcategoryCode || "—"}</code>
+          </DetailRow>
+          <DetailRow label="Name">{subcategory.name}</DetailRow>
+          <DetailRow label="Category">
+            {categoryId ? (
+              <Button
+                variant="link"
+                className="h-auto p-0"
+                onClick={() => navigate(`/categories/${categoryId}`)}
+              >
+                {subcategory.category?.name || "—"}
+              </Button>
+            ) : (
+              subcategory.category?.name || "—"
+            )}
+          </DetailRow>
+          <DetailRow label="Description">
+            {subcategory.description || "—"}
+          </DetailRow>
+          <DetailRow label="Status">
+            <StatusLabel status={subcategory.status} />
+          </DetailRow>
         </CardContent>
       </Card>
     </div>

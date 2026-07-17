@@ -19,7 +19,9 @@ export const getVariantCodeSuffix = (optionValues = []) =>
 
 export const buildVariantCode = (productCode, optionValues = []) => {
   const suffix = getVariantCodeSuffix(optionValues);
-  if (!productCode) return suffix ? `PRD-???-${suffix}` : "";
+  if (!productCode || String(productCode).includes("?")) {
+    return "";
+  }
   return suffix ? `${productCode}-${suffix}` : productCode;
 };
 

@@ -20,7 +20,9 @@ import PageHeader from "./PageHeader/PageHeader";
 import EmptyState from "./EmptyState/EmptyState";
 import RowActions from "./RowActions/RowActions";
 import StatusBadge from "./StatusBadge/StatusBadge";
+import StatusToggle from "./StatusToggle/StatusToggle";
 import StatCard from "./StatCard/StatCard";
+import FileUpload from "./FileUpload/FileUpload";
 
 export {
   AppBreadcrumb,
@@ -47,5 +49,7 @@ export {
   EmptyState,
   RowActions,
   StatusBadge,
+  StatusToggle,
   StatCard,
+  FileUpload,
 };

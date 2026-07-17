@@ -136,6 +136,9 @@ const IndustryBranchView = () => {
               <dl className="divide-y divide-border">
                 <DetailRow label="Client">{industryName}</DetailRow>
                 <DetailRow label="Location">{branch.location || "-"}</DetailRow>
+                <DetailRow label="City">{branch.city || "-"}</DetailRow>
+                <DetailRow label="State">{branch.state || "-"}</DetailRow>
+                <DetailRow label="Pincode">{branch.pincode || "-"}</DetailRow>
                 <DetailRow label="GST Number">{branch.gst || "-"}</DetailRow>
                 <DetailRow label="Address" stacked>
                   <span className="text-foreground">

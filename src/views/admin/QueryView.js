@@ -46,6 +46,7 @@ import { getAssetsUrl } from "../../api/endpoints";
 import queryService from "../../services/queryService";
 import bpDummy from "../../data/businessPartnerDummy";
 import industryService from "../../services/industryService";
+import industryContactPersonService from "../../services/industryContactPersonService";
 import employeeService from "../../services/employeeService";
 import userService from "../../services/userService";
 import { useAuth } from "../../context/AuthContext";
@@ -55,6 +56,7 @@ import usePermissions, {
   isHodRole,
 } from "../../hooks/usePermissions";
 import { Loader, ConfirmDialog } from "../../components";
+import AuthImage from "../../components/AuthImage/AuthImage";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import {
@@ -64,6 +66,8 @@ import {
   getProductSubStatusLabel,
   isProductConvertedToQuotation,
 } from "../../utils/queryProductQuotationStatus";
+
+const OBJECT_ID_PATTERN = /^[a-fA-F0-9]{24}$/;
 
 const getCurrentMonthLabel = () =>
   new Date().toLocaleDateString("en-IN", {
@@ -231,23 +235,46 @@ const openLocationInNewTab = (value) => {
 
 const resolveProductImageUrl = (img) => {
   if (!img) return "";
-  if (typeof img === "object" && img?.path) return getAssetsUrl(img.path);
-  return typeof img === "string" ? img : "";
+  if (typeof img === "string") {
+    if (OBJECT_ID_PATTERN.test(img)) return "";
+    return img.startsWith("http") ? img : getAssetsUrl(img);
+  }
+  if (typeof img === "object" && img?.path) {
+    return img.path.startsWith("http") ? img.path : getAssetsUrl(img.path);
+  }
+  if (typeof img === "object" && img?.url) return img.url;
+  return "";
 };
 
-const getProductImageUrls = (product) => {
+const getDocumentId = (img) => {
+  if (!img) return null;
+  if (typeof img === "object") {
+    const id = img._id ?? img.documentId ?? null;
+    return id != null && id !== "" ? String(id) : null;
+  }
+  if (typeof img === "string" && OBJECT_ID_PATTERN.test(img)) return img;
+  return null;
+};
+
+const getProductImages = (product) => {
   const productRef =
     typeof product?.product_id === "object" ? product.product_id : null;
   const snapshotImages = Array.isArray(product?.images) ? product.images : [];
   const productRefImages = Array.isArray(productRef?.images)
     ? productRef.images
     : [];
-  const allImages =
-    (snapshotImages.length ? snapshotImages : productRefImages) || [];
-  return allImages.map(resolveProductImageUrl).filter((src) => !!src);
+  return (snapshotImages.length ? snapshotImages : productRefImages) || [];
 };
 
-const productHasPhoto = (product) => getProductImageUrls(product).length > 0;
+const getProductImageUrls = (product) =>
+  getProductImages(product)
+    .map((img) => resolveProductImageUrl(img))
+    .filter((src) => !!src);
+
+const productHasPhoto = (product) =>
+  getProductImages(product).some(
+    (img) => getDocumentId(img) || resolveProductImageUrl(img),
+  );
 
 const getProductsMissingPhotos = (products = []) =>
   products.filter((product) => !productHasPhoto(product));
@@ -292,7 +319,7 @@ const QueryView = () => {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const viewRecordedRef = useRef(false);
   const [userCache, setUserCache] = useState({});
-  const [expandedImages, setExpandedImages] = useState([]); // array of image URLs for slider
+  const [expandedImages, setExpandedImages] = useState([]); // image docs/refs for slider
   const [expandedImageIndex, setExpandedImageIndex] = useState(0);
   const [exportingPdf, setExportingPdf] = useState(false);
   const [closeModalVisible, setCloseModalVisible] = useState(false);
@@ -382,14 +409,24 @@ const QueryView = () => {
       setClientContactPersons([]);
       return;
     }
-    setClientContactPersons(
-      bpDummy
-        .listContactPersons({ parentType: "industry" })
-        .filter(
-          (cp) => cp.mappedId === linkedClientId && cp.status !== "inactive",
-        ),
-    );
     let cancelled = false;
+    industryContactPersonService
+      .getAll({
+        pageNumber: 1,
+        pageSize: 1000,
+        industryId: linkedClientId,
+        status: "active",
+      })
+      .then((res) => {
+        if (cancelled) return;
+        const data = res?.data ?? res;
+        const list =
+          data?.contactPersons ?? data?.data?.contactPersons ?? [];
+        setClientContactPersons(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setClientContactPersons([]);
+      });
     industryService
       .getById(linkedClientId)
       .then((res) => {
@@ -716,6 +753,18 @@ const QueryView = () => {
     return "—";
   };
 
+  /** Product name plus variant values, e.g. "Asis blue medium". */
+  const getProductDisplayName = (product) => {
+    const name = String(product?.productName || "").trim();
+    const variantText = (product?.variants || [])
+      .map((v) => String(v?.variantName || "").trim())
+      .filter(Boolean)
+      .map((vn) => vn.replace(/,\s*/g, " ").replace(/\s+/g, " ").trim())
+      .join(" ");
+    const full = [name, variantText].filter(Boolean).join(" ");
+    return full || "—";
+  };
+
   const formatProductHierarchy = (product) => {
     const parts = [
       refDisplayName(product?.groupId) !== "—"
@@ -742,8 +791,11 @@ const QueryView = () => {
       );
       return;
     }
+    const displayName = getProductDisplayName(productRow);
     const productLabel =
-      productRow?.productName?.trim() || rawCode || `Line ${lineIndex + 1}`;
+      displayName !== "—"
+        ? displayName
+        : rawCode || `Line ${lineIndex + 1}`;
     setProcurementRatesModal({
       visible: true,
       loading: true,
@@ -1263,27 +1315,19 @@ const QueryView = () => {
                   {prods.map((p, index) => {
                     const productRef =
                       typeof p.product_id === "object" ? p.product_id : null;
-                    const snapshotImages = Array.isArray(p.images)
-                      ? p.images
-                      : [];
-                    const productRefImages = Array.isArray(productRef?.images)
-                      ? productRef.images
-                      : [];
-                    const allImages =
-                      (snapshotImages.length
-                        ? snapshotImages
-                        : productRefImages) || [];
-                    const imageUrls = allImages
-                      .map((img) => getImageUrl(img))
-                      .filter((src) => !!src);
+                    const displayableImages = getProductImages(p).filter(
+                      (img) => getDocumentId(img) || getImageUrl(img),
+                    );
                     const rawCode = String(p.rawProductCode ?? "").trim();
+                    const ratesAvailable =
+                      lineRateAvailability[index]?.available === true;
 
                     return (
                       <TableRow key={p._id || index}>
                         <TableCell>{index + 1}</TableCell>
                         <TableCell style={{ minWidth: 280 }}>
-                          <div className="font-semibold">
-                            {p.productName || "—"}
+                          <div className="font-semibold break-words">
+                            {getProductDisplayName(p)}
                           </div>
                           {formatProductHierarchy(p) ? (
                             <div className="mt-1 break-words text-sm text-muted-foreground">
@@ -1347,7 +1391,7 @@ const QueryView = () => {
                               available={lineRateAvailability[index]?.available}
                               hasProductCode={Boolean(rawCode)}
                             />
-                            {rawCode ? (
+                            {rawCode && ratesAvailable ? (
                               <Button
                                 type="button"
                                 variant="ghost"
@@ -1364,43 +1408,61 @@ const QueryView = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          {imageUrls.length > 0 ? (
+                          {displayableImages.length > 0 ? (
                             <div
                               role="button"
                               tabIndex={0}
                               className="inline-flex cursor-pointer flex-wrap items-center gap-1"
                               onClick={() => {
-                                setExpandedImages(imageUrls);
+                                setExpandedImages(displayableImages);
                                 setExpandedImageIndex(0);
                               }}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter") {
-                                  setExpandedImages(imageUrls);
+                                  setExpandedImages(displayableImages);
                                   setExpandedImageIndex(0);
                                 }
                               }}
                             >
-                              {imageUrls.slice(0, 2).map((src, i) => (
-                                <div
-                                  key={src || i}
-                                  className="shrink-0 overflow-hidden rounded-md border border-border"
-                                  style={{ width: 48, height: 48 }}
-                                >
-                                  <img
-                                    src={src}
-                                    width={48}
-                                    height={48}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              ))}
-                              {imageUrls.length > 2 && (
+                              {displayableImages.slice(0, 2).map((img, i) => {
+                                const documentId = getDocumentId(img);
+                                const fallbackUrl = getImageUrl(img);
+                                return (
+                                  <div
+                                    key={documentId || fallbackUrl || i}
+                                    className="shrink-0 overflow-hidden rounded-md border border-border"
+                                    style={{ width: 48, height: 48 }}
+                                  >
+                                    {documentId ? (
+                                      <AuthImage
+                                        documentId={documentId}
+                                        fallbackUrl={fallbackUrl}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                        style={{
+                                          width: 48,
+                                          height: 48,
+                                          objectFit: "cover",
+                                        }}
+                                      />
+                                    ) : (
+                                      <img
+                                        src={fallbackUrl}
+                                        width={48}
+                                        height={48}
+                                        alt=""
+                                        className="h-full w-full object-cover"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {displayableImages.length > 2 && (
                                 <div
                                   className="flex shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-bold text-primary!"
                                   style={{ width: 40, height: 40 }}
                                 >
-                                  +{imageUrls.length - 2}
+                                  +{displayableImages.length - 2}
                                 </div>
                               )}
                             </div>
@@ -1758,12 +1820,26 @@ const QueryView = () => {
                     </Button>
                   </>
                 )}
-                <img
-                  src={expandedImages[expandedImageIndex]}
-                  alt={`Product ${expandedImageIndex + 1}`}
-                  className="mx-auto max-w-full rounded"
-                  style={{ maxHeight: "80vh", objectFit: "contain" }}
-                />
+                {getDocumentId(expandedImages[expandedImageIndex]) ? (
+                  <AuthImage
+                    documentId={getDocumentId(
+                      expandedImages[expandedImageIndex],
+                    )}
+                    fallbackUrl={getImageUrl(
+                      expandedImages[expandedImageIndex],
+                    )}
+                    alt={`Product ${expandedImageIndex + 1}`}
+                    className="mx-auto max-w-full rounded"
+                    style={{ maxHeight: "80vh", objectFit: "contain" }}
+                  />
+                ) : (
+                  <img
+                    src={getImageUrl(expandedImages[expandedImageIndex])}
+                    alt={`Product ${expandedImageIndex + 1}`}
+                    className="mx-auto max-w-full rounded"
+                    style={{ maxHeight: "80vh", objectFit: "contain" }}
+                  />
+                )}
               </>
             )}
           </div>

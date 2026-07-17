@@ -518,6 +518,36 @@ const routes = [
 
   // Subcategories
   {
+    path: "/sub-categories",
+    name: "Sub Categories",
+    element: SubcategoryList,
+    module: "subcategories",
+    action: "read",
+  },
+  {
+    path: "/sub-categories/new",
+    name: "Add Subcategory",
+    element: SubcategoryForm,
+    module: "subcategories",
+    action: "create",
+  },
+  {
+    path: "/sub-categories/edit/:id",
+    name: "Edit Subcategory",
+    element: SubcategoryForm,
+    module: "subcategories",
+    action: "update",
+  },
+  {
+    path: "/sub-categories/:id",
+    name: "Subcategory Details",
+    element: SubcategoryView,
+    module: "subcategories",
+    action: "read",
+  },
+
+  // Legacy path aliases
+  {
     path: "/subcategories",
     name: "Subcategories",
     element: SubcategoryList,
@@ -1317,28 +1347,28 @@ const routes = [
   // Industries
   {
     path: "/industries",
-    name: "Clients",
+    name: "Customers",
     element: IndustryList,
     module: "industries",
     action: "read",
   },
   {
     path: "/industries/new",
-    name: "Add client",
+    name: "Add customer",
     element: IndustryForm,
     module: "industries",
     action: "create",
   },
   {
     path: "/industries/edit/:id",
-    name: "Edit client",
+    name: "Edit customer",
     element: IndustryForm,
     module: "industries",
     action: "update",
   },
   {
     path: "/industries/:id",
-    name: "Client details",
+    name: "Customer details",
     element: IndustryView,
     module: "industries",
     action: "read",

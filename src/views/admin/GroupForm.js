@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info, Settings2, StickyNote } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import groupService from "../../services/groupService";
-import { ConfirmDialog, StatusBadge } from "../../components";
+import { ConfirmDialog, StatusToggle, FileUpload } from "../../components";
 import {
   CrudFormPage,
   FormField,
@@ -14,12 +14,37 @@ import {
   AlertDescription,
   Input,
   Textarea,
-  Switch,
   Spinner,
 } from "../../components/ui";
 import useUnsavedChangesGuard from "../../hooks/useUnsavedChangesGuard";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
+import { cn } from "../../lib/utils";
+
+/**
+ * Section anchor: an icon chip + title + short description used to visually
+ * group each set of fields in the form scaffold (the shared "tile" system).
+ */
+const FormSection = ({ icon: Icon, title, description, first, children }) => (
+  <div
+    className={cn("mt-8 first:mt-0", !first && "border-t border-border pt-8")}
+  >
+    <div className="mb-5 flex items-start gap-3">
+      {Icon && (
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <Icon className="h-4 w-4 text-primary!" />
+        </span>
+      )}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {description && (
+          <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
+        )}
+      </div>
+    </div>
+    {children}
+  </div>
+);
 
 const GROUP_FORM_DRAFT_KEY = "group_form_draft";
 
@@ -336,10 +361,12 @@ const GroupForm = () => {
             )}
 
             <form onSubmit={handleSubmit}>
-              <section className="mb-6">
-                <h2 className="mb-3 text-sm font-semibold text-foreground">
-                  Basic information
-                </h2>
+              <FormSection
+                icon={Info}
+                title="Basic information"
+                description="Name and auto-generated code for this group."
+                first
+              >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <FormField
                     label="Group name"
@@ -368,37 +395,30 @@ const GroupForm = () => {
                     />
                   </FormField>
                 </div>
-              </section>
+              </FormSection>
 
-              <section className="mb-6">
-                <h2 className="mb-3 text-sm font-semibold text-foreground">
-                  Configuration
-                </h2>
+              <FormSection
+                icon={Settings2}
+                title="Configuration"
+                description="Status and the icon shown across the app."
+              >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <FormField label="Status" htmlFor="group-status">
-                    <div className="flex h-9 items-center gap-3">
-                      <Switch
-                        id="group-status"
-                        checked={formData.status === "active"}
-                        onCheckedChange={handleStatusToggle}
-                        aria-label="Group status"
-                      />
-                      <StatusBadge
-                        status={
-                          formData.status === "active" ? "Active" : "Inactive"
-                        }
-                      />
-                    </div>
+                    <StatusToggle
+                      id="group-status"
+                      status={formData.status}
+                      onCheckedChange={handleStatusToggle}
+                      aria-label="Group status"
+                      className="h-9 gap-3"
+                    />
                   </FormField>
                   <FormField label="Group icon" htmlFor="group-icon">
                     <div className="space-y-3">
-                      <Input
-                        id="group-icon"
-                        type="file"
+                      <FileUpload
                         accept="image/jpeg,image/png,image/gif,image/webp"
-                        onChange={handleIconChange}
+                        hint="JPEG, PNG, GIF or WebP"
                         disabled={iconUploading || submitting}
-                        className="cursor-pointer file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-3 file:py-1 file:text-sm file:font-medium"
+                        onChange={handleIconChange}
                       />
                       {(iconDisplayUrl || formData.iconUrl) && (
                         <div className="flex items-center gap-3 rounded-lg border border-border bg-muted p-3">
@@ -426,12 +446,13 @@ const GroupForm = () => {
                     </div>
                   </FormField>
                 </div>
-              </section>
+              </FormSection>
 
-              <section className="mb-6">
-                <h2 className="mb-3 text-sm font-semibold text-foreground">
-                  Additional details
-                </h2>
+              <FormSection
+                icon={StickyNote}
+                title="Additional details"
+                description="Free-form notes about this group's scope."
+              >
                 <FormField label="Description" htmlFor="group-description">
                   <Textarea
                     id="group-description"
@@ -442,9 +463,9 @@ const GroupForm = () => {
                     placeholder="Describe the purpose or scope of this group..."
                   />
                 </FormField>
-              </section>
+              </FormSection>
 
-              <div className="mt-6 flex items-center justify-end gap-2 border-t border-border pt-5">
+              <div className="-mx-6 -mb-6 mt-8 flex items-center justify-end gap-2 rounded-b-xl border-t border-border bg-muted/30 px-6 py-4">
                 <Button
                   type="button"
                   variant="outline"
