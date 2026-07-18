@@ -33,6 +33,7 @@ export const ROLES = {
   LOCAL_PROCUREMENT: "localprocurement",
   LOCAL_PURCHASE: "localpurchase",
   PROCUREMENT_MASTER: "procurement_master",
+  PURCHASE_MANAGER: "purchase_manager",
 };
 
 export const ROLE_LABELS = {
@@ -51,6 +52,7 @@ export const ROLE_LABELS = {
   [ROLES.LOCAL_PROCUREMENT]: "Local Procurement",
   [ROLES.LOCAL_PURCHASE]: "Local Purchase",
   [ROLES.PROCUREMENT_MASTER]: "Procurement Master",
+  [ROLES.PURCHASE_MANAGER]: "Purchase Manager",
 };
 
 // Roles that get full access to everything (no permission checks needed)
@@ -177,6 +179,7 @@ export const AuthProvider = ({ children }) => {
         ROLES.DISPATCH_MANAGER,
         ROLES.LOCAL_PROCUREMENT,
         ROLES.LOCAL_PURCHASE,
+        ROLES.PURCHASE_MANAGER,
       ].includes(role)
     ) {
       try {

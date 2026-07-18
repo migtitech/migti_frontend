@@ -41,6 +41,8 @@ const getPostLoginPath = (role) => {
   }
   if (normalized === ROLES.PROCUREMENT_MASTER)
     return "/procurement-master/dashboard";
+  if (normalized === ROLES.PURCHASE_MANAGER)
+    return "/purchase-master/dashboard";
   if (normalized === ROLES.PROCUREMENT) return "/pro-dashboard";
   if (normalized === ROLES.LOCAL_PROCUREMENT) return "/local-pro";
   if (normalized === ROLES.LOCAL_PURCHASE) return "/my-purchase";

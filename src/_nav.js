@@ -317,11 +317,12 @@ const _nav = [
     icon: <Target className="nav-icon" />,
     roles: ["sales_manager"],
   },
-  // Purchase Manager screens — sample/demo pages, visible only to the
-  // purchase_exicutive role. Flat top-level items (no wrapping group/pill
+  // Purchase Manager screens — sample/demo pages, visible to the
+  // purchase_manager role (and purchase_exicutive for backward
+  // compatibility). Flat top-level items (no wrapping group/pill
   // sub-nav) per separate-screens request, same treatment as Sales Manager
-  // above. Each carries `roles: ["purchase_exicutive"]` so every item is
-  // filtered out entirely for every other role (including
+  // above. Each carries `roles: ["purchase_manager", "purchase_exicutive"]`
+  // so every item is filtered out entirely for every other role (including
   // head_of_department/hod) without touching any existing nav entry or
   // permission logic.
   {
@@ -329,77 +330,77 @@ const _nav = [
     name: "Purchase Dashboard",
     to: "/purchase-master/dashboard",
     icon: <Gauge className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Suppliers",
     to: "/purchase-master/suppliers",
     icon: <Factory className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Purchase Requests",
     to: "/purchase-master/purchase-requests",
     icon: <Clipboard className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Local Purchase",
     to: "/purchase-master/local-purchase",
     icon: <ShoppingCart className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Brand Purchase",
     to: "/purchase-master/brand-purchase",
     icon: <ShoppingCart className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Purchase Order",
     to: "/purchase-master/purchase-order",
     icon: <FileText className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "GRN",
     to: "/purchase-master/grn",
     icon: <CheckCircle2 className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Purchase Return",
     to: "/purchase-master/purchase-return",
     icon: <ShoppingCart className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Vendor Payments",
     to: "/purchase-master/vendor-payments",
     icon: <IndianRupee className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "Purchase History",
     to: "/purchase-master/purchase-history",
     icon: <List className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   {
     component: CNavItem,
     name: "My Performance Report",
     to: "/purchase-master/reports/my-performance",
     icon: <Target className="nav-icon" />,
-    roles: ["purchase_exicutive"],
+    roles: ["purchase_manager", "purchase_exicutive"],
   },
   // Procurement Manager screens — sample/demo pages, visible only to the
   // procurement_master role. Flat top-level items (no wrapping group/pill
@@ -424,33 +425,38 @@ const _nav = [
     icon: <Factory className="nav-icon" />,
     roles: ["procurement_master"],
   },
+  // Procurement screens are also visible to purchase_manager (real employee
+  // login) so that role sees both Purchase and Procurement options,
+  // including Local Purchase and Local Procurement. Dashboard / Suppliers /
+  // My Performance Report stay procurement_master-only to avoid duplicate
+  // entries next to the Purchase Manager items above.
   {
     component: CNavItem,
     name: "Procurement Requests",
     to: "/procurement-master/procurement-requests",
     icon: <Clipboard className="nav-icon" />,
-    roles: ["procurement_master"],
+    roles: ["procurement_master", "purchase_manager"],
   },
   {
     component: CNavItem,
     name: "Local Procurement",
     to: "/procurement-master/local-procurement",
     icon: <ShoppingBasket className="nav-icon" />,
-    roles: ["procurement_master"],
+    roles: ["procurement_master", "purchase_manager"],
   },
   {
     component: CNavItem,
     name: "Brand Procurement",
     to: "/procurement-master/brand-procurement",
     icon: <Star className="nav-icon" />,
-    roles: ["procurement_master"],
+    roles: ["procurement_master", "purchase_manager"],
   },
   {
     component: CNavItem,
     name: "Procurement History",
     to: "/procurement-master/procurement-history",
     icon: <List className="nav-icon" />,
-    roles: ["procurement_master"],
+    roles: ["procurement_master", "purchase_manager"],
   },
   {
     component: CNavItem,

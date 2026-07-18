@@ -1581,7 +1581,7 @@ const routes = [
   },
 
   // Purchase Manager section — frontend-only sample-data views. Only linked
-  // from the sidebar for the purchase_exicutive role (see _nav.js); routes
+  // from the sidebar for the purchase_manager role (see _nav.js); routes
   // themselves carry no module/action gating, same as Sales Manager above.
   {
     path: "/purchase-master/dashboard",

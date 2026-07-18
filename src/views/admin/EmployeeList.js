@@ -33,6 +33,7 @@ const EMPLOYEE_ROLE_OPTIONS = [
   "sales_manager",
   "sales_exicutive",
   "purchase_exicutive",
+  "purchase_manager",
   "procurement",
   "localprocurement",
   "localpurchase",

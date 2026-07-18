@@ -4,6 +4,7 @@ export const ROLE_DESIGNATION_MAP = {
   sales_manager: ["Sales Manager ( SM )"],
   sales_exicutive: ["Sales Exicutive ( SE )"],
   purchase_exicutive: ["Purchase Exicutive  ( PE )"],
+  purchase_manager: ["Purchase Manager ( PM )"],
   procurement: ["Procurement Exicutive  ( PRC )"],
   localprocurement: ["Local Procurement  ( LP )"],
   localpurchase: ["Local Purchase  ( LPU )"],

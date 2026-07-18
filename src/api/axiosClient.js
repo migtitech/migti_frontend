@@ -143,7 +143,12 @@ axiosClient.interceptors.response.use(
             },
           );
 
-          const { accessToken, refreshToken: newRefreshToken } = response.data;
+          // Backend wraps payloads as { success, message, data: { accessToken, refreshToken } }
+          const tokenData = response.data?.data ?? response.data ?? {};
+          const { accessToken, refreshToken: newRefreshToken } = tokenData;
+          if (!accessToken) {
+            throw new Error("Token refresh failed");
+          }
           setTokens(accessToken, newRefreshToken);
 
           originalRequest.headers.Authorization = `Bearer ${accessToken}`;
