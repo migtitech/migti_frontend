@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Users } from "lucide-react";
+import { Users } from "lucide-react";
 import branchService from "../../services/branchService";
 import companyService from "../../services/companyService";
 import employeeService from "../../services/employeeService";
-import { Loader, PageHeader, StatusBadge } from "../../components";
+import { Loader, PageHeader, StatusBadge, BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -202,14 +202,7 @@ const BranchView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/branches")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Branches
-        </Button>
+        <BackButton fallback="/branches" />
       </div>
 
       <PageHeader title={branch.name || "Branch"} />

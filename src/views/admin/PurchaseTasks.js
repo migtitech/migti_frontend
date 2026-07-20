@@ -1,23 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { Clipboard, Filter, List, Users, Gauge, Pencil } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Clipboard, Inbox, List, RefreshCcw, Users, Gauge } from "lucide-react";
 import purchaseTaskService from "../../services/purchaseTaskService";
 import employeeService from "../../services/employeeService";
-import { Loader, FilterLockButton, PageHeader } from "../../components";
+import { Loader, FilterLockButton } from "../../components";
 import {
   Badge,
-  Button,
   Card,
   CardHeader,
   CardContent,
-  Input,
   Label,
   Select,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogFooter,
-  DialogTitle,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -31,35 +24,28 @@ import {
 } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
-import { toastError, toastSuccess } from "../../utils/toast";
+import { toastError } from "../../utils/toast";
 import { useAuth, ROLES } from "../../context/AuthContext";
 import { dateFormatter } from "../../utils/dateFormatter";
 import { cn } from "../../lib/utils";
 
-const PURCHASE_TASKS_FILTER_DEFAULTS = {
-  status: "",
-  adminStatus: "",
+const FILTER_DEFAULTS = {
   adminRole: "",
   adminEmployeeId: "",
 };
 
-const TASK_STATUS = {
+export const TASK_STATUS = {
+  ASSIGNED: "assigned",
   PENDING: "pending",
   IN_PROGRESS: "in_progress",
   SUBMITTED: "submitted",
   SETTLED: "settled",
 };
 
-const statusOptions = [
-  { value: "", label: "All Statuses" },
-  { value: TASK_STATUS.PENDING, label: "Pending" },
-  { value: TASK_STATUS.IN_PROGRESS, label: "In Progress" },
-  { value: TASK_STATUS.SUBMITTED, label: "Submitted" },
-  { value: TASK_STATUS.SETTLED, label: "Settled" },
-];
-
-const getStatusBadge = (status) => {
+export const getStatusBadge = (status) => {
   switch (status) {
+    case TASK_STATUS.ASSIGNED:
+      return <Badge variant="secondary">Assigned</Badge>;
     case TASK_STATUS.PENDING:
       return <Badge variant="warning">Pending</Badge>;
     case TASK_STATUS.IN_PROGRESS:
@@ -73,7 +59,7 @@ const getStatusBadge = (status) => {
   }
 };
 
-const formatCurrency = (amount) => {
+export const formatCurrency = (amount) => {
   if (amount === null || amount === undefined || Number.isNaN(Number(amount)))
     return "-";
   return new Intl.NumberFormat("en-IN", {
@@ -83,14 +69,41 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-const useQuery = () => {
+const refId = (v) => {
+  if (!v) return "";
+  if (typeof v === "object") return String(v._id || v.id || "");
+  return String(v);
+};
+
+/**
+ * Bucket a task into one of the page tabs:
+ * - "reverify": submitted tasks sent back for re-verification
+ * - "assigned": manually assigned by another person
+ * - "direct":   self-assigned / auto-created from the quotation flow
+ */
+export const classifyTask = (task) => {
+  if (task?.status === TASK_STATUS.SUBMITTED) return "reverify";
+  const byId = refId(task?.assignedBy);
+  const toId = refId(task?.assignedTo);
+  if (byId && toId && byId !== toId) return "assigned";
+  return "direct";
+};
+
+const isPendingStatus = (status) =>
+  status === TASK_STATUS.ASSIGNED ||
+  status === TASK_STATUS.PENDING ||
+  status === TASK_STATUS.IN_PROGRESS ||
+  !status;
+
+const useQueryParams = () => {
   const { search } = useLocation();
   return useMemo(() => new URLSearchParams(search), [search]);
 };
 
 const PurchaseTasks = () => {
   const { user } = useAuth();
-  const query = useQuery();
+  const navigate = useNavigate();
+  const query = useQueryParams();
   const viewParam = query.get("view");
 
   const isAdminLike =
@@ -98,31 +111,24 @@ const PurchaseTasks = () => {
     user?.role === ROLES.SUPER_ADMIN ||
     user?.role === ROLES.HEAD_OF_DEPARTMENT;
 
-  const initialTab = useMemo(() => {
-    if (viewParam === "rate") return "rate";
-    if (viewParam === "admin" && isAdminLike) return "admin";
-    // Admin-like users should default to admin tracking
-    if (isAdminLike) return "admin";
-    return "purchase";
-  }, [viewParam, isAdminLike]);
+  const isPurchaseRole =
+    user?.role === ROLES.PURCHASE_EXICUTIVE || user?.role === ROLES.PROCUREMENT;
 
+  const initialTab =
+    viewParam === "rate" && isPurchaseRole ? "rate" : "assigned";
   const [activeTab, setActiveTab] = useState(initialTab);
+
   const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
     "purchase_tasks",
-    PURCHASE_TASKS_FILTER_DEFAULTS,
+    FILTER_DEFAULTS,
   );
 
   const [tasks, setTasks] = useState([]);
-  const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState(initialValues.status);
 
-  const [adminTasks, setAdminTasks] = useState([]);
-  const [adminPagination, setAdminPagination] = useState(null);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [adminStatusFilter, setAdminStatusFilter] = useState(
-    initialValues.adminStatus,
-  );
+  const [rateTasks, setRateTasks] = useState([]);
+  const [rateLoading, setRateLoading] = useState(false);
+
   const [adminRoleFilter, setAdminRoleFilter] = useState(
     initialValues.adminRole,
   );
@@ -131,385 +137,131 @@ const PurchaseTasks = () => {
   );
   const [employees, setEmployees] = useState([]);
 
-  const [remarkModalTask, setRemarkModalTask] = useState(null);
-  const [remarkValue, setRemarkValue] = useState("");
-  const [savingRemark, setSavingRemark] = useState(false);
-  const [targetRateModalTask, setTargetRateModalTask] = useState(null);
-  const [targetRateValue, setTargetRateValue] = useState("");
-  const [savingTargetRate, setSavingTargetRate] = useState(false);
-
+  /* ── load all tasks once (classified client-side into tabs) ── */
   useEffect(() => {
-    setActiveTab(initialTab);
-  }, [initialTab]);
-
-  const loadTasks = async () => {
-    setLoading(true);
-    try {
-      const res = await withMinimumDelay(() =>
-        purchaseTaskService.getMyTasks({
-          pageNumber: 1,
-          pageSize: 50,
-          status: statusFilter || undefined,
-        }),
-      );
-      const data = res?.data || res;
-      const result = data?.data ?? data;
-      setTasks(result?.tasks || []);
-      setPagination(result?.pagination || null);
-    } catch (err) {
-      toastError(err?.message || "Failed to load tasks");
-      setTasks([]);
-      setPagination(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadRateBucket = async () => {
-    setLoading(true);
-    try {
-      const res = await withMinimumDelay(() =>
-        purchaseTaskService.getRateBucket({
-          pageNumber: 1,
-          pageSize: 50,
-          status: statusFilter || undefined,
-        }),
-      );
-      const data = res?.data || res;
-      const result = data?.data ?? data;
-      setTasks(result?.tasks || []);
-      setPagination(result?.pagination || null);
-    } catch (err) {
-      toastError(err?.message || "Failed to load rate bucket data");
-      setTasks([]);
-      setPagination(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadAdminTasks = async () => {
-    if (!isAdminLike) return;
-    setAdminLoading(true);
-    try {
-      const res = await withMinimumDelay(() =>
-        purchaseTaskService.adminList({
-          pageNumber: 1,
-          pageSize: 50,
-          status: adminStatusFilter || undefined,
-          role: adminRoleFilter || undefined,
-          employeeId: adminEmployeeFilter || undefined,
-        }),
-      );
-      const data = res?.data || res;
-      const result = data?.data ?? data;
-      setAdminTasks(result?.tasks || []);
-      setAdminPagination(result?.pagination || null);
-    } catch (err) {
-      toastError(err?.message || "Failed to load tasks for admin view");
-      setAdminTasks([]);
-      setAdminPagination(null);
-    } finally {
-      setAdminLoading(false);
-    }
-  };
-
-  const loadEmployees = async () => {
-    try {
-      const res = await employeeService.getAll({
-        pageNumber: 1,
-        pageSize: 100,
-      });
-      const data = res?.data || res;
-      const result = data?.data ?? data;
-      const list = result?.employees || result?.items || result || [];
-      setEmployees(list);
-    } catch {
-      setEmployees([]);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === "purchase") {
-      loadTasks();
-    } else if (activeTab === "rate") {
-      loadRateBucket();
-    } else if (activeTab === "admin") {
-      if (employees.length === 0) {
-        loadEmployees();
+    let alive = true;
+    const loadTasks = async () => {
+      setLoading(true);
+      try {
+        const res = await withMinimumDelay(() =>
+          isAdminLike
+            ? purchaseTaskService.adminList({
+                pageNumber: 1,
+                pageSize: 100,
+                role: adminRoleFilter || undefined,
+                employeeId: adminEmployeeFilter || undefined,
+              })
+            : purchaseTaskService.getMyTasks({
+                pageNumber: 1,
+                pageSize: 100,
+              }),
+        );
+        if (!alive) return;
+        const data = res?.data || res;
+        const result = data?.data ?? data;
+        setTasks(result?.tasks || []);
+      } catch (err) {
+        if (!alive) return;
+        toastError(err?.message || "Failed to load procurement requests");
+        setTasks([]);
+      } finally {
+        if (alive) setLoading(false);
       }
-      loadAdminTasks();
-    }
-  }, [
-    activeTab,
-    statusFilter,
-    adminStatusFilter,
-    adminRoleFilter,
-    adminEmployeeFilter,
-  ]);
+    };
+    loadTasks();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminRoleFilter, adminEmployeeFilter]);
+
+  useEffect(() => {
+    if (!isAdminLike) return;
+    let alive = true;
+    const loadEmployees = async () => {
+      try {
+        const res = await employeeService.getAll({
+          pageNumber: 1,
+          pageSize: 100,
+        });
+        if (!alive) return;
+        const data = res?.data || res;
+        const result = data?.data ?? data;
+        const list = result?.employees || result?.items || result || [];
+        setEmployees(Array.isArray(list) ? list : []);
+      } catch {
+        if (alive) setEmployees([]);
+      }
+    };
+    loadEmployees();
+    return () => {
+      alive = false;
+    };
+  }, [isAdminLike]);
+
+  useEffect(() => {
+    if (activeTab !== "rate" || !isPurchaseRole) return;
+    let alive = true;
+    const loadRateBucket = async () => {
+      setRateLoading(true);
+      try {
+        const res = await withMinimumDelay(() =>
+          purchaseTaskService.getRateBucket({ pageNumber: 1, pageSize: 100 }),
+        );
+        if (!alive) return;
+        const data = res?.data || res;
+        const result = data?.data ?? data;
+        setRateTasks(result?.tasks || []);
+      } catch (err) {
+        if (!alive) return;
+        toastError(err?.message || "Failed to load rate bucket data");
+        setRateTasks([]);
+      } finally {
+        if (alive) setRateLoading(false);
+      }
+    };
+    loadRateBucket();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   useFilterLockPersist("purchase_tasks", filtersLocked, {
-    status: statusFilter,
-    adminStatus: adminStatusFilter,
     adminRole: adminRoleFilter,
     adminEmployeeId: adminEmployeeFilter,
   });
 
   const handleToggleFiltersLock = () => {
     toggleFiltersLock({
-      status: statusFilter,
-      adminStatus: adminStatusFilter,
       adminRole: adminRoleFilter,
       adminEmployeeId: adminEmployeeFilter,
     });
   };
 
-  const handleStatusChange = async (task, newStatus) => {
-    if (!newStatus || newStatus === task.status) return;
-    try {
-      await purchaseTaskService.updateStatus(
-        task._id || task.id,
-        newStatus,
-        task.targetRate,
-      );
-      toastSuccess("Task status updated");
-      if (activeTab === "admin") {
-        loadAdminTasks();
-      } else if (activeTab === "rate") {
-        loadRateBucket();
-      } else {
-        loadTasks();
-      }
-    } catch (err) {
-      toastError(err?.message || "Failed to update task status");
-    }
-  };
+  /* ── classification ── */
+  const buckets = useMemo(() => {
+    const assigned = [];
+    const direct = [];
+    const reverify = [];
+    tasks.forEach((t) => {
+      const kind = classifyTask(t);
+      if (kind === "reverify") reverify.push(t);
+      else if (kind === "assigned") assigned.push(t);
+      else direct.push(t);
+    });
+    return { assigned, direct, reverify };
+  }, [tasks]);
 
-  const openRemarkModal = (task) => {
-    setRemarkModalTask(task);
-    setRemarkValue(task.supplierRateRemark || "");
-  };
-
-  const closeRemarkModal = () => {
-    setRemarkModalTask(null);
-    setRemarkValue("");
-  };
-
-  const handleSaveRemark = async () => {
-    if (!remarkModalTask) return;
-    setSavingRemark(true);
-    try {
-      await purchaseTaskService.updateRemark(
-        remarkModalTask._id || remarkModalTask.id,
-        remarkValue,
-      );
-      toastSuccess("Supplier rate remark updated");
-      closeRemarkModal();
-      if (activeTab === "admin") {
-        loadAdminTasks();
-      } else if (activeTab === "rate") {
-        loadRateBucket();
-      } else {
-        loadTasks();
-      }
-    } catch (err) {
-      toastError(err?.message || "Failed to update remark");
-    } finally {
-      setSavingRemark(false);
-    }
-  };
-
-  const openTargetRateModal = (task) => {
-    setTargetRateModalTask(task);
-    setTargetRateValue(task.targetRate != null ? String(task.targetRate) : "");
-  };
-
-  const closeTargetRateModal = () => {
-    setTargetRateModalTask(null);
-    setTargetRateValue("");
-  };
-
-  const handleSaveTargetRate = async () => {
-    if (!targetRateModalTask) return;
-    const task = targetRateModalTask;
-    const value = targetRateValue === "" ? null : Number(targetRateValue);
-    setSavingTargetRate(true);
-    try {
-      // reuse updateStatus endpoint by sending current status and new targetRate
-      await purchaseTaskService.updateStatus(
-        task._id || task.id,
-        task.status || "",
-        value,
-      );
-      toastSuccess("Target rate updated");
-      closeTargetRateModal();
-      // reload current view
-      if (activeTab === "admin") {
-        loadAdminTasks();
-      } else if (activeTab === "rate") {
-        loadRateBucket();
-      } else {
-        loadTasks();
-      }
-    } catch (err) {
-      toastError(err?.message || "Failed to update target rate");
-    } finally {
-      setSavingTargetRate(false);
-    }
-  };
-
-  const renderTaskRow = (task, index, showAssignee = false) => {
-    const quotation = task.quotationId || task.quotation || {};
-    const companyName =
-      quotation.companyInfo?.name ||
-      quotation.customerName ||
-      quotation.companyName ||
-      "-";
-
-    return (
-      <TableRow key={task._id || task.id || index}>
-        <TableCell>{index + 1}</TableCell>
-        <TableCell>
-          <strong>
-            {quotation.quotationCode ||
-              (quotation._id || quotation.id
-                ? `QT-${String(quotation._id || quotation.id)
-                    .slice(-4)
-                    .padStart(4, "0")}`
-                : "-")}
-          </strong>
-        </TableCell>
-        <TableCell>
-          <strong>
-            {Array.isArray(quotation.products) && quotation.products.length > 0
-              ? quotation.products[0].productName || "-"
-              : "-"}
-          </strong>
-        </TableCell>
-        <TableCell>
-          <strong>{companyName}</strong>
-        </TableCell>
-        <TableCell>
-          <strong>{task.productCategory || "-"}</strong>
-        </TableCell>
-        <TableCell>
-          <strong>{task.productGroup || "-"}</strong>
-        </TableCell>
-        <TableCell>
-          <strong>{task.subCategory || "-"}</strong>
-        </TableCell>
-        <TableCell className="whitespace-nowrap align-middle">
-          <div className="flex items-center gap-2">
-            <div
-              className={cn(
-                "rounded-md px-2.5 py-1.5",
-                task.targetRate != null
-                  ? "bg-success-muted font-semibold text-success!"
-                  : "",
-              )}
-            >
-              {formatCurrency(task.targetRate)}
-            </div>
-            {(user?.role === ROLES.PURCHASE_EXICUTIVE ||
-              user?.role === ROLES.PROCUREMENT) && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                title="Edit Target Rate"
-                onClick={() => openTargetRateModal(task)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        </TableCell>
-        <TableCell>
-          <Select
-            className="h-8 text-xs"
-            value={task.status || TASK_STATUS.PENDING}
-            onChange={(e) => handleStatusChange(task, e.target.value)}
-          >
-            {statusOptions
-              .filter((o) => o.value)
-              .map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-          </Select>
-          <div className="mt-1">{getStatusBadge(task.status)}</div>
-        </TableCell>
-        {showAssignee && (
-          <TableCell>
-            <div>
-              <strong>{task.assignedTo?.name || "-"}</strong>
-            </div>
-            {task.assignedTo?.designation && (
-              <div className="text-sm text-muted-foreground">
-                {task.assignedTo.designation}
-              </div>
-            )}
-          </TableCell>
-        )}
-        <TableCell>
-          <div className="mb-2 text-sm">
-            {task.supplierRateRemark ? (
-              <span>{task.supplierRateRemark}</span>
-            ) : (
-              <span className="text-muted-foreground">No remark</span>
-            )}
-          </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => openRemarkModal(task)}
-          >
-            Update Remark
-          </Button>
-        </TableCell>
-        <TableCell>{dateFormatter(task.createdAt, "-")}</TableCell>
-      </TableRow>
-    );
-  };
-
-  const renderTasksTable = (items, showAssignee = false) => (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>S No</TableHead>
-            <TableHead>Quotation</TableHead>
-            <TableHead>Product</TableHead>
-            <TableHead>Company</TableHead>
-            <TableHead>Product Category</TableHead>
-            <TableHead>Product Group</TableHead>
-            <TableHead>Subcategory</TableHead>
-            <TableHead>Target Rate</TableHead>
-            <TableHead>Status</TableHead>
-            {showAssignee && <TableHead>Assigned To</TableHead>}
-            <TableHead>Supplier Rate Remark</TableHead>
-            <TableHead>Created</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items && items.length > 0 ? (
-            items.map((task, index) => renderTaskRow(task, index, showAssignee))
-          ) : (
-            <TableRow>
-              <TableCell
-                colSpan={showAssignee ? 12 : 11}
-                className="text-center"
-              >
-                No tasks found.
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
-    </div>
+  const pendingCounts = useMemo(
+    () => ({
+      assigned: buckets.assigned.filter((t) => isPendingStatus(t.status))
+        .length,
+      direct: buckets.direct.filter((t) => isPendingStatus(t.status)).length,
+      reverify: buckets.reverify.length,
+      rate: rateTasks.filter((t) => isPendingStatus(t.status)).length,
+    }),
+    [buckets, rateTasks],
   );
 
   const uniqueRoles = useMemo(() => {
@@ -520,20 +272,144 @@ const PurchaseTasks = () => {
     return Array.from(set);
   }, [employees]);
 
+  const openDetail = (task) => {
+    const id = task._id || task.id;
+    if (!id) return;
+    navigate(`/procurement-requests/${id}`, { state: { task } });
+  };
+
+  /* ── clean table: row click opens the full detail page ── */
+  const renderTasksTable = (items, { showAssignedBy = false } = {}) => (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead style={{ width: 48 }}>#</TableHead>
+            <TableHead>Quotation</TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>Company</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Target Rate</TableHead>
+            {showAssignedBy && <TableHead>Assigned By</TableHead>}
+            {isAdminLike && <TableHead>Assigned To</TableHead>}
+            <TableHead>Status</TableHead>
+            <TableHead>Created</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items && items.length > 0 ? (
+            items.map((task, index) => {
+              const quotation = task.quotationId || task.quotation || {};
+              const companyName =
+                quotation.companyInfo?.name ||
+                quotation.customerName ||
+                quotation.companyName ||
+                "-";
+              return (
+                <TableRow
+                  key={task._id || task.id || index}
+                  className="cursor-pointer"
+                  onClick={() => openDetail(task)}
+                  title="Open full details"
+                >
+                  <TableCell>{index + 1}</TableCell>
+                  <TableCell>
+                    <span className="font-semibold">
+                      {quotation.quotationCode || task.quotationNumber || "-"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {Array.isArray(quotation.products) &&
+                    quotation.products.length > 0
+                      ? quotation.products[0].productName || "-"
+                      : "-"}
+                    {Array.isArray(quotation.products) &&
+                      quotation.products.length > 1 && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          +{quotation.products.length - 1} more
+                        </span>
+                      )}
+                  </TableCell>
+                  <TableCell>{companyName}</TableCell>
+                  <TableCell>{task.productCategory || "-"}</TableCell>
+                  <TableCell>
+                    <span
+                      className={cn(
+                        task.targetRate != null && task.targetRate > 0
+                          ? "font-semibold text-success!"
+                          : "",
+                      )}
+                    >
+                      {formatCurrency(task.targetRate)}
+                    </span>
+                  </TableCell>
+                  {showAssignedBy && (
+                    <TableCell>
+                      {task.assignedBy?.name || "-"}
+                      {task.assignedBy?.role && (
+                        <div className="text-xs text-muted-foreground">
+                          {task.assignedBy.role}
+                        </div>
+                      )}
+                    </TableCell>
+                  )}
+                  {isAdminLike && (
+                    <TableCell>
+                      {task.assignedTo?.name || "-"}
+                      {task.assignedTo?.designation && (
+                        <div className="text-xs text-muted-foreground">
+                          {task.assignedTo.designation}
+                        </div>
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell>{getStatusBadge(task.status)}</TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {dateFormatter(task.createdAt, "-")}
+                  </TableCell>
+                </TableRow>
+              );
+            })
+          ) : (
+            <TableRow>
+              <TableCell
+                colSpan={8 + (showAssignedBy ? 1 : 0) + (isAdminLike ? 1 : 0)}
+                className="text-center"
+              >
+                No requests found.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
+  /* small count badge shown on top of each tab */
+  const countBadge = (count) => (
+    <Badge
+      variant={count > 0 ? "warning" : "secondary"}
+      className="ml-1.5 px-1.5 text-[0.68rem]"
+      title={`${count} pending`}
+    >
+      {count}
+    </Badge>
+  );
+
   return (
     <>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h4 className="mb-1 text-lg font-semibold">Purchase Tasks</h4>
+          <h4 className="mb-1 text-lg font-semibold">Procurement Requests</h4>
           <p className="mb-0 text-sm text-muted-foreground">
-            Manage quotation-based purchase tasks, rate bucket, and admin
-            tracking.
+            Assigned, direct and re-verification requests — click a row to open
+            full details.
           </p>
         </div>
         <div className="flex gap-2">
           <Badge className="flex items-center gap-1.5">
             <Gauge className="h-3.5 w-3.5" />
-            Total Tasks: {pagination?.totalItems ?? tasks.length}
+            Total: {tasks.length}
           </Badge>
           {isAdminLike && (
             <Badge variant="info" className="flex items-center gap-1.5">
@@ -544,224 +420,109 @@ const PurchaseTasks = () => {
         </div>
       </div>
 
+      {isAdminLike && (
+        <div className="mb-3 flex flex-wrap items-end gap-3">
+          <div className="w-full sm:w-48">
+            <Label>Role</Label>
+            <Select
+              value={adminRoleFilter}
+              onChange={(e) => setAdminRoleFilter(e.target.value)}
+            >
+              <option value="">All Roles</option>
+              {uniqueRoles.map((role) => (
+                <option key={role} value={role}>
+                  {role}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="w-full sm:w-48">
+            <Label>Employee</Label>
+            <Select
+              value={adminEmployeeFilter}
+              onChange={(e) => setAdminEmployeeFilter(e.target.value)}
+            >
+              <option value="">All Employees</option>
+              {employees.map((e) => (
+                <option key={e._id || e.id} value={e._id || e.id}>
+                  {e.name || e.email}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <FilterLockButton
+            filtersLocked={filtersLocked}
+            onToggle={handleToggleFiltersLock}
+            pageLabel="Procurement Requests"
+          />
+        </div>
+      )}
+
       <Card className="mb-4">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <CardHeader className="border-b border-border py-2">
             <TabsList>
-              {isAdminLike ? (
-                <TabsTrigger value="admin">
-                  <Filter className="mr-2 h-4 w-4" />
-                  Admin Tracking
+              <TabsTrigger value="assigned">
+                <Clipboard className="mr-2 h-4 w-4" />
+                Assigned
+                {countBadge(pendingCounts.assigned)}
+              </TabsTrigger>
+              <TabsTrigger value="direct">
+                <Inbox className="mr-2 h-4 w-4" />
+                Direct
+                {countBadge(pendingCounts.direct)}
+              </TabsTrigger>
+              <TabsTrigger value="reverify">
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                Reverify
+                {countBadge(pendingCounts.reverify)}
+              </TabsTrigger>
+              {isPurchaseRole && (
+                <TabsTrigger value="rate">
+                  <List className="mr-2 h-4 w-4" />
+                  Rate Bucket
+                  {countBadge(pendingCounts.rate)}
                 </TabsTrigger>
-              ) : (
-                <>
-                  <TabsTrigger value="purchase">
-                    <Clipboard className="mr-2 h-4 w-4" />
-                    Purchase Task
-                  </TabsTrigger>
-                  {/* Rate Bucket visible only to purchase roles */}
-                  {(user?.role === ROLES.PURCHASE_EXICUTIVE ||
-                    user?.role === ROLES.PROCUREMENT) && (
-                    <TabsTrigger value="rate">
-                      <List className="mr-2 h-4 w-4" />
-                      Rate Bucket
-                    </TabsTrigger>
-                  )}
-                </>
               )}
             </TabsList>
           </CardHeader>
           <CardContent className="pt-4">
-            <TabsContent value="purchase">
-              <div className="mb-3 flex flex-wrap items-end gap-3">
-                <div className="w-full sm:w-48">
-                  <Label>Status</Label>
-                  <Select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    {statusOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <FilterLockButton
-                  filtersLocked={filtersLocked}
-                  onToggle={handleToggleFiltersLock}
-                  pageLabel="Purchase Tasks"
-                />
-              </div>
+            <TabsContent value="assigned">
               {loading ? (
-                <Loader message="Loading tasks..." />
+                <Loader message="Loading assigned requests..." />
               ) : (
-                renderTasksTable(tasks)
+                renderTasksTable(buckets.assigned, { showAssignedBy: true })
               )}
             </TabsContent>
 
-            <TabsContent value="rate">
-              <div className="mb-3 flex flex-wrap items-end gap-3">
-                <div className="w-full sm:w-48">
-                  <Label>Status</Label>
-                  <Select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                  >
-                    {statusOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <FilterLockButton
-                  filtersLocked={filtersLocked}
-                  onToggle={handleToggleFiltersLock}
-                  pageLabel="Purchase Tasks"
-                />
-              </div>
+            <TabsContent value="direct">
               {loading ? (
-                <Loader message="Loading rate bucket data..." />
+                <Loader message="Loading direct requests..." />
               ) : (
-                renderTasksTable(tasks)
+                renderTasksTable(buckets.direct)
               )}
             </TabsContent>
 
-            <TabsContent value="admin">
-              {isAdminLike ? (
-                <>
-                  <div className="mb-3 flex flex-wrap items-end gap-3">
-                    <div className="w-full sm:w-48">
-                      <Label>Status</Label>
-                      <Select
-                        value={adminStatusFilter}
-                        onChange={(e) => setAdminStatusFilter(e.target.value)}
-                      >
-                        {statusOptions.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="w-full sm:w-48">
-                      <Label>Role</Label>
-                      <Select
-                        value={adminRoleFilter}
-                        onChange={(e) => setAdminRoleFilter(e.target.value)}
-                      >
-                        <option value="">All Roles</option>
-                        {uniqueRoles.map((role) => (
-                          <option key={role} value={role}>
-                            {role}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <div className="w-full sm:w-48">
-                      <Label>Employee</Label>
-                      <Select
-                        value={adminEmployeeFilter}
-                        onChange={(e) => setAdminEmployeeFilter(e.target.value)}
-                      >
-                        <option value="">All Employees</option>
-                        {employees.map((e) => (
-                          <option key={e._id || e.id} value={e._id || e.id}>
-                            {e.name || e.email}
-                          </option>
-                        ))}
-                      </Select>
-                    </div>
-                    <FilterLockButton
-                      filtersLocked={filtersLocked}
-                      onToggle={handleToggleFiltersLock}
-                      pageLabel="Purchase Tasks"
-                    />
-                  </div>
-                  {adminLoading ? (
-                    <Loader message="Loading admin tasks..." />
-                  ) : (
-                    renderTasksTable(adminTasks, true)
-                  )}
-                </>
+            <TabsContent value="reverify">
+              {loading ? (
+                <Loader message="Loading re-verification requests..." />
               ) : (
-                <div className="text-muted-foreground">
-                  You do not have access to the admin view.
-                </div>
+                renderTasksTable(buckets.reverify, { showAssignedBy: true })
               )}
             </TabsContent>
+
+            {isPurchaseRole && (
+              <TabsContent value="rate">
+                {rateLoading ? (
+                  <Loader message="Loading rate bucket data..." />
+                ) : (
+                  renderTasksTable(rateTasks)
+                )}
+              </TabsContent>
+            )}
           </CardContent>
         </Tabs>
       </Card>
-
-      <Dialog
-        open={!!remarkModalTask}
-        onOpenChange={(open) => !open && closeRemarkModal()}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Supplier Rate Remark</DialogTitle>
-          </DialogHeader>
-          <div className="mb-3">
-            <Label>Remark</Label>
-            <Input
-              type="text"
-              value={remarkValue}
-              onChange={(e) => setRemarkValue(e.target.value)}
-              placeholder="Enter supplier rate remark"
-            />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={closeRemarkModal}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveRemark}
-              disabled={savingRemark}
-            >
-              {savingRemark ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog
-        open={!!targetRateModalTask}
-        onOpenChange={(open) => !open && closeTargetRateModal()}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Target Rate</DialogTitle>
-          </DialogHeader>
-          <div className="mb-3">
-            <Label>Target Rate (INR)</Label>
-            <Input
-              type="number"
-              min={0}
-              value={targetRateValue}
-              onChange={(e) => setTargetRateValue(e.target.value)}
-              placeholder="Enter target rate"
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={closeTargetRateModal}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSaveTargetRate}
-              disabled={savingTargetRate}
-            >
-              {savingTargetRate ? "Saving..." : "Save"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 };

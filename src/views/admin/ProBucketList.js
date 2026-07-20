@@ -10,19 +10,9 @@ import {
   FilterLockButton,
   PageHeader,
   StatusBadge,
-  EmptyState,
+  DataTable,
 } from "../../components";
-import {
-  Badge,
-  Button,
-  Input,
-  Label,
-  Select,
-  Card,
-  CardHeader,
-  CardContent,
-} from "../../components/ui";
-import { cn } from "../../lib/utils";
+import { Badge, Button, Input, Label, Select } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 
 const PRO_BUCKET_FILTER_DEFAULTS = { status: "" };
@@ -60,7 +50,12 @@ const statusBadge = (s) => {
   }
 };
 
-/** Human-readable age since `createdAt` — e.g. "just now", "45 min ago", "2d 5h ago". */
+const STATUS_LABELS = {
+  pending: "Pending",
+  rate_submitted: "Rate submitted",
+  fulfilled: "Fulfilled",
+};
+
 const queryCodeLast4 = (code) => {
   const s = code != null ? String(code).trim() : "";
   if (!s) return "—";
@@ -77,6 +72,7 @@ const refName = (refVal) => {
   return String(refVal);
 };
 
+/** Human-readable age since `createdAt` — e.g. "just now", "45m ago", "2d 5h ago". */
 const formatDurationSinceCreated = (d) => {
   const t = d ? new Date(d).getTime() : NaN;
   if (Number.isNaN(t)) return "—";
@@ -120,6 +116,80 @@ const parseListResponse = (res) => {
     pageSize: block.pageSize ?? 20,
   };
 };
+
+const columns = [
+  {
+    key: "productName",
+    label: "Product",
+    sortable: true,
+    render: (row) => (
+      <span className="font-medium" title={row.productName}>
+        {row.productName || "—"}
+      </span>
+    ),
+    sortValue: (row) => row.productName || "",
+  },
+  {
+    key: "queryCode",
+    label: "Query code",
+    render: (row) => (
+      <span
+        className="font-mono"
+        title={row.queryCode?.toString().trim() || ""}
+      >
+        {queryCodeLast4(row.queryCode)}
+      </span>
+    ),
+    sortValue: (row) => row.queryCode?.toString() || "",
+  },
+  {
+    key: "unit",
+    label: "Unit",
+    render: (row) => row.unit || "—",
+    sortValue: (row) => row.unit || "",
+  },
+  {
+    key: "groupId",
+    label: "Group",
+    render: (row) => refName(row.groupId),
+    sortValue: (row) => refName(row.groupId),
+  },
+  {
+    key: "categoryId",
+    label: "Category",
+    render: (row) => refName(row.categoryId),
+    sortValue: (row) => refName(row.categoryId),
+  },
+  {
+    key: "status",
+    label: "Status",
+    render: (row) => statusBadge(row.status),
+    sortValue: (row) => STATUS_LABELS[row.status] || row.status || "",
+    exportValue: (row) => STATUS_LABELS[row.status] || row.status || "—",
+  },
+  {
+    key: "createdAt",
+    label: "Created",
+    align: "right",
+    render: (row) => (
+      <span className="whitespace-nowrap">
+        {formatDurationSinceCreated(row.createdAt)}
+      </span>
+    ),
+    sortValue: (row) => new Date(row.createdAt || 0).getTime(),
+    exportValue: (row) => row.createdAt || "",
+  },
+  {
+    key: "_open",
+    label: "",
+    align: "right",
+    sortable: false,
+    exportable: false,
+    render: () => (
+      <ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" />
+    ),
+  },
+];
 
 const ProBucketList = () => {
   const navigate = useNavigate();
@@ -248,82 +318,15 @@ const ProBucketList = () => {
         <Loader />
       ) : (
         <>
-          {rows.length === 0 ? (
-            <EmptyState title="No items found" />
-          ) : (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              {rows.map((row) => (
-                <Card
-                  key={row._id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => navigate(`/pro-bucket/${row._id}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      navigate(`/pro-bucket/${row._id}`);
-                    }
-                  }}
-                  className={cn(
-                    "cursor-pointer transition-shadow hover:ring-2 hover:ring-primary",
-                    row.status === "pending" && "border-warning!",
-                  )}
-                >
-                  <CardHeader className="flex flex-row items-center justify-between gap-2 border-b px-4 py-2">
-                    <span
-                      className="min-w-0 truncate font-semibold"
-                      title={row.productName}
-                    >
-                      {row.productName}
-                    </span>
-                    <div className="flex flex-shrink-0 items-center gap-2">
-                      {statusBadge(row.status)}
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </CardHeader>
-                  <CardContent className="px-4 py-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Query code</span>
-                      <span
-                        className="truncate pl-2 font-mono font-medium"
-                        title={row.queryCode?.toString().trim() || ""}
-                      >
-                        {queryCodeLast4(row.queryCode)}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex justify-between">
-                      <span className="text-muted-foreground">Unit</span>
-                      <span>{row.unit || "—"}</span>
-                    </div>
-                    <div className="mt-1 flex justify-between">
-                      <span className="text-muted-foreground">Group</span>
-                      <span
-                        className="truncate pl-2"
-                        title={refName(row.groupId)}
-                      >
-                        {refName(row.groupId)}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex justify-between">
-                      <span className="text-muted-foreground">Category</span>
-                      <span
-                        className="truncate pl-2"
-                        title={refName(row.categoryId)}
-                      >
-                        {refName(row.categoryId)}
-                      </span>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between border-t pt-2">
-                      <span className="text-muted-foreground">Created</span>
-                      <span className="whitespace-nowrap pl-1">
-                        {formatDurationSinceCreated(row.createdAt)}
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(r) => r._id}
+            onRowClick={(row) => navigate(`/pro-bucket/${row._id}`)}
+            showSearch={false}
+            emptyTitle="No items found"
+            exportFileName="pro-bucket"
+          />
 
           <TablePagination
             currentPage={page}

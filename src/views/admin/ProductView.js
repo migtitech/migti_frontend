@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Pencil,
   X,
   CheckCircle,
@@ -15,10 +14,11 @@ import {
   FileText,
   Hash,
   Image as ImageIcon,
+  Search,
 } from "lucide-react";
 import productService from "../../services/productService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader } from "../../components";
+import { BackButton, Loader, TablePagination } from "../../components";
 import {
   Alert,
   AlertDescription,
@@ -57,6 +57,8 @@ const getImageUrl = (img) => {
   if (typeof img === "object" && img?.path) return getAssetsUrl(img.path);
   return typeof img === "string" ? img : "";
 };
+
+const VARIANTS_PER_PAGE = 10;
 
 // Fallback sample values shown when a field has no real data yet, so the
 // redesigned Product Details page always demonstrates its full layout.
@@ -137,6 +139,8 @@ const ProductView = () => {
   const [secretCode, setSecretCode] = useState("");
   const [secretError, setSecretError] = useState("");
   const [approving, setApproving] = useState(false);
+  const [variantSearch, setVariantSearch] = useState("");
+  const [variantPage, setVariantPage] = useState(1);
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -147,7 +151,7 @@ const ProductView = () => {
         const data = res?.data || res;
         setProduct(data);
       } catch (err) {
-        toastError(err?.message || "Failed to fetch product");
+        toastError(err?.message || "Failed to load product");
       } finally {
         setLoading(false);
       }
@@ -171,7 +175,7 @@ const ProductView = () => {
     try {
       await productService.update(id, { status: "hod_approved" });
       setProduct((prev) => ({ ...prev, status: "hod_approved" }));
-      toastSuccess("Product HOD approved successfully.");
+      toastSuccess("Product HOD approved successfully");
       setShowSecretModal(false);
     } catch (err) {
       toastError(err?.message || "Failed to approve product.");
@@ -215,6 +219,38 @@ const ProductView = () => {
       ? product.supplierProductCodes
       : [DUMMY_SUPPLIER_CODE];
   }, [product]);
+
+  const filteredVariantCombos = useMemo(() => {
+    const combos = product?.variantCombinations || [];
+    const q = variantSearch.trim().toLowerCase();
+    if (!q) return combos;
+    return combos.filter((combo) => {
+      const options = (combo.optionValues || [])
+        .map((o) => `${o.variantName}: ${o.variantValue}`)
+        .join(" · ");
+      return [
+        combo.variantCode,
+        options,
+        combo.modelNumber || product?.defaultModelNumber,
+      ]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(q));
+    });
+  }, [product, variantSearch]);
+
+  const variantTotalPages = Math.max(
+    1,
+    Math.ceil(filteredVariantCombos.length / VARIANTS_PER_PAGE),
+  );
+  const currentVariantPage = Math.min(variantPage, variantTotalPages);
+  const pagedVariantCombos = useMemo(
+    () =>
+      filteredVariantCombos.slice(
+        (currentVariantPage - 1) * VARIANTS_PER_PAGE,
+        currentVariantPage * VARIANTS_PER_PAGE,
+      ),
+    [filteredVariantCombos, currentVariantPage],
+  );
 
   const displayWeight = product
     ? fieldOr(product.weight || null, "weight")
@@ -265,14 +301,7 @@ const ProductView = () => {
   return (
     <div className="space-y-4">
       <div className="mb-1">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/products")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Products
-        </Button>
+        <BackButton fallback="/products" />
       </div>
 
       {/* Summary banner */}
@@ -521,11 +550,24 @@ const ProductView = () => {
 
       {product.hasVariants && product.variantCombinations?.length > 0 && (
         <Card>
-          <CardHeader className="flex flex-row items-center gap-3 border-b border-border">
+          <CardHeader className="flex flex-row flex-wrap items-center gap-3 border-b border-border">
             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
               <Boxes className="h-4 w-4 text-primary!" />
             </span>
-            <CardTitle className="text-sm">Variant combinations</CardTitle>
+            <CardTitle className="text-sm">Variant Combinations</CardTitle>
+            <div className="relative ml-auto w-full max-w-xs">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="text"
+                value={variantSearch}
+                onChange={(e) => {
+                  setVariantSearch(e.target.value);
+                  setVariantPage(1);
+                }}
+                placeholder="Search variants…"
+                className="h-8 pl-8"
+              />
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
@@ -545,7 +587,17 @@ const ProductView = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {product.variantCombinations.map((combo, cIdx) => (
+                  {pagedVariantCombos.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={10}
+                        className="py-6 text-center text-sm text-muted-foreground"
+                      >
+                        No variants match your search
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {pagedVariantCombos.map((combo, cIdx) => (
                     <TableRow key={combo.uniqueId || cIdx}>
                       <TableCell>
                         <code className="text-xs text-primary!">
@@ -646,6 +698,15 @@ const ProductView = () => {
                 </TableBody>
               </Table>
             </div>
+            <TablePagination
+              currentPage={currentVariantPage}
+              totalPages={variantTotalPages}
+              onPageChange={setVariantPage}
+              totalItems={filteredVariantCombos.length}
+              itemsPerPage={VARIANTS_PER_PAGE}
+              showRange
+              wrapperClassName="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3"
+            />
           </CardContent>
         </Card>
       )}

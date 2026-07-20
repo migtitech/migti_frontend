@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Pencil,
   Building2,
   Mail,
@@ -50,7 +49,13 @@ import poBillingService from "../../services/poBillingService";
 import bpDummy from "../../data/businessPartnerDummy";
 import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
-import { EyeIcon, Loader, TablePagination } from "../../components";
+import {
+  BackButton,
+  EyeIcon,
+  Loader,
+  TablePagination,
+  LocationValue,
+} from "../../components";
 import { cn } from "../../lib/utils";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
@@ -74,8 +79,8 @@ const openAttachment = async (attachment) => {
   }
 };
 
-const InfoRow = ({ icon: Icon, label, value }) => {
-  const hasValue = value || value === 0;
+const InfoRow = ({ icon: Icon, label, value, children }) => {
+  const hasValue = children != null ? true : value || value === 0;
   return (
     <div className="flex items-start gap-3 py-2.5">
       {Icon && (
@@ -89,7 +94,7 @@ const InfoRow = ({ icon: Icon, label, value }) => {
             hasValue ? "text-foreground" : "text-muted-foreground/60",
           )}
         >
-          {hasValue ? String(value) : "NA"}
+          {children != null ? children : hasValue ? String(value) : "NA"}
         </div>
       </div>
     </div>
@@ -182,7 +187,7 @@ const IndustryView = () => {
         setIndustry(industryRes?.data || industryRes);
       } catch (err) {
         if (!cancelled) {
-          const message = err?.message || "Failed to fetch customer";
+          const message = err?.message || "Failed to load customer";
           setError(message);
           toastError(message);
           setIndustry(null);
@@ -496,15 +501,7 @@ const IndustryView = () => {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/industries")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to customers
-        </Button>
+        <BackButton fallback="/industries" />
         <Button
           type="button"
           onClick={() => navigate(`/industries/edit/${id}`)}
@@ -616,11 +613,9 @@ const IndustryView = () => {
                     label="Zone"
                     value={formatAreaOrDash(industry.area)}
                   />
-                  <InfoRow
-                    icon={MapPin}
-                    label="Location"
-                    value={industry.location}
-                  />
+                  <InfoRow icon={MapPin} label="Location">
+                    <LocationValue value={industry.location} showIcon={false} />
+                  </InfoRow>
                 </InfoCard>
 
                 <InfoCard icon={Mail} title="Contact & Business">
@@ -824,7 +819,7 @@ const IndustryView = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Query Code</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Products</TableHead>
@@ -894,7 +889,7 @@ const IndustryView = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Quotation Code</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Products</TableHead>
@@ -968,12 +963,12 @@ const IndustryView = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Sales Order Number</TableHead>
                       <TableHead>Salesperson</TableHead>
                       <TableHead>Amount</TableHead>
                       <TableHead>Entry Date</TableHead>
-                      <TableHead>Dispatchment Date</TableHead>
+                      <TableHead>Dispatch Date</TableHead>
                       <TableHead>Remark</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1026,7 +1021,7 @@ const IndustryView = () => {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/50 hover:bg-muted/50">
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Billing Number</TableHead>
                       <TableHead>Salesperson</TableHead>
                       <TableHead>Amount</TableHead>

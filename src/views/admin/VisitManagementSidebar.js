@@ -471,7 +471,7 @@ const VisitManagementSidebar = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Zone</TableHead>
                       <TableHead>Employee</TableHead>
                       <TableHead>Industry</TableHead>

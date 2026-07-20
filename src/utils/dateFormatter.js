@@ -20,6 +20,26 @@ export function dateFormatter(dateInput, emptyValue = "—") {
 }
 
 /**
+ * Format a date for UI display — DD MMM YYYY in IST (e.g. "05 Jul 2026").
+ * Use for report/detail pages where a spelled-out month reads more clearly
+ * than the compact DD/MM/YY table format.
+ * @param {Date|string|number|null|undefined} dateInput
+ * @param {string} [emptyValue="—"]
+ * @returns {string}
+ */
+export function dateMediumFormatter(dateInput, emptyValue = "—") {
+  if (dateInput == null || dateInput === "") return emptyValue;
+  const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+  if (Number.isNaN(date.getTime())) return emptyValue;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: IST_TIMEZONE,
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(date);
+}
+
+/**
  * Format a date and time for UI display — DD/MM/YY HH:MM:SS (24-hour) in IST.
  * @param {Date|string|number|null|undefined} dateInput
  * @param {string} [emptyValue="—"]

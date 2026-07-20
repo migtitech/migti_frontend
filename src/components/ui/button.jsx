@@ -1,4 +1,5 @@
 import React from "react";
+import { Loader2 } from "lucide-react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva } from "class-variance-authority";
 import { cn } from "../../lib/utils";
@@ -34,14 +35,74 @@ const buttonVariants = cva(
 );
 
 const Button = React.forwardRef(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      asChild = false,
+      onClick,
+      disabled,
+      children,
+      ...props
+    },
+    ref,
+  ) => {
+    // Double-submission guard: while an async onClick is in flight the button
+    // is disabled and shows a spinner, so a second click can't fire the action.
+    const [busy, setBusy] = React.useState(false);
+    const mountedRef = React.useRef(true);
+    React.useEffect(() => {
+      mountedRef.current = true;
+      return () => {
+        mountedRef.current = false;
+      };
+    }, []);
+
     const Comp = asChild ? Slot : "button";
+
+    if (asChild) {
+      return (
+        <Comp
+          className={cn(buttonVariants({ variant, size, className }))}
+          ref={ref}
+          onClick={onClick}
+          {...props}
+        >
+          {children}
+        </Comp>
+      );
+    }
+
+    const handleClick = onClick
+      ? (event) => {
+          if (busy) {
+            event.preventDefault();
+            return;
+          }
+          const result = onClick(event);
+          if (result && typeof result.then === "function") {
+            setBusy(true);
+            Promise.resolve(result)
+              .catch(() => {})
+              .finally(() => {
+                if (mountedRef.current) setBusy(false);
+              });
+          }
+        }
+      : undefined;
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
+        onClick={handleClick}
+        disabled={disabled || busy}
         {...props}
-      />
+      >
+        {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+        {children}
+      </Comp>
     );
   },
 );

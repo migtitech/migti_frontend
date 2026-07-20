@@ -1,8 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
   Wallet,
-  ArrowLeft,
   MoreHorizontal,
   CheckCircle,
   ChevronRight,
@@ -30,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui";
+import { BackButton } from "../../components";
 import billingRequestBatchService from "../../services/billingRequestBatchService";
 import supplierService from "../../services/supplierService";
 import documentService from "../../services/documentService";
@@ -175,7 +175,6 @@ const BillingRequestView = ({
   showProductAction = false,
 }) => {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
@@ -264,7 +263,7 @@ const BillingRequestView = ({
       const updated = unwrap(res);
       if (updated) setDetail(updated);
       toastSuccess(
-        action === "approved" ? "Product approved." : "Product rejected.",
+        action === "approved" ? "Product approved" : "Product rejected",
       );
       closeProductAction();
     } catch (e) {
@@ -339,7 +338,7 @@ const BillingRequestView = ({
       });
       const updated = unwrap(res);
       if (updated) setDetail(updated);
-      toastSuccess("Finance approval submitted successfully.");
+      toastSuccess("Finance approval submitted successfully");
       setActionOpen(false);
       reload();
     } catch (e) {
@@ -362,14 +361,7 @@ const BillingRequestView = ({
       <Card>
         <CardContent className="flex flex-col items-start gap-3 py-16">
           <p className="text-muted-foreground">Billing request not found.</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(-1)}
-          >
-            Back
-          </Button>
+          <BackButton fallback={basePath} />
         </CardContent>
       </Card>
     );
@@ -410,15 +402,7 @@ const BillingRequestView = ({
         </nav>
 
         <div className="mb-3 flex items-center justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
+          <BackButton fallback={basePath} />
           <Button type="button" size="sm" onClick={openAction}>
             <MoreHorizontal className="h-4 w-4" />
             Action

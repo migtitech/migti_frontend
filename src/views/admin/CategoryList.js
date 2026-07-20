@@ -60,7 +60,7 @@ const CategoryList = () => {
       setCategories(inner?.categories || []);
       setPagination(inner?.pagination || {});
     } catch (err) {
-      setError(err?.message || "Failed to fetch categories");
+      setError(err?.message || "Failed to load categories");
     } finally {
       setLoading(false);
     }
@@ -128,7 +128,7 @@ const CategoryList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

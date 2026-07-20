@@ -55,7 +55,7 @@ import usePermissions, {
   canEditQuery,
   isHodRole,
 } from "../../hooks/usePermissions";
-import { Loader, ConfirmDialog } from "../../components";
+import { BackButton, ConfirmDialog, Loader } from "../../components";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -420,8 +420,7 @@ const QueryView = () => {
       .then((res) => {
         if (cancelled) return;
         const data = res?.data ?? res;
-        const list =
-          data?.contactPersons ?? data?.data?.contactPersons ?? [];
+        const list = data?.contactPersons ?? data?.data?.contactPersons ?? [];
         setClientContactPersons(Array.isArray(list) ? list : []);
       })
       .catch(() => {
@@ -793,9 +792,7 @@ const QueryView = () => {
     }
     const displayName = getProductDisplayName(productRow);
     const productLabel =
-      displayName !== "—"
-        ? displayName
-        : rawCode || `Line ${lineIndex + 1}`;
+      displayName !== "—" ? displayName : rawCode || `Line ${lineIndex + 1}`;
     setProcurementRatesModal({
       visible: true,
       loading: true,
@@ -971,9 +968,7 @@ const QueryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-destructive">{error || "Query not found"}</p>
-          <Button type="button" onClick={() => navigate("/queries")}>
-            Back to Queries
-          </Button>
+          <BackButton fallback="/queries" />
         </CardContent>
       </Card>
     );
@@ -1065,14 +1060,7 @@ const QueryView = () => {
 
             <div className="flex flex-col items-start justify-between gap-3 lg:flex-row lg:items-center">
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate("/queries")}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  Back to Queries
-                </Button>
+                <BackButton fallback="/queries" />
                 {query.queryCode && (
                   <div className="rounded-full border border-border bg-accent px-3 py-2 text-sm font-bold tracking-wide text-primary!">
                     {query.queryCode}
@@ -1617,7 +1605,7 @@ const QueryView = () => {
         visible={confirmConvert.visible}
         onClose={() => setConfirmConvert({ visible: false })}
         onConfirm={handleConvertConfirm}
-        title="Convert to quotation?"
+        title="Convert to Quotation?"
         message={`Convert ${filterProductsReadyForQuotation(prods).length} product(s) marked ready for quotation?`}
         confirmText="Yes, convert"
         cancelText="Cancel"
@@ -1634,7 +1622,7 @@ const QueryView = () => {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Procurement rates</DialogTitle>
+            <DialogTitle>Procurement Rates</DialogTitle>
           </DialogHeader>
           {procurementRatesModal.loading ? (
             <div className="py-4 text-center">
@@ -1732,7 +1720,7 @@ const QueryView = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Close query</DialogTitle>
+            <DialogTitle>Close Query</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5">
             <Label htmlFor="query-close-remark">Remark (optional)</Label>

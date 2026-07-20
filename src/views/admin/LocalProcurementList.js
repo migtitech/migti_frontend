@@ -1,31 +1,40 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ShoppingBasket, Clipboard, Users } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  ShoppingBasket,
+  Clipboard,
+  Eye,
+  Inbox,
+  IndianRupee,
+  RefreshCcw,
+  Users,
+} from "lucide-react";
 import localProcurementService from "../../services/localProcurementService";
 import areaService from "../../services/areaService";
 import documentService from "../../services/documentService";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import {
-  Loader,
   TablePagination,
   FilterLockButton,
   PageHeader,
   StatusBadge,
+  DataTable,
 } from "../../components";
 import {
   Badge,
   Button,
-  Card,
-  CardContent,
   Input,
   Label,
   Select,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetBody,
-  SheetFooter,
-  SheetTitle,
-  SheetDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -41,11 +50,17 @@ const LOCAL_PROCUREMENT_FILTER_DEFAULTS = {
   zoneId: "",
 };
 
-const STATUS_OPTIONS = [
-  { value: "", label: "All statuses" },
-  { value: "pending", label: "Pending" },
-  { value: "submitted", label: "Submitted" },
-];
+/**
+ * Bucket a row into one of the page tabs:
+ * - "reverify": submitted rows back for re-verification
+ * - "assigned": pending rows assigned to an employee
+ * - "direct":   pending rows with no assignee (came in directly)
+ */
+const classifyRow = (row) => {
+  if (row?.status === "submitted") return "reverify";
+  if (row?.employeeId) return "assigned";
+  return "direct";
+};
 
 const statusBadge = (status) => {
   switch (status) {
@@ -109,7 +124,11 @@ const formatProcurementZone = (zone) => {
 const unwrapPayload = (res) => res?.data?.data ?? res?.data;
 
 const LocalProcurementList = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
+
+  const openDetail = (row) =>
+    navigate(`/local-pro/${row._id}`, { state: { row } });
   const isLocalPro =
     String(user?.role || "").toLowerCase() === ROLES.LOCAL_PROCUREMENT;
 
@@ -123,7 +142,7 @@ const LocalProcurementList = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize] = useState(12);
-  const [status, setStatus] = useState(initialValues.status);
+  const [activeTab, setActiveTab] = useState("assigned");
   const [fromDate, setFromDate] = useState(initialValues.dateFrom);
   const [toDate, setToDate] = useState(initialValues.dateTo);
   const [zoneId, setZoneId] = useState(initialValues.zoneId);
@@ -142,30 +161,42 @@ const LocalProcurementList = () => {
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await withMinimumDelay(() =>
-        localProcurementService.list({
-          page,
-          pageSize,
-          status: status.trim() || undefined,
-          from: fromDate || undefined,
-          to: toDate || undefined,
-          zoneId: zoneId.trim() || undefined,
-        }),
-      );
-      const block = res?.data;
-      setRows(Array.isArray(block?.data) ? block.data : []);
-      setTotal(Number(block?.total) || 0);
-    } catch (e) {
-      toastError(e?.message || "Failed to load local procurement items");
-      setRows([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, pageSize, status, fromDate, toDate, zoneId]);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  /* Load one big page and classify client-side into the Assigned /
+     Direct / Reverify tabs (the list API has no assignee filter). */
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await withMinimumDelay(() =>
+          localProcurementService.list({
+            page: 1,
+            pageSize: 100,
+            from: fromDate || undefined,
+            to: toDate || undefined,
+            zoneId: zoneId.trim() || undefined,
+          }),
+        );
+        if (cancelled) return;
+        const block = res?.data;
+        setRows(Array.isArray(block?.data) ? block.data : []);
+        setTotal(Number(block?.total) || 0);
+      } catch (e) {
+        if (cancelled) return;
+        toastError(e?.message || "Failed to load local procurement items");
+        setRows([]);
+        setTotal(0);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [fromDate, toDate, zoneId, reloadKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -201,16 +232,8 @@ const LocalProcurementList = () => {
     };
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    setPage(1);
-  }, [status, fromDate, toDate, zoneId]);
-
   useFilterLockPersist("local_procurement", filtersLocked, {
-    status,
+    status: "",
     dateFrom: fromDate,
     dateTo: toDate,
     zoneId,
@@ -218,14 +241,39 @@ const LocalProcurementList = () => {
 
   const handleToggleFiltersLock = () => {
     toggleFiltersLock({
-      status,
+      status: "",
       dateFrom: fromDate,
       dateTo: toDate,
       zoneId,
     });
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  /* ── classification into tabs + pending counts ── */
+  const buckets = useMemo(() => {
+    const assigned = [];
+    const direct = [];
+    const reverify = [];
+    rows.forEach((row) => {
+      const kind = classifyRow(row);
+      if (kind === "reverify") reverify.push(row);
+      else if (kind === "assigned") assigned.push(row);
+      else direct.push(row);
+    });
+    return { assigned, direct, reverify };
+  }, [rows]);
+
+  const pendingCounts = useMemo(
+    () => ({
+      assigned: buckets.assigned.filter((r) => r.status === "pending").length,
+      direct: buckets.direct.filter((r) => r.status === "pending").length,
+      reverify: buckets.reverify.length,
+    }),
+    [buckets],
+  );
+
+  const tabRows = buckets[activeTab] || [];
+  const totalPages = Math.max(1, Math.ceil(tabRows.length / pageSize) || 1);
+  const visibleRows = tabRows.slice((page - 1) * pageSize, page * pageSize);
 
   const canSubmitRow = useMemo(
     () => (row) => {
@@ -308,7 +356,7 @@ const LocalProcurementList = () => {
       });
       toastSuccess("Submitted successfully");
       closeSubmitPanel();
-      load();
+      setReloadKey((k) => k + 1);
     } catch (e) {
       toastError(e?.message || "Failed to submit");
     } finally {
@@ -316,6 +364,171 @@ const LocalProcurementList = () => {
       setUploadingImages(false);
     }
   };
+
+  const columns = [
+    {
+      key: "index",
+      label: "#",
+      width: 52,
+      toggleable: false,
+      exportable: false,
+      render: (_row, index) => (page - 1) * pageSize + index + 1,
+    },
+    {
+      key: "product",
+      label: "Product",
+      sortable: true,
+      sortValue: (row) => row.productSnapshot?.productName || "",
+      exportValue: (row) => row.productSnapshot?.productName || "",
+      render: (row) => {
+        const snap = row.productSnapshot || {};
+        const firstImage = Array.isArray(snap.images) ? snap.images[0] : null;
+        const src = imgSrc(resolveImagePath(firstImage));
+        return (
+          <div className="flex items-center gap-2">
+            {src ? (
+              <img
+                src={src}
+                alt={snap.productName || "Product"}
+                className="h-9 w-9 shrink-0 rounded border border-border object-cover"
+              />
+            ) : (
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-border bg-muted text-muted-foreground">
+                <ShoppingBasket className="h-4 w-4" />
+              </span>
+            )}
+            <div className="min-w-0">
+              <div
+                className="max-w-[14rem] truncate font-medium text-foreground"
+                title={snap.productName || ""}
+              >
+                {snap.productName || "Product"}
+              </div>
+              <div className="truncate font-mono text-xs text-muted-foreground">
+                {row.queryCode || snap.queryCode || "—"}
+              </div>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "quantity",
+      label: "Qty",
+      align: "right",
+      sortValue: (row) => Number(row.productSnapshot?.quantity) || 0,
+      exportValue: (row) => {
+        const snap = row.productSnapshot || {};
+        return snap.quantity != null
+          ? `${snap.quantity} ${snap.unit || ""}`.trim()
+          : "";
+      },
+      render: (row) => {
+        const snap = row.productSnapshot || {};
+        return snap.quantity != null
+          ? `${snap.quantity} ${snap.unit || ""}`.trim()
+          : "—";
+      },
+    },
+    {
+      key: "category",
+      label: "Category",
+      sortable: true,
+      sortValue: (row) => row.productSnapshot?.categoryName || "",
+      exportValue: (row) => row.productSnapshot?.categoryName || "",
+      render: (row) => row.productSnapshot?.categoryName || "—",
+    },
+    {
+      key: "zone",
+      label: "Zone",
+      exportValue: (row) => formatProcurementZone(row.zoneId),
+      render: (row) => formatProcurementZone(row.zoneId),
+    },
+    ...(!isLocalPro
+      ? [
+          {
+            key: "assignee",
+            label: "Assignee",
+            sortValue: (row) => row.employeeId?.name || "",
+            exportValue: (row) => row.employeeId?.name || "Unassigned",
+            render: (row) => (
+              <span className="inline-flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                {row.employeeId?.name || "Unassigned"}
+              </span>
+            ),
+          },
+        ]
+      : []),
+    {
+      key: "submission",
+      label: "Submitted rate",
+      exportValue: (row) => {
+        const s = latestRate(row);
+        return s ? `${s.supplier || "—"} — ₹${s.rate ?? "—"}` : "";
+      },
+      render: (row) => {
+        const s = latestRate(row);
+        if (!s) return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="text-sm">
+            <div className="truncate" title={s.supplier || ""}>
+              {s.supplier || "—"}
+            </div>
+            <div className="text-muted-foreground">
+              ₹ {s.rate ?? "—"} / {s.unit || "—"}
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      key: "assignedOn",
+      label: "Assigned",
+      sortable: true,
+      sortValue: (row) =>
+        row.createdAt ? new Date(row.createdAt).getTime() : 0,
+      exportValue: (row) => dateFormatter(row.createdAt, "—"),
+      render: (row) => (
+        <span className="whitespace-nowrap">
+          {dateFormatter(row.createdAt, "—")}
+        </span>
+      ),
+    },
+    {
+      key: "status",
+      label: "Status",
+      sortable: true,
+      exportValue: (row) => row.status || "",
+      render: (row) => statusBadge(row.status),
+    },
+    {
+      key: "action",
+      label: "Action",
+      align: "center",
+      toggleable: false,
+      exportable: false,
+      stopRowClick: true,
+      render: (row) => (
+        <div className="flex items-center justify-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            title="View details"
+            aria-label="View details"
+            onClick={() => openDetail(row)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          {canSubmitRow(row) && (
+            <Button size="sm" onClick={() => openSubmitPanel(row)}>
+              Submit rate
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <div>
@@ -334,19 +547,52 @@ const LocalProcurementList = () => {
         }
       />
 
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          setActiveTab(v);
+          setPage(1);
+        }}
+        className="mb-4"
+      >
+        <TabsList>
+          <TabsTrigger value="assigned">
+            <Clipboard className="mr-2 h-4 w-4" />
+            Assigned
+            <Badge
+              variant={pendingCounts.assigned > 0 ? "warning" : "secondary"}
+              className="ml-1.5 px-1.5 text-[0.68rem]"
+              title={`${pendingCounts.assigned} pending`}
+            >
+              {pendingCounts.assigned}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="direct">
+            <Inbox className="mr-2 h-4 w-4" />
+            Direct
+            <Badge
+              variant={pendingCounts.direct > 0 ? "warning" : "secondary"}
+              className="ml-1.5 px-1.5 text-[0.68rem]"
+              title={`${pendingCounts.direct} pending`}
+            >
+              {pendingCounts.direct}
+            </Badge>
+          </TabsTrigger>
+          <TabsTrigger value="reverify">
+            <RefreshCcw className="mr-2 h-4 w-4" />
+            Reverify
+            <Badge
+              variant={pendingCounts.reverify > 0 ? "warning" : "secondary"}
+              className="ml-1.5 px-1.5 text-[0.68rem]"
+              title={`${pendingCounts.reverify} pending`}
+            >
+              {pendingCounts.reverify}
+            </Badge>
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="w-48">
-          <Label className="mb-1.5 block text-xs text-muted-foreground">
-            Status
-          </Label>
-          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
-            {STATUS_OPTIONS.map((o) => (
-              <option key={o.value || "all"} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </div>
         <div className="w-40">
           <Label className="mb-1.5 block text-xs text-muted-foreground">
             From date
@@ -354,7 +600,10 @@ const LocalProcurementList = () => {
           <Input
             type="date"
             value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
+            onChange={(e) => {
+              setFromDate(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div className="w-40">
@@ -364,7 +613,10 @@ const LocalProcurementList = () => {
           <Input
             type="date"
             value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
+            onChange={(e) => {
+              setToDate(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
         <div className="w-56">
@@ -373,7 +625,10 @@ const LocalProcurementList = () => {
           </Label>
           <Select
             value={zoneId}
-            onChange={(e) => setZoneId(e.target.value)}
+            onChange={(e) => {
+              setZoneId(e.target.value);
+              setPage(1);
+            }}
             disabled={marketZonesLoading}
           >
             <option value="">All zones</option>
@@ -392,7 +647,6 @@ const LocalProcurementList = () => {
         <Button
           variant="outline"
           onClick={() => {
-            setStatus("");
             setFromDate("");
             setToDate("");
             setZoneId("");
@@ -403,165 +657,27 @@ const LocalProcurementList = () => {
         </Button>
       </div>
 
-      {loading ? (
-        <Loader message="Loading assignments…" />
-      ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          {isLocalPro
-            ? "No assignments in your bucket yet."
-            : "No local procurement assignments found."}
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rows.map((row) => {
-            const snap = row.productSnapshot || {};
-            const firstImage = Array.isArray(snap.images)
-              ? snap.images[0]
-              : null;
-            const src = imgSrc(resolveImagePath(firstImage));
-            const submitted = latestRate(row);
-            const submissionImages = Array.isArray(row.images)
-              ? row.images
-              : [];
-
-            return (
-              <Card key={row._id} className="flex h-full flex-col shadow-sm">
-                {src ? (
-                  <div
-                    className="flex items-center justify-center border-b border-border bg-muted"
-                    style={{ height: 140 }}
-                  >
-                    <img
-                      src={src}
-                      alt={snap.productName || "Product"}
-                      style={{
-                        maxHeight: 130,
-                        maxWidth: "100%",
-                        objectFit: "contain",
-                      }}
-                    />
-                  </div>
-                ) : null}
-                <CardContent className="flex flex-1 flex-col p-4">
-                  <div className="mb-2 flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <h6
-                        className="mb-1 truncate text-base font-semibold"
-                        title={snap.productName}
-                      >
-                        {snap.productName || "Product"}
-                      </h6>
-                      <div className="text-sm text-muted-foreground">
-                        {row.queryCode || snap.queryCode || "—"}
-                      </div>
-                    </div>
-                    {statusBadge(row.status)}
-                  </div>
-
-                  <div className="mb-2 text-sm">
-                    <div>
-                      <span className="text-muted-foreground">Qty:</span>{" "}
-                      {snap.quantity ?? "—"} {snap.unit || ""}
-                    </div>
-                    {snap.categoryName && (
-                      <div>
-                        <span className="text-muted-foreground">Category:</span>{" "}
-                        {snap.categoryName}
-                      </div>
-                    )}
-                    {row.zoneId && (
-                      <div>
-                        <span className="text-muted-foreground">Zone:</span>{" "}
-                        {formatProcurementZone(row.zoneId)}
-                      </div>
-                    )}
-                  </div>
-
-                  {!isLocalPro && (
-                    <div className="mb-2 flex items-center gap-2 text-sm text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                      <span>{row.employeeId?.name || "Unassigned"}</span>
-                    </div>
-                  )}
-
-                  {row.assignmentRemark && (
-                    <div className="mb-2 break-words text-sm">
-                      <span className="text-muted-foreground">
-                        Assignment note:
-                      </span>{" "}
-                      {row.assignmentRemark}
-                    </div>
-                  )}
-
-                  {submitted && (
-                    <div className="mb-2 border-t border-border pt-2 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">Supplier:</span>{" "}
-                        {submitted.supplier || "—"}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Price:</span> ₹{" "}
-                        {submitted.price ?? submitted.rate ?? "—"}
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Rate:</span> ₹{" "}
-                        {submitted.rate ?? "—"} / {submitted.unit || "—"}
-                      </div>
-                      {submitted.remark && (
-                        <div className="break-words">
-                          <span className="text-muted-foreground">Remark:</span>{" "}
-                          {submitted.remark}
-                        </div>
-                      )}
-                      {submissionImages.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {submissionImages.map((img) => {
-                            const thumb = imgSrc(resolveImagePath(img));
-                            if (!thumb) return null;
-                            return (
-                              <a
-                                key={img._id || img.documentId || thumb}
-                                href={thumb}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                <img
-                                  src={thumb}
-                                  alt={img.name || "Upload"}
-                                  className="rounded border border-border"
-                                  style={{
-                                    width: 48,
-                                    height: 48,
-                                    objectFit: "cover",
-                                  }}
-                                />
-                              </a>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="mt-auto text-sm text-muted-foreground">
-                    Assigned {dateFormatter(row.createdAt, "—")}
-                  </div>
-
-                  {canSubmitRow(row) && (
-                    <Button
-                      size="sm"
-                      className="mt-2 self-start"
-                      onClick={() => openSubmitPanel(row)}
-                    >
-                      Submit rate
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={visibleRows}
+        rowKey={(row) => row._id}
+        loading={loading}
+        onRowClick={openDetail}
+        searchPlaceholder="Search product, query code, supplier…"
+        exportFileName="local-procurement"
+        emptyTitle={
+          activeTab === "reverify"
+            ? "No submissions waiting for re-verification."
+            : activeTab === "direct"
+              ? "No direct (unassigned) items found."
+              : isLocalPro
+                ? "No assignments in your bucket yet."
+                : "No local procurement assignments found."
+        }
+        rowClassName={(row) =>
+          row.status === "pending" ? "bg-warning/5" : undefined
+        }
+      />
 
       <TablePagination
         currentPage={page}
@@ -571,32 +687,40 @@ const LocalProcurementList = () => {
         align="center"
       />
 
-      <Sheet
+      <Dialog
         open={submitPanelOpen}
         onOpenChange={(o) => {
           if (!o) closeSubmitPanel();
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-sm"
+        <DialogContent
+          showClose={!submitting && !uploadingImages}
+          className="max-w-lg"
           onInteractOutside={(e) => {
             if (submitting || uploadingImages) e.preventDefault();
           }}
           onEscapeKeyDown={(e) => {
             if (submitting || uploadingImages) e.preventDefault();
           }}
+          aria-label="Submit rate"
         >
-          <SheetHeader>
-            <SheetTitle>Submit rate</SheetTitle>
-            {activeRow?.productSnapshot?.productName && (
-              <SheetDescription className="truncate">
-                {activeRow.productSnapshot.productName}
-              </SheetDescription>
-            )}
-          </SheetHeader>
+          <DialogHeader className="gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary!">
+              <IndianRupee className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <DialogTitle>Submit Rate</DialogTitle>
+              <DialogDescription
+                className="truncate"
+                title={activeRow?.productSnapshot?.productName}
+              >
+                {activeRow?.productSnapshot?.productName ||
+                  "Submit supplier rate for this item"}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
 
-          <SheetBody className="space-y-4">
+          <div className="space-y-4">
             <div className="space-y-1.5">
               <Label>
                 Supplier <span className="text-destructive">*</span>
@@ -662,9 +786,9 @@ const LocalProcurementList = () => {
                 </div>
               )}
             </div>
-          </SheetBody>
+          </div>
 
-          <SheetFooter>
+          <DialogFooter>
             <Button
               type="button"
               variant="ghost"
@@ -680,9 +804,9 @@ const LocalProcurementList = () => {
             >
               {submitting || uploadingImages ? "Submitting…" : "Submit"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

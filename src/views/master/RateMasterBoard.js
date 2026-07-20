@@ -6,6 +6,8 @@ import {
   Clock,
   AlarmClockOff,
   ChevronRight,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import PageHeader from "../../components/PageHeader/PageHeader";
 import StatCard from "../../components/StatCard/StatCard";
@@ -17,8 +19,15 @@ import {
   CardHeader,
   CardTitle,
   CardDescription,
+  Switch,
 } from "../../components/ui";
-import { useRateMasterProducts, productStatus } from "./rateMasterStore";
+import { toastSuccess } from "../../utils/toast";
+import {
+  useRateMasterProducts,
+  productStatus,
+  productVisibleToSales,
+  setProductSalesVisibility,
+} from "./rateMasterStore";
 
 /**
  * Rate Master board — mock/demo screen only. All data is dummy and held in
@@ -33,7 +42,7 @@ const RateMasterBoard = () => {
     const withPrice = products.filter((p) =>
       p.variants.some((v) => v.status === "priced" || v.status === "expiring"),
     ).length;
-    const inSales = products.filter((p) => p.inSalesList).length;
+    const inSales = products.filter((p) => productVisibleToSales(p)).length;
     const needRate = products.filter((p) =>
       p.variants.some((v) => v.status === "pending"),
     ).length;
@@ -66,11 +75,34 @@ const RateMasterBoard = () => {
       },
       {
         key: "inSalesList",
-        label: "In Sales List",
+        label: "In Sales Master",
         align: "center",
-        render: (row) => (
-          <StatusBadge status={row.inSalesList ? "yes" : "no"} />
-        ),
+        exportValue: (row) => (productVisibleToSales(row) ? "Yes" : "No"),
+        render: (row) => {
+          const visible = productVisibleToSales(row);
+          return (
+            <div className="flex items-center justify-center gap-2">
+              <Switch
+                checked={visible}
+                onCheckedChange={(checked) => {
+                  setProductSalesVisibility(row.id, checked);
+                  toastSuccess(
+                    checked
+                      ? `${row.name} shown in Sales Master`
+                      : `${row.name} hidden from Sales Master`,
+                  );
+                }}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Toggle product in sales master"
+              />
+              {visible ? (
+                <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+              ) : (
+                <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+              )}
+            </div>
+          );
+        },
       },
       {
         key: "status",

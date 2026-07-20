@@ -1,11 +1,11 @@
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
 import {
   PageHeader,
   StatusBadge,
   DataTable,
   EmptyState,
+  BackButton,
 } from "../../components";
 import {
   Card,
@@ -13,7 +13,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  Button,
 } from "../../components/ui";
 import {
   formatQuotationStatus,
@@ -61,7 +60,6 @@ const followupColumns = [
 
 const QuotationView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const quotation = quotations.find((q) => q.id === id);
 
   if (!quotation) {
@@ -69,17 +67,10 @@ const QuotationView = () => {
       <div className="space-y-6">
         <PageHeader title="Quotation not found" />
         <EmptyState
-          title="No such quotation"
+          title="Quotation not found"
           message="This sample quotation record doesn't exist."
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/sales-master/quotation")}
-        >
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back to Quotation
-        </Button>
+        <BackButton fallback="/sales-master/quotation" />
       </div>
     );
   }
@@ -96,16 +87,7 @@ const QuotationView = () => {
       <PageHeader
         title={quotation.id}
         description="Quotation detail — sample data for UI preview."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales-master/quotation")}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Quotation
-          </Button>
-        }
+        actions={<BackButton fallback="/sales-master/quotation" />}
       />
 
       <Card>

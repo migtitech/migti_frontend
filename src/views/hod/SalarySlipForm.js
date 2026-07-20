@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CloudDownload } from "lucide-react";
+import { CloudDownload } from "lucide-react";
 import employeeService from "../../services/employeeService";
 import employeeSalaryService from "../../services/employeeSalaryService";
-import { Loader, PageHeader } from "../../components";
+import { Loader, PageHeader, BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -245,15 +245,7 @@ const SalarySlipForm = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/salary-management")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Salary Management
-        </Button>
+        <BackButton fallback="/salary-management" />
       </div>
 
       <PageHeader

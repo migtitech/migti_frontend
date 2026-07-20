@@ -1,16 +1,24 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { Card, CardContent } from "../ui";
+import BackButton from "../BackButton";
 
 /**
  * Standard create/edit form scaffold: a page header (title + description +
  * optional actions) above a card that holds the form fields. Same API as
  * before; presentation moved to the shadcn design system.
  */
-const CrudFormPage = ({ title, description, actions, children }) => (
+const CrudFormPage = ({ title, description, actions, back, children }) => (
   <div>
     <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
+        {back && (
+          <div className="mb-2">
+            <BackButton
+              fallback={typeof back === "string" ? back : undefined}
+            />
+          </div>
+        )}
         <h1 className="text-2xl font-semibold tracking-tight text-foreground">
           {title}
         </h1>
@@ -35,6 +43,7 @@ CrudFormPage.propTypes = {
   title: PropTypes.string.isRequired,
   description: PropTypes.string,
   actions: PropTypes.node,
+  back: PropTypes.oneOfType([PropTypes.bool, PropTypes.string]),
   children: PropTypes.node.isRequired,
 };
 

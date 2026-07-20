@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   CheckCircle2,
   Plus,
   AlertTriangle,
@@ -13,7 +12,7 @@ import localPurchaseService from "../../services/localPurchaseService";
 import areaService from "../../services/areaService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader, PageHeader } from "../../components";
+import { BackButton, Loader, PageHeader } from "../../components";
 import {
   Button,
   Badge,
@@ -586,14 +585,7 @@ const PurchaseBucketDetail = () => {
           <p className="text-muted-foreground">
             Item not found or you do not have access.
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => navigate("/purchase-bucket")}
-          >
-            Back
-          </Button>
+          <BackButton fallback="/purchase-bucket" />
         </CardContent>
       </Card>
     );
@@ -948,15 +940,7 @@ const PurchaseBucketDetail = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/purchase-bucket")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Purchase Bucket
-        </Button>
+        <BackButton fallback="/purchase-bucket" />
       </div>
 
       <PageHeader

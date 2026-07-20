@@ -331,7 +331,7 @@ const GroupForm = () => {
           className="px-2 text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Groups
+          Back
         </Button>
       </div>
 
@@ -460,7 +460,7 @@ const GroupForm = () => {
                     rows={4}
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Describe the purpose or scope of this group..."
+                    placeholder="Describe the purpose or scope of this group…"
                   />
                 </FormField>
               </FormSection>
@@ -493,7 +493,7 @@ const GroupForm = () => {
         visible={leaveConfirmVisible}
         onClose={cancelLeave}
         onConfirm={confirmLeave}
-        title="Discard unsaved changes?"
+        title="Discard Unsaved Changes?"
         message="You have unsaved changes on this page. If you leave now, your edits will be lost."
         confirmText="Leave without saving"
         cancelText="Stay on page"

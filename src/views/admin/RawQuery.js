@@ -42,6 +42,7 @@ const RawQuery = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [editingQuery, setEditingQuery] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
@@ -95,6 +96,9 @@ const RawQuery = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) {
+      return;
+    }
     const data = {
       ...formData,
       industryId: formData.industryId || null,
@@ -103,12 +107,15 @@ const RawQuery = () => {
       return;
     }
     try {
+      setSubmitting(true);
       await rawQueryService.update(editingQuery._id || editingQuery.id, data);
       toastSuccess("Raw query updated successfully");
       await fetchRawQueries();
       handleCloseModal();
     } catch (err) {
       toastError(err?.message || "Failed to update raw query");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -209,7 +216,7 @@ const RawQuery = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SNo</TableHead>
+                  <TableHead>#</TableHead>
                   <TableHead>Query No.</TableHead>
                   <TableHead>Title</TableHead>
                   <TableHead>Client</TableHead>
@@ -413,8 +420,8 @@ const RawQuery = () => {
               >
                 Cancel
               </Button>
-              <Button type="submit">
-                {editingQuery ? "Update" : "Create"}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Saving..." : editingQuery ? "Update" : "Create"}
               </Button>
             </DialogFooter>
           </form>

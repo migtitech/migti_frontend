@@ -1,10 +1,25 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ChevronDown } from "lucide-react";
+import {
+  Eye,
+  ImageOff,
+  Package,
+  Hash,
+  Percent,
+  IndianRupee,
+  Ruler,
+  Flag,
+  Plus,
+} from "lucide-react";
 import quotationService from "../../services/quotationService";
 import purchaseOrderService from "../../services/purchaseOrderService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, PageHeader } from "../../components";
+import {
+  BackButton,
+  GstRateSelect,
+  Loader,
+  PageHeader,
+} from "../../components";
 import {
   Button,
   Badge,
@@ -22,6 +37,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Separator,
 } from "../../components/ui";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
@@ -115,6 +131,57 @@ const getProductTotal = (product) => {
       ? (beforeDiscount * Number(product.discountPercentage || 0)) / 100
       : 0;
   return Math.max(0, beforeDiscount - discount);
+};
+
+const PRIORITY_BADGE_VARIANT = {
+  high: "destructive",
+  medium: "warning",
+  low: "success",
+};
+
+const dash = (value) => {
+  const text = String(value ?? "").trim();
+  return text || "—";
+};
+
+/**
+ * Read-only display fields for the detail panel. Falls back to placeholder
+ * dummy data where the quotation line has nothing, so the view always looks
+ * complete. Nothing here is sent to the backend.
+ */
+const getProductDisplay = (product, index) => {
+  const priority = normalizeProductPriority(product?.priority);
+  const variants = formatVariantsText(
+    parseVariantsText(
+      product?.variantsText ?? formatVariantsText(product?.variants),
+    ),
+  );
+  return {
+    productName: dash(product?.productName) || `Product ${index + 1}`,
+    description:
+      String(product?.description || "").trim() ||
+      "No description provided for this product line.",
+    quantity: Number(product?.quantity) || 0,
+    unit: dash(product?.unit) === "—" ? "Nos" : product.unit,
+    rate: Number(product?.rate) || 0,
+    gstPercentage:
+      product?.gstPercentage === "" || product?.gstPercentage == null
+        ? 18
+        : Number(product.gstPercentage),
+    hsnNumber: dash(product?.hsnNumber) === "—" ? "0000" : product.hsnNumber,
+    modelNumber: dash(product?.modelNumber),
+    rawProductCode:
+      dash(product?.rawProductCode) === "—"
+        ? `PRD-${String(index + 1).padStart(4, "0")}`
+        : product.rawProductCode,
+    priority,
+    priorityLabel:
+      PRODUCT_PRIORITY_OPTIONS.find((o) => o.value === priority)?.label ||
+      "Medium",
+    variants: variants || "Standard",
+    remark: String(product?.remark || "").trim() || "No remark added.",
+    total: getProductTotal(product),
+  };
 };
 
 const toEditableProduct = (product) => {
@@ -222,6 +289,406 @@ const getQuotationSummaryAddresses = (quotation) => {
   return { billingAddress, shippingAddress };
 };
 
+const EMPTY_DRAFT = {
+  productName: "",
+  quantity: 1,
+  unit: "",
+  rate: "",
+  gstPercentage: "",
+  priority: "medium",
+  variantsText: "",
+  description: "",
+};
+
+/**
+ * Clean modal form to add a new product line (dummy / local only).
+ * On save it hands a plain draft up to the parent, which appends it to the
+ * list. No backend call is made here.
+ */
+const AddProductDialog = ({ onClose, onAdd }) => {
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+
+  const setField = (field, value) =>
+    setDraft((prev) => ({ ...prev, [field]: value }));
+
+  const handleSave = () => {
+    if (!String(draft.productName || "").trim()) {
+      toastError("Product name is required");
+      return;
+    }
+    const qty = Number(draft.quantity);
+    if (draft.quantity === "" || Number.isNaN(qty) || qty <= 0) {
+      toastError("Quantity must be greater than 0");
+      return;
+    }
+    onAdd(draft);
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Plus className="h-5 w-5 text-primary" />
+            Add product
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 space-y-1.5 md:col-span-6">
+            <Label>
+              Product name <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              value={draft.productName}
+              placeholder="e.g. Steel Bracket"
+              onChange={(e) => setField("productName", e.target.value)}
+            />
+          </div>
+          <div className="col-span-12 space-y-1.5 md:col-span-3">
+            <Label>
+              Quantity <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="number"
+              min={0}
+              value={draft.quantity}
+              onChange={(e) => setField("quantity", e.target.value)}
+            />
+          </div>
+          <div className="col-span-12 space-y-1.5 md:col-span-3">
+            <Label>Unit</Label>
+            <ProductUnitSelect
+              value={draft.unit}
+              onChange={(e) => setField("unit", e.target.value)}
+            />
+          </div>
+          <div className="col-span-12 space-y-1.5 md:col-span-3">
+            <Label>Rate</Label>
+            <Input
+              type="number"
+              min={0}
+              value={draft.rate}
+              onChange={(e) => setField("rate", e.target.value)}
+            />
+          </div>
+          <div className="col-span-12 space-y-1.5 md:col-span-3">
+            <Label>GST %</Label>
+            <GstRateSelect
+              value={draft.gstPercentage}
+              onChange={(e) => setField("gstPercentage", e.target.value)}
+            />
+          </div>
+          <div className="col-span-12 space-y-1.5 md:col-span-3">
+            <Label>Priority</Label>
+            <Select
+              value={draft.priority}
+              onChange={(e) => setField("priority", e.target.value)}
+            >
+              {PRODUCT_PRIORITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="col-span-12 space-y-1.5 md:col-span-3">
+            <Label>Variants (comma separated)</Label>
+            <Input
+              value={draft.variantsText}
+              placeholder="e.g. Size M, Size L"
+              onChange={(e) => setField("variantsText", e.target.value)}
+            />
+          </div>
+          <div className="col-span-12 space-y-1.5">
+            <Label>Description</Label>
+            <Textarea
+              rows={2}
+              value={draft.description}
+              onChange={(e) => setField("description", e.target.value)}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSave}>
+            Add product
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+/** Small labelled read-only field for the detail view. */
+const DetailField = ({ icon: Icon, label, value }) => (
+  <div className="flex flex-col gap-0.5">
+    <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+      {label}
+    </span>
+    <span className="text-sm font-medium text-foreground">{value}</span>
+  </div>
+);
+
+/**
+ * Clean, self-contained product view + edit panel.
+ * The top section is a read-only "view" of the product (dummy data fills any
+ * blanks); the bottom section keeps the editable fields that feed the sales
+ * order. Backend untouched.
+ */
+const ProductDetailDialog = ({
+  index,
+  product,
+  confirmed,
+  updating,
+  onClose,
+  onChange,
+  onUpdate,
+}) => {
+  const display = getProductDisplay(product, index);
+  const images = Array.isArray(product.images) ? product.images : [];
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Package className="h-5 w-5 text-primary" />
+            {display.productName}
+            <Badge variant={confirmed ? "success" : "warning"} className="ml-1">
+              {confirmed ? "Updated" : "Pending update"}
+            </Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* ---- Read-only view ---- */}
+        <div className="grid grid-cols-12 gap-4">
+          <div className="col-span-12 sm:col-span-4">
+            {images.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <div className="aspect-square overflow-hidden rounded-lg border border-border bg-muted">
+                  <AuthImage
+                    documentId={getDocumentId(images[0])}
+                    fallbackUrl={getImageUrl(images[0])}
+                    alt={display.productName}
+                    className="h-full w-full"
+                    style={{ objectFit: "cover" }}
+                  />
+                </div>
+                {images.length > 1 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {images.slice(1, 5).map((img, i) => (
+                      <div
+                        key={getDocumentId(img) || i}
+                        className="h-12 w-12 overflow-hidden rounded border border-border bg-muted"
+                      >
+                        <AuthImage
+                          documentId={getDocumentId(img)}
+                          fallbackUrl={getImageUrl(img)}
+                          alt=""
+                          className="h-full w-full"
+                          style={{ objectFit: "cover" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border bg-muted text-muted-foreground">
+                <ImageOff className="h-8 w-8" />
+                <span className="text-xs">No image</span>
+              </div>
+            )}
+          </div>
+
+          <div className="col-span-12 grid grid-cols-2 gap-x-4 gap-y-3 sm:col-span-8">
+            <DetailField
+              icon={Hash}
+              label="Product code"
+              value={display.rawProductCode}
+            />
+            <DetailField
+              icon={Package}
+              label="Model number"
+              value={display.modelNumber}
+            />
+            <DetailField
+              icon={Hash}
+              label="HSN number"
+              value={display.hsnNumber}
+            />
+            <DetailField
+              icon={Ruler}
+              label="Quantity"
+              value={`${display.quantity} ${display.unit}`}
+            />
+            <DetailField
+              icon={IndianRupee}
+              label="Rate"
+              value={`₹${display.rate.toLocaleString("en-IN")}`}
+            />
+            <DetailField
+              icon={Percent}
+              label="GST"
+              value={`${display.gstPercentage}%`}
+            />
+            <DetailField
+              icon={Flag}
+              label="Priority"
+              value={
+                <Badge variant={PRIORITY_BADGE_VARIANT[display.priority]}>
+                  {display.priorityLabel}
+                </Badge>
+              }
+            />
+            <DetailField label="Variants" value={display.variants} />
+            <div className="col-span-2">
+              <DetailField
+                label="Line total"
+                value={
+                  <span className="text-lg font-semibold text-foreground">
+                    ₹{display.total.toLocaleString("en-IN")}
+                  </span>
+                }
+              />
+            </div>
+          </div>
+
+          <div className="col-span-12">
+            <span className="text-xs font-medium text-muted-foreground">
+              Description
+            </span>
+            <p className="mt-0.5 whitespace-pre-wrap text-sm text-foreground">
+              {display.description}
+            </p>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* ---- Editable fields (feed the sales order) ---- */}
+        <div>
+          <h5 className="mb-3 text-sm font-semibold">Edit for sales order</h5>
+          <div className="grid grid-cols-12 gap-4">
+            <div className="col-span-12 space-y-1.5 md:col-span-6">
+              <Label>
+                Product name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={product.productName || ""}
+                disabled
+                readOnly
+                className="bg-muted"
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5 md:col-span-3">
+              <Label>
+                Quantity <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="number"
+                min={0}
+                value={product.quantity}
+                onChange={(e) => onChange(index, "quantity", e.target.value)}
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5 md:col-span-3">
+              <Label>Unit</Label>
+              <ProductUnitSelect
+                value={product.unit || ""}
+                disabled
+                className="bg-muted"
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5 md:col-span-3">
+              <Label>GST %</Label>
+              <GstRateSelect
+                value={product.gstPercentage}
+                onChange={(e) =>
+                  onChange(index, "gstPercentage", e.target.value)
+                }
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5 md:col-span-3">
+              <Label>Rate</Label>
+              <Input
+                type="number"
+                min={0}
+                value={product.rate}
+                onChange={(e) => onChange(index, "rate", e.target.value)}
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5 md:col-span-3">
+              <Label>Priority</Label>
+              <Select
+                value={product.priority || "medium"}
+                onChange={(e) => onChange(index, "priority", e.target.value)}
+              >
+                {PRODUCT_PRIORITY_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="col-span-12 space-y-1.5 md:col-span-3">
+              <Label>Variants (comma separated)</Label>
+              <Input
+                value={product.variantsText || ""}
+                placeholder="e.g. Size M, Size L"
+                onChange={(e) =>
+                  onChange(index, "variantsText", e.target.value)
+                }
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5">
+              <Label>Description</Label>
+              <Textarea
+                rows={2}
+                value={product.description || ""}
+                onChange={(e) => onChange(index, "description", e.target.value)}
+              />
+            </div>
+            <div className="col-span-12 space-y-1.5">
+              <Label>Remark</Label>
+              <Textarea
+                rows={2}
+                value={product.remark || ""}
+                onChange={(e) => onChange(index, "remark", e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Close
+          </Button>
+          <Button
+            type="button"
+            disabled={updating}
+            onClick={() => onUpdate(index)}
+          >
+            {updating ? (
+              <>
+                <Spinner size="sm" />
+                Updating...
+              </>
+            ) : (
+              "Update product"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const FinalizeSalesOrder = () => {
   const { id: quotationId } = useParams();
   const navigate = useNavigate();
@@ -235,6 +702,8 @@ const FinalizeSalesOrder = () => {
   const [updatingProductIndex, setUpdatingProductIndex] = useState(null);
   const [confirmModalVisible, setConfirmModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [detailIndex, setDetailIndex] = useState(null);
+  const [addModalVisible, setAddModalVisible] = useState(false);
 
   const userRole = user?.role || "";
   const currentUserRole = normalizeRole(userRole);
@@ -331,6 +800,31 @@ const FinalizeSalesOrder = () => {
     setProductConfirmed((prev) =>
       prev.map((confirmed, i) => (i === index ? false : confirmed)),
     );
+  };
+
+  /**
+   * Adds a locally-created (dummy) product line. It behaves like any other
+   * line: it shows in the grid but is only sent to the sales order once the
+   * user hits "Update product". Nothing is saved to the backend here.
+   */
+  const handleAddProduct = (draft) => {
+    const newLine = toEditableProduct({
+      _id: `local-${Date.now()}`,
+      productName: draft.productName,
+      description: draft.description,
+      quantity: draft.quantity,
+      unit: draft.unit,
+      rate: draft.rate,
+      gstPercentage: draft.gstPercentage,
+      priority: draft.priority,
+      variants: parseVariantsText(draft.variantsText),
+      images: [],
+    });
+    setProductsForm((prev) => [...prev, newLine]);
+    setProductConfirmed((prev) => [...prev, false]);
+    setAccordionResetKeys((prev) => [...prev, 0]);
+    setAddModalVisible(false);
+    toastSuccess("Product added to the list");
   };
 
   const updateProductRow = async (index) => {
@@ -439,16 +933,9 @@ const FinalizeSalesOrder = () => {
           </>
         }
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              navigate(`/quotations/${quotation.id || quotation._id}`)
-            }
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Quotation
-          </Button>
+          <BackButton
+            fallback={`/quotations/${quotation.id || quotation._id}`}
+          />
         }
       />
 
@@ -541,210 +1028,103 @@ const FinalizeSalesOrder = () => {
               Selected total: ₹
               {Number(totalAmount || 0).toLocaleString("en-IN")}
             </Badge>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setAddModalVisible(true)}
+            >
+              <Plus className="h-4 w-4" />
+              Add product
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           {!productsForm.length ? (
-            <div className="py-4 text-center text-muted-foreground">
-              No products on this quotation.
+            <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+              <span>No products on this quotation.</span>
+              <Button type="button" onClick={() => setAddModalVisible(true)}>
+                <Plus className="h-4 w-4" />
+                Add product
+              </Button>
             </div>
           ) : (
-            <div className="divide-y divide-border rounded-lg border border-border">
-              {productsForm.map((product, index) => (
-                <details
-                  className="group"
-                  key={`${product._id || index}-${accordionResetKeys[index] || 0}`}
-                >
-                  <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 hover:bg-muted/50 [&::-webkit-details-marker]:hidden">
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
-                    <div className="flex w-full flex-wrap items-center justify-between gap-2 pr-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-semibold">{index + 1}.</span>
-                        <span>{product.productName || "Unnamed product"}</span>
-                        <span className="text-sm text-muted-foreground">
-                          Qty {product.quantity} · ₹
-                          {getProductTotal(product).toLocaleString("en-IN")}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {productsForm.map((product, index) => {
+                const images = Array.isArray(product.images)
+                  ? product.images
+                  : [];
+                const cover = images[0];
+                const confirmed = productConfirmed[index];
+                return (
+                  <button
+                    type="button"
+                    key={`${product._id || index}`}
+                    onClick={() => setDetailIndex(index)}
+                    className="group flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <div className="relative flex h-40 items-center justify-center overflow-hidden bg-muted">
+                      {cover ? (
+                        <AuthImage
+                          documentId={getDocumentId(cover)}
+                          fallbackUrl={getImageUrl(cover)}
+                          alt={product.productName || "Product"}
+                          className="h-full w-full transition-transform duration-300 group-hover:scale-105"
+                          style={{ objectFit: "cover" }}
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-1 text-muted-foreground">
+                          <ImageOff className="h-7 w-7" />
+                          <span className="text-xs">No image</span>
+                        </div>
+                      )}
+                      <Badge
+                        variant={confirmed ? "success" : "warning"}
+                        className="absolute left-2 top-2 shadow-sm"
+                      >
+                        {confirmed ? "Updated" : "Pending update"}
+                      </Badge>
+                      {images.length > 1 ? (
+                        <span className="absolute bottom-2 right-2 rounded bg-background/85 px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground shadow-sm">
+                          +{images.length - 1} more
+                        </span>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-1 flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <h4 className="line-clamp-2 font-semibold leading-tight">
+                          <span className="text-muted-foreground">
+                            {index + 1}.
+                          </span>{" "}
+                          {product.productName || "Unnamed product"}
+                        </h4>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                        <span>
+                          Qty{" "}
+                          <span className="font-medium text-foreground">
+                            {product.quantity || 0}
+                          </span>
+                        </span>
+                        <span>
+                          Rate{" "}
+                          <span className="font-medium text-foreground">
+                            ₹{Number(product.rate || 0).toLocaleString("en-IN")}
+                          </span>
                         </span>
                       </div>
-                      <Badge
-                        variant={
-                          productConfirmed[index] ? "success" : "warning"
-                        }
-                      >
-                        {productConfirmed[index] ? "Updated" : "Pending update"}
-                      </Badge>
-                    </div>
-                  </summary>
-                  <div className="px-4 pb-4 pt-1">
-                    <div className="grid grid-cols-12 gap-4">
-                      <div className="col-span-12 space-y-1.5 md:col-span-6">
-                        <Label>
-                          Product name{" "}
-                          <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          value={product.productName || ""}
-                          disabled
-                          readOnly
-                          className="bg-muted"
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5">
-                        <Label>Description</Label>
-                        <Textarea
-                          rows={2}
-                          value={product.description || ""}
-                          onChange={(e) =>
-                            updateProductField(
-                              index,
-                              "description",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-3">
-                        <Label>
-                          Quantity <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={product.quantity}
-                          onChange={(e) =>
-                            updateProductField(
-                              index,
-                              "quantity",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-3">
-                        <Label>Unit</Label>
-                        <ProductUnitSelect
-                          value={product.unit || ""}
-                          disabled
-                          className="bg-muted"
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-3">
-                        <Label>GST %</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          value={product.gstPercentage}
-                          onChange={(e) =>
-                            updateProductField(
-                              index,
-                              "gstPercentage",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-3">
-                        <Label>Rate</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={product.rate}
-                          onChange={(e) =>
-                            updateProductField(index, "rate", e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-3">
-                        <Label>Priority</Label>
-                        <Select
-                          value={product.priority || "medium"}
-                          onChange={(e) =>
-                            updateProductField(
-                              index,
-                              "priority",
-                              e.target.value,
-                            )
-                          }
-                        >
-                          {PRODUCT_PRIORITY_OPTIONS.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </Select>
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-6">
-                        <Label>Variants (comma separated)</Label>
-                        <Input
-                          value={product.variantsText || ""}
-                          placeholder="e.g. Size M, Size L"
-                          onChange={(e) =>
-                            updateProductField(
-                              index,
-                              "variantsText",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5">
-                        <Label>Images</Label>
-                        {Array.isArray(product.images) &&
-                        product.images.length > 0 ? (
-                          <div className="flex flex-wrap gap-2">
-                            {product.images.map((img, imageIndex) => (
-                              <div
-                                key={getDocumentId(img) || imageIndex}
-                                className="overflow-hidden rounded border border-border bg-muted"
-                                style={{ width: 72, height: 72 }}
-                              >
-                                <AuthImage
-                                  documentId={getDocumentId(img)}
-                                  fallbackUrl={getImageUrl(img)}
-                                  alt=""
-                                  className="h-full w-full"
-                                  style={{ objectFit: "cover" }}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-sm text-muted-foreground">
-                            No images
-                          </div>
-                        )}
-                      </div>
-                      <div className="col-span-12 space-y-1.5">
-                        <Label>Remark</Label>
-                        <Textarea
-                          rows={2}
-                          value={product.remark || ""}
-                          onChange={(e) =>
-                            updateProductField(index, "remark", e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 flex justify-end">
-                        <Button
-                          type="button"
-                          disabled={updatingProductIndex === index}
-                          onClick={() => updateProductRow(index)}
-                        >
-                          {updatingProductIndex === index ? (
-                            <>
-                              <Spinner size="sm" />
-                              Updating...
-                            </>
-                          ) : (
-                            "Update product"
-                          )}
-                        </Button>
+                      <div className="mt-auto flex items-center justify-between pt-2">
+                        <span className="text-base font-semibold text-foreground">
+                          ₹{getProductTotal(product).toLocaleString("en-IN")}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-primary opacity-80 group-hover:opacity-100">
+                          <Eye className="h-4 w-4" />
+                          View
+                        </span>
                       </div>
                     </div>
-                  </div>
-                </details>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </CardContent>
@@ -782,13 +1162,32 @@ const FinalizeSalesOrder = () => {
         </div>
       </div>
 
+      {addModalVisible ? (
+        <AddProductDialog
+          onClose={() => setAddModalVisible(false)}
+          onAdd={handleAddProduct}
+        />
+      ) : null}
+
+      {detailIndex != null && productsForm[detailIndex] ? (
+        <ProductDetailDialog
+          index={detailIndex}
+          product={productsForm[detailIndex]}
+          confirmed={!!productConfirmed[detailIndex]}
+          updating={updatingProductIndex === detailIndex}
+          onClose={() => setDetailIndex(null)}
+          onChange={updateProductField}
+          onUpdate={updateProductRow}
+        />
+      ) : null}
+
       <Dialog
         open={confirmModalVisible}
         onOpenChange={(o) => !o && !submitting && setConfirmModalVisible(false)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Convert to sales order?</DialogTitle>
+            <DialogTitle>Convert to Sales Order?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
             A new sales order will be created with {confirmedCount} updated

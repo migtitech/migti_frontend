@@ -1,9 +1,8 @@
 import React from "react";
 import createSidebarPlaceholderPage from "../views/sidebar/createSidebarPlaceholderPage";
 
-const LostQuotationsPage = createSidebarPlaceholderPage(
-  "Lost Quotation",
-  "Track quotations that were lost or not converted.",
+const LostQuotationsPage = React.lazy(
+  () => import("../views/admin/LostQuotations"),
 );
 const QuotationMasterReportPage = React.lazy(
   () => import("../views/admin/QuotationReportDashboard"),
@@ -23,9 +22,8 @@ const GrnPage = createSidebarPlaceholderPage(
   "GRN",
   "Goods receipt notes for incoming purchase inventory.",
 );
-const PurchaseReturnPage = createSidebarPlaceholderPage(
-  "Purchase Return",
-  "Purchase return requests and history.",
+const PurchaseReturnPage = React.lazy(
+  () => import("../views/purchaseMaster/PurchaseReturnDashboard"),
 );
 const AttendancePage = createSidebarPlaceholderPage(
   "Attendance",
@@ -48,10 +46,16 @@ const PendingActionsPage = React.lazy(
   () => import("../views/hod/HodDashboard"),
 );
 const ProductSaleListPage = React.lazy(
-  () => import("../views/admin/ProductLead"),
+  () => import("../views/admin/ProductSaleList"),
+);
+const ProductSaleViewPage = React.lazy(
+  () => import("../views/admin/ProductSaleView"),
 );
 const QuotationProductsPage = React.lazy(
   () => import("../views/admin/QuoteLogsView"),
+);
+const QuotationProductViewPage = React.lazy(
+  () => import("../views/admin/QuotationProductView"),
 );
 const CustomerPaymentsPage = React.lazy(
   () => import("../views/admin/PoPaymentSidebar"),
@@ -90,7 +94,7 @@ const OrderTrackingDispatchPage = React.lazy(
   () => import("../views/admin/DispatchmentList"),
 );
 const PurchaseHistoryPage = React.lazy(
-  () => import("../views/admin/PurchaseBucketList"),
+  () => import("../views/purchaseMaster/PurchaseHistoryDashboard"),
 );
 const BrandPurchasePage = React.lazy(
   () => import("../views/admin/PurchaseBucketList"),
@@ -99,10 +103,10 @@ const VendorPaymentsPage = React.lazy(
   () => import("../views/admin/BillingRequestList"),
 );
 const ProcurementHistoryPage = React.lazy(
-  () => import("../views/admin/ProBucketList"),
+  () => import("../views/procurementMaster/ProcurementHistoryDashboard"),
 );
 const BrandProcurementPage = React.lazy(
-  () => import("../views/admin/ProBucketList"),
+  () => import("../views/admin/BrandProcurementList"),
 );
 const HrReportsPage = React.lazy(
   () => import("../views/admin/BranchAnalytics"),
@@ -111,10 +115,10 @@ const SalesReportPage = React.lazy(
   () => import("../views/admin/TargetAnalytics"),
 );
 const QuotationReportPage = React.lazy(
-  () => import("../views/admin/QuoteLogsView"),
+  () => import("../views/reports/QuotationReport"),
 );
 const SupplierReportPage = React.lazy(
-  () => import("../views/admin/SupplierList"),
+  () => import("../views/reports/SupplierReport"),
 );
 
 /** Dedicated routes for reorganized sidebar items (UI-only entry points). */
@@ -134,6 +138,13 @@ const sidebarPageRoutes = [
     action: "read",
   },
   {
+    path: "/product-sale-list/:id",
+    name: "Product Sale Detail",
+    element: ProductSaleViewPage,
+    module: "products",
+    action: "read",
+  },
+  {
     path: "/query-master/report",
     name: "Query Report",
     element: QueryMasterReportPage,
@@ -144,6 +155,13 @@ const sidebarPageRoutes = [
     path: "/quotation-products",
     name: "Quotation Products",
     element: QuotationProductsPage,
+    module: "quotations",
+    action: "read",
+  },
+  {
+    path: "/quotation-products/view",
+    name: "Quotation Product View",
+    element: QuotationProductViewPage,
     module: "quotations",
     action: "read",
   },

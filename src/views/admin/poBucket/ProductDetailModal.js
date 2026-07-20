@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Package,
+  Search,
   Truck,
   User,
 } from "lucide-react";
@@ -177,6 +178,10 @@ const ProductDetailModal = ({
   const [proc, setProc] = useState(null);
   const [savedAt, setSavedAt] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  // Assign-for-procurement wizard: step 1 = search & pick suppliers,
+  // step 2 = fill each picked supplier's rate / target / qty / terms / remark.
+  const [procStep, setProcStep] = useState(1);
+  const [supplierSearch, setSupplierSearch] = useState("");
 
   const rawProductCode = String(soProduct?.rawProductCode || "").trim();
   const poLineId = poProductLine?._id ? String(poProductLine._id) : "";
@@ -277,22 +282,20 @@ const ProductDetailModal = ({
     if (saved) {
       setProc(saved.form);
       setSavedAt(saved.savedAt || null);
+      setSupplierSearch("");
+      // Open straight to the per-supplier details if a saved selection exists.
+      setProcStep(Object.keys(saved.form?.suppliers || {}).length > 0 ? 2 : 1);
       return;
     }
-    const cost =
-      bestSupplierCost != null
-        ? bestSupplierCost
-        : Math.round(sellingRate * 0.78);
     setProc({
       assignTo: "",
-      supplier: "",
-      procurementPrice: cost ? String(cost) : "",
-      targetRate: cost ? String(Math.round(cost * 0.95)) : "",
-      quantity: soProduct?.quantity != null ? String(soProduct.quantity) : "1",
+      // One entry per chosen supplier — each with its own procurement price,
+      // target rate, quantity, payment term, and remark. Keyed by supplier name.
+      suppliers: {},
       unit: soProduct?.unit || "Nos",
-      paymentTerm: "credit",
-      remark: "",
     });
+    setProcStep(1);
+    setSupplierSearch("");
     setSavedAt(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -306,12 +309,65 @@ const ProductDetailModal = ({
   const patch = (field, value) =>
     setProc((prev) => ({ ...(prev || {}), [field]: value }));
 
+  // Add / remove a supplier from the procurement selection. On select, seed the
+  // row with sensible defaults (supplier's own rate, 5% target discount, the
+  // line quantity) that the user can then override per supplier.
+  const toggleSupplier = (row, checked) =>
+    setProc((prev) => {
+      const suppliers = { ...(prev?.suppliers || {}) };
+      if (checked) {
+        const cost = Number(row.minRate) || Math.round(sellingRate * 0.78) || 0;
+        suppliers[row.name] = {
+          // Rate auto-filled from the supplier's own quoted rate.
+          procurementPrice: cost ? String(cost) : "",
+          targetRate: cost ? String(Math.round(cost * 0.95)) : "",
+          quantity:
+            soProduct?.quantity != null ? String(soProduct.quantity) : "1",
+          paymentTerm: "credit",
+          remark: "",
+        };
+      } else {
+        delete suppliers[row.name];
+      }
+      return { ...(prev || {}), suppliers };
+    });
+
+  // Update one field of a single supplier's row.
+  const patchSupplier = (name, field, value) =>
+    setProc((prev) => {
+      const suppliers = { ...(prev?.suppliers || {}) };
+      if (!suppliers[name]) return prev;
+      suppliers[name] = { ...suppliers[name], [field]: value };
+      return { ...(prev || {}), suppliers };
+    });
+
+  const selectedSuppliers = proc?.suppliers || {};
+  const selectedSupplierNames = Object.keys(selectedSuppliers);
+
+  // Suppliers matching the search box (step 1 of the assign wizard).
+  const filteredSupplierRows = useMemo(() => {
+    const q = supplierSearch.trim().toLowerCase();
+    if (!q) return supplierRows;
+    return supplierRows.filter((s) => String(s.name).toLowerCase().includes(q));
+  }, [supplierRows, supplierSearch]);
+
+  // Total across every selected supplier: Σ price × qty.
+  const totalPurchaseValue = selectedSupplierNames.reduce((sum, name) => {
+    const s = selectedSuppliers[name];
+    return sum + (Number(s.procurementPrice) || 0) * (Number(s.quantity) || 0);
+  }, 0);
+
+  // Lowest procurement price among the selected suppliers, for margin display.
+  const lowestSelectedPrice = selectedSupplierNames.reduce((min, name) => {
+    const p = Number(selectedSuppliers[name].procurementPrice);
+    if (Number.isNaN(p)) return min;
+    return min == null ? p : Math.min(min, p);
+  }, null);
+
+  const marginBasis =
+    lowestSelectedPrice != null ? lowestSelectedPrice : bestSupplierCost;
   const marginAmount =
-    proc && proc.procurementPrice !== "" && sellingRate > 0
-      ? sellingRate - Number(proc.procurementPrice)
-      : bestSupplierCost != null && sellingRate > 0
-        ? sellingRate - bestSupplierCost
-        : null;
+    marginBasis != null && sellingRate > 0 ? sellingRate - marginBasis : null;
   const marginPct =
     marginAmount != null && sellingRate > 0
       ? (marginAmount / sellingRate) * 100
@@ -329,12 +385,24 @@ const ProductDetailModal = ({
       toastError("Choose a procurement person to assign this product to.");
       return;
     }
-    if (!proc.procurementPrice || Number(proc.procurementPrice) <= 0) {
-      toastError("Enter a valid procurement price.");
+    if (selectedSupplierNames.length === 0) {
+      toastError("Select at least one supplier.");
+      setProcStep(1);
       return;
     }
-    if (!proc.quantity || Number(proc.quantity) <= 0) {
-      toastError("Enter a valid purchase quantity.");
+    const invalid = selectedSupplierNames.find((name) => {
+      const s = selectedSuppliers[name];
+      return (
+        !s.procurementPrice ||
+        Number(s.procurementPrice) <= 0 ||
+        !s.quantity ||
+        Number(s.quantity) <= 0
+      );
+    });
+    if (invalid) {
+      toastError(
+        `Enter a valid procurement price and quantity for ${invalid}.`,
+      );
       return;
     }
     setSubmitting(true);
@@ -352,8 +420,11 @@ const ProductDetailModal = ({
         }),
       );
       setSavedAt(now);
+      const supplierCount = selectedSupplierNames.length;
       toastSuccess(
-        `Assigned to ${assignee?.name || "procurement"} for procurement`,
+        `Assigned to ${assignee?.name || "procurement"} across ${supplierCount} supplier${
+          supplierCount === 1 ? "" : "s"
+        } for procurement`,
       );
     } catch {
       toastError("Could not save the assignment on this device.");
@@ -410,387 +481,523 @@ const ProductDetailModal = ({
           className="px-6 py-3"
           style={{ overflowY: "auto", flex: "1 1 auto", minHeight: 0 }}
         >
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {/* Left: identity & pricing */}
-            <div className="space-y-4">
-              {images.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {images.map((img, i) => (
-                    <div
-                      key={img.id || img.path || i}
-                      className="overflow-hidden rounded-lg border border-border"
-                      style={{ width: 84, height: 84 }}
-                    >
-                      {img.id ? (
-                        <AuthImage
-                          documentId={img.id}
-                          fallbackUrl={img.path ? getAssetsUrl(img.path) : ""}
-                          alt=""
-                          className="h-full w-full"
-                          style={{ objectFit: "cover" }}
-                        />
-                      ) : (
-                        <img
-                          src={
-                            img.path?.startsWith("http")
-                              ? img.path
-                              : getAssetsUrl(img.path)
-                          }
-                          alt=""
-                          className="h-full w-full"
-                          style={{ objectFit: "cover" }}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              <SectionCard icon={Package} title="Product details">
-                <InfoRow
-                  label="Description"
-                  value={orDummy(
-                    soProduct?.description,
-                    "Industrial-grade product suitable for bulk institutional supply.",
-                  )}
-                />
-                <InfoRow
-                  label="HSN number"
-                  value={orDummy(soProduct?.hsnNumber, "84818090")}
-                  mono
-                />
-                <InfoRow
-                  label="Model number"
-                  value={orDummy(
-                    soProduct?.modelNumber,
-                    `MDL-${1000 + (seed % 9000)}`,
-                  )}
-                />
-                <InfoRow
-                  label="Quantity"
-                  value={`${soProduct?.quantity ?? "—"} ${
-                    soProduct?.unit || "Nos"
-                  }`}
-                />
-                <InfoRow
-                  label="GST %"
-                  value={orDummy(soProduct?.gstPercentage, "18")}
-                />
-                <InfoRow
-                  label="Dispatchment date"
-                  value={
-                    soProduct?.dispatchmentDate
-                      ? dateFormatter(soProduct.dispatchmentDate)
-                      : "Not set"
-                  }
-                />
-                <InfoRow
-                  label="Remark"
-                  value={orDummy(soProduct?.remark, "—")}
-                />
-              </SectionCard>
-
-              <SectionCard icon={User} title="Origin & ownership">
-                <InfoRow label="Source" value={origin} />
-                <InfoRow label="Assigned / sales" value={addedBy} />
-                <InfoRow
-                  label="Quotation"
-                  value={
-                    quotationProduct ? (
-                      <Badge variant="success" className="text-[11px]">
-                        traced to quote
-                      </Badge>
+          {/* All sections stacked full-width, one below another. */}
+          <div className="space-y-4">
+            {images.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {images.map((img, i) => (
+                  <div
+                    key={img.id || img.path || i}
+                    className="overflow-hidden rounded-lg border border-border"
+                    style={{ width: 84, height: 84 }}
+                  >
+                    {img.id ? (
+                      <AuthImage
+                        documentId={img.id}
+                        fallbackUrl={img.path ? getAssetsUrl(img.path) : ""}
+                        alt=""
+                        className="h-full w-full"
+                        style={{ objectFit: "cover" }}
+                      />
                     ) : (
-                      <Badge variant="warning" className="text-[11px]">
-                        added on sales order
-                      </Badge>
-                    )
-                  }
-                />
-                <InfoRow
-                  label="Sales order"
-                  value={purchaseOrder?.poCode}
-                  mono
-                />
-                <InfoRow
-                  label="Created"
-                  value={
-                    purchaseOrder?.createdAt
-                      ? dateFormatter(purchaseOrder.createdAt)
-                      : "—"
-                  }
-                />
-              </SectionCard>
-
-              <SectionCard icon={Boxes} title="Pricing & margin">
-                <div className="grid grid-cols-2 gap-3 py-1">
-                  <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/40">
-                    <div className="text-xs text-muted-foreground">
-                      Quotation rate
-                    </div>
-                    <div className="text-lg font-bold">
-                      {inr(orDummy(quotationProduct?.rate, sellingRate || 0))}
-                    </div>
-                  </div>
-                  <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/40">
-                    <div className="text-xs text-muted-foreground">
-                      Sales order rate
-                    </div>
-                    <div className="text-lg font-bold">
-                      {inr(soProduct?.rate)}
-                    </div>
-                  </div>
-                </div>
-                <Separator className="my-2" />
-                <InfoRow
-                  label="Best supplier cost"
-                  value={
-                    ratesState.loading ? (
-                      <Spinner size="sm" />
-                    ) : (
-                      inr(bestSupplierCost)
-                    )
-                  }
-                />
-                <InfoRow
-                  label="Estimated margin"
-                  value={
-                    marginAmount != null ? (
-                      <span
-                        className={
-                          marginAmount >= 0
-                            ? "text-emerald-600"
-                            : "text-rose-600"
+                      <img
+                        src={
+                          img.path?.startsWith("http")
+                            ? img.path
+                            : getAssetsUrl(img.path)
                         }
-                      >
-                        {inr(marginAmount)}
-                        {marginPct != null ? ` (${marginPct.toFixed(1)}%)` : ""}
-                      </span>
-                    ) : (
-                      "—"
-                    )
-                  }
-                />
-              </SectionCard>
-            </div>
+                        alt=""
+                        className="h-full w-full"
+                        style={{ objectFit: "cover" }}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
-            {/* Right: suppliers + procurement form */}
-            <div className="space-y-4">
-              <SectionCard
-                icon={Truck}
-                title="Supplier rates & availability"
-                right={
-                  ratesState.rates.length === 0 ? (
-                    <Badge variant="secondary" className="text-[11px]">
-                      demo data
-                    </Badge>
-                  ) : ratesState.status ? (
-                    <Badge variant="secondary" className="text-[11px]">
-                      {String(ratesState.status).replace(/_/g, " ")}
-                    </Badge>
-                  ) : null
-                }
-              >
-                {ratesState.loading ? (
-                  <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
-                    <Spinner size="sm" /> Loading supplier rates…
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <Table className="text-sm">
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Supplier</TableHead>
-                          <TableHead className="text-right">Rate</TableHead>
-                          <TableHead className="text-right">Disc %</TableHead>
-                          <TableHead>Unit</TableHead>
-                          <TableHead>Availability</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {supplierRows.map((r) => (
-                          <TableRow key={r.key}>
-                            <TableCell className="font-medium">
-                              {r.name}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {inr(r.minRate)}
-                              {r.maxRate && r.maxRate !== r.minRate
-                                ? ` – ${inr(r.maxRate).slice(1)}`
-                                : ""}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {r.discount != null &&
-                              !Number.isNaN(Number(r.discount))
-                                ? Number(r.discount)
-                                : "—"}
-                            </TableCell>
-                            <TableCell>{r.unit || "—"}</TableCell>
-                            <TableCell>
-                              {r.available ? (
-                                <Badge
-                                  variant="success"
-                                  className="text-[10px]"
-                                >
-                                  In stock
-                                </Badge>
-                              ) : (
-                                <Badge
-                                  variant="warning"
-                                  className="text-[10px]"
-                                >
-                                  On order
-                                </Badge>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+            <SectionCard icon={Package} title="Product details">
+              <InfoRow
+                label="Description"
+                value={orDummy(
+                  soProduct?.description,
+                  "Industrial-grade product suitable for bulk institutional supply.",
                 )}
-              </SectionCard>
+              />
+              <InfoRow
+                label="HSN number"
+                value={orDummy(soProduct?.hsnNumber, "84818090")}
+                mono
+              />
+              <InfoRow
+                label="Model number"
+                value={orDummy(
+                  soProduct?.modelNumber,
+                  `MDL-${1000 + (seed % 9000)}`,
+                )}
+              />
+              <InfoRow
+                label="Quantity"
+                value={`${soProduct?.quantity ?? "—"} ${
+                  soProduct?.unit || "Nos"
+                }`}
+              />
+              <InfoRow
+                label="GST %"
+                value={orDummy(soProduct?.gstPercentage, "18")}
+              />
+              <InfoRow
+                label="Dispatch date"
+                value={
+                  soProduct?.dispatchmentDate
+                    ? dateFormatter(soProduct.dispatchmentDate)
+                    : "Not set"
+                }
+              />
+              <InfoRow label="Remark" value={orDummy(soProduct?.remark, "—")} />
+            </SectionCard>
 
+            <SectionCard icon={User} title="Origin & ownership">
+              <InfoRow label="Source" value={origin} />
+              <InfoRow label="Assigned / sales" value={addedBy} />
+              <InfoRow
+                label="Quotation"
+                value={
+                  quotationProduct ? (
+                    <Badge variant="success" className="text-[11px]">
+                      traced to quote
+                    </Badge>
+                  ) : (
+                    <Badge variant="warning" className="text-[11px]">
+                      added on sales order
+                    </Badge>
+                  )
+                }
+              />
+              <InfoRow label="Sales order" value={purchaseOrder?.poCode} mono />
+              <InfoRow
+                label="Created"
+                value={
+                  purchaseOrder?.createdAt
+                    ? dateFormatter(purchaseOrder.createdAt)
+                    : "—"
+                }
+              />
+            </SectionCard>
+
+            <SectionCard icon={Boxes} title="Pricing & margin">
+              <div className="grid grid-cols-2 gap-3 py-1">
+                <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 dark:border-sky-900 dark:bg-sky-950/40">
+                  <div className="text-xs text-muted-foreground">
+                    Quotation rate
+                  </div>
+                  <div className="text-lg font-bold">
+                    {inr(orDummy(quotationProduct?.rate, sellingRate || 0))}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-violet-200 bg-violet-50 p-3 dark:border-violet-900 dark:bg-violet-950/40">
+                  <div className="text-xs text-muted-foreground">
+                    Sales order rate
+                  </div>
+                  <div className="text-lg font-bold">
+                    {inr(soProduct?.rate)}
+                  </div>
+                </div>
+              </div>
+              <Separator className="my-2" />
+              <InfoRow
+                label="Best supplier cost"
+                value={
+                  ratesState.loading ? (
+                    <Spinner size="sm" />
+                  ) : (
+                    inr(bestSupplierCost)
+                  )
+                }
+              />
+              <InfoRow
+                label="Estimated margin"
+                value={
+                  marginAmount != null ? (
+                    <span
+                      className={
+                        marginAmount >= 0 ? "text-emerald-600" : "text-rose-600"
+                      }
+                    >
+                      {inr(marginAmount)}
+                      {marginPct != null ? ` (${marginPct.toFixed(1)}%)` : ""}
+                    </span>
+                  ) : (
+                    "—"
+                  )
+                }
+              />
+            </SectionCard>
+
+            <SectionCard
+              icon={Truck}
+              title="Supplier rates & availability"
+              right={
+                ratesState.rates.length === 0 ? (
+                  <Badge variant="secondary" className="text-[11px]">
+                    demo data
+                  </Badge>
+                ) : ratesState.status ? (
+                  <Badge variant="secondary" className="text-[11px]">
+                    {String(ratesState.status).replace(/_/g, " ")}
+                  </Badge>
+                ) : null
+              }
+            >
+              {ratesState.loading ? (
+                <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
+                  <Spinner size="sm" /> Loading supplier rates…
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table className="text-sm">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className="text-right">Disc %</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead>Availability</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {supplierRows.map((r) => (
+                        <TableRow key={r.key}>
+                          <TableCell className="font-medium">
+                            {r.name}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {inr(r.minRate)}
+                            {r.maxRate && r.maxRate !== r.minRate
+                              ? ` – ${inr(r.maxRate).slice(1)}`
+                              : ""}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {r.discount != null &&
+                            !Number.isNaN(Number(r.discount))
+                              ? Number(r.discount)
+                              : "—"}
+                          </TableCell>
+                          <TableCell>{r.unit || "—"}</TableCell>
+                          <TableCell>
+                            {r.available ? (
+                              <Badge variant="success" className="text-[10px]">
+                                In stock
+                              </Badge>
+                            ) : (
+                              <Badge variant="warning" className="text-[10px]">
+                                On order
+                              </Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </SectionCard>
+          </div>
+
+          {/* Assign for Procurement — full-width, shown as a table below */}
+          {proc ? (
+            <div className="mt-4">
               <SectionCard icon={ClipboardList} title="Assign for Procurement">
-                {proc ? (
-                  <div className="space-y-3 py-1">
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Assign to (procurement)" required>
-                        <Select
-                          value={proc.assignTo}
-                          disabled={poClosed}
-                          onChange={(e) => patch("assignTo", e.target.value)}
-                        >
-                          <option value="">— Select person —</option>
-                          {PROCUREMENT_TEAM.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name} · {p.role}
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                      <Field label="Buy from supplier">
-                        <Select
-                          value={proc.supplier}
-                          disabled={poClosed}
-                          onChange={(e) => {
-                            const name = e.target.value;
-                            patch("supplier", name);
-                            const row = supplierRows.find(
-                              (s) => s.name === name,
-                            );
-                            if (row && row.minRate) {
-                              patch("procurementPrice", String(row.minRate));
-                            }
-                          }}
-                        >
-                          <option value="">— Select supplier —</option>
-                          {supplierRows.map((s) => (
-                            <option key={s.key} value={s.name}>
-                              {s.name} ({inr(s.minRate)})
-                            </option>
-                          ))}
-                        </Select>
-                      </Field>
-                    </div>
+                <div className="space-y-3 py-1">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Field label="Assign to (procurement)" required>
+                      <Select
+                        value={proc.assignTo}
+                        disabled={poClosed}
+                        onChange={(e) => patch("assignTo", e.target.value)}
+                      >
+                        <option value="">— Select person —</option>
+                        {PROCUREMENT_TEAM.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} · {p.role}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                    <Field label="Unit">
+                      <Input
+                        value={proc.unit}
+                        disabled={poClosed}
+                        onChange={(e) => patch("unit", e.target.value)}
+                      />
+                    </Field>
+                  </div>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                      <Field label="Procurement price ₹" required>
+                  {/* Step 1 — search & pick suppliers */}
+                  {procStep === 1 ? (
+                    <Field
+                      label="Buy from suppliers"
+                      required
+                      hint="Search and tick the suppliers you want, then press Next to set each one's rate, terms, and remark."
+                    >
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <Input
-                          type="number"
-                          min={0}
-                          value={proc.procurementPrice}
+                          className="pl-8"
+                          placeholder="Search suppliers…"
+                          value={supplierSearch}
                           disabled={poClosed}
-                          onChange={(e) =>
-                            patch("procurementPrice", e.target.value)
-                          }
+                          onChange={(e) => setSupplierSearch(e.target.value)}
                         />
-                      </Field>
-                      <Field label="Target rate ₹" hint="Negotiation goal">
-                        <Input
-                          type="number"
-                          min={0}
-                          value={proc.targetRate}
-                          disabled={poClosed}
-                          onChange={(e) => patch("targetRate", e.target.value)}
-                        />
-                      </Field>
-                      <Field label="Purchase qty" required>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={proc.quantity}
-                          disabled={poClosed}
-                          onChange={(e) => patch("quantity", e.target.value)}
-                        />
-                      </Field>
-                      <Field label="Unit">
-                        <Input
-                          value={proc.unit}
-                          disabled={poClosed}
-                          onChange={(e) => patch("unit", e.target.value)}
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Payment terms">
-                        <Select
-                          value={proc.paymentTerm}
-                          disabled={poClosed}
-                          onChange={(e) => patch("paymentTerm", e.target.value)}
-                        >
-                          <option value="credit">Credit</option>
-                          <option value="cash">Cash / Nagad</option>
-                          <option value="advance">Advance</option>
-                        </Select>
-                      </Field>
-                      <Field label="Remark">
-                        <Input
-                          value={proc.remark}
-                          disabled={poClosed}
-                          placeholder="Any note for procurement"
-                          onChange={(e) => patch("remark", e.target.value)}
-                        />
-                      </Field>
-                    </div>
-
-                    <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-                      Purchase value:{" "}
-                      <span className="font-semibold text-foreground">
-                        {inr(
-                          (Number(proc.procurementPrice) || 0) *
-                            (Number(proc.quantity) || 0),
-                        )}
-                      </span>
-                      {marginAmount != null ? (
-                        <>
-                          {"  ·  Margin/unit: "}
-                          <span
-                            className={`font-semibold ${
-                              marginAmount >= 0
-                                ? "text-emerald-600"
-                                : "text-rose-600"
-                            }`}
-                          >
-                            {inr(marginAmount)}
-                          </span>
-                        </>
-                      ) : null}
-                    </div>
-
-                    {savedAt ? (
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        Assigned {dateFormatter(savedAt)} — saved on this
-                        device.
                       </div>
+
+                      <div className="mt-2 max-h-56 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+                        {filteredSupplierRows.length === 0 ? (
+                          <div className="px-3 py-4 text-center text-xs text-muted-foreground">
+                            No suppliers match “{supplierSearch}”.
+                          </div>
+                        ) : (
+                          filteredSupplierRows.map((s) => {
+                            const checked = Boolean(selectedSuppliers[s.name]);
+                            return (
+                              <label
+                                key={s.key}
+                                className="flex cursor-pointer items-center gap-2 px-3 py-2.5"
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="h-4 w-4 accent-primary"
+                                  checked={checked}
+                                  disabled={poClosed}
+                                  onChange={(e) =>
+                                    toggleSupplier(s, e.target.checked)
+                                  }
+                                />
+                                <span className="text-sm font-medium">
+                                  {s.name}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  ({inr(s.minRate)})
+                                </span>
+                                {s.available ? (
+                                  <Badge
+                                    variant="success"
+                                    className="ml-auto text-[10px]"
+                                  >
+                                    In stock
+                                  </Badge>
+                                ) : (
+                                  <Badge
+                                    variant="warning"
+                                    className="ml-auto text-[10px]"
+                                  >
+                                    On order
+                                  </Badge>
+                                )}
+                              </label>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">
+                          {selectedSupplierNames.length} supplier
+                          {selectedSupplierNames.length === 1 ? "" : "s"}{" "}
+                          selected
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={
+                            poClosed || selectedSupplierNames.length === 0
+                          }
+                          onClick={() => setProcStep(2)}
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </Field>
+                  ) : (
+                    /* Step 2 — per-supplier details as a table */
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-muted-foreground">
+                          Enter details for each supplier
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={poClosed}
+                          onClick={() => setProcStep(1)}
+                        >
+                          ← Back to selection
+                        </Button>
+                      </div>
+
+                      <div className="overflow-x-auto rounded-lg border border-border">
+                        <Table className="text-sm">
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Supplier</TableHead>
+                              <TableHead className="text-right">
+                                Quoted
+                              </TableHead>
+                              <TableHead className="w-28 text-right">
+                                Proc. price ₹
+                              </TableHead>
+                              <TableHead className="w-28 text-right">
+                                Target ₹
+                              </TableHead>
+                              <TableHead className="w-24 text-right">
+                                Qty
+                              </TableHead>
+                              <TableHead className="w-36">
+                                Payment terms
+                              </TableHead>
+                              <TableHead className="min-w-40">Remark</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {selectedSupplierNames.map((name) => {
+                              const entry = selectedSuppliers[name];
+                              const row = supplierRows.find(
+                                (s) => s.name === name,
+                              );
+                              return (
+                                <TableRow key={name}>
+                                  <TableCell className="font-medium">
+                                    {name}
+                                  </TableCell>
+                                  <TableCell className="text-right text-muted-foreground">
+                                    {row ? inr(row.minRate) : "—"}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      className="text-right"
+                                      value={entry.procurementPrice}
+                                      disabled={poClosed}
+                                      onChange={(e) =>
+                                        patchSupplier(
+                                          name,
+                                          "procurementPrice",
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      className="text-right"
+                                      value={entry.targetRate}
+                                      disabled={poClosed}
+                                      onChange={(e) =>
+                                        patchSupplier(
+                                          name,
+                                          "targetRate",
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      type="number"
+                                      min={0}
+                                      className="text-right"
+                                      value={entry.quantity}
+                                      disabled={poClosed}
+                                      onChange={(e) =>
+                                        patchSupplier(
+                                          name,
+                                          "quantity",
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Select
+                                      value={entry.paymentTerm}
+                                      disabled={poClosed}
+                                      onChange={(e) =>
+                                        patchSupplier(
+                                          name,
+                                          "paymentTerm",
+                                          e.target.value,
+                                        )
+                                      }
+                                    >
+                                      <option value="credit">Credit</option>
+                                      <option value="cash">Cash / Nagad</option>
+                                      <option value="advance">Advance</option>
+                                    </Select>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Input
+                                      value={entry.remark}
+                                      disabled={poClosed}
+                                      placeholder="Note for this supplier"
+                                      onChange={(e) =>
+                                        patchSupplier(
+                                          name,
+                                          "remark",
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                    Purchase value
+                    {selectedSupplierNames.length > 0
+                      ? ` (${selectedSupplierNames.length} supplier${
+                          selectedSupplierNames.length === 1 ? "" : "s"
+                        })`
+                      : ""}
+                    :{" "}
+                    <span className="font-semibold text-foreground">
+                      {inr(totalPurchaseValue)}
+                    </span>
+                    {marginAmount != null ? (
+                      <>
+                        {"  ·  Margin/unit: "}
+                        <span
+                          className={`font-semibold ${
+                            marginAmount >= 0
+                              ? "text-emerald-600"
+                              : "text-rose-600"
+                          }`}
+                        >
+                          {inr(marginAmount)}
+                        </span>
+                      </>
                     ) : null}
                   </div>
-                ) : null}
+
+                  {savedAt ? (
+                    <div className="flex items-center gap-1.5 text-xs text-emerald-600">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Assigned {dateFormatter(savedAt)} — saved on this device.
+                    </div>
+                  ) : null}
+                </div>
               </SectionCard>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <DialogFooter
@@ -823,7 +1030,12 @@ const ProductDetailModal = ({
             </Button>
             <Button
               type="button"
-              disabled={poClosed || submitting}
+              disabled={poClosed || submitting || procStep !== 2}
+              title={
+                procStep !== 2
+                  ? "Select suppliers and press Next first"
+                  : undefined
+              }
               onClick={handleSubmit}
             >
               {submitting ? (

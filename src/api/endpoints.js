@@ -346,6 +346,7 @@ export const QUOTATIONS = {
   IMPORT_QUERY_PRODUCT: "/quotations/import-query-product",
   EXPORT_PDF: "/quotations/export-pdf",
   RATE_LOGS_LIST: "/quotations/rate-logs/list",
+  RATE_LOGS_PRODUCT_DETAIL: "/quotations/rate-logs/product-detail",
   DELETE: "/quotations/delete",
 };
 

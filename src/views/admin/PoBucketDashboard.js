@@ -236,8 +236,8 @@ const PoBucketDashboard = () => {
           <DialogHeader>
             <DialogTitle>
               {poCloseStep === "confirm"
-                ? "Close sales order?"
-                : "Enter secret PIN"}
+                ? "Close Sales Order?"
+                : "Enter Secret PIN"}
             </DialogTitle>
           </DialogHeader>
           {poCloseStep === "confirm" ? (
@@ -380,7 +380,7 @@ const PoBucketDashboard = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>S No</TableHead>
+                <TableHead>#</TableHead>
                 <TableHead>Sales Order Number</TableHead>
                 <TableHead>Company</TableHead>
                 <TableHead>Products</TableHead>

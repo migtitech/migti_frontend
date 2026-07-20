@@ -40,13 +40,13 @@ const DISPATCHMENT_FILTER_DEFAULTS = { status: "", dateFrom: "", dateTo: "" };
 /** All = both statuses; otherwise filter to one (matches API). */
 const STATUS_FILTER_OPTIONS = [
   { value: "", label: "All" },
-  { value: "ready_for_dispatchment", label: "Ready for dispatchment" },
+  { value: "ready_for_dispatchment", label: "Ready for dispatch" },
   { value: "delivered", label: "Delivered" },
 ];
 
 const STATUS_LABELS = {
   inventory_received: "Inventory received",
-  ready_for_dispatchment: "Ready for dispatchment",
+  ready_for_dispatchment: "Ready for dispatch",
   delivered: "Delivered",
   pending: "Pending",
   purchased: "Purchased",
@@ -205,7 +205,7 @@ const DispatchmentList = () => {
       setRows(p.list);
       setTotal(p.total);
     } catch (e) {
-      toastError(e?.message || "Failed to load dispatchment queue");
+      toastError(e?.message || "Failed to load dispatch queue");
       setRows([]);
       setTotal(0);
     } finally {
@@ -364,8 +364,8 @@ const DispatchmentList = () => {
   return (
     <div>
       <PageHeader
-        title="Dispatchment"
-        description="Sales Order lines ready for dispatchment or delivered — use status to filter."
+        title="Dispatch"
+        description="Sales Order lines ready for dispatch or delivered — use status to filter."
       />
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -410,7 +410,7 @@ const DispatchmentList = () => {
         <FilterLockButton
           filtersLocked={filtersLocked}
           onToggle={handleToggleFiltersLock}
-          pageLabel="Dispatchment"
+          pageLabel="Dispatch"
         />
       </div>
 
@@ -423,7 +423,7 @@ const DispatchmentList = () => {
         showSearch={false}
         exportFileName="dispatchment"
         emptyTitle="No lines match"
-        emptyMessage="Lines appear here when marked ready for dispatchment or after delivery."
+        emptyMessage="Lines appear here when marked ready for dispatch or after delivery."
       />
 
       <TablePagination
@@ -437,7 +437,7 @@ const DispatchmentList = () => {
       <Sheet open={detailOpen} onOpenChange={(o) => !o && closeDetail()}>
         <SheetContent side="right" className="w-full sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle>Sales Order line (po_product)</SheetTitle>
+            <SheetTitle>Sales Order Line (po_product)</SheetTitle>
           </SheetHeader>
           <SheetBody>
             {detailLoading ? (
@@ -469,7 +469,7 @@ const DispatchmentList = () => {
                   <strong>Status:</strong> {statusBadge(serverStatus(detail))}
                 </p>
                 <p className="mb-3">
-                  <strong>Dispatchment date:</strong>{" "}
+                  <strong>Dispatch date:</strong>{" "}
                   {dateFormatter(detail.dispatchmentDate, "—")}
                 </p>
 

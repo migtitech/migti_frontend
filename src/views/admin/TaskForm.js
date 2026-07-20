@@ -1,11 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import taskManagementService from "../../services/taskManagementService";
 import employeeService from "../../services/employeeService";
 import documentService from "../../services/documentService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import {
+  Loader,
+  CrudFormPage,
+  FormField,
+  BackButton,
+  GstRateSelect,
+} from "../../components";
 import { Button, Input, Textarea, Select, Spinner } from "../../components/ui";
 import { toastSuccess, toastError } from "../../utils/toast";
 
@@ -127,15 +133,7 @@ const TaskForm = () => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/task-dashboard")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Tasks
-        </Button>
+        <BackButton fallback="/task-dashboard" />
       </div>
 
       <CrudFormPage
@@ -193,15 +191,11 @@ const TaskForm = () => {
                 />
               </FormField>
               <FormField label="GST %">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
+                <GstRateSelect
                   value={form.productInfo?.gst ?? ""}
                   onChange={(e) =>
                     handleProductInfoChange("gst", e.target.value)
                   }
-                  placeholder="0"
                 />
               </FormField>
             </div>

@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, Users, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { useData } from "../../context/DataContext";
-import { ConfirmDialog, PageHeader } from "../../components";
+import { ConfirmDialog, PageHeader, BackButton } from "../../components";
 import {
   Badge,
   Button,
@@ -118,15 +118,7 @@ const BranchManagement = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/dashboard")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Companies
-        </Button>
+        <BackButton fallback="/dashboard" />
       </div>
 
       <PageHeader

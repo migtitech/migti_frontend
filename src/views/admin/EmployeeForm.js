@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import {
   Button,
   Alert,
@@ -22,7 +21,7 @@ import groupService from "../../services/groupService";
 import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
-import { Loader } from "../../components";
+import { Loader, BackButton } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import EmployeePersonalInfoSection from "./employees/EmployeePersonalInfoSection";
@@ -438,15 +437,7 @@ const EmployeeForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/employees")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Employees
-        </Button>
+        <BackButton fallback="/employees" />
       </div>
 
       {error && (

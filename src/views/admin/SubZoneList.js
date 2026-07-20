@@ -230,7 +230,7 @@ const SubZoneList = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit sub-zone name</DialogTitle>
+            <DialogTitle>Edit Sub-zone Name</DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5">
             <Label>Name</Label>
@@ -258,7 +258,7 @@ const SubZoneList = () => {
 
       <ConfirmDialog
         visible={confirmDelete.visible}
-        title="Delete sub-zone?"
+        title="Delete Sub-zone?"
         message="This will soft-delete the sub-zone. Existing references may still point to it."
         confirmText="Delete"
         confirmColor="danger"

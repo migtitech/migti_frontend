@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { CChartBar, CChartDoughnut } from "@coreui/react-chartjs";
 import { IndianRupee, TrendingDown, TrendingUp, Wallet } from "lucide-react";
-import { PageHeader, StatCard, StatusBadge, DataTable } from "../../components";
+import { PageHeader, StatusBadge, DataTable } from "../../components";
 import {
   Card,
   CardHeader,
@@ -10,11 +10,20 @@ import {
   CardContent,
 } from "../../components/ui";
 import ReportsSubNav from "./components/ReportsSubNav";
-import GrowthIndicator from "./components/GrowthIndicator";
+import {
+  SmartKpiCard,
+  ReportToolbar,
+  InsightStrip,
+  scaleValue,
+  scaleSeries,
+  prevValue,
+  formatINR,
+  formatINRCompact,
+  buildInsights,
+  trendInsight,
+  exportRowsToCsv,
+} from "./components/smart";
 import { financeReport, REPORT_MONTHS } from "../../data/reportsDummyData";
-
-const formatINR = (value) =>
-  `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const paymentColumns = [
   { key: "id", label: "Reference", sortable: true },
@@ -36,45 +45,140 @@ const paymentColumns = [
   },
 ];
 
+const TYPE_OPTIONS = [
+  { value: "", label: "All types" },
+  { value: "Receivable", label: "Receivable" },
+  { value: "Payable", label: "Payable" },
+];
+
 const FinanceReport = () => {
   const { kpis, revenueVsExpense, expenseBreakdown, payments } = financeReport;
+
+  const [period, setPeriod] = useState("this_month");
+  const [compare, setCompare] = useState(true);
+  const [type, setType] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  const m = useMemo(() => {
+    const rows = type ? payments.filter((p) => p.type === type) : payments;
+    return {
+      revenue: scaleValue(kpis.revenue, period, "rev"),
+      expenses: scaleValue(kpis.expenses, period, "exp"),
+      profit: scaleValue(kpis.netProfit, period, "profit"),
+      revSeries: scaleSeries(revenueVsExpense.revenue, period, "rev"),
+      expSeries: scaleSeries(revenueVsExpense.expenses, period, "exp"),
+      rows,
+    };
+  }, [period, type, kpis, revenueVsExpense, payments]);
+
+  const insights = useMemo(
+    () =>
+      buildInsights([
+        trendInsight("Revenue", m.revSeries),
+        {
+          tone: m.profit > 0 ? "positive" : "negative",
+          text: `Net margin is ${((m.profit / m.revenue) * 100).toFixed(1)}% (${formatINRCompact(m.profit)} profit).`,
+        },
+        {
+          tone:
+            payments.filter((p) => p.status === "overdue").length > 0
+              ? "warning"
+              : "neutral",
+          text: `${payments.filter((p) => p.status === "overdue").length} payment(s) currently overdue.`,
+        },
+        {
+          tone: kpis.receivablesGrowth < 0 ? "positive" : "warning",
+          text: `Outstanding receivables ${kpis.receivablesGrowth < 0 ? "down" : "up"} ${Math.abs(kpis.receivablesGrowth)}% — ${formatINRCompact(kpis.outstandingReceivables)} open.`,
+        },
+      ]),
+    [m, payments, kpis],
+  );
+
+  const handleExport = () =>
+    exportRowsToCsv(
+      "finance-payments-report",
+      [
+        { label: "Reference", value: (r) => r.id },
+        { label: "Party", value: (r) => r.party },
+        { label: "Type", value: (r) => r.type },
+        { label: "Date", value: (r) => r.date },
+        { label: "Amount", value: (r) => r.amount },
+        { label: "Status", value: (r) => r.status },
+      ],
+      m.rows,
+    );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Finance Report"
-        description="Revenue, expenses, profitability and outstanding payments. Sample data for UI preview."
+        description="Revenue, expenses, profitability and outstanding payments. Interactive sample data."
       />
       <ReportsSubNav />
 
+      <ReportToolbar
+        period={period}
+        onPeriodChange={setPeriod}
+        compare={compare}
+        onCompareChange={setCompare}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        onExport={handleExport}
+        filters={[
+          {
+            id: "type",
+            label: "Payment type",
+            value: type,
+            onChange: setType,
+            options: TYPE_OPTIONS,
+          },
+        ]}
+      />
+
+      <InsightStrip insights={insights} />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+        <SmartKpiCard
           title="Revenue"
-          value={formatINR(kpis.revenue)}
-          subtitle={<GrowthIndicator value={kpis.revenueGrowth} />}
+          value={formatINRCompact(m.revenue)}
           icon={IndianRupee}
           color="primary"
+          delta={compare ? kpis.revenueGrowth : null}
+          spark={m.revSeries}
+          footnote={
+            compare
+              ? `was ${formatINRCompact(prevValue(m.revenue, kpis.revenueGrowth))}`
+              : undefined
+          }
         />
-        <StatCard
+        <SmartKpiCard
           title="Expenses"
-          value={formatINR(kpis.expenses)}
-          subtitle={<GrowthIndicator value={kpis.expensesGrowth} />}
+          value={formatINRCompact(m.expenses)}
           icon={TrendingDown}
           color="warning"
+          delta={compare ? kpis.expensesGrowth : null}
+          spark={m.expSeries}
+          invertDelta
         />
-        <StatCard
+        <SmartKpiCard
           title="Net Profit"
-          value={formatINR(kpis.netProfit)}
-          subtitle={<GrowthIndicator value={kpis.netProfitGrowth} />}
+          value={formatINRCompact(m.profit)}
           icon={TrendingUp}
           color="success"
+          delta={compare ? kpis.netProfitGrowth : null}
         />
-        <StatCard
+        <SmartKpiCard
           title="Outstanding Receivables"
-          value={formatINR(kpis.outstandingReceivables)}
-          subtitle={<GrowthIndicator value={kpis.receivablesGrowth} />}
+          value={formatINRCompact(kpis.outstandingReceivables)}
           icon={Wallet}
           color="danger"
+          delta={compare ? kpis.receivablesGrowth : null}
+          invertDelta
         />
       </div>
 
@@ -82,7 +186,7 @@ const FinanceReport = () => {
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Revenue vs Expenses</CardTitle>
-            <CardDescription>Last 6 months</CardDescription>
+            <CardDescription>Selected period · sample data</CardDescription>
           </CardHeader>
           <CardContent>
             <CChartBar
@@ -93,12 +197,12 @@ const FinanceReport = () => {
                   {
                     label: "Revenue",
                     backgroundColor: "#12b76a",
-                    data: revenueVsExpense.revenue,
+                    data: m.revSeries,
                   },
                   {
                     label: "Expenses",
                     backgroundColor: "#f04438",
-                    data: revenueVsExpense.expenses,
+                    data: m.expSeries,
                   },
                 ],
               }}
@@ -144,13 +248,15 @@ const FinanceReport = () => {
         <CardHeader>
           <CardTitle>Payments & Receivables</CardTitle>
           <CardDescription>
-            Recent payable and receivable activity
+            {type
+              ? `Filtered: ${type}`
+              : "Recent payable and receivable activity"}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
             columns={paymentColumns}
-            rows={payments}
+            rows={m.rows}
             rowKey={(r) => r.id}
             exportFileName="finance-payments-report"
           />

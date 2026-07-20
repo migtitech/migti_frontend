@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import * as yup from "yup";
 import taskManagementService from "../../services/taskManagementService";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import { Loader, CrudFormPage, FormField, BackButton } from "../../components";
 import { Button, Input, Textarea, Spinner } from "../../components/ui";
 import { toastError, toastSuccess } from "../../utils/toast";
 
@@ -114,15 +114,7 @@ const TaskBucketRateForm = () => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate(`/task-bucket/${id}`)}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to task bucket
-        </Button>
+        <BackButton fallback={`/task-bucket/${id}`} />
       </div>
 
       <CrudFormPage

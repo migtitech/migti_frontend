@@ -103,7 +103,7 @@ const Login = () => {
     const result = await login(emailTrim, password, role);
 
     if (result.success) {
-      toastSuccess("Signed in successfully");
+      toastSuccess("Logged in successfully");
       navigate(getPostLoginPath(result.user?.role || role));
     } else {
       toastError(result.error);
@@ -174,7 +174,7 @@ const Login = () => {
                 Welcome back
               </h2>
               <p className="text-sm text-muted-foreground">
-                Sign in to your account
+                Log in to your account
               </p>
             </div>
 
@@ -276,7 +276,7 @@ const Login = () => {
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+                {loading ? "Logging in..." : "Log In"}
               </Button>
             </div>
           </form>

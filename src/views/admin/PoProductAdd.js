@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search } from "lucide-react";
+import { Search } from "lucide-react";
+import { BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -91,7 +92,7 @@ const PoProductAdd = () => {
         setProducts(parseListResponse(res));
         setSearched(true);
       } catch (e) {
-        toastError(e?.message || "Failed to fetch products");
+        toastError(e?.message || "Failed to load products");
       } finally {
         setLoading(false);
       }
@@ -110,14 +111,7 @@ const PoProductAdd = () => {
   return (
     <div>
       <div className="mb-3 flex items-center gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/po-products")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/po-products" />
         <h5 className="mb-0 text-lg font-semibold">Add Sales Order Product</h5>
       </div>
 

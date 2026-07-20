@@ -181,7 +181,7 @@ const EmployeeList = () => {
     () => [
       {
         key: "index",
-        label: "SNo",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,
@@ -286,7 +286,7 @@ const EmployeeList = () => {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search by name or email..."
+            placeholder="Search by name or email…"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);

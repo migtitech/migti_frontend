@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import areaService from "../../services/areaService";
 import companyService from "../../services/companyService";
 import branchService from "../../services/branchService";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import { Loader, CrudFormPage, FormField, BackButton } from "../../components";
 import {
   Button,
   Alert,
@@ -192,15 +191,7 @@ const AreaForm = () => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/zones")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Zones
-        </Button>
+        <BackButton fallback="/zones" />
       </div>
 
       <CrudFormPage title={isEdit ? "Edit Zone" : "Add Zone"}>

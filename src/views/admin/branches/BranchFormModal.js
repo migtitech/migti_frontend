@@ -213,7 +213,7 @@ const BranchFormModal = ({
                   type="url"
                   {...register("mapLocationUrl")}
                   aria-invalid={!!errors.mapLocationUrl}
-                  placeholder="https://maps.google.com/..."
+                  placeholder="https://maps.google.com/…"
                 />
                 {errors.mapLocationUrl && (
                   <p className="text-sm text-destructive">
@@ -279,7 +279,7 @@ const BranchFormModal = ({
                 rows={3}
                 {...register("fullAddress")}
                 aria-invalid={!!errors.fullAddress}
-                placeholder="Enter complete address..."
+                placeholder="Enter complete address…"
                 required
               />
               {errors.fullAddress && (

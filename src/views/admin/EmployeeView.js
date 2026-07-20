@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Pencil,
   Building2,
   Users,
@@ -14,7 +13,7 @@ import employeeService from "../../services/employeeService";
 import groupService from "../../services/groupService";
 import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
-import { Loader, PageHeader } from "../../components";
+import { BackButton, Loader, PageHeader } from "../../components";
 import {
   Badge,
   Button,
@@ -80,7 +79,7 @@ const EmployeeView = () => {
         newPassword: np,
         confirmPassword: cp,
       });
-      toastSuccess("Password updated successfully.");
+      toastSuccess("Password updated successfully");
       closePasswordModal();
     } catch (err) {
       const detail = err?.data?.error ?? err?.errors;
@@ -326,14 +325,7 @@ const EmployeeView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/employees")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Employees
-        </Button>
+        <BackButton fallback="/employees" />
       </div>
 
       <PageHeader
@@ -592,7 +584,7 @@ const EmployeeView = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Update password</DialogTitle>
+            <DialogTitle>Update Password</DialogTitle>
           </DialogHeader>
           <div className="px-6 py-2">
             <p className="mb-3 text-sm text-muted-foreground">

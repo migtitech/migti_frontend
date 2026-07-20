@@ -3,10 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { ArrowLeft } from "lucide-react";
 import { gstinOptional, urlOptional, MSG } from "../../utils/validation";
 import companyService from "../../services/companyService";
-import { Loader, CrudFormPage, FormField, StatusToggle } from "../../components";
+import {
+  Loader,
+  CrudFormPage,
+  FormField,
+  StatusToggle,
+  BackButton,
+} from "../../components";
 import {
   Button,
   Alert,
@@ -136,7 +141,7 @@ const CompanyForm = () => {
           isActive: data.isActive !== false,
         });
       } catch (err) {
-        toastError(err?.message || "Failed to fetch company");
+        toastError(err?.message || "Failed to load company");
       } finally {
         setLoading(false);
       }
@@ -243,15 +248,7 @@ const CompanyForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/companies")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Companies
-        </Button>
+        <BackButton fallback="/companies" />
       </div>
 
       {error && (

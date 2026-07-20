@@ -10,6 +10,7 @@ import {
   RowActions,
   TablePagination,
   FilterLockButton,
+  LocationValue,
 } from "../../components";
 import {
   Alert,
@@ -78,7 +79,7 @@ const IndustryBranchList = () => {
       setBranches(data?.branches || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || "Failed to fetch client branches");
+      toastError(err?.message || "Failed to load client branches");
     } finally {
       setLoading(false);
     }
@@ -119,7 +120,7 @@ const IndustryBranchList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,
@@ -150,7 +151,7 @@ const IndustryBranchList = () => {
         key: "location",
         label: "Location",
         sortable: true,
-        render: (branch) => branch.location || "-",
+        render: (branch) => <LocationValue value={branch.location} />,
       },
       {
         key: "cityState",
@@ -228,7 +229,7 @@ const IndustryBranchList = () => {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="text"
-            placeholder="Search branches..."
+            placeholder="Search branches…"
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -285,7 +286,7 @@ const IndustryBranchList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete client branch?"
+        title="Delete Client Branch?"
         message="Are you sure you want to delete this client branch?"
         confirmText="Delete"
         cancelText="Cancel"

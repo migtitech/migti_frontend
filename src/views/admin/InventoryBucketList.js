@@ -40,7 +40,7 @@ const STATUS_OPTIONS = [
   { value: "pending", label: "Pending" },
   { value: "purchased", label: "Purchased" },
   { value: "inventory_received", label: "Inventory received" },
-  { value: "ready_for_dispatchment", label: "Ready for dispatchment" },
+  { value: "ready_for_dispatchment", label: "Ready for dispatch" },
   { value: "delivered", label: "Delivered" },
   { value: "finance_approved", label: "Finance approved" },
 ];
@@ -56,7 +56,7 @@ const STATUS_LABELS = {
   pending: "Pending",
   purchased: "Purchased",
   inventory_received: "Received",
-  ready_for_dispatchment: "Ready for dispatchment",
+  ready_for_dispatchment: "Ready for dispatch",
   delivered: "Delivered",
   open: "Open",
   payment_request_raised: "Payment request raised",
@@ -266,7 +266,7 @@ const InventoryBucketList = () => {
       const res = await inventoryBucketService.getById(detailId);
       const doc = res?.data;
       if (doc) setDetail(doc);
-      toastSuccess("Marked ready for dispatchment");
+      toastSuccess("Marked ready for dispatch");
       load();
     } catch (e) {
       toastError(e?.message || "Update failed");
@@ -424,7 +424,7 @@ const InventoryBucketList = () => {
       <Sheet open={detailOpen} onOpenChange={(o) => !o && closeDetail()}>
         <SheetContent side="right" className="w-full sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Line details</SheetTitle>
+            <SheetTitle>Line Details</SheetTitle>
           </SheetHeader>
           <SheetBody>
             {detailLoading ? (
@@ -458,7 +458,7 @@ const InventoryBucketList = () => {
                   <strong>Status:</strong> {statusBadge(serverStatus(detail))}
                 </p>
                 <p className="mb-3 text-sm">
-                  <strong>Dispatchment date:</strong>{" "}
+                  <strong>Dispatch date:</strong>{" "}
                   {dateFormatter(detail.dispatchmentDate, "—")}
                 </p>
 
@@ -494,21 +494,21 @@ const InventoryBucketList = () => {
                   <>
                     <p className="mb-2 mt-4 text-sm text-muted-foreground">
                       Inventory received. You can mark this line ready for
-                      dispatchment when appropriate.
+                      dispatch when appropriate.
                     </p>
                     <Button
                       className="w-full"
                       disabled={marking}
                       onClick={onMarkReadyForDispatchment}
                     >
-                      {marking ? "Updating…" : "Mark ready for dispatchment"}
+                      {marking ? "Updating…" : "Mark ready for dispatch"}
                     </Button>
                   </>
                 )}
 
                 {invStatus(detail) === "ready_for_dispatchment" && (
                   <p className="mb-0 mt-4 text-sm text-muted-foreground">
-                    This line is marked ready for dispatchment.
+                    This line is marked ready for dispatch.
                   </p>
                 )}
               </>

@@ -301,7 +301,7 @@ const QueryList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

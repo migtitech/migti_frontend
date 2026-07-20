@@ -1,8 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import industryBranchService from "../../services/industryBranchService";
-import { Loader, PageHeader } from "../../components";
+import {
+  BackButton,
+  Loader,
+  PageHeader,
+  LocationValue,
+} from "../../components";
 import {
   Button,
   Card,
@@ -47,7 +52,7 @@ const IndustryBranchView = () => {
         const data = res?.data?.data || res?.data || res;
         setBranch(data);
       } catch (err) {
-        toastError(err?.message || "Failed to fetch client branch");
+        toastError(err?.message || "Failed to load client branch");
       } finally {
         setLoading(false);
       }
@@ -105,14 +110,7 @@ const IndustryBranchView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/industry-branches")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/industry-branches" />
       </div>
 
       <PageHeader
@@ -135,7 +133,9 @@ const IndustryBranchView = () => {
             <CardContent className="pt-0">
               <dl className="divide-y divide-border">
                 <DetailRow label="Client">{industryName}</DetailRow>
-                <DetailRow label="Location">{branch.location || "-"}</DetailRow>
+                <DetailRow label="Location">
+                  <LocationValue value={branch.location} />
+                </DetailRow>
                 <DetailRow label="City">{branch.city || "-"}</DetailRow>
                 <DetailRow label="State">{branch.state || "-"}</DetailRow>
                 <DetailRow label="Pincode">{branch.pincode || "-"}</DetailRow>

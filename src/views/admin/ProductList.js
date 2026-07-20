@@ -87,7 +87,7 @@ const ProductList = () => {
       setProducts(data?.products || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || "Failed to fetch products");
+      toastError(err?.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -169,7 +169,7 @@ const ProductList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

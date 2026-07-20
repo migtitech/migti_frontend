@@ -155,9 +155,15 @@ const RateMasterBoard = React.lazy(
 const RateMasterVariants = React.lazy(
   () => import("./views/master/RateMasterVariants"),
 );
+const RateMasterVariantDetail = React.lazy(
+  () => import("./views/master/RateMasterVariantDetail"),
+);
 
 // Purchase Tasks (My Task / Rate Bucket / Admin Tracking)
 const PurchaseTasks = React.lazy(() => import("./views/admin/PurchaseTasks"));
+const PurchaseTaskDetail = React.lazy(
+  () => import("./views/admin/PurchaseTaskDetail"),
+);
 
 // Task Dashboard (Task Management)
 const TaskList = React.lazy(() => import("./views/admin/TaskList"));
@@ -178,11 +184,17 @@ const QueryProductsList = React.lazy(
 const QueryProductView = React.lazy(
   () => import("./views/admin/QueryProductView"),
 );
+const QueryProductHistory = React.lazy(
+  () => import("./views/admin/QueryProductHistory"),
+);
 const ProBucketDetail = React.lazy(
   () => import("./views/admin/ProBucketDetail"),
 );
 const LocalProcurementList = React.lazy(
   () => import("./views/admin/LocalProcurementList"),
+);
+const LocalProcurementView = React.lazy(
+  () => import("./views/admin/LocalProcurementView"),
 );
 const LocalPurchaseList = React.lazy(
   () => import("./views/admin/LocalPurchaseList"),
@@ -333,6 +345,12 @@ const SalesMasterCreateSalesOrder = React.lazy(
 );
 const SalesMasterSalesOrderStatus = React.lazy(
   () => import("./views/salesMaster/SalesOrderStatus"),
+);
+const SalesMasterSalesOrders = React.lazy(
+  () => import("./views/salesMaster/SalesOrders"),
+);
+const SalesMasterCreateSalesOrderFromQuotation = React.lazy(
+  () => import("./views/salesMaster/CreateSalesOrderFromQuotation"),
 );
 const SalesMasterPerformanceReport = React.lazy(
   () => import("./views/salesMaster/MyPerformanceReport"),
@@ -852,7 +870,7 @@ const routes = [
   },
   {
     path: "/po-payment",
-    name: "Sales Order payment",
+    name: "Sales Order Payment",
     element: PoPaymentSidebar,
     module: "po_payment",
     action: "read",
@@ -860,7 +878,7 @@ const routes = [
   },
   {
     path: "/pending-payment",
-    name: "Pending payment",
+    name: "Pending Payment",
     element: PendingPayment,
     allowedRolePrefix: "sales",
   },
@@ -893,7 +911,7 @@ const routes = [
   },
   {
     path: "/billing-requests",
-    name: "Billing request",
+    name: "Billing Request",
     element: BillingRequestList,
     module: "billing_request",
     action: "read",
@@ -1002,11 +1020,32 @@ const routes = [
     module: null,
     action: "read",
   },
+  {
+    path: "/master/rate-master/:productId/:variantId",
+    name: "Variant Rate Detail",
+    element: RateMasterVariantDetail,
+    module: null,
+    action: "read",
+  },
 
-  // Purchase Tasks
+  // Procurement Requests (renamed from Purchase Tasks; old path kept as alias)
+  {
+    path: "/procurement-requests",
+    name: "Procurement Requests",
+    element: PurchaseTasks,
+    module: "purchase_tasks",
+    action: "read",
+  },
+  {
+    path: "/procurement-requests/:id",
+    name: "Procurement Request Detail",
+    element: PurchaseTaskDetail,
+    module: "purchase_tasks",
+    action: "read",
+  },
   {
     path: "/purchase-tasks",
-    name: "Purchase Tasks",
+    name: "Procurement Requests",
     element: PurchaseTasks,
     module: "purchase_tasks",
     action: "read",
@@ -1105,6 +1144,13 @@ const routes = [
     action: "read",
   },
   {
+    path: "/query-products/:id/history",
+    name: "Query Product History",
+    element: QueryProductHistory,
+    module: "queries",
+    action: "read",
+  },
+  {
     path: "/po-bucket",
     name: "Sales Order Bucket",
     element: PoBucketDashboard,
@@ -1120,14 +1166,14 @@ const routes = [
   },
   {
     path: "/inventory-bucket",
-    name: "Inventory bucket",
+    name: "Inventory Bucket",
     element: InventoryBucketList,
     module: "inventory_bucket",
     action: "read",
   },
   {
     path: "/dispatchment",
-    name: "Dispatchment",
+    name: "Dispatch",
     element: DispatchmentList,
     module: "dispatchment",
     action: "read",
@@ -1181,8 +1227,23 @@ const routes = [
   },
   {
     path: "/local-pro",
-    name: "Local Pro",
+    name: "Local Procurement",
     element: LocalProcurementList,
+    module: null,
+    action: "read",
+    allowedRoles: [
+      "procurement",
+      "localprocurement",
+      "super_admin",
+      "admin",
+      "head_of_department",
+      "hod",
+    ],
+  },
+  {
+    path: "/local-pro/:id",
+    name: "Local Procurement Detail",
+    element: LocalProcurementView,
     module: null,
     action: "read",
     allowedRoles: [
@@ -1242,7 +1303,7 @@ const routes = [
   // Employees
   {
     path: "/employee-locations",
-    name: "Employee locations",
+    name: "Employee Locations",
     element: EmployeeLocations,
     module: null,
     allowedRoles: ["head_of_department", "hod"],
@@ -1322,7 +1383,7 @@ const routes = [
   },
   {
     path: "/company-documents",
-    name: "Company documents",
+    name: "Company Documents",
     element: CompanyDocumentList,
     module: null,
     action: "read",
@@ -1536,7 +1597,7 @@ const routes = [
   },
   {
     path: "/sales-master/query-followup",
-    name: "Sales Manager Query Followup",
+    name: "Sales Manager Query Follow-up",
     element: SalesMasterQueryFollowup,
   },
   {
@@ -1556,7 +1617,7 @@ const routes = [
   },
   {
     path: "/sales-master/quotation-followup",
-    name: "Sales Manager Quotation Followup",
+    name: "Sales Manager Quotation Follow-up",
     element: SalesMasterQuotationFollowup,
   },
   {
@@ -1568,6 +1629,16 @@ const routes = [
     path: "/sales-master/sales-order/status",
     name: "Sales Order Status",
     element: SalesMasterSalesOrderStatus,
+  },
+  {
+    path: "/sales-master/sales-orders/new",
+    name: "New Sales Order",
+    element: SalesMasterCreateSalesOrderFromQuotation,
+  },
+  {
+    path: "/sales-master/sales-orders",
+    name: "Sales Orders",
+    element: SalesMasterSalesOrders,
   },
   {
     path: "/sales-master/sales-order/:id",

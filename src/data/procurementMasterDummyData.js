@@ -226,19 +226,34 @@ export const brandProcurementBucket = procurementRequests.filter(
   (r) => r.bucketType === "brand",
 );
 
+/** Round-robin sample suppliers/buyers so history rows carry who-sourced-what. */
+const PROC_SUPPLIERS = [
+  "Anand Steel & Alloys",
+  "Precision Fasteners Co.",
+  "Indore Bearings House",
+  "Metro Raw Materials",
+];
+const PROC_BUYERS = ["Sunil Verma", "Anjali Rao", "Farhan Sheikh"];
+
 /** Procurement History — every procurement item, across all stages, with
  * its rate target vs what was actually submitted. */
 export const procurementHistory = [
-  ...procurementRequests.map((r) => ({
+  ...procurementRequests.map((r, i) => ({
     id: `PH-${r.id}`,
     product: r.product,
     category: r.category,
     bucketType: r.bucketType,
     stage: r.stage,
+    queryCode: r.queryCode,
+    qty: 50 + i * 25,
+    unit: "pcs",
     targetRate: r.targetRate,
     submittedRate: r.submittedRate,
+    supplier: PROC_SUPPLIERS[i % PROC_SUPPLIERS.length],
+    buyer: PROC_BUYERS[i % PROC_BUYERS.length],
     status: r.status,
     date: r.receivedOn,
+    remark: "",
   })),
   {
     id: "PH-QP-2370",
@@ -246,10 +261,16 @@ export const procurementHistory = [
     category: "Machinery Spares",
     bucketType: "brand",
     stage: "fulfilled",
+    queryCode: "QRY-5388",
+    qty: 200,
+    unit: "pcs",
     targetRate: 95,
     submittedRate: 92,
+    supplier: "Indore Bearings House",
+    buyer: "Anjali Rao",
     status: "fulfilled",
     date: "2026-07-05",
+    remark: "Sourced ₹3 under target after negotiating slab pricing.",
   },
   {
     id: "PH-QP-2361",
@@ -257,10 +278,16 @@ export const procurementHistory = [
     category: "Raw Material",
     bucketType: "local",
     stage: "fulfilled",
+    queryCode: "QRY-5361",
+    qty: 120,
+    unit: "kg",
     targetRate: 74,
     submittedRate: 74,
+    supplier: "Metro Raw Materials",
+    buyer: "Sunil Verma",
     status: "fulfilled",
     date: "2026-06-29",
+    remark: "Matched target rate exactly; local pickup.",
   },
   {
     id: "PH-QP-2350",
@@ -268,10 +295,16 @@ export const procurementHistory = [
     category: "Machinery Spares",
     bucketType: "brand",
     stage: "fulfilled",
+    queryCode: "QRY-5350",
+    qty: 1000,
+    unit: "pcs",
     targetRate: 3.2,
     submittedRate: 3.4,
+    supplier: "Precision Fasteners Co.",
+    buyer: "Farhan Sheikh",
     status: "fulfilled",
     date: "2026-06-22",
+    remark: "Rate came in ₹0.20 over target due to material cost rise.",
   },
 ];
 

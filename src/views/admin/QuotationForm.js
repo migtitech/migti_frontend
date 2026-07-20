@@ -3,7 +3,6 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { ArrowLeft } from "lucide-react";
 import {
   Button,
   Alert,
@@ -24,7 +23,7 @@ import {
   TableCell,
 } from "../../components/ui";
 import { useData } from "../../context/DataContext";
-import { Loader } from "../../components";
+import { BackButton, GstRateSelect, Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import FindProductModal from "./FindProductModal";
@@ -410,15 +409,7 @@ const QuotationCreate = () => {
   return (
     <>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/quotations")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Quotations
-        </Button>
+        <BackButton fallback="/quotations" />
       </div>
 
       {/* 1. Company information */}
@@ -441,7 +432,7 @@ const QuotationCreate = () => {
               onBlur={() =>
                 setTimeout(() => setIndustryDropdownOpen(false), 200)
               }
-              placeholder="Type to search for a client / company..."
+              placeholder="Type to search for a client / company…"
               autoComplete="off"
             />
             {industryId && (
@@ -846,14 +837,9 @@ const QuotationCreate = () => {
                             placeholder="0.00"
                           />
                         </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            className="h-8"
-                            style={{ maxWidth: "70px", minWidth: "55px" }}
-                            min={0}
-                            max={100}
-                            step="0.01"
+                        <TableCell className="min-w-[140px]">
+                          <GstRateSelect
+                            selectClassName="h-8 text-sm"
                             value={
                               p.gstPercentage != null && p.gstPercentage !== ""
                                 ? p.gstPercentage
@@ -866,7 +852,6 @@ const QuotationCreate = () => {
                                 e.target.value === "" ? "" : e.target.value,
                               )
                             }
-                            placeholder="%"
                           />
                         </TableCell>
                         <TableCell className="text-right">
@@ -1060,15 +1045,7 @@ const QuotationEdit = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/quotations")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Quotations
-        </Button>
+        <BackButton fallback="/quotations" />
       </div>
 
       {error && (

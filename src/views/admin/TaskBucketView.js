@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import taskManagementService from "../../services/taskManagementService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, PageHeader } from "../../components";
+import { Loader, PageHeader, BackButton } from "../../components";
 import {
   Badge,
   Button,
@@ -80,14 +79,7 @@ const TaskBucketView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/task-bucket")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/task-bucket" />
       </div>
 
       <PageHeader

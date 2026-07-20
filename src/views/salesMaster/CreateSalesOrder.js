@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Trash2, ShoppingCart } from "lucide-react";
-import { PageHeader } from "../../components";
+import { PageHeader, BackButton } from "../../components";
 import {
   Card,
   CardHeader,
@@ -70,7 +70,7 @@ const CreateSalesOrder = () => {
       return;
     }
     toastSuccess(
-      `Sales order created for ${client.name} — ${formatINR(total)} (sample UI, not saved).`,
+      `Sales order created for ${client.name} — ${formatINR(total)} (sample UI, not saved)`,
     );
     setClientId("");
     setLines([{ sku: "", qty: 1 }]);
@@ -78,6 +78,9 @@ const CreateSalesOrder = () => {
 
   return (
     <div className="space-y-6">
+      <div className="mb-2">
+        <BackButton fallback="/sales-master/sales-order/status" />
+      </div>
       <PageHeader
         title="Create Sales Order"
         description="Draft a new sales order for a client. Sample/demo form — not wired to the backend."

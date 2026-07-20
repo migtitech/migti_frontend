@@ -299,7 +299,7 @@ const MyVisits = () => {
               rows={5}
               value={remarkText}
               onChange={(e) => setRemarkText(e.target.value)}
-              placeholder="Write detailed remark with minimum 20 words..."
+              placeholder="Write detailed remark with minimum 20 words…"
               disabled={selectedVisit?.status === "completed"}
             />
             <div className="mb-2 mt-1 text-sm text-muted-foreground">

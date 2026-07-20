@@ -552,12 +552,72 @@ export const quotationFollowups = [
 // Sales Order — create form product catalog + existing orders / statuses
 // ---------------------------------------------------------------------------
 export const salesOrderCatalog = [
-  { sku: "BRG-2201", name: "Industrial Bearing Set", rate: 3118 },
-  { sku: "HYD-4400", name: "Hydraulic Pump HX-40", rate: 3680 },
-  { sku: "CNV-1200", name: "Steel Conveyor Belt 12m", rate: 4447 },
-  { sku: "GRB-0880", name: "Precision Gear Box", rate: 4094 },
-  { sku: "MTC-0900", name: "Motor Controller MC-9", rate: 3959 },
-  { sku: "VLV-0220", name: "Ball Valve 2 inch", rate: 1300 },
+  {
+    sku: "BRG-2201",
+    name: "Industrial Bearing Set",
+    rate: 3118,
+    hsn: "8482",
+    uom: "Set",
+    category: "Bearings",
+    brand: "SKF",
+    gst: 18,
+    stock: 142,
+  },
+  {
+    sku: "HYD-4400",
+    name: "Hydraulic Pump HX-40",
+    rate: 3680,
+    hsn: "8413",
+    uom: "Nos",
+    category: "Hydraulics",
+    brand: "Bosch Rexroth",
+    gst: 18,
+    stock: 38,
+  },
+  {
+    sku: "CNV-1200",
+    name: "Steel Conveyor Belt 12m",
+    rate: 4447,
+    hsn: "5910",
+    uom: "Roll",
+    category: "Conveyors",
+    brand: "Fenner",
+    gst: 18,
+    stock: 12,
+  },
+  {
+    sku: "GRB-0880",
+    name: "Precision Gear Box",
+    rate: 4094,
+    hsn: "8483",
+    uom: "Nos",
+    category: "Power Transmission",
+    brand: "Bonfiglioli",
+    gst: 18,
+    stock: 26,
+  },
+  {
+    sku: "MTC-0900",
+    name: "Motor Controller MC-9",
+    rate: 3959,
+    hsn: "8537",
+    uom: "Nos",
+    category: "Electricals",
+    brand: "Siemens",
+    gst: 18,
+    stock: 61,
+  },
+  {
+    sku: "VLV-0220",
+    name: "Ball Valve 2 inch",
+    rate: 1300,
+    hsn: "8481",
+    uom: "Nos",
+    category: "Valves",
+    brand: "Audco",
+    gst: 18,
+    stock: 208,
+  },
 ];
 
 export const salesOrderClients = clients.map((c) => ({
@@ -623,6 +683,75 @@ export const salesOrders = [
     status: "delivered",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Sales Orders converted from Quotations
+//
+// These are the rows that appear on the "Sales Orders" page: each one was
+// created by converting a quotation into a sales order. `quotationId` links
+// back to the source quotation. Presentational sample data only.
+// ---------------------------------------------------------------------------
+export const salesOrdersFromQuotation = [
+  {
+    id: "SO-8841",
+    quotationId: "QT-3391",
+    client: "Vantage Industries",
+    date: "2026-07-14",
+    amount: 184200,
+    items: 1,
+    status: "delivered",
+  },
+  {
+    id: "SO-8840",
+    quotationId: "QT-3388",
+    client: "Orion Manufacturing",
+    date: "2026-07-14",
+    amount: 92488,
+    items: 1,
+    status: "confirmed",
+  },
+  {
+    id: "SO-8839",
+    quotationId: "QT-3384",
+    client: "Kridha Steelworks",
+    date: "2026-07-13",
+    amount: 341012,
+    items: 1,
+    status: "pending",
+  },
+  {
+    id: "SO-8836",
+    quotationId: "QT-3387",
+    client: "Meridian Auto Parts",
+    date: "2026-07-11",
+    amount: 219395,
+    items: 1,
+    status: "confirmed",
+  },
+];
+
+/**
+ * Look up a quotation and its product lines by quotation number/id.
+ * Returns null when the quotation is unknown. Used by the "New Sales Order"
+ * form to auto-fill client + items after the quotation number is entered.
+ */
+export const findQuotationForOrder = (quotationId) => {
+  const key = String(quotationId || "")
+    .trim()
+    .toUpperCase();
+  if (!key) return null;
+  const quotation = quotations.find((q) => q.id.toUpperCase() === key);
+  if (!quotation) return null;
+  const lines = quotationProducts
+    .filter((p) => p.quotationId.toUpperCase() === key)
+    .map((p) => ({
+      sku: p.sku,
+      product: p.product,
+      qty: p.qty,
+      rate: p.rate,
+    }));
+  return { quotation, lines };
+};
 
 // ---------------------------------------------------------------------------
 // My Performance Report

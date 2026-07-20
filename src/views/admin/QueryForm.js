@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
-  ArrowLeft,
   ArrowRight,
   Plus,
   Trash2,
@@ -69,7 +68,7 @@ import documentService from "../../services/documentService";
 import employeeService from "../../services/employeeService";
 import { useAuth } from "../../context/AuthContext";
 import usePermissions, { canEditQuery } from "../../hooks/usePermissions";
-import { Loader } from "../../components";
+import { BackButton, GstRateSelect, Loader } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import { getAssetsUrl, getAssetsBaseUrl, DOCUMENTS } from "../../api/endpoints";
@@ -536,10 +535,7 @@ const QueryForm = () => {
       }
       if (draft.industryId) setIndustryId(draft.industryId);
       if (typeof draft.currentStep === "number") {
-        const step = Math.min(
-          Math.max(1, draft.currentStep),
-          STEPS.length,
-        );
+        const step = Math.min(Math.max(1, draft.currentStep), STEPS.length);
         setCurrentStep(step);
       }
       if (typeof draft.industrySearch === "string")
@@ -571,9 +567,7 @@ const QueryForm = () => {
           page += 1;
         }
         if (!cancelled) {
-          const withEmail = merged.filter((e) =>
-            String(e?.email || "").trim(),
-          );
+          const withEmail = merged.filter((e) => String(e?.email || "").trim());
           setSalesEmployees(withEmail);
         }
       } catch {
@@ -774,7 +768,13 @@ const QueryForm = () => {
     return () => {
       cancelled = true;
     };
-  }, [products, productGroups, groupNameById, formProduct.groupId, formProduct.groupName]);
+  }, [
+    products,
+    productGroups,
+    groupNameById,
+    formProduct.groupId,
+    formProduct.groupName,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -924,8 +924,7 @@ const QueryForm = () => {
         status: "active",
       });
       const data = res?.data ?? res;
-      const list =
-        data?.contactPersons ?? data?.data?.contactPersons ?? [];
+      const list = data?.contactPersons ?? data?.data?.contactPersons ?? [];
       setContactPersons(
         (Array.isArray(list) ? list : []).map((cp) => ({
           ...cp,
@@ -1063,36 +1062,39 @@ const QueryForm = () => {
     }
   };
 
-  const applyVariantCombinationToForm = useCallback((combo, productName = "") => {
-    if (!combo) return;
-    const imageDocs = mapProductImageDocs(combo.images);
-    const selections = {};
-    (combo.optionValues || []).forEach((option) => {
-      if (option?.variantName) {
-        selections[option.variantName] = option.variantValue || "";
-      }
-    });
-    const combinationCode = String(combo.variantCode || "").trim();
-    setCatalogVariantSelections(selections);
-    setSelectedVariantCombinationId(String(combo._id || ""));
-    setVariantCombinationSearch(
-      getVariantCombinationLabel(combo, productName),
-    );
-    setVariantCombinationDropdownOpen(false);
-    setFormProduct((prev) => ({
-      ...prev,
-      variants: [{ variantName: getVariantComboDisplay(combo) }],
-      // Always store combination code (not base product code) for tracking.
-      rawProductCode: combinationCode,
-      hsnNumber: combo.hsnNumber || prev.hsnNumber,
-      modelNumber: combo.modelNumber || prev.modelNumber,
-      gstPercentage:
-        combo.gstPercentage != null && combo.gstPercentage !== ""
-          ? Number(combo.gstPercentage)
-          : prev.gstPercentage,
-      images: imageDocs.length > 0 ? imageDocs : prev.images,
-    }));
-  }, []);
+  const applyVariantCombinationToForm = useCallback(
+    (combo, productName = "") => {
+      if (!combo) return;
+      const imageDocs = mapProductImageDocs(combo.images);
+      const selections = {};
+      (combo.optionValues || []).forEach((option) => {
+        if (option?.variantName) {
+          selections[option.variantName] = option.variantValue || "";
+        }
+      });
+      const combinationCode = String(combo.variantCode || "").trim();
+      setCatalogVariantSelections(selections);
+      setSelectedVariantCombinationId(String(combo._id || ""));
+      setVariantCombinationSearch(
+        getVariantCombinationLabel(combo, productName),
+      );
+      setVariantCombinationDropdownOpen(false);
+      setFormProduct((prev) => ({
+        ...prev,
+        variants: [{ variantName: getVariantComboDisplay(combo) }],
+        // Always store combination code (not base product code) for tracking.
+        rawProductCode: combinationCode,
+        hsnNumber: combo.hsnNumber || prev.hsnNumber,
+        modelNumber: combo.modelNumber || prev.modelNumber,
+        gstPercentage:
+          combo.gstPercentage != null && combo.gstPercentage !== ""
+            ? Number(combo.gstPercentage)
+            : prev.gstPercentage,
+        images: imageDocs.length > 0 ? imageDocs : prev.images,
+      }));
+    },
+    [],
+  );
 
   const applyProductFromCatalog = (product) => {
     if (!product) return;
@@ -1545,8 +1547,7 @@ const QueryForm = () => {
               ...prev,
               groupId: getRefId(detail.group) || prev.groupId,
               categoryId: getRefId(detail.category) || prev.categoryId,
-              subcategoryId:
-                getRefId(detail.subcategory) || prev.subcategoryId,
+              subcategoryId: getRefId(detail.subcategory) || prev.subcategoryId,
               groupName: getRefName(detail.group) || prev.groupName,
               categoryName: getRefName(detail.category) || prev.categoryName,
             }));
@@ -1988,7 +1989,10 @@ const QueryForm = () => {
     if (!v) return "—";
     if (v === QUERY_REFERENCE_HOD) return "HOD Directly Received";
     const emp = salesEmployees.find(
-      (e) => String(e.email || "").trim().toLowerCase() === v,
+      (e) =>
+        String(e.email || "")
+          .trim()
+          .toLowerCase() === v,
     );
     if (emp) {
       const name = String(emp.name || "").trim();
@@ -2248,15 +2252,7 @@ const QueryForm = () => {
   return (
     <>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/queries")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Queries
-        </Button>
+        <BackButton fallback="/queries" />
       </div>
 
       {error && (
@@ -2401,7 +2397,7 @@ const QueryForm = () => {
                       onBlur={() =>
                         setTimeout(() => setIndustryDropdownOpen(false), 200)
                       }
-                      placeholder="Type to see best 5 matches..."
+                      placeholder="Type to see best 5 matches…"
                       autoComplete="off"
                     />
                     {industryId && (
@@ -2777,7 +2773,7 @@ const QueryForm = () => {
                               200,
                             )
                           }
-                          placeholder="Type to search products..."
+                          placeholder="Type to search products…"
                           autoComplete="off"
                         />
                         {catalogProductDropdownOpen && (
@@ -3224,7 +3220,7 @@ const QueryForm = () => {
                                       200,
                                     )
                                   }
-                                  placeholder="Search variant combination..."
+                                  placeholder="Search variant combination…"
                                   autoComplete="off"
                                 />
                                 {variantCombinationDropdownOpen &&
@@ -3318,11 +3314,7 @@ const QueryForm = () => {
                             </div>
                             <div className="space-y-1.5">
                               <Label>GST %</Label>
-                              <Input
-                                type="number"
-                                min={0}
-                                max={100}
-                                step={0.01}
+                              <GstRateSelect
                                 value={
                                   formProduct.gstPercentage == null
                                     ? ""
@@ -3340,9 +3332,8 @@ const QueryForm = () => {
                                     Number.isFinite(n) ? n : null,
                                   );
                                 }}
-                                placeholder="e.g. 18"
-                                readOnly={isCatalogProductForm}
-                                className={
+                                disabled={isCatalogProductForm}
+                                selectClassName={
                                   isCatalogProductForm ? "bg-muted" : ""
                                 }
                               />
@@ -3637,7 +3628,7 @@ const QueryForm = () => {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>S.No.</TableHead>
+                            <TableHead>#</TableHead>
                             <TableHead>Product name</TableHead>
                             <TableHead>Group</TableHead>
                             <TableHead>Category</TableHead>

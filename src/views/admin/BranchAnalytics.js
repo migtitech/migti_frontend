@@ -488,7 +488,7 @@ const BranchAnalytics = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Query Code</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Status</TableHead>
@@ -525,7 +525,7 @@ const BranchAnalytics = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Quotation No.</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Total Amount</TableHead>
@@ -566,7 +566,7 @@ const BranchAnalytics = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Sales Person</TableHead>
                       <TableHead>Amount</TableHead>
@@ -603,7 +603,7 @@ const BranchAnalytics = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Company</TableHead>
                       <TableHead>Sales Person</TableHead>
                       <TableHead>Amount</TableHead>

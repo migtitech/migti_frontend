@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Pencil,
   Building2,
   Mail,
@@ -23,7 +22,7 @@ import {
 import supplierService from "../../services/supplierService";
 import supplierBranchService from "../../services/supplierBranchService";
 import bpDummy from "../../data/businessPartnerDummy";
-import { Loader, StatusBadge } from "../../components";
+import { Loader, StatusBadge, BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -98,7 +97,7 @@ const SupplierView = () => {
         const data = res?.data || res;
         setSupplier(data);
       } catch (err) {
-        toastError(err?.message || "Failed to fetch supplier");
+        toastError(err?.message || "Failed to load supplier");
       } finally {
         setLoading(false);
       }
@@ -195,14 +194,7 @@ const SupplierView = () => {
   return (
     <div className="space-y-4">
       <div className="mb-1 flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/suppliers")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Suppliers
-        </Button>
+        <BackButton fallback="/suppliers" />
         <Button type="button" onClick={() => navigate(`/suppliers/edit/${id}`)}>
           <Pencil className="h-4 w-4" />
           Edit

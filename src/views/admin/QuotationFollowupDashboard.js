@@ -12,6 +12,7 @@ import {
   Lock,
   Timer,
   MapPin,
+  Plus,
 } from "lucide-react";
 import { CChartDoughnut, CChartLine } from "@coreui/react-chartjs";
 import {
@@ -48,6 +49,7 @@ import {
 } from "../../components";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { dateFormatter, dateTimeFormatter } from "../../utils/dateFormatter";
+import NewFollowupDialog from "./followup/NewFollowupDialog";
 
 const OVERVIEW_CHART_COLORS = ["#f79009", "#12b76a", "#6f42c1", "#0ea5e9"];
 
@@ -209,6 +211,7 @@ const QuotationFollowupDashboard = () => {
   });
   const debounceTimer = useRef(null);
 
+  const [newFollowupOpen, setNewFollowupOpen] = useState(false);
   const [remarkModalOpen, setRemarkModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
@@ -463,16 +466,26 @@ const QuotationFollowupDashboard = () => {
           <CardTitle>
             {isHodView ? "Follow-up Dashboard" : "Quotation Follow-up"}
           </CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => loadData(page)}
-            disabled={loading}
-          >
-            <RefreshCw className="h-4 w-4" />
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setNewFollowupOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              New
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => loadData(page)}
+              disabled={loading}
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -692,7 +705,7 @@ const QuotationFollowupDashboard = () => {
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Follow-up history</DialogTitle>
+            <DialogTitle>Follow-up History</DialogTitle>
           </DialogHeader>
           {selectedRow && (
             <p className="text-sm text-muted-foreground">
@@ -746,6 +759,12 @@ const QuotationFollowupDashboard = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <NewFollowupDialog
+        open={newFollowupOpen}
+        onOpenChange={setNewFollowupOpen}
+        onSaved={() => loadData(page)}
+      />
     </div>
   );
 };

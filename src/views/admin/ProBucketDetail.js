@@ -1,6 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, User, X } from "lucide-react";
+import {
+  Boxes,
+  CalendarClock,
+  Hash,
+  Image as ImageIcon,
+  Layers,
+  Package,
+  Plus,
+  Ruler,
+  Search,
+  Tag,
+  Trash2,
+  User,
+} from "lucide-react";
 import {
   Badge,
   Button,
@@ -12,18 +25,12 @@ import {
   Label,
   Select,
   Textarea,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetBody,
-  SheetFooter,
-  SheetTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -35,7 +42,11 @@ import supplierService from "../../services/supplierService";
 import localProcurementService from "../../services/localProcurementService";
 import areaService from "../../services/areaService";
 import usePermissions from "../../hooks/usePermissions";
-import { EyeIcon, Loader } from "../../components";
+import { BackButton, GstRateSelect, Loader } from "../../components";
+import CategorySuppliersTable, {
+  fetchAllSuppliersByCategory,
+  DUMMY_CATEGORY_SUPPLIERS,
+} from "../../components/CategorySuppliersTable/CategorySuppliersTable";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
@@ -118,230 +129,208 @@ const refId = (refVal) => {
   return String(refVal);
 };
 
-const fetchAllSuppliersByCategory = async (categoryId) => {
-  const all = [];
-  let page = 1;
-  let hasNext = true;
-  while (hasNext) {
-    const res = await supplierService.getAll({
-      pageNumber: page,
-      pageSize: 100,
-      category: categoryId,
-    });
-    const block = res?.data;
-    const list = Array.isArray(block?.suppliers) ? block.suppliers : [];
-    all.push(...list);
-    hasNext = block?.pagination?.hasNextPage === true;
-    page += 1;
-    if (page > 50) break;
-  }
-  return all;
-};
-
-const CategorySuppliersTable = ({
-  suppliers,
-  loading,
-  categoryName,
-  navigate,
-}) => {
-  if (loading) {
-    return <Loader message="Loading category suppliers…" />;
-  }
-  if (!suppliers.length) {
-    return (
-      <p className="text-muted-foreground">
-        No suppliers are linked to
-        {categoryName ? ` "${categoryName}"` : " this category"}.
-      </p>
-    );
-  }
-  return (
-    <div className="rounded-md border border-border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>#</TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Shop</TableHead>
-            <TableHead>Phone 1</TableHead>
-            <TableHead>Phone 2</TableHead>
-            <TableHead>Email</TableHead>
-            <TableHead>Other contact</TableHead>
-            <TableHead>Label</TableHead>
-            <TableHead>Location</TableHead>
-            <TableHead>GST</TableHead>
-            <TableHead>Address</TableHead>
-            <TableHead>Remark</TableHead>
-            <TableHead>View</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {suppliers.map((s, index) => (
-            <TableRow
-              key={s._id}
-              className="cursor-pointer"
-              onClick={() => navigate(`/suppliers/${s._id}`)}
-            >
-              <TableCell>{index + 1}</TableCell>
-              <TableCell>
-                <strong>{dash(s.name)}</strong>
-              </TableCell>
-              <TableCell>{dash(s.shopname)}</TableCell>
-              <TableCell>{dash(s.phone_1)}</TableCell>
-              <TableCell>{dash(s.phone_2)}</TableCell>
-              <TableCell>{dash(s.email)}</TableCell>
-              <TableCell>{dash(s.other_contact)}</TableCell>
-              <TableCell>{dash(s.label)}</TableCell>
-              <TableCell>{dash(s.shop_location)}</TableCell>
-              <TableCell>{dash(s.gst)}</TableCell>
-              <TableCell className="max-w-[14rem] break-words">
-                {dash(s.address)}
-              </TableCell>
-              <TableCell className="max-w-[12rem] break-words">
-                {dash(s.remark)}
-              </TableCell>
-              <TableCell onClick={(e) => e.stopPropagation()}>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  title="View supplier"
-                  onClick={() => navigate(`/suppliers/${s._id}`)}
-                >
-                  <EyeIcon />
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-};
-
 const Field = ({ label, children, className = "" }) => (
   <div className={className}>
-    <div className="text-[0.7rem] uppercase text-muted-foreground">{label}</div>
-    <div className="break-words text-sm text-foreground">
+    <div className="mb-0.5 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+      {label}
+    </div>
+    <div className="break-words text-sm font-medium text-foreground">
       {children != null && children !== "" ? children : "—"}
     </div>
   </div>
 );
 
+/** Compact icon + label + value tile used in the "at a glance" strip. */
+const StatTile = ({ icon: Icon, label, value, accent = "primary" }) => {
+  const accentMap = {
+    primary: "bg-primary/10 text-primary!",
+    info: "bg-info/10 text-info!",
+    success: "bg-success/10 text-success!",
+    warning: "bg-warning/10 text-warning!",
+  };
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card p-3">
+      <span
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
+          accentMap[accent] || accentMap.primary,
+        )}
+      >
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0">
+        <div className="text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div className="truncate text-base font-semibold text-foreground">
+          {value != null && value !== "" ? value : "—"}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** Section shell with an icon-tinted heading for a consistent, polished look. */
+const InfoSection = ({ icon: Icon, title, action, children }) => (
+  <Card className="mb-4 overflow-hidden">
+    <CardHeader className="flex flex-row items-center justify-between gap-2 border-b bg-muted/40 py-3">
+      <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+        <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10 text-primary!">
+          <Icon className="h-4 w-4" />
+        </span>
+        {title}
+      </CardTitle>
+      {action}
+    </CardHeader>
+    <CardContent className="pt-4">{children}</CardContent>
+  </Card>
+);
+
 const ItemInfoSections = ({ item }) => {
   const variants = Array.isArray(item.variants) ? item.variants : [];
   const imageList = Array.isArray(item.images) ? item.images : [];
+  const gstText =
+    item.gstPercentage != null && item.gstPercentage !== ""
+      ? `${item.gstPercentage}%`
+      : "—";
 
   return (
     <div className="pro-bucket-item-info">
-      <Card className="mb-3 border-0 bg-muted">
-        <CardContent className="pt-6">
-          <h4 className="mb-1 text-base font-semibold">
-            {dash(item.productName) || "Product line"}
-          </h4>
-          <p className="text-sm text-muted-foreground">
-            Line {item.lineIndex != null ? item.lineIndex + 1 : "—"}
-          </p>
-        </CardContent>
-      </Card>
+      {/* At-a-glance strip */}
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <StatTile
+          icon={Boxes}
+          label="Quantity"
+          value={
+            item.quantity != null && item.quantity !== ""
+              ? `${item.quantity}${item.unit ? ` ${item.unit}` : ""}`
+              : "—"
+          }
+          accent="primary"
+        />
+        <StatTile
+          icon={Ruler}
+          label="Unit"
+          value={dash(item.unit)}
+          accent="info"
+        />
+        <StatTile
+          icon={Hash}
+          label="HSN"
+          value={dash(item.hsnNumber)}
+          accent="success"
+        />
+        <StatTile icon={Tag} label="GST" value={gstText} accent="warning" />
+      </div>
 
-      <Card className="mb-3">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Product and quantity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-            <Field label="Quantity">{dash(item.quantity)}</Field>
-            <Field label="Unit">{dash(item.unit)}</Field>
-            <Field label="HSN">{dash(item.hsnNumber)}</Field>
-            <Field label="Model / part #">{dash(item.modelNumber)}</Field>
-            <Field label="GST %">
-              {item.gstPercentage != null && item.gstPercentage !== ""
-                ? `${item.gstPercentage}`
-                : "—"}
-            </Field>
-            <Field label="Remark" className="sm:col-span-2 md:col-span-4">
-              {dash(item.remark)}
-            </Field>
-            <Field label="Description" className="sm:col-span-2 md:col-span-4">
-              {dash(item.description)}
-            </Field>
-            {variants.length > 0 && (
-              <div className="sm:col-span-2 md:col-span-4">
-                <div className="mb-1 text-[0.7rem] uppercase text-muted-foreground">
-                  Variants
-                </div>
-                <ul className="list-disc pl-5 text-sm text-foreground">
-                  {variants.map((v, i) => (
-                    <li key={v._id || i}>{dash(v.variantName)}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+      <InfoSection icon={Package} title="Product details">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2 md:grid-cols-3">
+          <Field label="Product name">{dash(item.productName)}</Field>
+          <Field label="Line #">
+            {item.lineIndex != null ? item.lineIndex + 1 : "—"}
+          </Field>
+          <Field label="Model / part #">{dash(item.modelNumber)}</Field>
+          <Field label="Quantity">{dash(item.quantity)}</Field>
+          <Field label="Unit">{dash(item.unit)}</Field>
+          <Field label="HSN number">{dash(item.hsnNumber)}</Field>
+          <Field label="GST %">{gstText}</Field>
+          <Field label="Remark" className="sm:col-span-2 md:col-span-3">
+            {dash(item.remark)}
+          </Field>
+          <Field label="Description" className="sm:col-span-2 md:col-span-3">
+            {dash(item.description)}
+          </Field>
+        </div>
 
-      <Card className="mb-3">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Classification and links</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <Field label="Product group">
-              <RefName refVal={item.groupId} />
-            </Field>
-            <Field label="Category">
-              <RefName refVal={item.categoryId} />
-            </Field>
-          </div>
-        </CardContent>
-      </Card>
-
-      {imageList.length > 0 && (
-        <Card className="mb-3">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Images</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-              {imageList.map((img) => {
-                const src = imgSrc(
-                  typeof img === "object" && img != null
-                    ? img.path || img.url
-                    : img,
-                );
-                if (!src) return null;
-                return (
-                  <div key={img._id || src}>
-                    <a
-                      href={src}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block"
-                    >
-                      <img
-                        src={src}
-                        alt={img.name || "Product"}
-                        className="w-full rounded border border-border"
-                        style={{ maxHeight: 180, objectFit: "contain" }}
-                      />
-                    </a>
-                    {img.name && (
-                      <div
-                        className="mt-1 truncate text-sm text-muted-foreground"
-                        title={img.name}
-                      >
-                        {img.name}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+        {variants.length > 0 && (
+          <div className="mt-5 border-t pt-4">
+            <div className="mb-2 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+              Variants ({variants.length})
             </div>
-          </CardContent>
-        </Card>
-      )}
+            <div className="flex flex-wrap gap-2">
+              {variants.map((v, i) => (
+                <span
+                  key={v._id || i}
+                  className="inline-flex items-center rounded-full border border-border bg-secondary! px-3 py-1 text-sm font-medium text-foreground"
+                >
+                  {dash(v.variantName)}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </InfoSection>
+
+      <InfoSection icon={Layers} title="Classification">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <div className="mb-1 flex items-center gap-2 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+              <Boxes className="h-3.5 w-3.5" /> Product group
+            </div>
+            <div className="text-sm font-semibold text-foreground">
+              <RefName refVal={item.groupId} />
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
+            <div className="mb-1 flex items-center gap-2 text-[0.68rem] font-medium uppercase tracking-wide text-muted-foreground">
+              <Tag className="h-3.5 w-3.5" /> Category
+            </div>
+            <div className="text-sm font-semibold text-foreground">
+              <RefName refVal={item.categoryId} />
+            </div>
+          </div>
+        </div>
+      </InfoSection>
+
+      <InfoSection
+        icon={ImageIcon}
+        title={`Images${imageList.length ? ` (${imageList.length})` : ""}`}
+      >
+        {imageList.length > 0 ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {imageList.map((img) => {
+              const src = imgSrc(
+                typeof img === "object" && img != null
+                  ? img.path || img.url
+                  : img,
+              );
+              if (!src) return null;
+              return (
+                <a
+                  key={img._id || src}
+                  href={src}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group block overflow-hidden rounded-xl border border-border bg-muted/30 transition-shadow hover:shadow-md"
+                >
+                  <div className="flex h-36 items-center justify-center overflow-hidden bg-background">
+                    <img
+                      src={src}
+                      alt={img.name || "Product"}
+                      className="h-full w-full object-contain transition-transform duration-200 group-hover:scale-105"
+                    />
+                  </div>
+                  {img.name && (
+                    <div
+                      className="truncate border-t border-border px-2 py-1.5 text-xs text-muted-foreground"
+                      title={img.name}
+                    >
+                      {img.name}
+                    </div>
+                  )}
+                </a>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+            <ImageIcon className="mb-2 h-8 w-8 text-muted-foreground/50" />
+            <p className="text-sm text-muted-foreground">
+              No images attached to this product.
+            </p>
+          </div>
+        )}
+      </InfoSection>
     </div>
   );
 };
@@ -395,6 +384,8 @@ const ProBucketDetail = () => {
   const [categorySuppliers, setCategorySuppliers] = useState([]);
   const [categorySuppliersLoading, setCategorySuppliersLoading] =
     useState(false);
+  const [suppliersTabSearch, setSuppliersTabSearch] = useState("");
+  const [ratesSearch, setRatesSearch] = useState("");
   const [localProBarOpen, setLocalProBarOpen] = useState(false);
   const [localProEmployees, setLocalProEmployees] = useState([]);
   const [localProEmployeesLoading, setLocalProEmployeesLoading] =
@@ -709,34 +700,46 @@ const ProBucketDetail = () => {
                 {item?.productName || "Item"}
               </span>
             </nav>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="flex-shrink-0"
-              onClick={() => navigate("/pro-bucket")}
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
+            <BackButton fallback="/pro-bucket" />
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row flex-wrap items-center gap-2 py-4">
-            {loading && <span className="text-muted-foreground">Loading…</span>}
-            {!loading && item && (
-              <>
-                {item.productName && (
-                  <strong className="mr-1">{item.productName}</strong>
-                )}
-                {rateBadge(item.status)}
+        <Card className="overflow-hidden">
+          {!loading && item && (
+            <div className="relative border-b bg-gradient-to-br from-primary/10 via-primary/5 to-transparent px-5 py-5">
+              <div className="flex flex-wrap items-start gap-4">
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary! shadow-sm">
+                  <Package className="h-7 w-7" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <h2 className="text-xl font-bold leading-tight text-foreground">
+                      {item.productName || "Product line"}
+                    </h2>
+                    {rateBadge(item.status)}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5" />
+                      Line {item.lineIndex != null ? item.lineIndex + 1 : "—"}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Tag className="h-3.5 w-3.5" />
+                      <RefName refVal={item.categoryId} />
+                    </span>
+                    {item.createdAt && (
+                      <span className="inline-flex items-center gap-1.5">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        {dateFormatter(item.createdAt, "—")}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {canAssignLocalPro && (
                   <Button
                     type="button"
-                    variant="outline"
                     size="sm"
-                    className="ml-auto"
+                    className="shrink-0 shadow-sm"
                     onClick={() => {
                       setSelectedLocalProEmployee("");
                       setSelectedLocalProZone("");
@@ -748,9 +751,14 @@ const ProBucketDetail = () => {
                     Assign Local Pro
                   </Button>
                 )}
-              </>
-            )}
-          </CardHeader>
+              </div>
+            </div>
+          )}
+          {loading && (
+            <CardHeader className="py-4">
+              <span className="text-muted-foreground">Loading…</span>
+            </CardHeader>
+          )}
           <CardContent>
             {loading ? (
               <Loader />
@@ -858,31 +866,43 @@ const ProBucketDetail = () => {
                   <ItemInfoSections item={item} />
                 </TabsContent>
                 <TabsContent value={String(TAB_SUPPLIERS)}>
-                  {!productCategoryId ? (
-                    <p className="text-muted-foreground">
-                      No category is assigned to this product, so suppliers
-                      cannot be listed by category.
-                    </p>
-                  ) : (
-                    <>
-                      <p className="mb-3 text-sm text-muted-foreground">
-                        Suppliers linked to category{" "}
-                        <strong>{productCategoryName}</strong> (matched via
-                        supplier <code>categories</code>).
-                      </p>
-                      <CategorySuppliersTable
-                        suppliers={categorySuppliers}
-                        loading={categorySuppliersLoading}
-                        categoryName={
-                          typeof item?.categoryId === "object" &&
-                          item.categoryId?.name
-                            ? String(item.categoryId.name)
-                            : ""
-                        }
-                        navigate={navigate}
-                      />
-                    </>
-                  )}
+                  {(() => {
+                    const hasRealSuppliers = categorySuppliers.length > 0;
+                    const showSample =
+                      !categorySuppliersLoading && !hasRealSuppliers;
+                    const rows = hasRealSuppliers
+                      ? categorySuppliers
+                      : DUMMY_CATEGORY_SUPPLIERS;
+                    return (
+                      <>
+                        <p className="mb-3 text-sm text-muted-foreground">
+                          {productCategoryId ? (
+                            <>
+                              Suppliers linked to category{" "}
+                              <strong>{productCategoryName}</strong> (matched
+                              via supplier <code>categories</code>).
+                            </>
+                          ) : (
+                            "No category is assigned to this product — showing sample suppliers below."
+                          )}
+                        </p>
+                        <CategorySuppliersTable
+                          suppliers={rows}
+                          loading={categorySuppliersLoading}
+                          isSample={showSample}
+                          search={suppliersTabSearch}
+                          onSearchChange={setSuppliersTabSearch}
+                          categoryName={
+                            typeof item?.categoryId === "object" &&
+                            item.categoryId?.name
+                              ? String(item.categoryId.name)
+                              : ""
+                          }
+                          navigate={navigate}
+                        />
+                      </>
+                    );
+                  })()}
                 </TabsContent>
                 <TabsContent value={String(TAB_RATES)}>
                   {canAddRate && !isPhoneView && item.rates?.length > 0 && (
@@ -929,86 +949,143 @@ const ProBucketDetail = () => {
                     </div>
                   )}
 
-                  {item.rates?.length > 0 && (
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                      {(item.rates || []).map((r) => {
-                        const finalAmount = resolveProBucketEffectiveRate(r);
-                        return (
-                          <Card key={r._id || `${r.submittedAt}-${r.rate}`}>
-                            <CardContent className="py-3">
-                              <div className="mb-2 flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div
-                                    className="truncate font-semibold"
-                                    title={
-                                      r.supplier?.name ||
-                                      r.supplier?.shopname ||
-                                      undefined
-                                    }
+                  {item.rates?.length > 0 &&
+                    (() => {
+                      const term = ratesSearch.trim().toLowerCase();
+                      const filteredRates = term
+                        ? item.rates.filter((r) =>
+                            [
+                              r.supplier?.name,
+                              r.supplier?.shopname,
+                              r.supplier?.phone_1,
+                              r.unit,
+                              r.remark,
+                              r.rate,
+                              r.gstPercentage,
+                              r.discountPercentage,
+                            ].some((v) =>
+                              String(v ?? "")
+                                .toLowerCase()
+                                .includes(term),
+                            ),
+                          )
+                        : item.rates;
+                      return (
+                        <>
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <div className="relative w-full max-w-xs">
+                              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                              <Input
+                                placeholder="Search rates by supplier, unit, remark…"
+                                value={ratesSearch}
+                                onChange={(e) => setRatesSearch(e.target.value)}
+                                className="pl-8"
+                              />
+                            </div>
+                            <span className="px-1 text-sm text-muted-foreground">
+                              {filteredRates.length} of {item.rates.length}
+                            </span>
+                          </div>
+                          {filteredRates.length === 0 ? (
+                            <p className="rounded border border-border bg-muted px-3 py-6 text-center text-sm text-muted-foreground">
+                              No rates match “{ratesSearch}”.
+                            </p>
+                          ) : (
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              {filteredRates.map((r) => {
+                                const finalAmount =
+                                  resolveProBucketEffectiveRate(r);
+                                return (
+                                  <Card
+                                    key={r._id || `${r.submittedAt}-${r.rate}`}
                                   >
-                                    {r.supplier?.name ||
-                                      r.supplier?.shopname ||
-                                      "Supplier"}
-                                  </div>
-                                  {r.supplier?.phone_1 && (
-                                    <div className="text-sm text-muted-foreground">
-                                      {r.supplier.phone_1}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="whitespace-nowrap text-[1.15rem] font-bold text-primary!">
-                                  ₹ {formatProBucketRateAmount(finalAmount)}
-                                </div>
-                              </div>
-                              <div className="mt-1 flex flex-wrap gap-3 border-t border-border pt-2 text-sm text-muted-foreground">
-                                <span>
-                                  <span className="mr-1">Base rate:</span>
-                                  <span className="text-foreground">
-                                    ₹ {formatProBucketRateAmount(r.rate)}
-                                  </span>
-                                </span>
-                                <span>
-                                  <span className="mr-1">GST %:</span>
-                                  <span className="text-foreground">
-                                    {r.gstPercentage != null
-                                      ? r.gstPercentage
-                                      : 0}
-                                  </span>
-                                </span>
-                                <span>
-                                  <span className="mr-1">Discount %:</span>
-                                  <span className="text-foreground">
-                                    {r.discountPercentage != null
-                                      ? r.discountPercentage
-                                      : 0}
-                                  </span>
-                                </span>
-                                <span>
-                                  <span className="mr-1">Unit:</span>
-                                  <span className="text-foreground">
-                                    {r.unit || "—"}
-                                  </span>
-                                </span>
-                                {r.remark && (
-                                  <span>
-                                    <span className="mr-1">Remark:</span>
-                                    <span className="text-foreground">
-                                      {r.remark}
-                                    </span>
-                                  </span>
-                                )}
-                                {r.submittedAt && (
-                                  <span className="ml-auto whitespace-nowrap">
-                                    {dateFormatter(r.submittedAt, "—")}
-                                  </span>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  )}
+                                    <CardContent className="py-3">
+                                      <div className="mb-2 flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div
+                                            className="truncate font-semibold"
+                                            title={
+                                              r.supplier?.name ||
+                                              r.supplier?.shopname ||
+                                              undefined
+                                            }
+                                          >
+                                            {r.supplier?.name ||
+                                              r.supplier?.shopname ||
+                                              "Supplier"}
+                                          </div>
+                                          {r.supplier?.phone_1 && (
+                                            <div className="text-sm text-muted-foreground">
+                                              {r.supplier.phone_1}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <div className="whitespace-nowrap text-[1.15rem] font-bold text-primary!">
+                                          ₹{" "}
+                                          {formatProBucketRateAmount(
+                                            finalAmount,
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="mt-1 flex flex-wrap gap-3 border-t border-border pt-2 text-sm text-muted-foreground">
+                                        <span>
+                                          <span className="mr-1">
+                                            Base rate:
+                                          </span>
+                                          <span className="text-foreground">
+                                            ₹{" "}
+                                            {formatProBucketRateAmount(r.rate)}
+                                          </span>
+                                        </span>
+                                        <span>
+                                          <span className="mr-1">GST %:</span>
+                                          <span className="text-foreground">
+                                            {r.gstPercentage != null
+                                              ? r.gstPercentage
+                                              : 0}
+                                          </span>
+                                        </span>
+                                        <span>
+                                          <span className="mr-1">
+                                            Discount %:
+                                          </span>
+                                          <span className="text-foreground">
+                                            {r.discountPercentage != null
+                                              ? r.discountPercentage
+                                              : 0}
+                                          </span>
+                                        </span>
+                                        <span>
+                                          <span className="mr-1">Unit:</span>
+                                          <span className="text-foreground">
+                                            {r.unit || "—"}
+                                          </span>
+                                        </span>
+                                        {r.remark && (
+                                          <span>
+                                            <span className="mr-1">
+                                              Remark:
+                                            </span>
+                                            <span className="text-foreground">
+                                              {r.remark}
+                                            </span>
+                                          </span>
+                                        )}
+                                        {r.submittedAt && (
+                                          <span className="ml-auto whitespace-nowrap">
+                                            {dateFormatter(r.submittedAt, "—")}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </CardContent>
+                                  </Card>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                 </TabsContent>
               </Tabs>
             )}
@@ -1016,96 +1093,58 @@ const ProBucketDetail = () => {
         </Card>
       </div>
 
-      <Sheet
+      <Dialog
         open={rateBarOpen}
         onOpenChange={(o) => {
           if (!o) closeRateBar();
         }}
       >
-        <SheetContent
-          side={isPhoneView ? "bottom" : "right"}
-          showClose={false}
+        <DialogContent
+          showClose={!saving}
           onInteractOutside={(e) => {
             if (saving) e.preventDefault();
           }}
           onEscapeKeyDown={(e) => {
             if (saving) e.preventDefault();
           }}
-          className={cn(
-            "gap-0 p-0",
-            isPhoneView
-              ? "max-h-[90vh] rounded-t-2xl"
-              : "w-[min(28rem,100%)] sm:max-w-none",
-          )}
+          className="max-w-2xl"
           aria-label="Add rates"
         >
-          {isPhoneView ? (
-            <div
-              className="flex flex-shrink-0 justify-center pb-1 pt-2"
-              aria-hidden
-            >
-              <span className="h-[0.28rem] w-9 rounded-full bg-muted-foreground/45" />
-            </div>
-          ) : null}
-          <SheetHeader
-            className={cn(
-              "flex-row items-center justify-between gap-2 space-y-0",
-              isPhoneView ? "px-3 pb-3 pt-1" : "px-3 py-2",
-            )}
-          >
+          <DialogHeader className="gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary!">
+              <Plus className="h-5 w-5" />
+            </span>
             <div className="min-w-0">
-              <SheetTitle
-                className={isPhoneView ? "text-lg font-semibold" : "text-base"}
+              <DialogTitle>Add Rate</DialogTitle>
+              <DialogDescription className="truncate" title={item?.productName}>
+                {item?.productName || "Submit supplier rates for this item"}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <Label
+                className="mb-1.5 block"
+                htmlFor="pro-bucket-supplier-search"
               >
-                Add rate
-              </SheetTitle>
-              {item?.productName && (
-                <div
-                  className="truncate text-[0.78rem] text-muted-foreground"
-                  title={item.productName}
-                >
-                  {item.productName}
-                </div>
+                Search suppliers
+              </Label>
+              <Input
+                id="pro-bucket-supplier-search"
+                placeholder="Name, shop, phone, email, GST…"
+                value={supplierSearch}
+                onChange={(e) => setSupplierSearch(e.target.value)}
+              />
+              {supplierSearch.trim() && (
+                <p className="mt-1.5 text-sm text-muted-foreground">
+                  {suppliers.length} supplier
+                  {suppliers.length !== 1 ? "s" : ""} match this search (up to
+                  100). Clear the field to load the full list.
+                </p>
               )}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={closeRateBar}
-              disabled={saving}
-              className="flex-shrink-0 rounded-full"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </SheetHeader>
 
-          <div
-            className={cn(
-              "flex-shrink-0 border-b border-border",
-              isPhoneView ? "px-3 py-3" : "px-3 py-2",
-            )}
-          >
-            <Label className="mb-1 block" htmlFor="pro-bucket-supplier-search">
-              Search suppliers
-            </Label>
-            <Input
-              id="pro-bucket-supplier-search"
-              placeholder="Name, shop, phone, email, GST…"
-              value={supplierSearch}
-              onChange={(e) => setSupplierSearch(e.target.value)}
-            />
-            {supplierSearch.trim() && (
-              <p className="mt-1 text-sm text-muted-foreground">
-                {suppliers.length} supplier{suppliers.length !== 1 ? "s" : ""}{" "}
-                match this search (up to 100). Clear the field to load the full
-                list.
-              </p>
-            )}
-          </div>
-
-          <SheetBody className={cn("px-3", isPhoneView ? "py-3" : "py-2")}>
             {rateRows.map((row, idx) => {
               const options = supplierOptionsForRow(row);
               const gstValue =
@@ -1129,11 +1168,14 @@ const ProBucketDetail = () => {
               return (
                 <div
                   key={idx}
-                  className="mb-3 rounded border border-border bg-muted"
+                  className="overflow-hidden rounded-xl border border-border bg-card shadow-sm"
                 >
-                  <div className="flex items-center justify-between rounded-t-[calc(0.375rem-1px)] border-b border-border bg-secondary! px-3 py-2">
-                    <span className="text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">
-                      Rate entry {rateRows.length > 1 ? idx + 1 : ""}
+                  <div className="flex items-center justify-between border-b border-border bg-muted/50 px-3 py-2">
+                    <span className="flex items-center gap-1.5 text-[0.7rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-[0.65rem] font-bold text-primary!">
+                        {idx + 1}
+                      </span>
+                      Rate entry
                     </span>
                     {rateRows.length > 1 && (
                       <Button
@@ -1204,12 +1246,7 @@ const ProBucketDetail = () => {
                       </div>
                       <div>
                         <Label className="mb-1 block">GST %</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          autoComplete="off"
-                          spellCheck={false}
-                          placeholder="0"
+                        <GstRateSelect
                           value={row.gstPercentage}
                           onChange={(e) =>
                             updateRateRow(
@@ -1240,18 +1277,12 @@ const ProBucketDetail = () => {
                       </div>
                       <div>
                         <Label className="mb-1 block">Final amount</Label>
-                        <Input
-                          type="text"
-                          readOnly
-                          tabIndex={-1}
-                          value={
-                            finalAmountPreview != null
-                              ? formatProBucketRateAmount(finalAmountPreview)
-                              : ""
-                          }
-                          placeholder="—"
-                          className="bg-secondary!"
-                        />
+                        <div className="flex h-9 items-center rounded-md border border-primary/30 bg-primary/5 px-3 text-sm font-bold text-primary!">
+                          ₹{" "}
+                          {finalAmountPreview != null
+                            ? formatProBucketRateAmount(finalAmountPreview)
+                            : "—"}
+                        </div>
                       </div>
                       <div className="col-span-2">
                         <Label className="mb-1 block">Remark</Label>
@@ -1273,160 +1304,133 @@ const ProBucketDetail = () => {
               variant="outline"
               size="sm"
               onClick={addRateRow}
-              className="mb-1"
+              className="w-full border-dashed"
             >
               <Plus className="h-4 w-4" />
               Add another entry
             </Button>
-          </SheetBody>
+          </div>
 
-          <SheetFooter
-            className={cn(
-              "flex-shrink-0 gap-2 px-3",
-              isPhoneView
-                ? "flex-col bg-card py-3"
-                : "flex-wrap justify-end bg-secondary! py-2",
-            )}
-            style={{
-              paddingBottom: isPhoneView
-                ? "max(0.75rem, env(safe-area-inset-bottom, 0px))"
-                : undefined,
-              boxShadow: isPhoneView
-                ? "0 -4px 20px rgba(0,0,0,0.06)"
-                : undefined,
-            }}
-          >
+          <DialogFooter>
             <Button
               type="button"
-              onClick={submitRates}
-              disabled={saving}
-              className={isPhoneView ? "w-full" : undefined}
-            >
-              {saving ? "Saving…" : "Save rates"}
-            </Button>
-            <Button
-              type="button"
-              variant={isPhoneView ? "outline" : "ghost"}
+              variant="ghost"
               onClick={closeRateBar}
               disabled={saving}
-              className={isPhoneView ? "w-full" : undefined}
             >
               Cancel
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+            <Button type="button" onClick={submitRates} disabled={saving}>
+              {saving ? "Saving…" : "Save rates"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      <Sheet
+      <Dialog
         open={localProBarOpen}
         onOpenChange={(o) => {
           if (!o) closeLocalProBar();
         }}
       >
-        <SheetContent
-          side={isPhoneView ? "bottom" : "right"}
-          showClose={false}
+        <DialogContent
+          showClose={!assigningLocalPro}
           onInteractOutside={(e) => {
             if (assigningLocalPro) e.preventDefault();
           }}
           onEscapeKeyDown={(e) => {
             if (assigningLocalPro) e.preventDefault();
           }}
-          className={cn(
-            "gap-0 p-0",
-            isPhoneView
-              ? "max-h-[90vh] rounded-t-2xl"
-              : "w-[min(24rem,100%)] sm:max-w-none",
-          )}
+          className="max-w-md"
           aria-label="Assign local procurement"
         >
-          <SheetHeader className="flex-row items-center justify-between gap-2 space-y-0 px-3 py-2">
+          <DialogHeader className="gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary!">
+              <User className="h-5 w-5" />
+            </span>
             <div className="min-w-0">
-              <SheetTitle className="text-base">Assign Local Pro</SheetTitle>
-              {item?.productName && (
-                <div
-                  className="truncate text-sm text-muted-foreground"
-                  title={item.productName}
-                >
-                  {item.productName}
-                </div>
-              )}
+              <DialogTitle>Assign Local Pro</DialogTitle>
+              <DialogDescription className="truncate" title={item?.productName}>
+                {item?.productName || "Assign this item to a local buyer"}
+              </DialogDescription>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              onClick={closeLocalProBar}
-              disabled={assigningLocalPro}
-              className="flex-shrink-0"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </SheetHeader>
+          </DialogHeader>
 
-          <SheetBody className="px-3 py-3">
+          <div className="space-y-4">
             {localProEmployeesLoading || marketZonesLoading ? (
               <Loader message="Loading form…" />
             ) : localProEmployees.length === 0 ? (
-              <p className="text-muted-foreground">
-                No employees with the local procurement role were found.
-              </p>
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+                <User className="mb-2 h-8 w-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">
+                  No employees with the local procurement role were found.
+                </p>
+              </div>
             ) : (
               <>
-                <Label htmlFor="local-pro-employee" className="mb-1 block">
-                  Local procurement employee
-                </Label>
-                <Select
-                  id="local-pro-employee"
-                  value={selectedLocalProEmployee}
-                  onChange={(e) => setSelectedLocalProEmployee(e.target.value)}
-                  className="mb-3"
-                >
-                  <option value="">— Select employee —</option>
-                  {localProEmployees.map((emp) => {
-                    const empId = emp.employeeId || emp._id;
-                    const label = emp.email || emp.companyEmail || "—";
-                    return (
-                      <option key={empId} value={String(empId)}>
-                        {label}
+                <div>
+                  <Label htmlFor="local-pro-employee" className="mb-1.5 block">
+                    Local procurement employee{" "}
+                    <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    id="local-pro-employee"
+                    value={selectedLocalProEmployee}
+                    onChange={(e) =>
+                      setSelectedLocalProEmployee(e.target.value)
+                    }
+                  >
+                    <option value="">— Select employee —</option>
+                    {localProEmployees.map((emp) => {
+                      const empId = emp.employeeId || emp._id;
+                      const label = emp.email || emp.companyEmail || "—";
+                      return (
+                        <option key={empId} value={String(empId)}>
+                          {label}
+                        </option>
+                      );
+                    })}
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="local-pro-zone" className="mb-1.5 block">
+                    Zone{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (optional)
+                    </span>
+                  </Label>
+                  <Select
+                    id="local-pro-zone"
+                    value={selectedLocalProZone}
+                    onChange={(e) => setSelectedLocalProZone(e.target.value)}
+                  >
+                    <option value="">— Select zone —</option>
+                    {marketZones.map((zone) => (
+                      <option key={zone.id} value={String(zone.id)}>
+                        {formatProcurementZone(zone)}
                       </option>
-                    );
-                  })}
-                </Select>
+                    ))}
+                  </Select>
+                </div>
 
-                <Label htmlFor="local-pro-zone" className="mb-1 block">
-                  Zone (optional)
-                </Label>
-                <Select
-                  id="local-pro-zone"
-                  value={selectedLocalProZone}
-                  onChange={(e) => setSelectedLocalProZone(e.target.value)}
-                  className="mb-3"
-                >
-                  <option value="">— Select zone —</option>
-                  {marketZones.map((zone) => (
-                    <option key={zone.id} value={String(zone.id)}>
-                      {formatProcurementZone(zone)}
-                    </option>
-                  ))}
-                </Select>
-
-                <Label htmlFor="local-pro-remark" className="mb-1 mt-2 block">
-                  Remark
-                </Label>
-                <Textarea
-                  id="local-pro-remark"
-                  rows={3}
-                  placeholder="Optional note for the assignee…"
-                  value={localProAssignRemark}
-                  onChange={(e) => setLocalProAssignRemark(e.target.value)}
-                />
+                <div>
+                  <Label htmlFor="local-pro-remark" className="mb-1.5 block">
+                    Remark
+                  </Label>
+                  <Textarea
+                    id="local-pro-remark"
+                    rows={3}
+                    placeholder="Optional note for the assignee…"
+                    value={localProAssignRemark}
+                    onChange={(e) => setLocalProAssignRemark(e.target.value)}
+                  />
+                </div>
               </>
             )}
-          </SheetBody>
+          </div>
 
-          <SheetFooter className="flex-shrink-0 justify-end gap-2 px-3 py-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="ghost"
@@ -1445,11 +1449,12 @@ const ProBucketDetail = () => {
                 !selectedLocalProEmployee
               }
             >
+              <User className="h-4 w-4" />
               {assigningLocalPro ? "Assigning…" : "Assign"}
             </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

@@ -249,7 +249,7 @@ const ContactPersonListBase = ({ parentType }) => {
               <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Search by name, email or company..."
+                placeholder="Search by name, email or company…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-8"
@@ -274,7 +274,7 @@ const ContactPersonListBase = ({ parentType }) => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete contact person?"
+        title="Delete Contact Person?"
         message="Are you sure you want to delete this contact person?"
         confirmText="Delete"
         cancelText="Cancel"

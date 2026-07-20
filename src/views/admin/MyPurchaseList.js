@@ -22,13 +22,12 @@ import {
   Textarea,
   Alert,
   AlertDescription,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetBody,
-  SheetFooter,
-  SheetTitle,
-  SheetDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
 } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -633,15 +632,15 @@ const MyPurchaseList = () => {
         </>
       )}
 
-      <Sheet
+      <Dialog
         open={detailOpen}
         onOpenChange={(o) => {
           if (!o) closeDetail();
         }}
       >
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-xl"
+        <DialogContent
+          className="max-w-xl"
+          showClose={!(detailLoading || submitting || uploading)}
           onInteractOutside={(e) => {
             if (detailLoading || submitting || uploading) e.preventDefault();
           }}
@@ -651,15 +650,18 @@ const MyPurchaseList = () => {
         >
           {detail && (
             <>
-              <SheetHeader>
-                <SheetTitle>Product details</SheetTitle>
-                <SheetDescription className="truncate" title={snap.productName}>
+              <DialogHeader className="flex-col items-start gap-1.5">
+                <DialogTitle>Product Details</DialogTitle>
+                <DialogDescription
+                  className="truncate"
+                  title={snap.productName}
+                >
                   {snap.productName || "Product"}
-                </SheetDescription>
+                </DialogDescription>
                 <div className="pt-1">{statusBadge(detail.status)}</div>
-              </SheetHeader>
+              </DialogHeader>
 
-              <SheetBody>
+              <div className="space-y-3">
                 {detailLoading ? (
                   <Loader message="Loading product…" />
                 ) : (
@@ -960,10 +962,10 @@ const MyPurchaseList = () => {
                     )}
                   </>
                 )}
-              </SheetBody>
+              </div>
 
               {!detailLoading && (
-                <SheetFooter className="flex-col gap-2">
+                <DialogFooter className="flex-col gap-2">
                   {detail.locationLink ? (
                     <a
                       className={buttonVariants({
@@ -987,12 +989,12 @@ const MyPurchaseList = () => {
                   >
                     Close
                   </Button>
-                </SheetFooter>
+                </DialogFooter>
               )}
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

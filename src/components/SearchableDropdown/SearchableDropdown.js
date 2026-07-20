@@ -139,7 +139,7 @@ const SearchableDropdown = ({
       />
       {showSuggestions && !disabled && (
         <ul
-          className="absolute z-50 mt-1 max-h-64 w-full overflow-auto rounded-md border border-border bg-popover py-1 shadow-md"
+          className="absolute z-[1060] mt-1 max-h-64 w-full overflow-auto rounded-md border border-border bg-popover py-1 shadow-md"
           role="listbox"
         >
           {suggestions.length === 0 ? (

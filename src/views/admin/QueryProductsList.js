@@ -287,7 +287,7 @@ const QueryProductsList = () => {
     () => [
       {
         key: "index",
-        label: "S.No",
+        label: "#",
         width: 50,
         align: "center",
         toggleable: false,

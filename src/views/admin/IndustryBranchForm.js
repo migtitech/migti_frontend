@@ -3,11 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import { ArrowLeft } from "lucide-react";
 import industryBranchService from "../../services/industryBranchService";
 import industryService from "../../services/industryService";
 import locationService from "../../services/locationService";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import { BackButton, Loader, CrudFormPage, FormField } from "../../components";
 import {
   Button,
   Alert,
@@ -186,7 +185,7 @@ const IndustryBranchForm = () => {
       });
       if (data?.state) ensureCitiesForState(data.state);
     } catch (err) {
-      toastError(err?.message || "Failed to fetch client branch");
+      toastError(err?.message || "Failed to load client branch");
     } finally {
       setLoading(false);
     }
@@ -232,15 +231,7 @@ const IndustryBranchForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/industry-branches")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to client branches
-        </Button>
+        <BackButton fallback="/industry-branches" />
       </div>
 
       {error && (

@@ -1,14 +1,12 @@
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { PageHeader, StatusBadge, EmptyState } from "../../components";
+import { useParams } from "react-router-dom";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Button,
-} from "../../components/ui";
+  PageHeader,
+  StatusBadge,
+  EmptyState,
+  BackButton,
+} from "../../components";
+import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui";
 import {
   formatOrderStatus,
   statusVariant,
@@ -20,7 +18,6 @@ const formatINR = (value) =>
 
 const SalesOrderView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const order = salesOrders.find((o) => o.id === id);
 
   if (!order) {
@@ -28,17 +25,10 @@ const SalesOrderView = () => {
       <div className="space-y-6">
         <PageHeader title="Sales order not found" />
         <EmptyState
-          title="No such order"
+          title="Order not found"
           message="This sample sales order record doesn't exist."
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/sales-master/sales-order/status")}
-        >
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back to Sales Order Status
-        </Button>
+        <BackButton fallback="/sales-master/sales-order/status" />
       </div>
     );
   }
@@ -48,16 +38,7 @@ const SalesOrderView = () => {
       <PageHeader
         title={order.id}
         description="Sales order detail — sample data for UI preview."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales-master/sales-order/status")}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Sales Order Status
-          </Button>
-        }
+        actions={<BackButton fallback="/sales-master/sales-order/status" />}
       />
 
       <Card>

@@ -1,6 +1,6 @@
 import React from "react";
 import PropTypes from "prop-types";
-import * as SwitchPrimitive from "@radix-ui/react-switch";
+import { Switch } from "../ui";
 import StatusBadge from "../StatusBadge/StatusBadge";
 import { getStatusLabel } from "../../constants/colorTheme";
 import { cn } from "../../lib/utils";
@@ -40,29 +40,16 @@ const StatusToggle = React.forwardRef(
 
     return (
       <div className={cn("flex items-center gap-2", className)}>
-        <SwitchPrimitive.Root
+        <Switch
           ref={ref}
           id={id}
           checked={isActive}
           disabled={disabled}
           onCheckedChange={onCheckedChange}
           aria-label={ariaLabel}
-          className={cn(
-            "peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-[9999px] border border-transparent shadow-sm transition-colors",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "data-[state=checked]:bg-primary data-[state=unchecked]:bg-input data-[state=unchecked]:border-border",
-            switchClassName,
-          )}
+          className={switchClassName}
           {...props}
-        >
-          <SwitchPrimitive.Thumb
-            className={cn(
-              "pointer-events-none block size-5 rounded-[9999px] bg-background shadow-md ring-0 transition-transform",
-              "data-[state=checked]:translate-x-[1.25rem] data-[state=unchecked]:translate-x-0.5",
-            )}
-          />
-        </SwitchPrimitive.Root>
+        />
         {showLabel ? (
           <StatusBadge status={labelStatus}>
             {getStatusLabel(labelStatus)}

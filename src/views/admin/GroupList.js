@@ -66,7 +66,7 @@ const GroupList = () => {
       setGroups(data?.groups || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      setError(err?.message || "Failed to fetch groups");
+      setError(err?.message || "Failed to load groups");
     } finally {
       setLoading(false);
     }
@@ -132,7 +132,7 @@ const GroupList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

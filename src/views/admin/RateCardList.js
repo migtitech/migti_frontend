@@ -541,7 +541,7 @@ const RateCardList = () => {
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="pl-8 pr-9"
-                    placeholder="Search product by name or SKU..."
+                    placeholder="Search product by name or SKU…"
                     value={productSearch}
                     onChange={(e) => {
                       setProductSearch(e.target.value);
@@ -695,7 +695,7 @@ const RateCardList = () => {
                         <Table>
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead style={{ width: 50 }}>S No</TableHead>
+                              <TableHead style={{ width: 50 }}>#</TableHead>
                               <TableHead>Supplier Name</TableHead>
                               <TableHead>Shop</TableHead>
                               <TableHead>Phone</TableHead>
@@ -851,7 +851,7 @@ const RateCardList = () => {
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     className="pl-8 pr-9"
-                    placeholder="Search supplier by name, shop or phone..."
+                    placeholder="Search supplier by name, shop or phone…"
                     value={supplierSearch}
                     onChange={(e) => {
                       setSupplierSearch(e.target.value);
@@ -954,7 +954,7 @@ const RateCardList = () => {
                         <Table>
                           <TableHeader>
                             <TableRow className="hover:bg-transparent">
-                              <TableHead style={{ width: 50 }}>S No</TableHead>
+                              <TableHead style={{ width: 50 }}>#</TableHead>
                               <TableHead>Product Name</TableHead>
                               <TableHead>SKU</TableHead>
                               <TableHead style={{ width: 150 }}>
@@ -1087,7 +1087,7 @@ const RateCardList = () => {
                       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         className="pl-8 pr-9"
-                        placeholder="Search product by name or SKU..."
+                        placeholder="Search product by name or SKU…"
                         value={addProductSearch}
                         onChange={(e) => {
                           setAddProductSearch(e.target.value);
@@ -1190,7 +1190,7 @@ const RateCardList = () => {
                           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
                             className="h-8 pl-8"
-                            placeholder="Search combination..."
+                            placeholder="Search combination…"
                             value={addCombinationSearch}
                             onChange={(e) =>
                               setAddCombinationSearch(e.target.value)
@@ -1294,7 +1294,7 @@ const RateCardList = () => {
                       <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
                         className="pl-8 pr-9"
-                        placeholder="Search supplier by name, shop or phone..."
+                        placeholder="Search supplier by name, shop or phone…"
                         value={addSupplierSearch}
                         onChange={(e) => {
                           setAddSupplierSearch(e.target.value);

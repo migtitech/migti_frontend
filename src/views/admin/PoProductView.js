@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Save, CheckCircle } from "lucide-react";
+import { Save, CheckCircle } from "lucide-react";
 import { poProductsBucketService } from "../../services/deliveryApprovalService";
 import { useAuth } from "../../context/AuthContext";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader, PageHeader } from "../../components";
+import { BackButton, Loader, PageHeader } from "../../components";
 import {
   Alert,
   AlertDescription,
@@ -220,14 +220,7 @@ const PoProductView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/po-products")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/po-products" />
       </div>
 
       <PageHeader

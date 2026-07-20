@@ -80,7 +80,7 @@ const Suppliers = () => {
     };
     setSupplierList((prev) => [newSupplier, ...prev]);
     toastSuccess(
-      `Supplier "${form.name}" added under ${form.category} (sample UI, not saved).`,
+      `Supplier "${form.name}" added under ${form.category} (sample UI, not saved)`,
     );
     setForm(emptyForm);
   };

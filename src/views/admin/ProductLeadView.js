@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
 import queryNewProductService from "../../services/queryNewProductService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, PageHeader } from "../../components";
+import { BackButton, Loader, PageHeader } from "../../components";
 import {
-  Button,
   Card,
   CardHeader,
   CardTitle,
@@ -35,7 +33,6 @@ const getImageUrl = (img) => {
 
 const ProductLeadView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -52,8 +49,8 @@ const ProductLeadView = () => {
         const data = res?.data?.data ?? res?.data ?? res;
         setProduct(data);
       } catch (err) {
-        setError(err?.message || "Failed to fetch product");
-        toastError(err?.message || "Failed to fetch product");
+        setError(err?.message || "Failed to load product");
+        toastError(err?.message || "Failed to load product");
       } finally {
         setLoading(false);
       }
@@ -77,10 +74,7 @@ const ProductLeadView = () => {
         <Alert variant="destructive" className="mb-3">
           <AlertDescription>{error || "Product not found."}</AlertDescription>
         </Alert>
-        <Button variant="outline" onClick={() => navigate("/product-lead")}>
-          <ArrowLeft className="h-4 w-4" />
-          Back to Product Lead
-        </Button>
+        <BackButton fallback="/product-lead" />
       </div>
     );
   }
@@ -103,14 +97,7 @@ const ProductLeadView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/product-lead")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Product Lead
-        </Button>
+        <BackButton fallback="/product-lead" />
       </div>
 
       <PageHeader

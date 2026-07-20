@@ -1,14 +1,28 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Building2,
+  FileText,
+  MessageSquare,
+  Package,
+  MapPin,
+  Users,
+  ImageOff,
+  CheckCircle2,
+} from "lucide-react";
 import queryService from "../../services/queryService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader } from "../../components";
+import PageHeader from "../../components/PageHeader/PageHeader";
+import { BackButton, Loader } from "../../components";
 import {
+  Badge,
   Button,
   Card,
   CardHeader,
   CardContent,
+  CardTitle,
   Label,
   Textarea,
   Spinner,
@@ -194,58 +208,103 @@ const QuotationGenerate = () => {
 
   return (
     <>
-      <Card className="mb-4 bg-muted/40">
-        <CardContent className="p-4">
-          <div className="mb-3 text-xs text-muted-foreground">
-            Home&nbsp;/&nbsp;Queries&nbsp;/&nbsp;Generate Quotation
-          </div>
-
-          <div className="flex flex-col items-start justify-between gap-3 lg:flex-row lg:items-center">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
+      <PageHeader
+        title={
+          <span className="flex items-center gap-2">
+            <FileText className="h-6 w-6 text-primary!" />
+            Generate Quotation
+          </span>
+        }
+        description="Review the query details below, then create a quotation from the products marked ready."
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {query?.queryCode ? (
+              <Badge
                 variant="outline"
-                onClick={() => navigate(`/queries/${queryId}`)}
+                className="px-3 py-1.5 font-mono text-sm font-semibold tracking-wide"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Query
-              </Button>
-              {query?.queryCode ? (
-                <div className="rounded-full border border-border bg-accent px-3 py-2 text-sm font-bold tracking-wide text-primary!">
-                  {query.queryCode}
-                </div>
-              ) : null}
-            </div>
-            <h4 className="text-lg font-semibold">
-              Generate Quotation from Query
-            </h4>
+                {query.queryCode}
+              </Badge>
+            ) : null}
+            <BackButton fallback={`/queries/${queryId}`} />
           </div>
-        </CardContent>
-      </Card>
+        }
+      />
+
+      {/* Summary strip */}
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <Building2 className="h-8 w-8 shrink-0 text-primary!" />
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Company</div>
+              <div className="truncate font-semibold text-foreground">
+                {ci.name || "—"}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <MapPin className="h-8 w-8 shrink-0 text-accent-foreground" />
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">Location</div>
+              <div className="truncate font-semibold text-foreground">
+                {ci.location || "—"}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-3 py-4">
+            <Package className="h-8 w-8 shrink-0 text-success!" />
+            <div className="min-w-0">
+              <div className="text-xs text-muted-foreground">
+                Products ready
+              </div>
+              <div className="font-semibold text-foreground">
+                {prods.length}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* 1. Company Information - Read only */}
-      <Card className="mb-4">
-        <CardHeader className="border-b border-border py-4">
-          <div className="text-base font-semibold">
-            1. Company Information{" "}
-            <span className="font-normal text-muted-foreground">
-              (Read only)
-            </span>
-          </div>
+      <Card className="mb-6">
+        <CardHeader className="border-b border-border">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            Company Information
+            <Badge variant="secondary" className="ml-1 font-normal">
+              Read only
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="divide-y divide-border">
-            <div className="flex justify-between py-2">
-              <strong>Company name</strong>
-              <span>{ci.name || "-"}</span>
+          <div className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Company name
+              </div>
+              <div className="mt-1 font-medium text-foreground">
+                {ci.name || "—"}
+              </div>
             </div>
-            <div className="flex justify-between py-2">
-              <strong>Location</strong>
-              <span>{ci.location || "-"}</span>
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Location
+              </div>
+              <div className="mt-1 font-medium text-foreground">
+                {ci.location || "—"}
+              </div>
             </div>
-            <div className="py-2">
-              <strong>Purchase managers</strong>
-              <div className="mt-1">
+            <div className="sm:col-span-2">
+              <div className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <Users className="h-3.5 w-3.5" />
+                Purchase managers
+              </div>
+              <div className="mt-1 space-y-0.5 text-foreground">
                 {(ci.purchaseManagers || []).length > 0
                   ? (ci.purchaseManagers || []).map((m, i) => (
                       <div key={i}>
@@ -259,16 +318,20 @@ const QuotationGenerate = () => {
                     : "–"}
               </div>
             </div>
-            <div className="py-2">
-              <strong>Billing address</strong>
-              <div className="mt-1 whitespace-pre-wrap break-words">
-                {(ci.billingAddress || ci.address || "").trim() || "-"}
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Billing address
+              </div>
+              <div className="mt-1 whitespace-pre-wrap break-words text-foreground">
+                {(ci.billingAddress || ci.address || "").trim() || "—"}
               </div>
             </div>
-            <div className="py-2">
-              <strong>Shipping address</strong>
-              <div className="mt-1 whitespace-pre-wrap break-words">
-                {(ci.shippingAddress || ci.address || "").trim() || "-"}
+            <div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Shipping address
+              </div>
+              <div className="mt-1 whitespace-pre-wrap break-words text-foreground">
+                {(ci.shippingAddress || ci.address || "").trim() || "—"}
               </div>
             </div>
           </div>
@@ -276,14 +339,15 @@ const QuotationGenerate = () => {
       </Card>
 
       {/* 2. Remark - Read only */}
-      <Card className="mb-4">
-        <CardHeader className="border-b border-border py-4">
-          <div className="text-base font-semibold">
-            2. Remark{" "}
-            <span className="font-normal text-muted-foreground">
-              (Read only)
-            </span>
-          </div>
+      <Card className="mb-6">
+        <CardHeader className="border-b border-border">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            Remark
+            <Badge variant="secondary" className="ml-1 font-normal">
+              Read only
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <Label>Remark</Label>
@@ -298,21 +362,22 @@ const QuotationGenerate = () => {
       </Card>
 
       {/* 3. Add product + Products table */}
-      <Card className="mb-4">
-        <CardHeader className="border-b border-border py-4">
-          <div className="text-base font-semibold">
-            3. Products{" "}
-            <span className="font-normal text-muted-foreground">
-              (Ready for quotation only)
-            </span>
-          </div>
+      <Card className="mb-6">
+        <CardHeader className="border-b border-border">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Package className="h-4 w-4 text-muted-foreground" />
+            Products
+            <Badge variant="secondary" className="ml-1 font-normal">
+              Ready for quotation only
+            </Badge>
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           {/* Products table */}
           {prods.length > 0 ? (
             <div className="overflow-x-auto rounded-lg border border-border">
               <Table>
-                <TableHeader>
+                <TableHeader className="bg-muted/50">
                   <TableRow>
                     <TableHead style={{ width: 60 }}>#</TableHead>
                     <TableHead>Product name</TableHead>
@@ -412,8 +477,8 @@ const QuotationGenerate = () => {
                               )}
                             </div>
                           ) : (
-                            <span className="text-sm text-muted-foreground">
-                              —
+                            <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                              <ImageOff className="h-4 w-4" />
                             </span>
                           )}
                         </TableCell>
@@ -424,14 +489,17 @@ const QuotationGenerate = () => {
               </Table>
             </div>
           ) : (
-            <p className="mb-0 text-muted-foreground">
-              No products on this query.
-            </p>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-10 text-center">
+              <Package className="mb-2 h-8 w-8 text-muted-foreground" />
+              <p className="mb-0 text-sm text-muted-foreground">
+                No products on this query.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <div className="flex justify-end gap-2">
+      <div className="sticky bottom-0 z-10 -mx-1 mt-6 flex flex-col items-stretch justify-end gap-2 rounded-lg border border-border bg-card/95 p-3 backdrop-blur sm:flex-row sm:items-center">
         <Button
           type="button"
           variant="outline"
@@ -452,7 +520,10 @@ const QuotationGenerate = () => {
                 Creating...
               </>
             ) : (
-              "Create Quotation"
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+                Create Quotation
+              </>
             )}
           </Button>
         )}

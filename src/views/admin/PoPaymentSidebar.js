@@ -666,7 +666,7 @@ const PoPaymentSidebar = () => {
       >
         <SheetContent side="right" className="w-full p-0 sm:max-w-[480px]">
           <SheetHeader>
-            <SheetTitle>Add payment</SheetTitle>
+            <SheetTitle>Add Payment</SheetTitle>
           </SheetHeader>
           <SheetBody className="space-y-3">
             <div className="space-y-1.5">

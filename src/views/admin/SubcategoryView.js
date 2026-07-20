@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil, Info } from "lucide-react";
+import { Pencil, Info } from "lucide-react";
 import subcategoryService from "../../services/subcategoryService";
-import { Loader, StatusLabel, StatusBadge } from "../../components";
+import { Loader, StatusLabel, StatusBadge, BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -75,9 +75,7 @@ const SubcategoryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-destructive">{error}</p>
-          <Button onClick={() => navigate("/sub-categories")}>
-            Back to Sub Categories
-          </Button>
+          <BackButton fallback="/sub-categories" />
         </CardContent>
       </Card>
     );
@@ -88,9 +86,7 @@ const SubcategoryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <h4 className="text-lg font-semibold">Subcategory not found</h4>
-          <Button onClick={() => navigate("/sub-categories")}>
-            Back to Sub Categories
-          </Button>
+          <BackButton fallback="/sub-categories" />
         </CardContent>
       </Card>
     );
@@ -100,25 +96,14 @@ const SubcategoryView = () => {
   const imageSrc =
     subcategory.imageDisplayUrl || subcategory.image || undefined;
 
-  const handleBack = () => {
-    if (categoryId) {
-      navigate(`/categories/${categoryId}`);
-      return;
-    }
-    navigate("/sub-categories");
-  };
-
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={handleBack}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton
+          fallback={
+            categoryId ? `/categories/${categoryId}` : "/sub-categories"
+          }
+        />
       </div>
 
       {/* Summary banner */}

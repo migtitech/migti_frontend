@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Pencil, Check } from "lucide-react";
-import { Loader, TrackingTimeline } from "../../components";
+import { useParams } from "react-router-dom";
+import { User, Pencil, Check } from "lucide-react";
+import { Loader, TrackingTimeline, BackButton } from "../../components";
 import {
   Button,
   Badge,
@@ -136,7 +136,6 @@ const fetchUserById = async (userId) => {
 
 const RawQueryView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const { user } = useAuth();
   const [query, setQuery] = useState(null);
   const [activities, setActivities] = useState([]);
@@ -300,9 +299,7 @@ const RawQueryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <p className="text-destructive">{error}</p>
-          <Button onClick={() => navigate("/raw-query")}>
-            Back to Raw Queries
-          </Button>
+          <BackButton fallback="/raw-query" />
         </CardContent>
       </Card>
     );
@@ -313,9 +310,7 @@ const RawQueryView = () => {
       <Card>
         <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
           <h4 className="text-lg font-semibold">Raw query not found</h4>
-          <Button onClick={() => navigate("/raw-query")}>
-            Back to Raw Queries
-          </Button>
+          <BackButton fallback="/raw-query" />
         </CardContent>
       </Card>
     );
@@ -371,7 +366,7 @@ const RawQueryView = () => {
       await rawQueryService.recordActivity(id, "action", performedBy, {
         action: actionForm.action.trim(),
       });
-      toastSuccess("Action recorded.");
+      toastSuccess("Action recorded");
       setActionForm({ action: "" });
       setShowActionModal(false);
       await fetchActivities();
@@ -395,7 +390,7 @@ const RawQueryView = () => {
         followUpStatus: followUpForm.followUpStatus,
         note: followUpForm.note?.trim() || "",
       });
-      toastSuccess("Follow-up submitted.");
+      toastSuccess("Follow-up submitted");
       setFollowUpForm({ followUpStatus: "pending", note: "" });
       setShowFollowUpModal(false);
       await fetchActivities();
@@ -436,15 +431,7 @@ const RawQueryView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/raw-query")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Raw Queries
-        </Button>
+        <BackButton fallback="/raw-query" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

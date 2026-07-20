@@ -179,7 +179,7 @@ const PoProductsList = () => {
     () => [
       {
         key: "index",
-        label: "S.No",
+        label: "#",
         width: 56,
         align: "center",
         toggleable: false,

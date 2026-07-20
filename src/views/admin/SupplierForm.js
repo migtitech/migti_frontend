@@ -10,7 +10,6 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   Building2,
@@ -30,7 +29,13 @@ import categoryService from "../../services/categoryService";
 import branchService from "../../services/branchService";
 import locationService from "../../services/locationService";
 import bpDummy from "../../data/businessPartnerDummy";
-import { Loader, CrudFormPage, FormField, FileUpload } from "../../components";
+import {
+  Loader,
+  CrudFormPage,
+  FormField,
+  FileUpload,
+  BackButton,
+} from "../../components";
 import {
   Button,
   Alert,
@@ -758,7 +763,7 @@ const SupplierForm = () => {
       setSupplierCode(bpDummy.getOrCreateCode("supplier", id));
       setAttachments(bpDummy.getOverlay("supplier", id).attachments || []);
     } catch (err) {
-      toastError(err?.message || "Failed to fetch supplier");
+      toastError(err?.message || "Failed to load supplier");
     } finally {
       setLoading(false);
     }
@@ -966,15 +971,7 @@ const SupplierForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/suppliers")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Suppliers
-        </Button>
+        <BackButton fallback="/suppliers" />
       </div>
 
       {error && (
@@ -1197,7 +1194,7 @@ const SupplierForm = () => {
             <div className="md:col-span-2">
               <FormField label="Categories">
                 <Input
-                  placeholder="Search categories..."
+                  placeholder="Search categories…"
                   value={categorySearch}
                   onChange={(e) => setCategorySearch(e.target.value)}
                 />

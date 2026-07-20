@@ -4,7 +4,6 @@ import { useForm, useFieldArray } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
 import {
-  ArrowLeft,
   Plus,
   Trash2,
   Building2,
@@ -29,7 +28,13 @@ import {
   INDUSTRY_SECTORS,
   OTHER_SECTOR_VALUE,
 } from "../../constants/industrySectors";
-import { Loader, CrudFormPage, FormField, FileUpload } from "../../components";
+import {
+  BackButton,
+  Loader,
+  CrudFormPage,
+  FormField,
+  FileUpload,
+} from "../../components";
 import { cn } from "../../lib/utils";
 import {
   Button,
@@ -645,7 +650,7 @@ const IndustryForm = () => {
       prevStateRef.current = data?.state || "";
       if (data?.state) ensureCitiesForState(data.state);
     } catch (err) {
-      toastError(err?.message || "Failed to fetch customer");
+      toastError(err?.message || "Failed to load customer");
     } finally {
       setLoading(false);
     }
@@ -838,15 +843,7 @@ const IndustryForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/industries")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to customers
-        </Button>
+        <BackButton fallback="/industries" />
       </div>
 
       {error && (

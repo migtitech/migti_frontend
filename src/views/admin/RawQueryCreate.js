@@ -11,6 +11,7 @@ import {
   CardTitle,
   CardContent,
 } from "../../components/ui";
+import { BackButton } from "../../components";
 import { useAuth } from "../../context/AuthContext";
 import rawQueryService from "../../services/rawQueryService";
 import industryService from "../../services/industryService";
@@ -494,6 +495,9 @@ const RawQueryCreate = () => {
 
   return (
     <div>
+      <div className="mb-2">
+        <BackButton fallback="/raw-query" />
+      </div>
       <Card className="mb-4">
         <CardHeader>
           <CardTitle>Add Raw Query</CardTitle>
@@ -567,7 +571,7 @@ const RawQueryCreate = () => {
                   onBlur={() =>
                     setTimeout(() => setIndustryDropdownOpen(false), 200)
                   }
-                  placeholder="Search client or create new..."
+                  placeholder="Search client or create new…"
                   required={!industryId && !createNewIndustry}
                   disabled={!!industryId && !createNewIndustry}
                   autoComplete="off"

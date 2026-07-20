@@ -3,6 +3,8 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutGrid,
   ShoppingCart,
+  FileText,
+  Factory,
   ShoppingBasket,
   Boxes,
   Landmark,
@@ -14,6 +16,8 @@ import { cn } from "../../../lib/utils";
 const REPORT_TABS = [
   { to: "/reports", label: "Overview", icon: LayoutGrid, end: true },
   { to: "/reports/sales", label: "Sales", icon: ShoppingCart },
+  { to: "/reports/quotation", label: "Quotation", icon: FileText },
+  { to: "/reports/supplier", label: "Supplier", icon: Factory },
   { to: "/reports/purchase", label: "Purchase", icon: ShoppingBasket },
   { to: "/reports/inventory", label: "Inventory", icon: Boxes },
   { to: "/reports/finance", label: "Finance", icon: Landmark },

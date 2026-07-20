@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft,
-  Save,
+  Building2,
   CheckCircle,
-  Trash2,
-  UploadCloud,
+  ExternalLink,
+  History,
+  ImageIcon,
+  Package,
 } from "lucide-react";
 import {
   Badge,
@@ -14,13 +15,7 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  Input,
-  Label,
-  Select,
-  Textarea,
   Spinner,
-  Alert,
-  AlertDescription,
   Table,
   TableBody,
   TableCell,
@@ -29,65 +24,23 @@ import {
   TableRow,
 } from "../../components/ui";
 import proBucketService from "../../services/proBucketService";
-import documentService from "../../services/documentService";
-import groupService from "../../services/groupService";
-import categoryService from "../../services/categoryService";
-import { useAuth } from "../../context/AuthContext";
+import queryService from "../../services/queryService";
+import industryService from "../../services/industryService";
+import { toastError } from "../../utils/toast";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
-import { toastError, toastSuccess } from "../../utils/toast";
-import { sortAlphabetically } from "../../utils/sort";
-import { Loader, PageHeader, TablePagination } from "../../components";
+import { BackButton, Loader, PageHeader } from "../../components";
 import { dateTimeFormatter, dateFormatter } from "../../utils/dateFormatter";
 import {
   formatProBucketRateAmount,
   resolveProBucketEffectiveRate,
 } from "../../utils/proBucketRate";
 
-const isHodRole = (role) => {
-  const r = String(role || "").toLowerCase();
-  return r === "head_of_department" || r === "hod";
-};
-
-const MAX_HOD_RATE = 1_000_000;
-const MAX_QUANTITY = 100_000;
-const MAX_GST_PERCENTAGE = 100;
-const GST_HIGH_RATE_THRESHOLD = 18;
-
-const normalizeRateComparison = (value, { isDiscount = false } = {}) => {
-  if (value === "" || value == null) return isDiscount ? 0 : null;
-  const n = Number(value);
-  if (!Number.isFinite(n)) return isDiscount ? 0 : null;
-  return n;
-};
-
-const formatRateValue = (value) =>
-  value != null && !Number.isNaN(Number(value)) ? Number(value) : "—";
-
-const formatCurrencyRate = (value) => {
-  if (value == null || Number.isNaN(Number(value))) return "—";
-  return `₹${Number(value).toLocaleString("en-IN")}`;
-};
-
-const supplierDisplayName = (supplier) => {
-  if (!supplier || typeof supplier !== "object") return "—";
-  return supplier.name?.trim() || supplier.shopname?.trim() || "Supplier";
-};
-
-const submitterDisplayName = (submittedBy) => {
-  if (!submittedBy) return "—";
-  if (typeof submittedBy === "object") {
-    return submittedBy.name?.trim() || submittedBy.email?.trim() || "—";
-  }
-  return String(submittedBy);
-};
-
-const resolveUrl = (img) => {
-  if (!img) return null;
-  if (typeof img === "string") return img;
-  if (img.signedUrl) return img.signedUrl;
-  if (img.url) return img.url;
-  if (img.path) return img.path;
-  return null;
+/* Placeholder values shown when the source query does not carry the info. */
+const SAMPLE = {
+  clientCode: "CL-1024",
+  createdBy: "Sales Executive",
+  referenceBy: "Direct Enquiry",
+  receivedVia: "Mail",
 };
 
 const statusBadge = (s) => {
@@ -105,6 +58,30 @@ const statusBadge = (s) => {
   }
 };
 
+const resolveUrl = (img) => {
+  if (!img) return null;
+  if (typeof img === "string") return img;
+  return img.signedUrl || img.url || img.path || null;
+};
+
+const supplierDisplayName = (supplier) => {
+  if (!supplier || typeof supplier !== "object") return "—";
+  return supplier.name?.trim() || supplier.shopname?.trim() || "Supplier";
+};
+
+const submitterDisplayName = (submittedBy) => {
+  if (!submittedBy) return "—";
+  if (typeof submittedBy === "object") {
+    return submittedBy.name?.trim() || submittedBy.email?.trim() || "—";
+  }
+  return String(submittedBy);
+};
+
+const formatCurrencyRate = (value) => {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  return `₹${Number(value).toLocaleString("en-IN")}`;
+};
+
 /** Product name + variant values (combination), same as Query Form / Query View. */
 const getProductDisplayName = (product) => {
   const name = String(product?.productName || "").trim();
@@ -117,481 +94,188 @@ const getProductDisplayName = (product) => {
   return full || "—";
 };
 
+const normalizeCode = (v) =>
+  String(v || "")
+    .trim()
+    .toUpperCase();
+
+const formatReferenceBy = (value) => {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  if (v === "hod_directly_received") return "HOD (Directly Received)";
+  return v;
+};
+
+const formatReceivedVia = (value) => {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  return v.charAt(0).toUpperCase() + v.slice(1);
+};
+
+/** One label/value pair in the read-only detail grid. */
+const Detail = ({ label, value, mono = false, sample = false }) => {
+  const isEmpty = value == null || String(value).trim() === "";
+  return (
+    <div className="space-y-0.5">
+      <p className="mb-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </p>
+      <p className={`mb-0 text-sm ${mono ? "font-mono" : ""}`}>
+        {isEmpty ? "—" : value}
+        {sample && !isEmpty && (
+          <span className="ml-1 text-xs text-muted-foreground">(sample)</span>
+        )}
+      </p>
+    </div>
+  );
+};
+
 /* ── component ───────────────────────────────────── */
 const QueryProductView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const fileInputRef = useRef(null);
-  const { user } = useAuth();
-
-  const userIsHod = isHodRole(user?.role);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [approving, setApproving] = useState(false);
   const [doc, setDoc] = useState(null);
+  const [fullQuery, setFullQuery] = useState(null);
+  const [industry, setIndustry] = useState(null);
+  const [occurrences, setOccurrences] = useState([]);
+  const [occurrencesTotal, setOccurrencesTotal] = useState(0);
+  const [occurrencesLoading, setOccurrencesLoading] = useState(false);
 
-  const [groups, setGroups] = useState([]);
-  const [allCategories, setAllCategories] = useState([]);
-
-  const [pendingFiles, setPendingFiles] = useState([]);
-  const [pendingPreviews, setPendingPreviews] = useState([]);
-
-  const [form, setForm] = useState({
-    productName: "",
-    rawProductCode: "",
-    quantity: "",
-    unit: "",
-    hsnNumber: "",
-    modelNumber: "",
-    gstPercentage: "",
-    description: "",
-    remark: "",
-    groupId: "",
-    categoryId: "",
-  });
-
-  const [rateForm, setRateForm] = useState({
-    minRate: "",
-    maxRate: "",
-  });
-  const [updatingRate, setUpdatingRate] = useState(false);
-  const [historyRows, setHistoryRows] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const [historyPage, setHistoryPage] = useState(1);
-  const [historyPageSize] = useState(10);
-  const [historyTotal, setHistoryTotal] = useState(0);
-  const [historyTotalPages, setHistoryTotalPages] = useState(1);
-  const [historyFilters, setHistoryFilters] = useState({
-    from: "",
-    to: "",
-    search: "",
-  });
-  const [historyFilterDraft, setHistoryFilterDraft] = useState({
-    from: "",
-    to: "",
-    search: "",
-  });
-
-  const applyRateManagement = (rm) => {
-    const toFormRate = (value) => {
-      if (value == null || value === "") return "0";
-      return String(value);
-    };
-    setRateForm({
-      minRate: toFormRate(rm?.minRate),
-      maxRate: toFormRate(rm?.maxRate),
-    });
-  };
-
-  /* categories filtered by selected group — must be after form useState */
-  const filteredCategories = form.groupId
-    ? allCategories.filter((c) => {
-        const gId =
-          c.group && typeof c.group === "object"
-            ? c.group._id || c.group.id
-            : c.group;
-        return String(gId || "") === String(form.groupId);
-      })
-    : allCategories;
-
-  /* ── load groups / categories ── */
+  /* ── load product + its query / company info ── */
   useEffect(() => {
-    const loadMeta = async () => {
-      try {
-        const [grpRes, catRes] = await Promise.all([
-          groupService.getAll({ pageSize: 100 }),
-          categoryService.getAllCategories(),
-        ]);
-        setGroups(
-          sortAlphabetically(
-            Array.isArray(grpRes?.data?.groups)
-              ? grpRes.data.groups
-              : Array.isArray(grpRes?.data)
-                ? grpRes.data
-                : [],
-          ),
-        );
-        setAllCategories(
-          sortAlphabetically(
-            Array.isArray(catRes?.data?.categories)
-              ? catRes.data.categories
-              : Array.isArray(catRes?.data)
-                ? catRes.data
-                : [],
-          ),
-        );
-      } catch {
-        /* non-critical */
-      }
-    };
-    loadMeta();
-  }, []);
-
-  /* ── load document ── */
-  useEffect(() => {
+    let alive = true;
     const load = async () => {
       setLoading(true);
+      setFullQuery(null);
+      setIndustry(null);
       try {
         const res = await withMinimumDelay(() => proBucketService.getById(id));
         const data = res?.data?.data || res?.data;
+        if (!alive) return;
         setDoc(data);
-        applyRateManagement(data?.rateManagement);
-        setForm({
-          productName: data?.productName || "",
-          rawProductCode: data?.rawProductCode || "",
-          quantity: data?.quantity ?? "",
-          unit: data?.unit || "",
-          hsnNumber: data?.hsnNumber || "",
-          modelNumber: data?.modelNumber || "",
-          gstPercentage: data?.gstPercentage ?? "",
-          description: data?.description || "",
-          remark: data?.remark || "",
-          groupId:
-            data?.groupId && typeof data.groupId === "object"
-              ? data.groupId._id || ""
-              : data?.groupId || "",
-          categoryId:
-            data?.categoryId && typeof data.categoryId === "object"
-              ? data.categoryId._id || ""
-              : data?.categoryId || "",
-        });
+
+        const queryId =
+          data?.queryId && typeof data.queryId === "object"
+            ? data.queryId._id
+            : data?.queryId;
+        if (queryId) {
+          try {
+            const qRes = await queryService.getById(queryId);
+            const q = qRes?.data?.data || qRes?.data;
+            if (!alive) return;
+            setFullQuery(q || null);
+
+            const industryId =
+              q?.industry_id && typeof q.industry_id === "object"
+                ? q.industry_id._id
+                : q?.industry_id;
+            if (industryId) {
+              try {
+                const iRes = await industryService.getById(industryId);
+                const ind = iRes?.data?.data || iRes?.data;
+                if (alive) setIndustry(ind || null);
+              } catch {
+                /* client code falls back to sample */
+              }
+            }
+          } catch {
+            /* query details fall back to sample values */
+          }
+        }
       } catch (e) {
-        toastError(e?.message || "Failed to load query product");
+        if (alive) toastError(e?.message || "Failed to load query product");
       } finally {
-        setLoading(false);
+        if (alive) setLoading(false);
       }
     };
     if (id) load();
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
-  /* cleanup object URLs */
+  /* ── load occurrences of the same product across queries ── */
   useEffect(() => {
-    return () => pendingPreviews.forEach((u) => URL.revokeObjectURL(u));
-  }, [pendingPreviews]);
-
-  const setField = (key, val) => setForm((f) => ({ ...f, [key]: val }));
-  const setRateField = (key, val) => setRateForm((f) => ({ ...f, [key]: val }));
-
-  const loadRateHistories = useCallback(
-    async (page = 1, filters = historyFilters) => {
-      if (!userIsHod || !id) return;
-      setHistoryLoading(true);
+    let alive = true;
+    const loadOccurrences = async () => {
+      const code = String(doc?.rawProductCode || "").trim();
+      const name = String(doc?.productName || "").trim();
+      const searchTerm = code || name;
+      if (!searchTerm) return;
+      setOccurrencesLoading(true);
       try {
-        const params = {
-          page,
-          pageSize: historyPageSize,
-        };
-        if (filters.from) params.from = filters.from;
-        if (filters.to) params.to = filters.to;
-        if (filters.search?.trim()) params.search = filters.search.trim();
-
-        const res = await proBucketService.listHodRateHistories(id, params);
-        const payload = res?.data || res;
-        setHistoryRows(Array.isArray(payload?.data) ? payload.data : []);
-        setHistoryTotal(Number(payload?.total) || 0);
-        setHistoryPage(Number(payload?.page) || page);
-        setHistoryTotalPages(Number(payload?.totalPages) || 1);
-      } catch (e) {
-        toastError(e?.message || "Failed to load rate history");
+        const res = await proBucketService.list({
+          search: searchTerm,
+          pageSize: 100,
+        });
+        const rows = Array.isArray(res?.data?.data) ? res.data.data : [];
+        const matches = rows.filter((r) =>
+          code
+            ? normalizeCode(r.rawProductCode) === normalizeCode(code)
+            : String(r.productName || "")
+                .trim()
+                .toLowerCase() === name.toLowerCase(),
+        );
+        if (!alive) return;
+        setOccurrences(matches);
+        setOccurrencesTotal(matches.length);
+      } catch {
+        /* non-critical */
       } finally {
-        setHistoryLoading(false);
+        if (alive) setOccurrencesLoading(false);
       }
-    },
-    [historyFilters, historyPageSize, id, userIsHod],
-  );
-
-  const applyHistoryFilters = () => {
-    setHistoryFilters({
-      from: historyFilterDraft.from || "",
-      to: historyFilterDraft.to || "",
-      search: historyFilterDraft.search || "",
-    });
-    setHistoryPage(1);
-  };
-
-  const clearHistoryFilters = () => {
-    const empty = { from: "", to: "", search: "" };
-    setHistoryFilterDraft(empty);
-    setHistoryFilters(empty);
-    setHistoryPage(1);
-  };
-
-  useEffect(() => {
-    if (!userIsHod || !id || !form.rawProductCode?.trim()) {
-      setHistoryRows([]);
-      setHistoryTotal(0);
-      setHistoryPage(1);
-      setHistoryTotalPages(1);
-      return;
-    }
-    loadRateHistories(historyPage);
-  }, [
-    form.rawProductCode,
-    historyPage,
-    historyFilters,
-    id,
-    loadRateHistories,
-    userIsHod,
-  ]);
-
-  /* ── image helpers ── */
-  const handleFilePick = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    setPendingFiles((p) => [...p, ...files]);
-    setPendingPreviews((p) => [
-      ...p,
-      ...files.map((f) => URL.createObjectURL(f)),
-    ]);
-    e.target.value = "";
-  };
-
-  const removePending = (idx) => {
-    URL.revokeObjectURL(pendingPreviews[idx]);
-    setPendingFiles((p) => p.filter((_, i) => i !== idx));
-    setPendingPreviews((p) => p.filter((_, i) => i !== idx));
-  };
-
-  const removeSaved = (imgId) => {
-    setDoc((prev) => ({
-      ...prev,
-      images: (prev?.images || []).filter((img) => (img?._id || img) !== imgId),
-    }));
-  };
-
-  const buildImageIds = (uploadedDocs) => {
-    const saved = (doc?.images || [])
-      .map((img) => (typeof img === "object" ? img._id || img.id : img))
-      .filter(Boolean);
-    const fresh = uploadedDocs.map((d) => d._id || d.id).filter(Boolean);
-    return [...saved, ...fresh];
-  };
-
-  /* ── update ── */
-  const handleUpdate = async () => {
-    const quantity = form.quantity !== "" ? Number(form.quantity) : undefined;
-    if (quantity !== undefined) {
-      if (!Number.isFinite(quantity) || quantity < 0) {
-        toastError("Enter a valid quantity");
-        return;
-      }
-      if (quantity > MAX_QUANTITY) {
-        toastError("Quantity cannot exceed 1,00,000");
-        return;
-      }
-    }
-
-    const gstPercentage =
-      form.gstPercentage !== "" ? Number(form.gstPercentage) : null;
-    if (gstPercentage !== null) {
-      if (!Number.isFinite(gstPercentage) || gstPercentage < 0) {
-        toastError("Enter a valid GST percentage");
-        return;
-      }
-      if (gstPercentage > MAX_GST_PERCENTAGE) {
-        toastError("GST percentage cannot exceed 100");
-        return;
-      }
-    }
-
-    setSaving(true);
-    try {
-      let uploadedDocs = [];
-      if (pendingFiles.length > 0) {
-        const res = await documentService.uploadImages(pendingFiles);
-        const raw = res?.data || res;
-        uploadedDocs = raw?.data?.documents || raw?.documents || [];
-      }
-
-      const payload = {
-        productName: form.productName,
-        quantity: form.quantity !== "" ? Number(form.quantity) : undefined,
-        modelNumber: form.modelNumber,
-        gstPercentage:
-          form.gstPercentage !== "" ? Number(form.gstPercentage) : null,
-        remark: form.remark,
-        images: buildImageIds(uploadedDocs),
-      };
-
-      const res = await proBucketService.updateQueryProduct(id, payload);
-      const updated = res?.data?.data || res?.data;
-      if (updated) setDoc(updated);
-
-      setPendingFiles([]);
-      setPendingPreviews([]);
-      toastSuccess("Query product updated successfully");
-    } catch (e) {
-      toastError(e?.message || "Failed to update");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  /* ── HOD rate management ── */
-  const handleUpdateRate = async () => {
-    if (!userIsHod) {
-      toastError("Only Head of Department can update rates");
-      return;
-    }
-    const minRate = Number(rateForm.minRate);
-    const maxRate = Number(rateForm.maxRate);
-
-    if (!Number.isFinite(minRate) || minRate < 0) {
-      toastError("Enter a valid minimum rate");
-      return;
-    }
-    if (!Number.isFinite(maxRate) || maxRate < 0) {
-      toastError("Enter a valid maximum rate");
-      return;
-    }
-    if (minRate > maxRate) {
-      toastError("Minimum rate cannot exceed maximum rate");
-      return;
-    }
-    if (minRate > MAX_HOD_RATE) {
-      toastError("Minimum rate cannot exceed 1,000,000");
-      return;
-    }
-    if (maxRate > MAX_HOD_RATE) {
-      toastError("Maximum rate cannot exceed 1,000,000");
-      return;
-    }
-
-    setUpdatingRate(true);
-    try {
-      const res = await proBucketService.updateHodRates(id, {
-        minRate,
-        maxRate,
-        discount: 0,
-      });
-      const updated = res?.data?.data || res?.data;
-      if (updated) {
-        setDoc(updated);
-        applyRateManagement(updated?.rateManagement);
-        if (historyPage === 1) {
-          loadRateHistories(1);
-        } else {
-          setHistoryPage(1);
-        }
-      }
-      const approved = updated?.rateManagement?.isHodRateApproved;
-      toastSuccess(
-        approved
-          ? "Rates approved and updated successfully"
-          : "Rates updated successfully",
-      );
-    } catch (e) {
-      toastError(e?.message || "Failed to update rates");
-    } finally {
-      setUpdatingRate(false);
-    }
-  };
-
-  /* ── HOD approve ── */
-  const handleApprove = async () => {
-    setApproving(true);
-    try {
-      const res = await proBucketService.updateQueryProduct(id, {
-        status: "pending",
-        hodApproved: true,
-      });
-      const updated = res?.data?.data || res?.data;
-      if (updated) setDoc(updated);
-      toastSuccess("HOD approved — status set to Pending");
-    } catch (e) {
-      toastError(e?.message || "Failed to approve");
-    } finally {
-      setApproving(false);
-    }
-  };
-
-  /* ── derived flags ── */
-  const hodApproved = !!doc?.hodApproved;
-  const canUpdate = userIsHod || !hodApproved; // non-HOD locked out after approval
-  const savedImages = Array.isArray(doc?.images) ? doc.images : [];
-  const queryCode =
-    doc?.queryCode ||
-    (doc?.queryId && typeof doc.queryId === "object"
-      ? doc.queryId.queryCode
-      : "") ||
-    "—";
-
-  const submittedRateUnit =
-    doc?.rateManagement?.submittedRateUnit?.trim() || form.unit?.trim() || "—";
-
-  const hasRateData =
-    doc?.rateManagement?.hasSubmittedRates ||
-    doc?.rateManagement?.hasHodRates ||
-    (Array.isArray(doc?.rates) && doc.rates.length > 0);
-
-  const ratesAwaitingHodApproval =
-    hasRateData && !doc?.rateManagement?.isHodRateApproved;
-
-  const ratesUnchanged =
-    normalizeRateComparison(rateForm.minRate) ===
-      normalizeRateComparison(doc?.rateManagement?.minRate) &&
-    normalizeRateComparison(rateForm.maxRate) ===
-      normalizeRateComparison(doc?.rateManagement?.maxRate);
-
-  const minRateValue = normalizeRateComparison(rateForm.minRate);
-  const maxRateValue = normalizeRateComparison(rateForm.maxRate);
-  const rateMargin =
-    minRateValue != null && maxRateValue != null && maxRateValue >= minRateValue
-      ? maxRateValue - minRateValue
-      : null;
-  const ratesMinExceedsMax =
-    minRateValue != null && maxRateValue != null && minRateValue > maxRateValue;
-
-  const minRateExceedsLimit =
-    minRateValue != null && minRateValue > MAX_HOD_RATE;
-  const maxRateExceedsLimit =
-    maxRateValue != null && maxRateValue > MAX_HOD_RATE;
-  const ratesExceedLimit = minRateExceedsLimit || maxRateExceedsLimit;
-
-  const ratesHaveZero = minRateValue === 0 || maxRateValue === 0;
-
-  const hasHistoryFilters = !!(
-    historyFilters.from ||
-    historyFilters.to ||
-    historyFilters.search?.trim()
-  );
-
-  const procurementRates = Array.isArray(doc?.rates) ? doc.rates : [];
-
-  const quantityValue = normalizeRateComparison(form.quantity);
-  const quantityExceedsLimit =
-    quantityValue != null && quantityValue > MAX_QUANTITY;
-
-  const gstPercentageValue =
-    form.gstPercentage === "" || form.gstPercentage == null
-      ? null
-      : Number(form.gstPercentage);
-  const gstExceedsMax =
-    gstPercentageValue != null &&
-    Number.isFinite(gstPercentageValue) &&
-    gstPercentageValue > MAX_GST_PERCENTAGE;
-  const gstAboveStandardRate =
-    gstPercentageValue != null &&
-    Number.isFinite(gstPercentageValue) &&
-    gstPercentageValue > GST_HIGH_RATE_THRESHOLD &&
-    !gstExceedsMax;
+    };
+    if (doc) loadOccurrences();
+    return () => {
+      alive = false;
+    };
+  }, [doc]);
 
   if (loading) return <Loader />;
+
+  const savedImages = Array.isArray(doc?.images) ? doc.images : [];
+  const procurementRates = Array.isArray(doc?.rates) ? doc.rates : [];
+
+  const queryRef =
+    doc?.queryId && typeof doc.queryId === "object" ? doc.queryId : null;
+  const companyInfo = queryRef?.companyInfo || fullQuery?.companyInfo || {};
+  const purchaseManager = Array.isArray(companyInfo?.purchaseManagers)
+    ? companyInfo.purchaseManagers[0]
+    : null;
+
+  const queryCode =
+    doc?.queryCode || queryRef?.queryCode || fullQuery?.queryCode || "";
+
+  const groupName =
+    doc?.groupId && typeof doc.groupId === "object" ? doc.groupId.name : "";
+  const categoryName =
+    doc?.categoryId && typeof doc.categoryId === "object"
+      ? doc.categoryId.name
+      : "";
+
+  const clientCode = String(industry?.uniqueId || "").trim();
+  const createdByName =
+    fullQuery?.created_by && typeof fullQuery.created_by === "object"
+      ? fullQuery.created_by.name || fullQuery.created_by.email || ""
+      : "";
+  const referenceBy = formatReferenceBy(fullQuery?.queryReferenceBy);
+  const receivedVia = formatReceivedVia(fullQuery?.queryReceivedBy);
+
+  const uniqueQueryCodes = [
+    ...new Set(
+      occurrences.map((o) => normalizeCode(o.queryCode)).filter(Boolean),
+    ),
+  ];
+
+  const rm = doc?.rateManagement || null;
 
   return (
     <div>
       {/* ── Top bar ── */}
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/query-products")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/query-products" />
       </div>
 
       <PageHeader
@@ -599,625 +283,390 @@ const QueryProductView = () => {
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {statusBadge(doc?.status)}
-
-            {hodApproved && (
+            {doc?.hodApproved && (
               <Badge variant="success">
                 <CheckCircle className="h-3 w-3" />
                 HOD Approved
               </Badge>
             )}
-
-            {/* HOD Approve — visible to HOD only, disabled after approval */}
-            {userIsHod && (
-              <Button
-                type="button"
-                size="sm"
-                disabled={hodApproved || approving}
-                onClick={handleApprove}
-                className="bg-success! text-success-foreground hover:opacity-90"
-              >
-                {approving ? (
-                  <>
-                    <Spinner className="h-4 w-4" />
-                    Approving…
-                  </>
-                ) : hodApproved ? (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    HOD Approved
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    HOD Approve
-                  </>
-                )}
-              </Button>
-            )}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => navigate(`/query-products/${id}/history`)}
+            >
+              <History className="h-4 w-4" />
+              Product Query History
+            </Button>
           </div>
         }
       />
 
-      {/* locked banner for non-HOD after approval */}
-      {hodApproved && !userIsHod && (
-        <Alert variant="success" className="mb-4">
-          <CheckCircle className="h-4 w-4" />
-          <AlertDescription>
-            This product has been <strong>HOD approved</strong>. Editing is
-            restricted to Head of Department only.
-          </AlertDescription>
-        </Alert>
-      )}
-
       <div className="grid grid-cols-12 gap-4">
-        {/* ── Images panel ── */}
-        <div className="col-span-12 lg:col-span-4">
+        {/* ── Product details ── */}
+        <div className="col-span-12 lg:col-span-8">
           <Card className="h-full">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Images</CardTitle>
-              <Badge variant="secondary">
-                {savedImages.length + pendingFiles.length}
-              </Badge>
-            </CardHeader>
-            <CardContent>
-              {savedImages.length > 0 && (
-                <div className="mb-3">
-                  <p className="mb-2 text-sm text-muted-foreground">Saved</p>
-                  <div className="flex flex-wrap gap-2">
-                    {savedImages.map((img, i) => {
-                      const url = resolveUrl(img);
-                      const imgId =
-                        typeof img === "object" ? img._id || img.id : img;
-                      const name =
-                        typeof img === "object"
-                          ? img.name || `Image ${i + 1}`
-                          : `Image ${i + 1}`;
-                      return (
-                        <div
-                          key={i}
-                          className="relative shrink-0 overflow-hidden rounded-md border border-border"
-                          style={{ width: 100 }}
-                        >
-                          {url ? (
-                            <a
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <img
-                                src={url}
-                                alt={name}
-                                style={{
-                                  width: "100%",
-                                  height: 90,
-                                  objectFit: "cover",
-                                  display: "block",
-                                }}
-                                onError={(e) => {
-                                  e.target.style.display = "none";
-                                }}
-                              />
-                            </a>
-                          ) : (
-                            <div
-                              className="flex items-center justify-center bg-muted text-sm text-muted-foreground"
-                              style={{ height: 90 }}
-                            >
-                              No preview
-                            </div>
-                          )}
-                          <div
-                            className="truncate border-t border-border bg-background px-1 py-1"
-                            style={{ fontSize: "0.65rem" }}
-                            title={name}
-                          >
-                            {name}
-                          </div>
-                          {canUpdate && (
-                            <button
-                              type="button"
-                              onClick={() => removeSaved(imgId)}
-                              title="Remove"
-                              style={{
-                                position: "absolute",
-                                top: 3,
-                                right: 3,
-                                background: "rgba(220,53,69,0.85)",
-                                border: "none",
-                                borderRadius: "50%",
-                                width: 20,
-                                height: 20,
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                cursor: "pointer",
-                                padding: 0,
-                                color: "#fff",
-                              }}
-                            >
-                              <Trash2 style={{ width: 10, height: 10 }} />
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {pendingFiles.length > 0 && (
-                <div className="mb-3">
-                  <p className="mb-2 text-sm text-muted-foreground">
-                    Pending upload ({pendingFiles.length})
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {pendingPreviews.map((src, i) => (
-                      <div
-                        key={i}
-                        className="relative shrink-0 overflow-hidden rounded-md border border-border"
-                        style={{ width: 100 }}
-                      >
-                        <img
-                          src={src}
-                          alt={pendingFiles[i]?.name}
-                          style={{
-                            width: "100%",
-                            height: 90,
-                            objectFit: "cover",
-                            display: "block",
-                          }}
-                        />
-                        <div
-                          className="truncate border-t border-border bg-background px-1 py-1"
-                          style={{ fontSize: "0.65rem" }}
-                          title={pendingFiles[i]?.name}
-                        >
-                          {pendingFiles[i]?.name}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removePending(i)}
-                          title="Remove"
-                          style={{
-                            position: "absolute",
-                            top: 3,
-                            right: 3,
-                            background: "rgba(220,53,69,0.85)",
-                            border: "none",
-                            borderRadius: "50%",
-                            width: 20,
-                            height: 20,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            cursor: "pointer",
-                            padding: 0,
-                            color: "#fff",
-                          }}
-                        >
-                          <Trash2 style={{ width: 10, height: 10 }} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {canUpdate && (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    style={{ display: "none" }}
-                    onChange={handleFilePick}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    Add Images
-                  </Button>
-                  {pendingFiles.length > 0 && (
-                    <p className="mb-0 mt-2 text-sm text-warning!">
-                      ⚠ {pendingFiles.length} image
-                      {pendingFiles.length !== 1 ? "s" : ""} waiting — click{" "}
-                      <strong>Update</strong> to save.
-                    </p>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Details / edit form ── */}
-        <div className="col-span-12 lg:col-span-8">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Product Details</CardTitle>
-              <span className="text-sm text-muted-foreground">
-                Query:{" "}
-                <span className="rounded bg-foreground px-1.5 py-0.5 font-mono text-xs text-background">
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Product Details
+              </CardTitle>
+              {queryCode && (
+                <Badge variant="secondary" className="font-mono text-xs">
                   {queryCode}
-                </span>
-              </span>
-            </CardHeader>
-
-            <CardContent>
-              <div className="grid grid-cols-12 gap-3">
-                <div className="col-span-12 space-y-1.5 md:col-span-6">
-                  <Label>Product Name</Label>
-                  <Input
-                    value={
-                      doc
-                        ? getProductDisplayName({
-                            productName: form.productName,
-                            variants: doc.variants,
-                          })
-                        : form.productName
-                    }
-                    placeholder="Product name"
-                    readOnly
-                    className="bg-muted"
-                  />
-                </div>
-
-                <div className="col-span-12 space-y-1.5 md:col-span-6">
-                  <Label>Raw Product Code</Label>
-                  <Input
-                    value={form.rawProductCode}
-                    placeholder="Raw product code"
-                    className="bg-muted font-mono"
-                    disabled
-                  />
-                </div>
-
-                <div className="col-span-12 space-y-1.5 md:col-span-6">
-                  <Label>Query Code</Label>
-                  <Input
-                    value={queryCode}
-                    readOnly
-                    className="bg-muted font-mono"
-                  />
-                </div>
-
-                <div className="col-span-6 space-y-1.5 md:col-span-3">
-                  <Label>Unit</Label>
-                  <Input
-                    value={form.unit}
-                    placeholder="e.g. pcs"
-                    className="bg-muted"
-                    disabled
-                  />
-                </div>
-
-                <div className="col-span-6 space-y-1.5 md:col-span-3">
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={MAX_QUANTITY}
-                    value={form.quantity}
-                    onChange={(e) => setField("quantity", e.target.value)}
-                    placeholder="0"
-                    disabled={!canUpdate}
-                    aria-invalid={quantityExceedsLimit || undefined}
-                  />
-                  {quantityExceedsLimit && (
-                    <p className="mb-0 mt-1 text-sm text-destructive">
-                      Quantity must not exceed 1,00,000.
-                    </p>
-                  )}
-                </div>
-
-                <div className="col-span-6 space-y-1.5 md:col-span-3">
-                  <Label>HSN Number</Label>
-                  <Input
-                    value={form.hsnNumber}
-                    placeholder="HSN code"
-                    className="bg-muted"
-                    disabled
-                  />
-                </div>
-
-                <div className="col-span-6 space-y-1.5 md:col-span-3">
-                  <Label>Model Number</Label>
-                  <Input
-                    value={form.modelNumber}
-                    onChange={(e) => setField("modelNumber", e.target.value)}
-                    placeholder="Model no."
-                    disabled={!canUpdate}
-                  />
-                </div>
-
-                <div className="col-span-6 space-y-1.5 md:col-span-3">
-                  <Label
-                    className={
-                      gstAboveStandardRate
-                        ? "font-semibold text-warning!"
-                        : undefined
-                    }
-                  >
-                    GST %
-                  </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={MAX_GST_PERCENTAGE}
-                    value={form.gstPercentage}
-                    onChange={(e) => setField("gstPercentage", e.target.value)}
-                    placeholder="0"
-                    disabled={!canUpdate}
-                    aria-invalid={gstExceedsMax || undefined}
-                    className={
-                      gstAboveStandardRate
-                        ? "border-warning! font-semibold text-warning!"
-                        : undefined
-                    }
-                  />
-                  {gstAboveStandardRate && (
-                    <p className="mb-0 mt-1 text-sm text-warning!">
-                      GST is more than 18%.
-                    </p>
-                  )}
-                  {gstExceedsMax && (
-                    <p className="mb-0 mt-1 text-sm text-destructive">
-                      GST percentage must not exceed 100.
-                    </p>
-                  )}
-                </div>
-
-                <div className="col-span-12 space-y-1.5 md:col-span-4">
-                  <Label>Group</Label>
-                  <Select value={form.groupId} className="bg-muted" disabled>
-                    <option value="">— No Group —</option>
-                    {groups.map((g) => (
-                      <option key={g._id || g.id} value={g._id || g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div className="col-span-12 space-y-1.5 md:col-span-5">
-                  <Label>Category</Label>
-                  <Select value={form.categoryId} className="bg-muted" disabled>
-                    <option value="">— No Category —</option>
-                    {filteredCategories.map((c) => (
-                      <option key={c._id || c.id} value={c._id || c.id}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div className="col-span-12 space-y-1.5">
-                  <Label>Description</Label>
-                  <Textarea
-                    rows={3}
-                    value={form.description}
-                    placeholder="Product description…"
-                    className="bg-muted"
-                    disabled
-                  />
-                </div>
-
-                <div className="col-span-12 space-y-1.5">
-                  <Label>Remark</Label>
-                  <Textarea
-                    rows={2}
-                    value={form.remark}
-                    onChange={(e) => setField("remark", e.target.value)}
-                    placeholder="Any remarks…"
-                    disabled={!canUpdate}
-                  />
-                </div>
-              </div>
-
-              {/* ── Action row ── */}
-              <div className="mt-4 flex justify-end gap-2 border-t border-border pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => navigate("/query-products")}
-                  disabled={saving}
-                >
-                  Cancel
-                </Button>
-
-                {canUpdate && (
-                  <Button
-                    type="button"
-                    onClick={handleUpdate}
-                    disabled={saving || quantityExceedsLimit || gstExceedsMax}
-                  >
-                    {saving ? (
-                      <>
-                        <Spinner className="h-4 w-4" />
-                        Updating…
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4" />
-                        Update
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ── Rate Management ── */}
-        <div className="col-span-12">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Rate Management</CardTitle>
-              {doc?.rateManagement?.isHodRateApproved && (
-                <Badge variant="success">HOD rate approved</Badge>
-              )}
-              {ratesAwaitingHodApproval && (
-                <Badge variant="warning">Awaiting HOD approval</Badge>
-              )}
-            </CardHeader>
-            <CardContent>
-              {!hasRateData && !form.rawProductCode?.trim() ? (
-                <p className="mb-0 text-muted-foreground">
-                  No supplier rates have been submitted yet. Rates can be
-                  managed here after procurement submits rates for this product.
-                </p>
-              ) : (
-                <>
-                  <div className="grid grid-cols-12 gap-3">
-                    <div className="col-span-12 space-y-1.5 md:col-span-3">
-                      <Label>Submitted rate unit</Label>
-                      <Input
-                        value={submittedRateUnit}
-                        readOnly
-                        className="bg-muted"
-                      />
-                    </div>
-
-                    <div className="col-span-12 space-y-1.5 md:col-span-3">
-                      <Label>Minimum rate</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={MAX_HOD_RATE}
-                        value={rateForm.minRate}
-                        onChange={(e) =>
-                          setRateField("minRate", e.target.value)
-                        }
-                        placeholder="0"
-                        disabled={!userIsHod}
-                        aria-invalid={
-                          ratesMinExceedsMax || minRateExceedsLimit || undefined
-                        }
-                      />
-                    </div>
-
-                    <div className="col-span-12 space-y-1.5 md:col-span-3">
-                      <Label>Maximum rate</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={MAX_HOD_RATE}
-                        value={rateForm.maxRate}
-                        onChange={(e) =>
-                          setRateField("maxRate", e.target.value)
-                        }
-                        placeholder="0"
-                        disabled={!userIsHod}
-                        aria-invalid={
-                          ratesMinExceedsMax || maxRateExceedsLimit || undefined
-                        }
-                      />
-                    </div>
-
-                    <div className="col-span-12 space-y-1.5 md:col-span-3">
-                      <Label className="font-semibold text-primary!">
-                        Margin
-                      </Label>
-                      <Input
-                        value={formatRateValue(rateMargin)}
-                        readOnly
-                        className="bg-muted font-semibold text-primary!"
-                      />
-                    </div>
-                  </div>
-
-                  {ratesMinExceedsMax && (
-                    <p className="mb-0 mt-3 text-sm text-destructive">
-                      Minimum rate cannot be greater than maximum rate.
-                    </p>
-                  )}
-
-                  {ratesExceedLimit && (
-                    <p className="mb-0 mt-3 text-sm text-destructive">
-                      Minimum and maximum rates must not exceed 1,000,000.
-                    </p>
-                  )}
-
-                  {ratesHaveZero && userIsHod && (
-                    <p className="mb-0 mt-3 text-sm text-warning!">
-                      Minimum and maximum rates must both be greater than 0 to
-                      update.
-                    </p>
-                  )}
-
-                  {!form.rawProductCode?.trim() && (
-                    <p className="mb-0 mt-3 text-sm text-warning!">
-                      Raw product code is missing — rates cannot be updated
-                      until it is set on the source query.
-                    </p>
-                  )}
-
-                  {userIsHod && (
-                    <div className="mt-4 flex justify-end border-t border-border pt-3">
-                      <Button
-                        type="button"
-                        onClick={handleUpdateRate}
-                        disabled={
-                          updatingRate ||
-                          !form.rawProductCode?.trim() ||
-                          ratesMinExceedsMax ||
-                          ratesExceedLimit ||
-                          ratesHaveZero ||
-                          (ratesUnchanged && !ratesAwaitingHodApproval)
-                        }
-                      >
-                        {updatingRate ? (
-                          <>
-                            <Spinner className="h-4 w-4" />
-                            {ratesAwaitingHodApproval
-                              ? "Approving…"
-                              : "Updating rate…"}
-                          </>
-                        ) : ratesAwaitingHodApproval ? (
-                          <>
-                            <CheckCircle className="h-4 w-4" />
-                            Approve & Update Rate
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4" />
-                            Update Rate
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-
-                  {!userIsHod && (
-                    <p className="mb-0 mt-3 text-sm text-muted-foreground">
-                      Rate updates are available to Head of Department only.
-                    </p>
-                  )}
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="col-span-12">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Procurement Rates</CardTitle>
-              {procurementRates.length > 0 && (
-                <Badge variant="info">
-                  {procurementRates.length} rate
-                  {procurementRates.length === 1 ? "" : "s"}
                 </Badge>
               )}
             </CardHeader>
             <CardContent>
+              <div className="grid grid-cols-12 gap-x-4 gap-y-4">
+                <div className="col-span-12 md:col-span-6">
+                  <Detail
+                    label="Product Name"
+                    value={getProductDisplayName(doc)}
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail
+                    label="Raw Product Code"
+                    value={doc?.rawProductCode}
+                    mono
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Query Code" value={queryCode} mono />
+                </div>
+
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Quantity" value={doc?.quantity} />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Unit" value={doc?.unit} />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="HSN Number" value={doc?.hsnNumber} mono />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Model Number" value={doc?.modelNumber} />
+                </div>
+
+                <div className="col-span-6 md:col-span-3">
+                  <Detail
+                    label="GST %"
+                    value={
+                      doc?.gstPercentage != null ? `${doc.gstPercentage}%` : ""
+                    }
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Group" value={groupName} />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Category" value={categoryName} />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail
+                    label="Added On"
+                    value={dateTimeFormatter(doc?.createdAt, "")}
+                  />
+                </div>
+
+                <div className="col-span-12">
+                  <Detail label="Description" value={doc?.description} />
+                </div>
+                <div className="col-span-12">
+                  <Detail label="Remark" value={doc?.remark} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Images (view only) ── */}
+        <div className="col-span-12 lg:col-span-4">
+          <Card className="h-full">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-4 w-4" />
+                Images
+              </CardTitle>
+              <Badge variant="secondary">{savedImages.length}</Badge>
+            </CardHeader>
+            <CardContent>
+              {savedImages.length === 0 ? (
+                <p className="mb-0 text-sm text-muted-foreground">
+                  No images attached to this product.
+                </p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {savedImages.map((img, i) => {
+                    const url = resolveUrl(img);
+                    const name =
+                      typeof img === "object"
+                        ? img.name || `Image ${i + 1}`
+                        : `Image ${i + 1}`;
+                    return (
+                      <div
+                        key={i}
+                        className="shrink-0 overflow-hidden rounded-md border border-border"
+                        style={{ width: 100 }}
+                      >
+                        {url ? (
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            <img
+                              src={url}
+                              alt={name}
+                              style={{
+                                width: "100%",
+                                height: 90,
+                                objectFit: "cover",
+                                display: "block",
+                              }}
+                              onError={(e) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          </a>
+                        ) : (
+                          <div
+                            className="flex items-center justify-center bg-muted text-sm text-muted-foreground"
+                            style={{ height: 90 }}
+                          >
+                            No preview
+                          </div>
+                        )}
+                        <div
+                          className="truncate border-t border-border bg-background px-1 py-1"
+                          style={{ fontSize: "0.65rem" }}
+                          title={name}
+                        >
+                          {name}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Query & company info ── */}
+        <div className="col-span-12">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Query &amp; Company Information
+              </CardTitle>
+              {queryRef?.status && (
+                <Badge variant="outline" className="capitalize">
+                  {queryRef.status}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-12 gap-x-4 gap-y-4">
+                <div className="col-span-12 md:col-span-4">
+                  <Detail label="Company Name" value={companyInfo?.name} />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Detail
+                    label="Client Code"
+                    value={clientCode || SAMPLE.clientCode}
+                    mono
+                    sample={!clientCode}
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Area" value={companyInfo?.area} />
+                </div>
+                <div className="col-span-6 md:col-span-3">
+                  <Detail label="Location" value={companyInfo?.location} />
+                </div>
+
+                <div className="col-span-12 md:col-span-4">
+                  <Detail
+                    label="Query Created By"
+                    value={createdByName || SAMPLE.createdBy}
+                    sample={!createdByName}
+                  />
+                </div>
+                <div className="col-span-12 md:col-span-4">
+                  <Detail
+                    label="Reference By"
+                    value={referenceBy || SAMPLE.referenceBy}
+                    sample={!referenceBy}
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Detail
+                    label="Received Via"
+                    value={receivedVia || SAMPLE.receivedVia}
+                    sample={!receivedVia}
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Detail
+                    label="Query Date"
+                    value={dateFormatter(
+                      fullQuery?.createdAt || doc?.createdAt,
+                      "",
+                    )}
+                  />
+                </div>
+
+                <div className="col-span-12 md:col-span-4">
+                  <Detail
+                    label="Purchase Manager"
+                    value={
+                      purchaseManager?.name
+                        ? `${purchaseManager.name}${
+                            purchaseManager.phone
+                              ? ` (${purchaseManager.phone})`
+                              : ""
+                          }`
+                        : ""
+                    }
+                  />
+                </div>
+                <div className="col-span-12 md:col-span-4">
+                  <Detail
+                    label="Tracking Code"
+                    value={queryRef?.query_tracking_code}
+                    mono
+                  />
+                </div>
+                <div className="col-span-12 md:col-span-4">
+                  <Detail label="Address" value={companyInfo?.address} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Product history summary ── */}
+        <div className="col-span-12">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Product Query History
+              </CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => navigate(`/query-products/${id}/history`)}
+              >
+                <ExternalLink className="h-4 w-4" />
+                View Full History
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {occurrencesLoading ? (
+                <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+                  <Spinner className="h-4 w-4" />
+                  Checking how many times this product has appeared…
+                </div>
+              ) : (
+                <>
+                  <p className="mb-2 text-sm">
+                    This product has appeared{" "}
+                    <span className="font-semibold">{occurrencesTotal}</span>{" "}
+                    time{occurrencesTotal === 1 ? "" : "s"} across{" "}
+                    <span className="font-semibold">
+                      {uniqueQueryCodes.length}
+                    </span>{" "}
+                    quer{uniqueQueryCodes.length === 1 ? "y" : "ies"}.
+                  </p>
+                  {uniqueQueryCodes.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {occurrences.map((o) => {
+                        const oid = o._id || o.id;
+                        const isCurrent = String(oid) === String(id);
+                        return (
+                          <Badge
+                            key={oid}
+                            variant={isCurrent ? "info" : "secondary"}
+                            className="cursor-pointer font-mono text-xs"
+                            title={
+                              isCurrent
+                                ? "Current product line"
+                                : "Open this occurrence"
+                            }
+                            onClick={() =>
+                              !isCurrent && navigate(`/query-products/${oid}`)
+                            }
+                          >
+                            {normalizeCode(o.queryCode) || "—"}
+                            {isCurrent ? " (this)" : ""}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <p className="mb-0 mt-2 text-xs text-muted-foreground">
+                    Click a query code to open that occurrence, or use “View
+                    Full History” to see the companies each query came from.
+                  </p>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Rates (read only) ── */}
+        <div className="col-span-12">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle>Rates</CardTitle>
+              <div className="flex items-center gap-2">
+                {rm?.isHodRateApproved && (
+                  <Badge variant="success">HOD rate approved</Badge>
+                )}
+                {procurementRates.length > 0 && (
+                  <Badge variant="info">
+                    {procurementRates.length} procurement rate
+                    {procurementRates.length === 1 ? "" : "s"}
+                  </Badge>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {rm && (rm.hasHodRates || rm.hasSubmittedRates) && (
+                <div className="mb-4 grid grid-cols-12 gap-x-4 gap-y-4">
+                  <div className="col-span-6 md:col-span-3">
+                    <Detail
+                      label="Minimum Rate"
+                      value={formatCurrencyRate(rm.minRate)}
+                    />
+                  </div>
+                  <div className="col-span-6 md:col-span-3">
+                    <Detail
+                      label="Maximum Rate"
+                      value={formatCurrencyRate(rm.maxRate)}
+                    />
+                  </div>
+                  <div className="col-span-6 md:col-span-3">
+                    <Detail label="Rate Unit" value={rm.submittedRateUnit} />
+                  </div>
+                  <div className="col-span-6 md:col-span-3">
+                    <Detail
+                      label="HOD Rate Status"
+                      value={
+                        rm.isHodRateApproved
+                          ? "Approved"
+                          : rm.hodRateStatus || "Pending"
+                      }
+                    />
+                  </div>
+                </div>
+              )}
+
               {procurementRates.length === 0 ? (
                 <p className="mb-0 text-muted-foreground">
                   No procurement rates have been submitted for this product yet.
@@ -1229,13 +678,11 @@ const QueryProductView = () => {
                       <TableRow>
                         <TableHead style={{ width: 48 }}>#</TableHead>
                         <TableHead>Supplier</TableHead>
-                        <TableHead>Phone</TableHead>
                         <TableHead>Base rate</TableHead>
                         <TableHead>GST %</TableHead>
                         <TableHead>Discount %</TableHead>
                         <TableHead>Final amount</TableHead>
                         <TableHead>Unit</TableHead>
-                        <TableHead>Remark</TableHead>
                         <TableHead>Submitted By</TableHead>
                         <TableHead>Submitted At</TableHead>
                       </TableRow>
@@ -1258,9 +705,6 @@ const QueryProductView = () => {
                               </div>
                             ) : null}
                           </TableCell>
-                          <TableCell>
-                            {row.supplier?.phone_1?.trim() || "—"}
-                          </TableCell>
                           <TableCell className="font-semibold text-primary!">
                             {formatCurrencyRate(row.rate)}
                           </TableCell>
@@ -1279,7 +723,6 @@ const QueryProductView = () => {
                             )}
                           </TableCell>
                           <TableCell>{row.unit?.trim() || "—"}</TableCell>
-                          <TableCell>{row.remark?.trim() || "—"}</TableCell>
                           <TableCell>
                             {submitterDisplayName(row.submittedBy)}
                           </TableCell>
@@ -1295,170 +738,6 @@ const QueryProductView = () => {
             </CardContent>
           </Card>
         </div>
-
-        {userIsHod && (
-          <div className="col-span-12">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Product Rate History</CardTitle>
-                {historyTotal > 0 && (
-                  <Badge variant="info">
-                    {historyTotal} record{historyTotal === 1 ? "" : "s"}
-                  </Badge>
-                )}
-              </CardHeader>
-              <CardContent>
-                {!form.rawProductCode?.trim() ? (
-                  <p className="mb-0 text-muted-foreground">
-                    Rate history is available once this product has a raw
-                    product code.
-                  </p>
-                ) : (
-                  <>
-                    <div className="mb-3 grid grid-cols-12 items-end gap-3">
-                      <div className="col-span-12 space-y-1.5 md:col-span-6 lg:col-span-3">
-                        <Label className="text-sm text-muted-foreground">
-                          Search query code
-                        </Label>
-                        <Input
-                          value={historyFilterDraft.search}
-                          placeholder="Query code"
-                          onChange={(e) =>
-                            setHistoryFilterDraft((prev) => ({
-                              ...prev,
-                              search: e.target.value,
-                            }))
-                          }
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") applyHistoryFilters();
-                          }}
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-6 lg:col-span-2">
-                        <Label className="text-sm text-muted-foreground">
-                          From date
-                        </Label>
-                        <Input
-                          type="date"
-                          value={historyFilterDraft.from}
-                          max={historyFilterDraft.to || undefined}
-                          onChange={(e) =>
-                            setHistoryFilterDraft((prev) => ({
-                              ...prev,
-                              from: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 space-y-1.5 md:col-span-6 lg:col-span-2">
-                        <Label className="text-sm text-muted-foreground">
-                          To date
-                        </Label>
-                        <Input
-                          type="date"
-                          value={historyFilterDraft.to}
-                          min={historyFilterDraft.from || undefined}
-                          onChange={(e) =>
-                            setHistoryFilterDraft((prev) => ({
-                              ...prev,
-                              to: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      <div className="col-span-12 flex flex-wrap gap-2 md:col-span-6 lg:col-span-5">
-                        <Button
-                          type="button"
-                          onClick={applyHistoryFilters}
-                          disabled={historyLoading}
-                        >
-                          Apply Filters
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={clearHistoryFilters}
-                          disabled={historyLoading || !hasHistoryFilters}
-                        >
-                          Clear
-                        </Button>
-                      </div>
-                    </div>
-
-                    {historyLoading && historyRows.length === 0 ? (
-                      <div className="flex items-center justify-center gap-2 py-4">
-                        <Spinner className="h-4 w-4" />
-                        Loading rate history…
-                      </div>
-                    ) : historyRows.length === 0 ? (
-                      <p className="mb-0 text-muted-foreground">
-                        {hasHistoryFilters
-                          ? "No rate history matches your filters."
-                          : "No rate history recorded for this product yet."}
-                      </p>
-                    ) : (
-                      <>
-                        <div className="overflow-x-auto">
-                          <Table>
-                            <TableHeader>
-                              <TableRow>
-                                <TableHead>Date &amp; Time</TableHead>
-                                <TableHead>Unit</TableHead>
-                                <TableHead>Minimum Rate</TableHead>
-                                <TableHead>Maximum Rate</TableHead>
-                                <TableHead>Query Info</TableHead>
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                              {historyRows.map((row) => (
-                                <TableRow key={row.id || row._id}>
-                                  <TableCell>
-                                    {dateTimeFormatter(row.createdAt, "—")}
-                                  </TableCell>
-                                  <TableCell>
-                                    {row.unit?.trim() || "—"}
-                                  </TableCell>
-                                  <TableCell>
-                                    {formatRateValue(row.minRate)}
-                                  </TableCell>
-                                  <TableCell>
-                                    {formatRateValue(row.maxRate)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="font-semibold">
-                                      {row.companyName?.trim() || "—"}
-                                    </div>
-                                    <div className="font-mono text-sm text-muted-foreground">
-                                      {row.queryCode?.trim() || "—"}
-                                    </div>
-                                    <div className="text-sm text-muted-foreground">
-                                      Received:{" "}
-                                      {dateFormatter(row.queryReceivedAt, "—")}
-                                    </div>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                            </TableBody>
-                          </Table>
-                        </div>
-
-                        <TablePagination
-                          currentPage={historyPage}
-                          totalPages={historyTotalPages}
-                          onPageChange={setHistoryPage}
-                          showRange
-                          totalItems={historyTotal}
-                          itemsPerPage={historyPageSize}
-                          disabled={historyLoading}
-                        />
-                      </>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </div>
     </div>
   );

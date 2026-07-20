@@ -117,7 +117,7 @@ const IndustryList = () => {
       setIndustries(data?.industries || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || "Failed to fetch industries");
+      toastError(err?.message || "Failed to load industries");
     } finally {
       setLoading(false);
     }
@@ -198,7 +198,7 @@ const IndustryList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,
@@ -305,7 +305,7 @@ const IndustryList = () => {
                   setSearchTerm(value);
                   setPage(1);
                 }}
-                placeholder="Search by name, code or GST..."
+                placeholder="Search by name, code or GST…"
               />
             </div>
           </div>
@@ -456,7 +456,7 @@ const IndustryList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete customer?"
+        title="Delete Customer?"
         message="Are you sure you want to delete this customer? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"

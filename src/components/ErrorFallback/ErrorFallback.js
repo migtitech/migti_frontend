@@ -37,8 +37,8 @@ const ErrorFallback = ({ error, onRetry, onGoHome }) => {
                 Something went wrong
               </h1>
               <p className="mb-4 text-muted-foreground">
-                We're sorry, but something unexpected happened. Please try again
-                or go back to the home page.
+                An unexpected error occurred. Please try again or go back to the
+                home page.
               </p>
               {process.env.NODE_ENV === "development" && error && (
                 <pre

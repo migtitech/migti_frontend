@@ -1,17 +1,12 @@
 import React from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Phone,
-  MapPin,
-  ShoppingBag,
-  IndianRupee,
-} from "lucide-react";
+import { Phone, MapPin, ShoppingBag, IndianRupee } from "lucide-react";
 import {
   PageHeader,
   StatCard,
   StatusBadge,
   EmptyState,
+  BackButton,
 } from "../../components";
 import {
   Card,
@@ -19,7 +14,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  Button,
 } from "../../components/ui";
 import { statusVariant } from "./components/statusFormatters";
 import {
@@ -42,17 +36,10 @@ const ClientView = () => {
       <div className="space-y-6">
         <PageHeader title="Client not found" />
         <EmptyState
-          title="No such client"
+          title="Client not found"
           message="This sample client record doesn't exist."
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/sales-master/clients")}
-        >
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back to Clients
-        </Button>
+        <BackButton fallback="/sales-master/clients" />
       </div>
     );
   }
@@ -66,16 +53,7 @@ const ClientView = () => {
       <PageHeader
         title={client.name}
         description="Client detail — sample data for UI preview."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales-master/clients")}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Clients
-          </Button>
-        }
+        actions={<BackButton fallback="/sales-master/clients" />}
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

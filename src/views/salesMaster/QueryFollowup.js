@@ -27,7 +27,7 @@ const QueryFollowup = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Query Followup"
+        title="Query Follow-up"
         description="Follow-up activity tracked against your open queries. Sample data for UI preview."
       />
 

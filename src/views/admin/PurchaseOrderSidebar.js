@@ -773,11 +773,11 @@ const PurchaseOrderSidebar = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>S No</TableHead>
+                        <TableHead>#</TableHead>
                         <TableHead>Company</TableHead>
                         <TableHead>Amount</TableHead>
                         <TableHead>Date</TableHead>
-                        <TableHead>Dispatchment</TableHead>
+                        <TableHead>Dispatch</TableHead>
                         <TableHead>Attachment</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -940,7 +940,7 @@ const PurchaseOrderSidebar = () => {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>Dispatchment date</Label>
+              <Label>Dispatch date</Label>
               <Input
                 type="date"
                 value={poForm.dispatchmentDate}
@@ -953,7 +953,7 @@ const PurchaseOrderSidebar = () => {
               <Label>Remark</Label>
               <Textarea
                 rows={4}
-                placeholder="Write remark..."
+                placeholder="Write remark…"
                 value={poForm.remark}
                 onChange={(e) =>
                   setPoForm((p) => ({ ...p, remark: e.target.value }))
@@ -1083,7 +1083,7 @@ const PurchaseOrderSidebar = () => {
               <Label>Remark</Label>
               <Textarea
                 rows={4}
-                placeholder="Write remark..."
+                placeholder="Write remark…"
                 value={billingForm.remark}
                 onChange={(e) =>
                   setBillingForm((p) => ({ ...p, remark: e.target.value }))

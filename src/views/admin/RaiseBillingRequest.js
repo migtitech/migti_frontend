@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
-  ArrowLeft,
   Camera,
   CheckCircle2,
   UploadCloud,
@@ -27,7 +26,7 @@ import {
   Select,
   Spinner,
 } from "../../components/ui";
-import { PageHeader } from "../../components";
+import { PageHeader, BackButton } from "../../components";
 import purchaseBucketService from "../../services/purchaseBucketService";
 import billingRequestService from "../../services/billingRequestService";
 import supplierService from "../../services/supplierService";
@@ -740,15 +739,7 @@ const RaiseBillingRequest = () => {
   return (
     <div ref={topRef}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate(backTarget)}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback={backTarget} />
       </div>
 
       <PageHeader

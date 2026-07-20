@@ -446,18 +446,18 @@ const HodDashboard = () => {
   };
 
   const tableHeaders = {
-    quotations: ["S No", "Quotation", "Company", "Amount", "Status", "Date"],
+    quotations: ["#", "Quotation", "Company", "Amount", "Status", "Date"],
     purchase_orders: [
-      "S No",
+      "#",
       "Sales Order Code",
       "Company",
       "Amount",
       "Status",
       "Date",
     ],
-    pro_bucket: ["S No", "Query", "Product", "Qty", "Rates", "Status", "Date"],
+    pro_bucket: ["#", "Query", "Product", "Qty", "Rates", "Status", "Date"],
     billing_requests: [
-      "S No",
+      "#",
       "Request",
       "Sales Order Code",
       "Products",
@@ -466,7 +466,7 @@ const HodDashboard = () => {
       "Date",
     ],
     deliveries: [
-      "S No",
+      "#",
       "Sales Order Code",
       "Product",
       "Company",
@@ -801,7 +801,7 @@ const HodDashboard = () => {
                     Search
                   </Label>
                   <Input
-                    placeholder="Code / product..."
+                    placeholder="Code / product…"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                   />

@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { CChartLine } from "@coreui/react-chartjs";
 import { Target, CheckCircle2, Trophy, AlertOctagon } from "lucide-react";
-import { PageHeader, StatCard, DataTable } from "../../components";
+import { PageHeader, DataTable } from "../../components";
 import {
   Card,
   CardHeader,
@@ -11,92 +11,170 @@ import {
   Progress,
 } from "../../components/ui";
 import ReportsSubNav from "./components/ReportsSubNav";
-import GrowthIndicator from "./components/GrowthIndicator";
+import {
+  SmartKpiCard,
+  ReportToolbar,
+  InsightStrip,
+  DrilldownSheet,
+  DrillRow,
+  formatINR,
+  buildInsights,
+  trendInsight,
+  bestOf,
+  worstOf,
+  exportRowsToCsv,
+} from "./components/smart";
 import { targetsReport, REPORT_MONTHS } from "../../data/reportsDummyData";
-
-const formatINR = (value) =>
-  `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
-
-const teamColumns = [
-  { key: "team", label: "Team / Vertical", sortable: true },
-  {
-    key: "target",
-    label: "Target",
-    sortable: true,
-    align: "right",
-    render: (row) => formatINR(row.target),
-    sortValue: (row) => row.target,
-  },
-  {
-    key: "achieved",
-    label: "Achieved",
-    sortable: true,
-    align: "right",
-    render: (row) => formatINR(row.achieved),
-    sortValue: (row) => row.achieved,
-  },
-  {
-    key: "pct",
-    label: "Achievement",
-    sortable: true,
-    render: (row) => (
-      <div className="flex min-w-[140px] items-center gap-2">
-        <Progress
-          value={Math.min(row.pct, 100)}
-          color={
-            row.pct >= 100
-              ? "success"
-              : row.pct >= 90
-                ? "warning"
-                : "destructive"
-          }
-          className="h-2 w-24"
-        />
-        <span className="text-sm font-semibold tabular-nums">{row.pct}%</span>
-      </div>
-    ),
-  },
-];
 
 const TargetsReport = () => {
   const { kpis, achievementTrend, byTeam } = targetsReport;
+
+  const [period, setPeriod] = useState("this_quarter");
+  const [compare, setCompare] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [drill, setDrill] = useState(null);
+
+  const insights = useMemo(
+    () =>
+      buildInsights([
+        trendInsight(
+          "Achievement",
+          achievementTrend,
+          `${achievementTrend.at(-1)}%`,
+        ),
+        bestOf(
+          byTeam,
+          (t) => t.team,
+          (t) => t.pct,
+          (v) => `${v}% achieved`,
+        ),
+        worstOf(
+          byTeam,
+          (t) => t.team,
+          (t) => t.pct,
+          (v) => `${v}% achieved`,
+        ),
+        {
+          tone: kpis.atRiskTargets > 0 ? "warning" : "positive",
+          text: `${kpis.atRiskTargets} target(s) at risk — below 90% with under 2 weeks left.`,
+        },
+      ]),
+    [achievementTrend, byTeam, kpis],
+  );
+
+  const teamColumns = useMemo(
+    () => [
+      { key: "team", label: "Team / Vertical", sortable: true },
+      {
+        key: "target",
+        label: "Target",
+        sortable: true,
+        align: "right",
+        render: (row) => formatINR(row.target),
+        sortValue: (row) => row.target,
+      },
+      {
+        key: "achieved",
+        label: "Achieved",
+        sortable: true,
+        align: "right",
+        render: (row) => formatINR(row.achieved),
+        sortValue: (row) => row.achieved,
+      },
+      {
+        key: "pct",
+        label: "Achievement",
+        sortable: true,
+        render: (row) => (
+          <div className="flex min-w-[140px] items-center gap-2">
+            <Progress
+              value={Math.min(row.pct, 100)}
+              color={
+                row.pct >= 100
+                  ? "success"
+                  : row.pct >= 90
+                    ? "warning"
+                    : "destructive"
+              }
+              className="h-2 w-24"
+            />
+            <span className="text-sm font-semibold tabular-nums">
+              {row.pct}%
+            </span>
+          </div>
+        ),
+        sortValue: (row) => row.pct,
+      },
+    ],
+    [],
+  );
+
+  const handleExport = () =>
+    exportRowsToCsv(
+      "targets-by-team",
+      [
+        { label: "Team", value: (r) => r.team },
+        { label: "Target", value: (r) => r.target },
+        { label: "Achieved", value: (r) => r.achieved },
+        { label: "Achievement %", value: (r) => r.pct },
+      ],
+      byTeam,
+    );
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 600);
+  };
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Targets Report"
-        description="Target achievement across teams and regions. Sample data for UI preview."
+        description="Target achievement across teams and regions. Interactive sample data."
       />
       <ReportsSubNav />
 
+      <ReportToolbar
+        period={period}
+        onPeriodChange={setPeriod}
+        compare={compare}
+        onCompareChange={setCompare}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
+        onExport={handleExport}
+      />
+
+      <InsightStrip insights={insights} />
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
+        <SmartKpiCard
           title="Overall Achievement"
           value={`${kpis.overallAchievement}%`}
-          subtitle={<GrowthIndicator value={kpis.achievementGrowth} />}
           icon={Target}
           color="primary"
+          delta={compare ? kpis.achievementGrowth : null}
+          spark={achievementTrend}
         />
-        <StatCard
+        <SmartKpiCard
           title="Targets Met"
           value={`${kpis.targetsMet}/${kpis.targetsTotal}`}
-          subtitle="this quarter"
           icon={CheckCircle2}
           color="success"
+          footnote="this quarter"
         />
-        <StatCard
-          title="Top Team Achievement"
+        <SmartKpiCard
+          title="Top Team"
           value={`${kpis.topTeamAchievement}%`}
-          subtitle="North Region"
           icon={Trophy}
           color="info"
+          footnote="North Region"
         />
-        <StatCard
+        <SmartKpiCard
           title="At-risk Targets"
           value={kpis.atRiskTargets}
-          subtitle="below 90% with < 2 weeks left"
           icon={AlertOctagon}
           color="danger"
+          footnote="< 90%, under 2 weeks"
         />
       </div>
 
@@ -134,6 +212,7 @@ const TargetsReport = () => {
       <Card>
         <CardHeader>
           <CardTitle>Target Achievement by Team</CardTitle>
+          <CardDescription>Click a team to drill in</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <DataTable
@@ -142,9 +221,39 @@ const TargetsReport = () => {
             rowKey={(r) => r.team}
             showSearch={false}
             maxHeight="none"
+            onRowClick={(row) => setDrill(row)}
           />
         </CardContent>
       </Card>
+
+      <DrilldownSheet
+        open={!!drill}
+        onOpenChange={(o) => !o && setDrill(null)}
+        title={drill?.team}
+        description="Target vs achievement detail"
+      >
+        {drill && (
+          <div>
+            <DrillRow label="Target" value={formatINR(drill.target)} strong />
+            <DrillRow label="Achieved" value={formatINR(drill.achieved)} />
+            <DrillRow label="Achievement" value={`${drill.pct}%`} />
+            <DrillRow
+              label="Gap"
+              value={formatINR(Math.abs(drill.target - drill.achieved))}
+            />
+            <DrillRow
+              label="Status"
+              value={
+                drill.pct >= 100
+                  ? "On / above target"
+                  : drill.pct >= 90
+                    ? "Near target"
+                    : "Behind"
+              }
+            />
+          </div>
+        )}
+      </DrilldownSheet>
     </div>
   );
 };

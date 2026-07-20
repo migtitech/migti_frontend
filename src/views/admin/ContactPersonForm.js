@@ -3,13 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import {
-  ArrowLeft,
-  UserRound,
-  Mail,
-  Building2,
-  StickyNote,
-} from "lucide-react";
+import { UserRound, Mail, Building2, StickyNote } from "lucide-react";
 import industryService from "../../services/industryService";
 import industryContactPersonService from "../../services/industryContactPersonService";
 import supplierService from "../../services/supplierService";
@@ -19,6 +13,7 @@ import {
   CrudFormPage,
   FormField,
   SearchableDropdown,
+  BackButton,
 } from "../../components";
 import {
   Button,
@@ -281,7 +276,7 @@ const ContactPersonFormBase = ({ parentType }) => {
       reset(formValues);
       prevStatusRef.current = formValues.status || "active";
     } catch (err) {
-      toastError(err?.message || "Failed to fetch contact person");
+      toastError(err?.message || "Failed to load contact person");
     } finally {
       setLoading(false);
     }
@@ -330,15 +325,7 @@ const ContactPersonFormBase = ({ parentType }) => {
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate(config.basePath)}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to contacts
-        </Button>
+        <BackButton fallback={config.basePath} />
       </div>
 
       {error && (

@@ -12,7 +12,7 @@ const DialogOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-[1050] bg-black/50 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className,
     )}
     {...props}
@@ -27,7 +27,7 @@ const DialogContent = React.forwardRef(
       <DialogPrimitive.Content
         ref={ref}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 grid w-full max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl border border-border bg-card p-0 shadow-lg duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
+          "fixed left-1/2 top-1/2 z-[1050] flex max-h-[90vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-border bg-card p-0 shadow-lg duration-150 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 [&>*:not([data-dialog-chrome])]:min-h-0 [&>*:not([data-dialog-chrome])]:overflow-y-auto [&>*:not([data-dialog-chrome])]:px-6 [&>*:not([data-dialog-chrome])]:py-4",
           className,
         )}
         {...props}
@@ -35,6 +35,7 @@ const DialogContent = React.forwardRef(
         {children}
         {showClose && (
           <DialogPrimitive.Close
+            data-dialog-chrome=""
             className="rounded-md text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring"
             style={{
               position: "absolute",
@@ -63,8 +64,9 @@ DialogContent.displayName = "DialogContent";
 
 const DialogHeader = ({ className, ...props }) => (
   <div
+    data-dialog-chrome=""
     className={cn(
-      "flex items-center gap-3 border-b border-border px-6 py-5",
+      "flex shrink-0 items-center gap-3 border-b border-border px-6 py-5",
       className,
     )}
     {...props}
@@ -73,8 +75,9 @@ const DialogHeader = ({ className, ...props }) => (
 
 const DialogFooter = ({ className, ...props }) => (
   <div
+    data-dialog-chrome=""
     className={cn(
-      "flex items-center justify-end gap-2 border-t border-border px-6 py-4",
+      "flex shrink-0 items-center justify-end gap-2 border-t border-border px-6 py-4",
       className,
     )}
     {...props}

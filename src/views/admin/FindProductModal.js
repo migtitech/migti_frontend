@@ -553,7 +553,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                     onBlur={() =>
                       setTimeout(() => setCategoryDropdownOpen(false), 200)
                     }
-                    placeholder="Type to search category..."
+                    placeholder="Type to search category…"
                     autoComplete="off"
                   />
                   {categoryId && (
@@ -681,7 +681,7 @@ const FindProductModal = ({ visible, onClose, onImport }) => {
                     onBlur={() =>
                       setTimeout(() => setProductDropdownOpen(false), 200)
                     }
-                    placeholder="Type to search product..."
+                    placeholder="Type to search product…"
                     autoComplete="off"
                   />
                   {productDropdownOpen &&

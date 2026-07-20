@@ -63,7 +63,7 @@ const BrandList = () => {
       setBrands(data?.brands || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      setError(err?.message || "Failed to fetch brands");
+      setError(err?.message || "Failed to load brands");
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ const BrandList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

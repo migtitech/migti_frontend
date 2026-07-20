@@ -482,7 +482,7 @@ const QuotationList = () => {
       const cols = [
         {
           key: "index",
-          label: "S No",
+          label: "#",
           width: 64,
           toggleable: false,
           exportable: false,
@@ -742,7 +742,7 @@ const QuotationList = () => {
           !deletingId && setConfirmDelete({ visible: false, quotation: null })
         }
         onConfirm={handleDeleteQuotationConfirm}
-        title="Delete quotation?"
+        title="Delete Quotation?"
         message={
           confirmDelete.quotation?.quotationCode
             ? `Permanently remove quotation ${confirmDelete.quotation.quotationCode}? This cannot be undone.`

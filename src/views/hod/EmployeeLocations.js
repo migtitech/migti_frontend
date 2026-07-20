@@ -187,7 +187,7 @@ const EmployeeLocations = () => {
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>
-              Location history
+              Location History
               {historyModal.employee?.name ? (
                 <span className="ml-2 font-normal text-muted-foreground">
                   — {historyModal.employee.name}

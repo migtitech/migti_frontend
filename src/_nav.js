@@ -47,14 +47,14 @@ export const PURCHASE_ROLE_NAV = [
   {
     component: CNavItem,
     name: "Procurement Bucket",
-    to: "/purchase-tasks",
+    to: "/procurement-requests",
     icon: <Clipboard className="nav-icon" />,
     module: "purchase_tasks",
     roles: ["purchase_exicutive", "procurement"],
   },
   {
     component: CNavItem,
-    name: "Follow up Bucket",
+    name: "Follow-up Bucket",
     to: "/follow-up",
     icon: <Bell className="nav-icon" />,
     module: "follow_up",
@@ -78,14 +78,14 @@ export const PURCHASE_ROLE_NAV = [
   },
   {
     component: CNavItem,
-    name: "Local Pro",
+    name: "Local Procurement",
     to: "/local-pro",
     icon: <Users className="nav-icon" />,
     roles: ["procurement"],
   },
   {
     component: CNavItem,
-    name: "My Pro Bucket",
+    name: "My Procurement Bucket",
     to: "/local-pro",
     icon: <ShoppingBasket className="nav-icon" />,
     roles: ["localprocurement"],
@@ -115,7 +115,7 @@ export const PURCHASE_ROLE_NAV = [
   },
   {
     component: CNavItem,
-    name: "Sales Order payment",
+    name: "Sales Order Payment",
     to: "/po-payment",
     icon: <IndianRupee className="nav-icon" />,
     module: "po_payment",
@@ -123,7 +123,7 @@ export const PURCHASE_ROLE_NAV = [
   },
   {
     component: CNavItem,
-    name: "Inventory bucket",
+    name: "Inventory Bucket",
     to: "/inventory-bucket",
     icon: <LineChart className="nav-icon" />,
     module: "inventory_bucket",
@@ -131,7 +131,7 @@ export const PURCHASE_ROLE_NAV = [
   },
   {
     component: CNavItem,
-    name: "Dispatchment",
+    name: "Dispatch",
     to: "/dispatchment",
     icon: <Truck className="nav-icon" />,
     module: "dispatchment",
@@ -270,7 +270,7 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: "Query Followup",
+    name: "Query Follow-up",
     to: "/sales-master/query-followup",
     icon: <Bell className="nav-icon" />,
     roles: ["sales_manager"],
@@ -291,7 +291,7 @@ const _nav = [
   },
   {
     component: CNavItem,
-    name: "Quotation Followup",
+    name: "Quotation Follow-up",
     to: "/sales-master/quotation-followup",
     icon: <Send className="nav-icon" />,
     roles: ["sales_manager"],
@@ -596,13 +596,14 @@ const _nav = [
         icon: <LineChart className="nav-icon" />,
         module: "queries",
       },
-      {
-        component: CNavItem,
-        name: "Product Lead",
-        to: "/product-lead",
-        icon: <Star className="nav-icon" />,
-        module: "products",
-      },
+      // "Product Lead" hidden from Query Master menu (route still available directly)
+      // {
+      //   component: CNavItem,
+      //   name: "Product Lead",
+      //   to: "/product-lead",
+      //   icon: <Star className="nav-icon" />,
+      //   module: "products",
+      // },
     ],
   },
   {
@@ -630,12 +631,12 @@ const _nav = [
       {
         component: CNavGroup,
         name: "Procurement",
-        to: "/purchase-tasks",
+        to: "/procurement-requests",
         items: [
           {
             component: CNavItem,
             name: "Procurement Requests",
-            to: "/purchase-tasks",
+            to: "/procurement-requests",
             icon: <Clipboard className="nav-icon" />,
             module: "purchase_tasks",
           },
@@ -644,7 +645,14 @@ const _nav = [
             name: "Local Procurement",
             to: "/local-pro",
             icon: <Users className="nav-icon" />,
-            roles: ["procurement"],
+            roles: [
+              "procurement",
+              "localprocurement",
+              "super_admin",
+              "admin",
+              "head_of_department",
+              "hod",
+            ],
           },
           {
             component: CNavItem,
@@ -677,15 +685,11 @@ const _nav = [
         module: "pro_bucket",
       },
       {
+        // "Local Procurement" for procurement lives inside the Procurement
+        // subgroup above; keeping a group-level copy here duplicated it for
+        // the procurement role, so that copy was removed.
         component: CNavItem,
-        name: "Local Pro",
-        to: "/local-pro",
-        icon: <Users className="nav-icon" />,
-        roles: ["procurement"],
-      },
-      {
-        component: CNavItem,
-        name: "My Pro Bucket",
+        name: "My Procurement Bucket",
         to: "/local-pro",
         icon: <ShoppingBasket className="nav-icon" />,
         roles: ["localprocurement"],
@@ -768,7 +772,7 @@ const _nav = [
       {
         component: CNavItem,
         name: "Sales Orders",
-        to: "/purchase-order-sidebar",
+        to: "/sales-master/sales-orders",
         icon: <Clipboard className="nav-icon" />,
         module: "po_payment",
       },
@@ -840,7 +844,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Sales Order payment",
+        name: "Sales Order Payment",
         to: "/po-payment",
         icon: <IndianRupee className="nav-icon" />,
         module: "po_payment",
@@ -868,7 +872,7 @@ const _nav = [
           },
           {
             component: CNavItem,
-            name: "OverDue Customer Payments",
+            name: "Overdue Customer Payments",
             to: "/payment/overdue-customer",
             icon: <Clock className="nav-icon" />,
             roles: ["head_of_department", "hod"],
@@ -883,7 +887,7 @@ const _nav = [
           },
           {
             component: CNavItem,
-            name: "OverDue Supplier Payments",
+            name: "Overdue Supplier Payments",
             to: "/payment/overdue-supplier",
             icon: <Clock className="nav-icon" />,
             module: "po_payment_backlog",
@@ -927,7 +931,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Pending payment",
+        name: "Pending Payment",
         to: "/pending-payment",
         icon: <Clock className="nav-icon" />,
         /** Sales roles only; no po_payment permission required (read-only assigned POs). */
@@ -935,7 +939,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Billing request",
+        name: "Billing Request",
         to: "/billing-requests",
         icon: <IndianRupee className="nav-icon" />,
         module: "billing_request",
@@ -1016,13 +1020,6 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Local Purchase",
-        to: "/local-purchase",
-        icon: <ShoppingCart className="nav-icon" />,
-        roles: ["procurement"],
-      },
-      {
-        component: CNavItem,
         name: "My Purchase",
         to: "/my-purchase",
         icon: <ShoppingCart className="nav-icon" />,
@@ -1063,7 +1060,7 @@ const _nav = [
     items: [
       {
         component: CNavItem,
-        name: "Dispatchment",
+        name: "Dispatch",
         to: "/dispatchment",
         icon: <Truck className="nav-icon" />,
         module: "dispatchment",
@@ -1138,7 +1135,7 @@ const _nav = [
   },
   {
     component: CNavGroup,
-    name: "Branch Setting",
+    name: "Branch Settings",
     to: "/zones",
     icon: <Map className="nav-icon" />,
     module: null,
@@ -1152,7 +1149,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "SubZone",
+        name: "Sub Zones",
         to: "/sub-zones",
         icon: <Layers className="nav-icon" />,
         module: "sub_zones",
@@ -1166,7 +1163,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Company documents",
+        name: "Company Documents",
         to: "/company-documents",
         icon: <Folder className="nav-icon" />,
         module: null,
@@ -1211,7 +1208,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Docs",
+        name: "Documents",
         to: "/sidebar-docs",
         icon: <FileText className="nav-icon" />,
         module: null,
@@ -1284,7 +1281,7 @@ const _nav = [
       },
       {
         component: CNavItem,
-        name: "Employee locations",
+        name: "Employee Locations",
         to: "/employee-locations",
         icon: <Map className="nav-icon" />,
         module: null,

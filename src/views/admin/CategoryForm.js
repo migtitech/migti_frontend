@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Plus, Trash2, ArrowLeft, Info, Tags } from "lucide-react";
+import { Plus, Trash2, Info, Tags } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import categoryService from "../../services/categoryService";
 import groupService from "../../services/groupService";
@@ -11,6 +11,7 @@ import {
   CrudFormPage,
   FormField,
   FileUpload,
+  BackButton,
 } from "../../components";
 import {
   Button,
@@ -417,15 +418,7 @@ const CategoryForm = () => {
   return (
     <>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/categories")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Categories
-        </Button>
+        <BackButton fallback="/categories" />
       </div>
 
       <CrudFormPage
@@ -582,7 +575,7 @@ const CategoryForm = () => {
                     rows={4}
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Enter category description..."
+                    placeholder="Enter category description…"
                     aria-invalid={!!fieldErrors.description}
                   />
                 </FormField>

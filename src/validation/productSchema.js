@@ -28,112 +28,118 @@ const variantDimensionsSchema = yup.object({
   height: optionalNumber("height"),
 });
 
-export const variantCombinationSchema = yup.object({
-  _id: yup.string().matches(OBJECT_ID_PATTERN).optional(),
-  variantCode: yup.string().max(100).nullable().optional(),
-  optionValues: yup
-    .array()
-    .of(variantOptionValueSchema)
-    .min(1, '"optionValues" must contain at least 1 items')
-    .required(),
-  price: yup
-    .number()
-    .typeError('"price" must be a number')
-    .min(0, '"price" must be greater than or equal to 0')
-    .required('"price" (selling price) is required')
-    .transform((value, original) => (original === "" ? undefined : value)),
-  mrp: optionalNumber("mrp"),
-  costPrice: yup
-    .number()
-    .typeError('"costPrice" must be a number')
-    .min(0, '"costPrice" must be greater than or equal to 0')
-    .required('"costPrice" (purchase price) is required')
-    .transform((value, original) => (original === "" ? undefined : value)),
-  quantity: optionalNumber("quantity", { integer: true }),
-  weight: optionalNumber("weight"),
-  weightUnit: yup
-    .string()
-    .oneOf(["g", "kg", "lb", "oz"])
-    .optional()
-    .default("g"),
-  dimensions: variantDimensionsSchema.optional(),
-  dimensionUnit: yup.string().oneOf(["cm", "in", "m"]).optional().default("cm"),
-  images: yup
-    .array()
-    .of(yup.string().matches(OBJECT_ID_PATTERN))
-    .min(1, "At least one image is required")
-    .required("At least one image is required"),
-  queryQuotationImageId: yup
-    .string()
-    .matches(OBJECT_ID_PATTERN)
-    .nullable()
-    .optional()
-    .transform((value, original) => (original === "" ? null : value)),
-  modelNumber: yup
-    .string()
-    .trim()
-    .required("Model number is required")
-    .min(1, "Model number is required")
-    .max(100, "Model number must be at most 100 characters"),
-  hsnNumber: yup.string().max(25).nullable().optional().default(""),
-  gstPercentage: yup
-    .number()
-    .min(0)
-    .max(100)
-    .nullable()
-    .optional()
-    .transform((value, original) => (original === "" ? null : value)),
-  isActive: yup.boolean().optional().default(true),
-  timeline: yup
-    .number()
-    .integer()
-    .min(0, "Procurement timeline cannot be negative")
-    .nullable()
-    .optional()
-    .transform((value, original) => (original === "" ? null : value)),
-  timelineValue: yup
-    .number()
-    .min(0, "Procurement timeline cannot be negative")
-    .transform((value, original) => (original === "" ? undefined : value))
-    .optional(),
-  timelineUnit: yup
-    .string()
-    .oneOf(["day", "week", "month", "year"])
-    .optional()
-    .default("day"),
-  nextTimelineDate: yup
-    .string()
-    .nullable()
-    .optional()
-    .test(
-      "future-date",
-      "Next review date must be a future date",
-      (value) => {
-        if (!value) return true;
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return false;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        d.setHours(0, 0, 0, 0);
-        return d > today;
-      },
-    ),
-  procurementReviewStatus: yup
-    .string()
-    .oneOf(["idle", "overdue", "activated", "active"])
-    .optional()
-    .default("idle"),
-}).test(
-  "selling-gt-purchase",
-  "Selling price must be greater than purchase price",
-  function (combo) {
-    if (!combo) return true;
-    const selling = Number(combo.price);
-    const purchase = Number(combo.costPrice);
-    if (!Number.isFinite(selling) || !Number.isFinite(purchase)) return true;
-    return selling > purchase;
-  },
-);
+export const variantCombinationSchema = yup
+  .object({
+    _id: yup.string().matches(OBJECT_ID_PATTERN).optional(),
+    variantCode: yup.string().max(100).nullable().optional(),
+    optionValues: yup
+      .array()
+      .of(variantOptionValueSchema)
+      .min(1, '"optionValues" must contain at least 1 items')
+      .required(),
+    price: yup
+      .number()
+      .typeError('"price" must be a number')
+      .min(0, '"price" must be greater than or equal to 0')
+      .required('"price" (selling price) is required')
+      .transform((value, original) => (original === "" ? undefined : value)),
+    mrp: optionalNumber("mrp"),
+    costPrice: yup
+      .number()
+      .typeError('"costPrice" must be a number')
+      .min(0, '"costPrice" must be greater than or equal to 0')
+      .required('"costPrice" (purchase price) is required')
+      .transform((value, original) => (original === "" ? undefined : value)),
+    quantity: optionalNumber("quantity", { integer: true }),
+    weight: optionalNumber("weight"),
+    weightUnit: yup
+      .string()
+      .oneOf(["g", "kg", "lb", "oz"])
+      .optional()
+      .default("g"),
+    dimensions: variantDimensionsSchema.optional(),
+    dimensionUnit: yup
+      .string()
+      .oneOf(["cm", "in", "m"])
+      .optional()
+      .default("cm"),
+    images: yup
+      .array()
+      .of(yup.string().matches(OBJECT_ID_PATTERN))
+      .min(1, "At least one image is required")
+      .required("At least one image is required"),
+    queryQuotationImageId: yup
+      .string()
+      .matches(OBJECT_ID_PATTERN)
+      .nullable()
+      .optional()
+      .transform((value, original) => (original === "" ? null : value)),
+    modelNumber: yup
+      .string()
+      .trim()
+      .required("Model number is required")
+      .min(1, "Model number is required")
+      .max(100, "Model number must be at most 100 characters"),
+    hsnNumber: yup.string().max(25).nullable().optional().default(""),
+    gstPercentage: yup
+      .number()
+      .min(0)
+      .max(100)
+      .nullable()
+      .optional()
+      .transform((value, original) => (original === "" ? null : value)),
+    isActive: yup.boolean().optional().default(true),
+    timeline: yup
+      .number()
+      .integer()
+      .min(0, "Procurement timeline cannot be negative")
+      .nullable()
+      .optional()
+      .transform((value, original) => (original === "" ? null : value)),
+    timelineValue: yup
+      .number()
+      .min(0, "Procurement timeline cannot be negative")
+      .transform((value, original) => (original === "" ? undefined : value))
+      .optional(),
+    timelineUnit: yup
+      .string()
+      .oneOf(["day", "week", "month", "year"])
+      .optional()
+      .default("day"),
+    nextTimelineDate: yup
+      .string()
+      .nullable()
+      .optional()
+      .test(
+        "future-date",
+        "Next review date must be a future date",
+        (value) => {
+          if (!value) return true;
+          const d = new Date(value);
+          if (Number.isNaN(d.getTime())) return false;
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          d.setHours(0, 0, 0, 0);
+          return d > today;
+        },
+      ),
+    procurementReviewStatus: yup
+      .string()
+      .oneOf(["idle", "overdue", "activated", "active"])
+      .optional()
+      .default("idle"),
+  })
+  .test(
+    "selling-gt-purchase",
+    "Selling price must be greater than purchase price",
+    function (combo) {
+      if (!combo) return true;
+      const selling = Number(combo.price);
+      const purchase = Number(combo.costPrice);
+      if (!Number.isFinite(selling) || !Number.isFinite(purchase)) return true;
+      return selling > purchase;
+    },
+  );
 
 export const variantSchema = yup.object({
   name: yup.string().required('"name" is required'),
@@ -236,7 +242,9 @@ export const createProductPayloadSchema = yup.object({
   taxClause: yup.string().trim().optional().default(""),
   gstPercentage: yup
     .number()
-    .transform((value, original) => (original === "" || original == null ? undefined : value))
+    .transform((value, original) =>
+      original === "" || original == null ? undefined : value,
+    )
     .typeError("GST is required")
     .required("GST is required")
     .min(0, "GST must be greater than or equal to 0")
@@ -412,7 +420,9 @@ export const productFormSchema = yup.object({
   taxClause: yup.string().trim().optional().default(""),
   gstPercentage: yup
     .number()
-    .transform((value, original) => (original === "" || original == null ? undefined : value))
+    .transform((value, original) =>
+      original === "" || original == null ? undefined : value,
+    )
     .typeError("GST is required")
     .required("GST is required")
     .min(0, "GST must be greater than or equal to 0")

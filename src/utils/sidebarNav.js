@@ -59,6 +59,14 @@ export const PURCHASE_MANAGER_HIDDEN_GROUP_NAMES = new Set([
   "Master",
   "Sales Order Master",
   "Delivery Master",
+  "Purchase Master",
+]);
+
+/** Top-level nav GROUPS whose children are hoisted to the sidebar top level for
+ * the procurement role — the items show directly instead of nested inside the
+ * group wrapper. Matched by group name. */
+export const PROCUREMENT_FLATTENED_GROUP_NAMES = new Set([
+  "Procurement Master",
 ]);
 
 export const DISPATCH_MANAGER_ALLOWED_PATHS = new Set(["/dispatchment"]);
@@ -95,6 +103,19 @@ export const ADMIN_ALLOWED_PATHS = new Set([
 ]);
 
 const PURCHASE_ROLE_KEYS = new Set(["purchase_exicutive", "procurement"]);
+
+/** The single dashboard the procurement role should see in the sidebar. */
+export const PROCUREMENT_ALLOWED_DASHBOARD_PATH = "/purchase-dashboard";
+
+/** Dashboard leaves that otherwise show for procurement but must be hidden so
+ * only the final Purchase Dashboard remains. Procurement-only rule. */
+export const PROCUREMENT_HIDDEN_DASHBOARD_PATHS = new Set([
+  "/dashboard",
+  "/sales-dashboard",
+  "/pro-dashboard",
+  "/hod-dashboard",
+  "/finance",
+]);
 
 export const roleMatchesNavPrefix = (role, rolePrefix) => {
   const prefix = String(rolePrefix || "").toLowerCase();
@@ -142,6 +163,16 @@ const augmentNavForProBucketRoute = (
 
   const normalized = String(role || "").toLowerCase();
   const extras = PURCHASE_ROLE_NAV.filter((item) => {
+    // Keep procurement's single-dashboard rule consistent when extras are
+    // merged in on the pro-bucket route.
+    if (
+      normalized === "procurement" &&
+      item.to &&
+      item.to !== PROCUREMENT_ALLOWED_DASHBOARD_PATH &&
+      PROCUREMENT_HIDDEN_DASHBOARD_PATHS.has(item.to)
+    ) {
+      return false;
+    }
     if (!isSharedPurchaseNavItem(item)) {
       return item.roles?.some((r) => String(r).toLowerCase() === normalized);
     }
@@ -232,6 +263,17 @@ export const isNavItemVisible = (item, ctx) => {
     return false;
   }
 
+  // Procurement sidebar shows only the final Purchase Dashboard: hide the
+  // other dashboard leaves so a single dashboard remains. Procurement-only.
+  if (
+    role === "procurement" &&
+    item.to &&
+    item.to !== PROCUREMENT_ALLOWED_DASHBOARD_PATH &&
+    PROCUREMENT_HIDDEN_DASHBOARD_PATHS.has(item.to)
+  ) {
+    return false;
+  }
+
   // Procurement sees Pro Bucket by default (no explicit pro_bucket permission required).
   if (role === "procurement" && item.to === "/pro-bucket") {
     return true;
@@ -298,23 +340,48 @@ export const filterNavigationItems = (navItems, ctx) => {
     return items.filter(filter);
   }
 
-  const applyGroupFilter = (list) =>
-    list
-      .map((item) => {
+  const isProcurement = ctx.role === "procurement";
+
+  const applyGroupFilter = (list, isTopLevel = false) =>
+    list.flatMap((item) => {
+      if (
+        isPurchaseFamilyRole(ctx.role) &&
+        PURCHASE_MANAGER_HIDDEN_GROUP_NAMES.has(item.name)
+      ) {
+        return [];
+      }
+      if (item.items) {
+        const filteredItems = applyGroupFilter(item.items);
+        if (filteredItems.length === 0) return [];
+        // For procurement, collapse the "Dashboard" group into a single flat
+        // "Dashboard" item that opens the Purchase Dashboard directly — no
+        // nested sub-dashboard. Procurement-only.
+        if (isTopLevel && isProcurement && item.name === "Dashboard") {
+          const target =
+            filteredItems.find(
+              (child) => child.to === PROCUREMENT_ALLOWED_DASHBOARD_PATH,
+            ) || filteredItems[0];
+          return [
+            {
+              ...target,
+              name: "Dashboard",
+              icon: item.icon,
+            },
+          ];
+        }
+        // For procurement, hoist this group's children to the top level
+        // instead of nesting them inside the group wrapper.
         if (
-          ctx.role === "purchase_exicutive" &&
-          PURCHASE_MANAGER_HIDDEN_GROUP_NAMES.has(item.name)
+          isTopLevel &&
+          isProcurement &&
+          PROCUREMENT_FLATTENED_GROUP_NAMES.has(item.name)
         ) {
-          return null;
+          return filteredItems;
         }
-        if (item.items) {
-          const filteredItems = applyGroupFilter(item.items);
-          if (filteredItems.length === 0) return null;
-          return { ...item, items: filteredItems };
-        }
-        return filter(item) ? item : null;
-      })
-      .filter(Boolean);
+        return [{ ...item, items: filteredItems }];
+      }
+      return filter(item) ? [item] : [];
+    });
 
   if (
     ctx.strategy === "admin" ||
@@ -322,11 +389,12 @@ export const filterNavigationItems = (navItems, ctx) => {
     ctx.strategy === "dispatch_manager" ||
     ctx.strategy === "inventory_manager"
   ) {
-    return applyGroupFilter(items);
+    return applyGroupFilter(items, true);
   }
 
   return applyGroupFilter(
     items.filter((item) => item.items?.length || filter(item)),
+    true,
   );
 };
 

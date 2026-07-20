@@ -414,6 +414,246 @@ export const targetsReport = {
 };
 
 // ---------------------------------------------------------------------------
+// Quotation
+// ---------------------------------------------------------------------------
+export const quotationReport = {
+  kpis: {
+    totalQuotations: 486,
+    totalGrowth: 9.7,
+    winRate: 38.4,
+    winRateGrowth: 2.6,
+    pendingValue: 3120000,
+    pendingGrowth: -4.1,
+    avgTurnaroundDays: 2.3,
+    turnaroundGrowth: -8.2,
+  },
+  monthlySent: [58, 64, 71, 76, 82, 89],
+  monthlyWon: [22, 25, 27, 30, 33, 36],
+  outcomeSplit: [
+    { label: "Won", value: 168, color: "#12b76a" },
+    { label: "Pending", value: 112, color: "#f79009" },
+    { label: "Lost", value: 106, color: "#f04438" },
+    { label: "Expired", value: 100, color: "#98a2b3" },
+  ],
+  valueBuckets: [
+    { bucket: "< ₹50K", sent: 142, won: 62 },
+    { bucket: "₹50K–₹2L", sent: 168, won: 71 },
+    { bucket: "₹2L–₹5L", sent: 104, won: 24 },
+    { bucket: "> ₹5L", sent: 72, won: 11 },
+  ],
+  topReps: [
+    { name: "Priya Nair", region: "North", quoted: 128, won: 58, winRate: 45 },
+    {
+      name: "Ananya Sharma",
+      region: "North",
+      quoted: 116,
+      won: 49,
+      winRate: 42,
+    },
+    { name: "Farhan Khan", region: "East", quoted: 98, won: 35, winRate: 36 },
+    { name: "Rohit Verma", region: "West", quoted: 92, won: 26, winRate: 28 },
+    { name: "Kavya Iyer", region: "South", quoted: 84, won: 30, winRate: 36 },
+  ],
+  recentQuotations: [
+    {
+      id: "QT-4471",
+      customer: "Vantage Industries",
+      date: "2026-07-15",
+      validTill: "2026-07-30",
+      amount: 420000,
+      status: "won",
+    },
+    {
+      id: "QT-4470",
+      customer: "Orion Manufacturing",
+      date: "2026-07-15",
+      validTill: "2026-07-28",
+      amount: 186500,
+      status: "sent",
+    },
+    {
+      id: "QT-4469",
+      customer: "Kridha Steelworks",
+      date: "2026-07-14",
+      validTill: "2026-07-26",
+      amount: 962000,
+      status: "negotiation",
+    },
+    {
+      id: "QT-4468",
+      customer: "Baltic Engineering",
+      date: "2026-07-13",
+      validTill: "2026-07-25",
+      amount: 275000,
+      status: "won",
+    },
+    {
+      id: "QT-4467",
+      customer: "Suryodaya Fabricators",
+      date: "2026-07-12",
+      validTill: "2026-07-22",
+      amount: 148000,
+      status: "lost",
+    },
+    {
+      id: "QT-4466",
+      customer: "Meridian Auto Parts",
+      date: "2026-07-11",
+      validTill: "2026-07-18",
+      amount: 92000,
+      status: "expired",
+    },
+    {
+      id: "QT-4465",
+      customer: "Zenith Plastics",
+      date: "2026-07-10",
+      validTill: "2026-07-31",
+      amount: 531000,
+      status: "sent",
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
+// Supplier
+// ---------------------------------------------------------------------------
+export const supplierReport = {
+  kpis: {
+    totalSuppliers: 128,
+    suppliersGrowth: 3.1,
+    activeSuppliers: 96,
+    avgRating: 4.2,
+    ratingGrowth: 1.4,
+    onTimeRate: 91.3,
+    onTimeGrowth: 2.1,
+    totalSpend: 8620000,
+    spendGrowth: 6.3,
+  },
+  monthlyOnTime: [720000, 760000, 810000, 845000, 890000, 940000],
+  monthlyDelayed: [98000, 72000, 88000, 61000, 55000, 42000],
+  spendByCategory: [
+    { label: "Raw Materials", value: 3480000, color: "#2970ff" },
+    { label: "Machinery Spares", value: 2140000, color: "#12b76a" },
+    { label: "Fasteners", value: 1120000, color: "#f79009" },
+    { label: "Bearings", value: 980000, color: "#7a5af8" },
+    { label: "Consumables", value: 900000, color: "#98a2b3" },
+  ],
+  ratingSplit: [
+    { label: "Excellent (4.5+)", value: 34, color: "#12b76a" },
+    { label: "Good (4–4.5)", value: 52, color: "#2970ff" },
+    { label: "Average (3–4)", value: 32, color: "#f79009" },
+    { label: "Poor (<3)", value: 10, color: "#f04438" },
+  ],
+  topSuppliers: [
+    {
+      name: "Everest Alloys Pvt Ltd",
+      category: "Raw Materials",
+      orders: 48,
+      spend: 1284000,
+      rating: 4.6,
+      onTime: 96,
+    },
+    {
+      name: "Bluecrest Components",
+      category: "Bearings",
+      orders: 39,
+      spend: 1042500,
+      rating: 4.5,
+      onTime: 92,
+    },
+    {
+      name: "Northgate Logistics",
+      category: "Machinery Spares",
+      orders: 33,
+      spend: 786400,
+      rating: 4.3,
+      onTime: 88,
+    },
+    {
+      name: "Silverline Packaging Co.",
+      category: "Consumables",
+      orders: 28,
+      spend: 542200,
+      rating: 4.0,
+      onTime: 94,
+    },
+    {
+      name: "Trident Fabrication",
+      category: "Fasteners",
+      orders: 21,
+      spend: 418900,
+      rating: 3.8,
+      onTime: 85,
+    },
+  ],
+  suppliers: [
+    {
+      name: "Everest Alloys Pvt Ltd",
+      category: "Raw Materials",
+      city: "Indore",
+      rating: 4.6,
+      onTime: 96,
+      spend: 1284000,
+      status: "active",
+    },
+    {
+      name: "Bluecrest Components",
+      category: "Bearings",
+      city: "Pune",
+      rating: 4.5,
+      onTime: 92,
+      spend: 1042500,
+      status: "active",
+    },
+    {
+      name: "Northgate Logistics",
+      category: "Machinery Spares",
+      city: "Nagpur",
+      rating: 4.3,
+      onTime: 88,
+      spend: 786400,
+      status: "active",
+    },
+    {
+      name: "Silverline Packaging Co.",
+      category: "Consumables",
+      city: "Indore",
+      rating: 4.0,
+      onTime: 94,
+      spend: 542200,
+      status: "active",
+    },
+    {
+      name: "Trident Fabrication",
+      category: "Fasteners",
+      city: "Dewas",
+      rating: 3.8,
+      onTime: 85,
+      spend: 418900,
+      status: "review",
+    },
+    {
+      name: "Apex Machinery Spares",
+      category: "Machinery Spares",
+      city: "Pithampur",
+      rating: 3.4,
+      onTime: 74,
+      spend: 286000,
+      status: "on hold",
+    },
+    {
+      name: "Deccan Alloys",
+      category: "Raw Materials",
+      city: "Ujjain",
+      rating: 2.9,
+      onTime: 68,
+      spend: 164000,
+      status: "inactive",
+    },
+  ],
+};
+
+// ---------------------------------------------------------------------------
 // Cross-module overview (Reports landing page)
 // ---------------------------------------------------------------------------
 export const overviewReport = {

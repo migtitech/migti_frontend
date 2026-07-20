@@ -11,6 +11,7 @@ import { NotificationProvider } from "./context/NotificationContext";
 import { DataProvider } from "./context/DataContext";
 import Loader from "./components/Loader/Loader";
 import RealtimeNotificationAlert from "./components/RealtimeNotificationAlert";
+import ImageHoverZoom from "./components/ImageHoverZoom/ImageHoverZoom";
 import AuthRouteMiddleware from "./components/AuthRouteMiddleware";
 
 // Containers
@@ -46,6 +47,7 @@ const App = () => {
         <NotificationProvider>
           <DataProvider>
             <Toaster containerStyle={{ zIndex: 20000 }} />
+            <ImageHoverZoom />
             <HashRouter>
               <AuthRouteMiddleware>
                 <RealtimeNotificationAlert />

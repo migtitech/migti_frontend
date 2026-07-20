@@ -38,7 +38,7 @@ const CompanyList = () => {
       const data = res?.data || res;
       setCompanies(data?.companies || data || []);
     } catch (err) {
-      setError(err?.message || "Failed to fetch companies");
+      setError(err?.message || "Failed to load companies");
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ const CompanyList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, User } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { User } from "lucide-react";
 import taskManagementService from "../../services/taskManagementService";
 import employeeService from "../../services/employeeService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, PageHeader } from "../../components";
+import {
+  Loader,
+  PageHeader,
+  BackButton,
+  GstRateSelect,
+} from "../../components";
 import {
   Badge,
   Button,
@@ -61,7 +66,6 @@ const DetailRow = ({ label, children, stacked = false }) => (
 
 const TaskView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [task, setTask] = useState(null);
   const [loading, setLoading] = useState(true);
   const [employees, setEmployees] = useState([]);
@@ -205,14 +209,7 @@ const TaskView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/task-dashboard")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Tasks
-        </Button>
+        <BackButton fallback="/task-dashboard" />
       </div>
 
       <PageHeader
@@ -409,11 +406,8 @@ const TaskView = () => {
               </DetailRow>
               <DetailRow label="GST %">
                 {editing ? (
-                  <Input
-                    className="h-8 w-48"
-                    type="number"
-                    min={0}
-                    max={100}
+                  <GstRateSelect
+                    className="w-64"
                     value={form.gst}
                     onChange={(e) => handleFormChange("gst", e.target.value)}
                   />

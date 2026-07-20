@@ -316,7 +316,7 @@ const TaskList = () => {
 
       <ConfirmDialog
         visible={!!deleteTarget}
-        title="Delete Task"
+        title="Delete Task?"
         message={
           deleteTarget
             ? `Are you sure you want to delete task "${deleteTarget.title || ""}"?`

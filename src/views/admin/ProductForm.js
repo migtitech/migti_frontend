@@ -68,7 +68,12 @@ import groupService from "../../services/groupService";
 import industryService from "../../services/industryService";
 import supplierService from "../../services/supplierService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader, StatusToggle } from "../../components";
+import {
+  BackButton,
+  GstRateSelect,
+  Loader,
+  StatusToggle,
+} from "../../components";
 import StatusLabel from "../../components/StatusLabel/StatusLabel";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { useAuth, ROLES } from "../../context/AuthContext";
@@ -1051,7 +1056,7 @@ const ProductForm = () => {
         }
       }
     } catch (err) {
-      toastError(err?.message || "Failed to fetch product");
+      toastError(err?.message || "Failed to load product");
     } finally {
       setLoading(false);
     }
@@ -2028,15 +2033,7 @@ const ProductForm = () => {
   return (
     <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/products")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Products
-        </Button>
+        <BackButton fallback="/products" />
       </div>
 
       {validationErrors.length > 0 && (
@@ -2143,7 +2140,7 @@ const ProductForm = () => {
                     Group <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    placeholder="Type to search group..."
+                    placeholder="Type to search group…"
                     value={groupSearch}
                     onChange={handleGroupSearchChange}
                   />
@@ -2359,13 +2356,14 @@ const ProductForm = () => {
                   <Label className="mb-1.5 block">
                     GST <span className="text-destructive">*</span>
                   </Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.01}
-                    placeholder="e.g., 18"
-                    {...register("gstPercentage")}
+                  <GstRateSelect
+                    value={watch("gstPercentage") ?? ""}
+                    onChange={(e) =>
+                      setValue("gstPercentage", e.target.value, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      })
+                    }
                   />
                   {errors.gstPercentage && (
                     <p className="mt-1 text-sm text-destructive">
@@ -2378,7 +2376,7 @@ const ProductForm = () => {
                     HSN Code <span className="text-destructive">*</span>
                   </Label>
                   <Input
-                    placeholder="e.g., 8471"
+                    placeholder="e.g. 8471"
                     maxLength={25}
                     {...register("hsnNumber")}
                   />
@@ -2924,7 +2922,7 @@ const ProductForm = () => {
                                             type="number"
                                             min="0"
                                             step="1"
-                                            placeholder="e.g., 2"
+                                            placeholder="e.g. 2"
                                             value={combo.timelineValue ?? ""}
                                             onChange={(e) => {
                                               const raw = e.target.value;
@@ -3207,7 +3205,7 @@ const ProductForm = () => {
                   <div className="md:col-span-5">
                     <Label className="mb-1.5 block">Client</Label>
                     <Input
-                      placeholder="Type to search client..."
+                      placeholder="Type to search client…"
                       value={row.search}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -3308,7 +3306,7 @@ const ProductForm = () => {
                   <div className="md:col-span-5">
                     <Label className="mb-1.5 block">Supplier</Label>
                     <Input
-                      placeholder="Type to search supplier..."
+                      placeholder="Type to search supplier…"
                       value={row.search}
                       onChange={(e) => {
                         const value = e.target.value;

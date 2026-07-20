@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import areaService from "../../services/areaService";
-import { Loader, PageHeader } from "../../components";
+import { Loader, PageHeader, BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -72,14 +72,7 @@ const AreaView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/zones")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Zones
-        </Button>
+        <BackButton fallback="/zones" />
       </div>
 
       <PageHeader

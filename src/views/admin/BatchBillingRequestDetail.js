@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import {
-  ArrowLeft,
   CheckCircle2,
   UploadCloud,
   Tag,
@@ -29,7 +28,7 @@ import documentService from "../../services/documentService";
 import axiosClient from "../../api/axiosClient";
 import { DOCUMENTS } from "../../api/endpoints";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { Loader } from "../../components";
+import { Loader, BackButton } from "../../components";
 import { dateFormatter } from "../../utils/dateFormatter";
 
 const fmtAmount = (n) =>
@@ -209,7 +208,6 @@ const StatBox = ({ label, value, accent }) => (
 
 const BatchBillingRequestDetail = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState(null);
@@ -248,7 +246,7 @@ const BatchBillingRequestDetail = () => {
       );
       const updated = unwrap(res);
       if (updated) setDetail(updated);
-      toastSuccess("Product marked as purchased.");
+      toastSuccess("Product marked as purchased");
     } catch (e) {
       toastError(e?.message || "Failed to mark product as purchased.");
     } finally {
@@ -359,7 +357,7 @@ const BatchBillingRequestDetail = () => {
       );
       const updated = unwrap(res);
       if (updated) setDetail(updated);
-      toastSuccess("Product resubmitted successfully.");
+      toastSuccess("Product resubmitted successfully");
       closeResubmit();
     } catch (e) {
       toastError(e?.message || "Failed to resubmit product.");
@@ -380,14 +378,7 @@ const BatchBillingRequestDetail = () => {
     return (
       <div>
         <p className="text-body-secondary">Billing request not found.</p>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => navigate(-1)}
-        >
-          Back
-        </Button>
+        <BackButton fallback="/batch-billing-requests" />
       </div>
     );
   }
@@ -403,16 +394,10 @@ const BatchBillingRequestDetail = () => {
         {/* Page header */}
         <div className="mb-3 rounded-3 p-3 bg-muted border border-border">
           <div className="flex items-center gap-2 mb-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => navigate(-1)}
+            <BackButton
+              fallback="/batch-billing-requests"
               style={{ flexShrink: 0 }}
-            >
-              <ArrowLeft className="me-1" style={{ width: 14, height: 14 }} />
-              Back
-            </Button>
+            />
             <div style={{ minWidth: 0, flex: 1 }} />
             <BatchStatusPill status={detail.status} />
           </div>

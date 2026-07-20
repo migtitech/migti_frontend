@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Eye, Info, Layers, Tags } from "lucide-react";
+import { Eye, Info, Layers, Tags } from "lucide-react";
 import categoryService from "../../services/categoryService";
 import Filtered from "../../filtered/Filtered";
-import { Loader, StatusLabel, StatusBadge } from "../../components";
+import { Loader, StatusLabel, StatusBadge, BackButton } from "../../components";
 import {
   Button,
   Card,
@@ -151,14 +151,7 @@ const CategoryView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/categories")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Categories
-        </Button>
+        <BackButton fallback="/categories" />
       </div>
 
       {/* Summary banner */}

@@ -1,14 +1,7 @@
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { PageHeader, EmptyState } from "../../components";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Button,
-} from "../../components/ui";
+import { useParams } from "react-router-dom";
+import { PageHeader, EmptyState, BackButton } from "../../components";
+import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui";
 import { productSalesList } from "../../data/salesMasterDummyData";
 
 const formatINR = (value) =>
@@ -16,7 +9,6 @@ const formatINR = (value) =>
 
 const ProductSalesView = () => {
   const { sku } = useParams();
-  const navigate = useNavigate();
   const product = productSalesList.find((p) => p.sku === sku);
 
   if (!product) {
@@ -24,17 +16,10 @@ const ProductSalesView = () => {
       <div className="space-y-6">
         <PageHeader title="Product not found" />
         <EmptyState
-          title="No such product"
+          title="Product not found"
           message="This sample product record doesn't exist."
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/sales-master/product-sales-list")}
-        >
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back to Product Sales List
-        </Button>
+        <BackButton fallback="/sales-master/product-sales-list" />
       </div>
     );
   }
@@ -44,16 +29,7 @@ const ProductSalesView = () => {
       <PageHeader
         title={product.name}
         description="Product sales detail — sample data for UI preview."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales-master/product-sales-list")}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Product Sales List
-          </Button>
-        }
+        actions={<BackButton fallback="/sales-master/product-sales-list" />}
       />
 
       <Card>

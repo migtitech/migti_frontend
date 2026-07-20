@@ -28,7 +28,7 @@ const Tooltip = ({ content, side = "top", className, children, ...props }) => {
         <span
           role="tooltip"
           className={cn(
-            "pointer-events-none absolute z-50 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md",
+            "pointer-events-none absolute z-[1060] whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-medium text-background shadow-md",
             sideClass,
             className,
           )}

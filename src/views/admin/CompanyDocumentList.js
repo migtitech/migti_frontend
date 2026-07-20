@@ -322,7 +322,7 @@ const CompanyDocumentList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,
@@ -420,7 +420,7 @@ const CompanyDocumentList = () => {
                 setSearchTerm(value);
                 setPage(1);
               }}
-              placeholder="Search by name or remark..."
+              placeholder="Search by name or remark…"
             />
           </div>
           <div className="w-full sm:w-56">
@@ -498,7 +498,7 @@ const CompanyDocumentList = () => {
                       <Table>
                         <TableHeader>
                           <TableRow className="hover:bg-transparent">
-                            <TableHead className="w-16">S No</TableHead>
+                            <TableHead className="w-16">#</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Remark</TableHead>
                             <TableHead>File</TableHead>
@@ -565,7 +565,7 @@ const CompanyDocumentList = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload company document</DialogTitle>
+            <DialogTitle>Upload Company Document</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -648,7 +648,7 @@ const CompanyDocumentList = () => {
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Upload catalog</DialogTitle>
+            <DialogTitle>Upload Catalog</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -736,7 +736,7 @@ const CompanyDocumentList = () => {
         visible={confirmDelete.visible}
         onClose={() => setConfirmDelete({ visible: false, id: null })}
         onConfirm={handleDeleteConfirm}
-        title="Delete company document?"
+        title="Delete Company Document?"
         message="Are you sure you want to delete this document? This action cannot be undone."
         confirmText="Delete"
         cancelText="Cancel"

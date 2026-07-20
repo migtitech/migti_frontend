@@ -146,7 +146,7 @@ const PurchaseOrder = () => {
     setGeneratedPo(po);
     setOrders((prev) => [po, ...prev]);
     toastSuccess(
-      `Purchase Order ${po.id} generated — awaiting HOD verification (sample UI, not saved).`,
+      `Purchase Order ${po.id} generated — awaiting HOD verification (sample UI, not saved)`,
     );
   };
 
@@ -186,7 +186,7 @@ const PurchaseOrder = () => {
       return;
     }
     toastSuccess(
-      `Purchase Order ${generatedPo.id} sent to ${generatedPo.supplier} (sample UI, not sent).`,
+      `Purchase Order ${generatedPo.id} sent to ${generatedPo.supplier} (sample UI, not sent)`,
     );
   };
 

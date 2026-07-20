@@ -10,20 +10,23 @@ import {
   DataTable,
   RowActions,
   StatusBadge,
+  PurchaseDetailDialog,
 } from "../../components";
+import { resolvePoProductId } from "../../components/PurchaseDetailDialog/PurchaseDetailDialog";
+import usePermissions from "../../hooks/usePermissions";
 import {
   Badge,
   Button,
   Input,
   Label,
   Select,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetBody,
-  SheetFooter,
-  SheetTitle,
-  SheetDescription,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+  Tooltip,
 } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -150,6 +153,8 @@ const DownloadButton = ({ url, filename, label = "Download" }) => {
 };
 
 const LocalPurchaseList = () => {
+  const { canUpdate } = usePermissions();
+  const canRaiseBilling = canUpdate("purchase_bucket");
   const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
     "local_purchase",
     LOCAL_PURCHASE_FILTER_DEFAULTS,
@@ -165,6 +170,8 @@ const LocalPurchaseList = () => {
   const [loading, setLoading] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [activeRow, setActiveRow] = useState(null);
+  const [purchaseDetailOpen, setPurchaseDetailOpen] = useState(false);
+  const [purchaseDetailRow, setPurchaseDetailRow] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -252,6 +259,11 @@ const LocalPurchaseList = () => {
     setActiveRow(null);
   };
 
+  const openPurchaseDetail = (row) => {
+    setPurchaseDetailRow(row);
+    setPurchaseDetailOpen(true);
+  };
+
   const snap = activeRow?.productSnapshot || {};
   const billUrl = activeRow?.bill?.path ? fileUrl(activeRow.bill.path) : "";
   const billName = docFileName(activeRow?.bill, "bill");
@@ -274,7 +286,7 @@ const LocalPurchaseList = () => {
     () => [
       {
         key: "index",
-        label: "S.No",
+        label: "#",
         width: 56,
         align: "center",
         toggleable: false,
@@ -407,7 +419,31 @@ const LocalPurchaseList = () => {
         toggleable: false,
         exportable: false,
         stopRowClick: true,
-        render: (row) => <RowActions onView={() => openDetail(row)} />,
+        render: (row) => {
+          const isSubmitted =
+            String(row.status || "").toLowerCase() === "submitted";
+          return (
+            <RowActions
+              onView={() => openPurchaseDetail(row)}
+              viewLabel="View purchase details"
+              extra={
+                isSubmitted ? (
+                  <Tooltip content="View submission (bill & images)">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-primary"
+                      onClick={() => openDetail(row)}
+                      aria-label="View submission"
+                    >
+                      <Clipboard className="h-4 w-4" />
+                    </Button>
+                  </Tooltip>
+                ) : null
+              }
+            />
+          );
+        },
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -501,19 +537,22 @@ const LocalPurchaseList = () => {
         </>
       )}
 
-      <Sheet open={detailOpen} onOpenChange={(o) => !o && closeDetail()}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
+      <Dialog open={detailOpen} onOpenChange={(o) => !o && closeDetail()}>
+        <DialogContent className="max-w-md">
           {activeRow && (
             <>
-              <SheetHeader>
-                <SheetTitle>Submission details</SheetTitle>
-                <SheetDescription className="truncate" title={snap.productName}>
+              <DialogHeader className="flex-col items-start gap-1.5">
+                <DialogTitle>Submission Details</DialogTitle>
+                <DialogDescription
+                  className="truncate"
+                  title={snap.productName}
+                >
                   {snap.productName || "Product"}
-                </SheetDescription>
+                </DialogDescription>
                 <div className="pt-1">{statusBadge(activeRow.status)}</div>
-              </SheetHeader>
+              </DialogHeader>
 
-              <SheetBody>
+              <div className="space-y-0">
                 <div className="mb-3 text-sm">
                   <div className="text-muted-foreground">Assigned employee</div>
                   <div className="font-semibold">
@@ -650,17 +689,29 @@ const LocalPurchaseList = () => {
                     </div>
                   </>
                 )}
-              </SheetBody>
+              </div>
 
-              <SheetFooter>
+              <DialogFooter>
                 <Button type="button" variant="outline" onClick={closeDetail}>
                   Close
                 </Button>
-              </SheetFooter>
+              </DialogFooter>
             </>
           )}
-        </SheetContent>
-      </Sheet>
+        </DialogContent>
+      </Dialog>
+
+      <PurchaseDetailDialog
+        open={purchaseDetailOpen}
+        onOpenChange={(o) => {
+          setPurchaseDetailOpen(o);
+          if (!o) setPurchaseDetailRow(null);
+        }}
+        poProductId={resolvePoProductId(purchaseDetailRow)}
+        fallback={purchaseDetailRow}
+        source="local"
+        canRaise={canRaiseBilling}
+      />
     </div>
   );
 };

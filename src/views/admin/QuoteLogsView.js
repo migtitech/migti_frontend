@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import rateLogService from "../../services/rateLogService";
-import { PageHeader, StatCard } from "../../components";
+import { PageHeader, StatCard, BackButton } from "../../components";
 import {
   Card,
   CardHeader,
@@ -11,6 +12,7 @@ import {
   Select,
   Spinner,
   Badge,
+  Button,
   Table,
   TableHeader,
   TableBody,
@@ -18,8 +20,17 @@ import {
   TableHead,
   TableCell,
 } from "../../components/ui";
-import { dateFormatter } from "../../utils/dateFormatter";
-import { Package, Building2, IndianRupee, TrendingUp } from "lucide-react";
+import { dateTimeFormatter } from "../../utils/dateFormatter";
+import {
+  Package,
+  Building2,
+  IndianRupee,
+  TrendingUp,
+  Eye,
+  User,
+  FileText,
+} from "lucide-react";
+import { SAMPLE_QUOTE_LOGS } from "../../data/sampleQuoteLogs";
 
 const formatMoney = (value) => {
   const amount = Number(value);
@@ -30,95 +41,26 @@ const formatMoney = (value) => {
   });
 };
 
-/**
- * Sample preview shown only when no real quote-rate logs exist yet
- * (backend returns an empty list). Purely presentational — the live
- * fetch/search/filter logic above is untouched.
- */
-const SAMPLE_LOGS = [
-  {
-    _id: "sample-1",
-    product_title: "SS 304 Coils",
-    description: "2mm thickness, 2B finish, cold rolled",
-    variants: ["2mm", "1250mm width"],
-    amount: 186500,
-    unit: "MT",
-    industry_name: "Acme Industries",
-    created_at: "2026-07-16T10:30:00.000Z",
-  },
-  {
-    _id: "sample-2",
-    product_title: "MS Angles & Channels",
-    description: "Structural grade, IS 2062",
-    variants: ["50x50x6mm", "ISMC 100"],
-    amount: 58200,
-    unit: "MT",
-    industry_name: "Bansal Steel Corp",
-    created_at: "2026-07-16T09:05:00.000Z",
-  },
-  {
-    _id: "sample-3",
-    product_title: "Aluminium Sheets",
-    description: "Marine grade 5052, mill finish",
-    variants: ["1.5mm", "1220x2440mm"],
-    amount: 312000,
-    unit: "MT",
-    industry_name: "Orion Fabricators",
-    created_at: "2026-07-15T15:45:00.000Z",
-  },
-  {
-    _id: "sample-4",
-    product_title: "Copper Wire Rods",
-    description: "Electrolytic grade, 99.9% purity",
-    variants: ["8mm dia"],
-    amount: 742000,
-    unit: "MT",
-    industry_name: "Vertex Engineering",
-    created_at: "2026-07-15T12:15:00.000Z",
-  },
-  {
-    _id: "sample-5",
-    product_title: "Hydraulic Fittings",
-    description: "Brass, BSP threaded, nickel plated",
-    variants: ["1/2 inch", "3/4 inch"],
-    amount: 4250,
-    unit: "PCS",
-    industry_name: "Northline Traders",
-    created_at: "2026-07-14T11:00:00.000Z",
-  },
-  {
-    _id: "sample-6",
-    product_title: "GI Pipes",
-    description: "Medium class, ERW, IS 1239",
-    variants: ["25mm NB", "6 meter length"],
-    amount: 68500,
-    unit: "MT",
-    industry_name: "Crestwood Metals",
-    created_at: "2026-07-14T09:20:00.000Z",
-  },
-  {
-    _id: "sample-7",
-    product_title: "Precision Bearings",
-    description: "Deep groove ball bearing, chrome steel",
-    variants: ["6205-2RS"],
-    amount: 385,
-    unit: "PCS",
-    industry_name: "Falcon Auto Components",
-    created_at: "2026-07-13T16:40:00.000Z",
-  },
-  {
-    _id: "sample-8",
-    product_title: "Industrial Fasteners",
-    description: "Hex bolts with nuts, zinc plated, Gr 8.8",
-    variants: ["M12x50", "M16x60"],
-    amount: 1120,
-    unit: "PCS",
-    industry_name: "Seed Industry mm1t5i5-19",
-    created_at: "2026-07-13T14:10:00.000Z",
-  },
-];
+const QUOTATION_STATUS_LABELS = {
+  draft: { label: "Draft", variant: "outline" },
+  sentToClient: { label: "Sent to Client", variant: "info" },
+  poReceived: { label: "PO Received", variant: "success" },
+  followup01: { label: "Follow-up 1", variant: "warning" },
+  followup02: { label: "Follow-up 2", variant: "warning" },
+  closed: { label: "Closed", variant: "secondary" },
+};
+
+export const QuotationStatusBadge = ({ status }) => {
+  if (!status) return null;
+  const meta = QUOTATION_STATUS_LABELS[status] || {
+    label: status,
+    variant: "outline",
+  };
+  return <Badge variant={meta.variant}>{meta.label}</Badge>;
+};
 
 const QuoteLogsView = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [industryName, setIndustryName] = useState("");
@@ -156,7 +98,7 @@ const QuoteLogsView = () => {
     !loading && industryOptions.length === 0 && logs.length === 0;
 
   const sampleIndustryNames = useMemo(
-    () => [...new Set(SAMPLE_LOGS.map((log) => log.industry_name))],
+    () => [...new Set(SAMPLE_QUOTE_LOGS.map((log) => log.industry_name))],
     [],
   );
 
@@ -172,7 +114,7 @@ const QuoteLogsView = () => {
   const displayLogs = useMemo(() => {
     if (!isSample) return logs;
     const term = searchText.trim().toLowerCase();
-    return SAMPLE_LOGS.filter((log) => {
+    return SAMPLE_QUOTE_LOGS.filter((log) => {
       if (industryName && log.industry_name !== industryName) return false;
       if (!term) return true;
       const haystack = `${log.product_title} ${log.description} ${(
@@ -204,11 +146,20 @@ const QuoteLogsView = () => {
     };
   }, [displayLogs]);
 
+  const openProductView = (log) => {
+    const title = log.product_title || "";
+    if (!title) return;
+    navigate(`/quotation-products/view?product=${encodeURIComponent(title)}`);
+  };
+
   return (
     <div>
+      <div className="mb-2">
+        <BackButton fallback="/dashboard" />
+      </div>
       <PageHeader
-        title="Quote Logs"
-        description="Every product rate quoted to a client — captured for reference and repeat-order pricing."
+        title="Quotation Products"
+        description="Every product rate quoted to a client — click a product to see its full quote history: which clients were quoted and at what rates."
       />
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -316,14 +267,17 @@ const QuoteLogsView = () => {
                     <TableHead>Client quoted</TableHead>
                     <TableHead>Variants</TableHead>
                     <TableHead className="text-right">Rate quoted</TableHead>
+                    <TableHead>Quotation</TableHead>
+                    <TableHead>Quoted by</TableHead>
                     <TableHead>Quoted on</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {displayLogs.length === 0 && (
                     <TableRow>
                       <TableCell
-                        colSpan={5}
+                        colSpan={8}
                         className="py-8 text-center text-sm text-muted-foreground"
                       >
                         No quote logs match the current filters.
@@ -331,27 +285,84 @@ const QuoteLogsView = () => {
                     </TableRow>
                   )}
                   {displayLogs.map((log) => (
-                    <TableRow key={log._id}>
+                    <TableRow
+                      key={log._id}
+                      className="cursor-pointer"
+                      onClick={() => openProductView(log)}
+                    >
                       <TableCell>
                         <div className="font-medium text-foreground">
                           {log.product_title || "Untitled product"}
                         </div>
-                        <div className="text-xs text-muted-foreground">
+                        <div className="max-w-[260px] truncate text-xs text-muted-foreground">
                           {log.description || "No description"}
                         </div>
                       </TableCell>
                       <TableCell className="break-words">
-                        {log.industry_name || "Unknown"}
+                        <div className="flex items-center gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          {log.industry_name || "Unknown"}
+                        </div>
                       </TableCell>
-                      <TableCell className="break-words text-sm">
-                        {(log.variants || []).join(", ") || "—"}
+                      <TableCell className="max-w-[180px] text-sm">
+                        {(log.variants || []).length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(log.variants || []).map((variant, idx) => (
+                              <Badge
+                                key={`${log._id}-v-${idx}`}
+                                variant="outline"
+                                className="font-normal"
+                              >
+                                {variant}
+                              </Badge>
+                            ))}
+                          </div>
+                        ) : (
+                          "—"
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-right font-semibold text-primary!">
                         Rs {formatMoney(log.amount)}
                         {log.unit ? ` / ${log.unit}` : ""}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        {dateFormatter(log.created_at, "—")}
+                        {log.quotation_code ? (
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 text-sm">
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                              {log.quotation_code}
+                            </div>
+                            <QuotationStatusBadge
+                              status={log.quotation_status}
+                            />
+                          </div>
+                        ) : log.quotation_status ? (
+                          <QuotationStatusBadge status={log.quotation_status} />
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-sm">
+                          <User className="h-3.5 w-3.5 text-muted-foreground" />
+                          {log.created_by_name || "—"}
+                        </div>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {dateTimeFormatter(log.created_at, "—")}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openProductView(log);
+                          }}
+                        >
+                          <Eye className="mr-1 h-3.5 w-3.5" />
+                          View
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}

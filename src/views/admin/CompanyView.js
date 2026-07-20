@@ -1,9 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 import companyService from "../../services/companyService";
 import branchService from "../../services/branchService";
-import { Loader, PageHeader, StatusBadge } from "../../components";
+import {
+  Loader,
+  PageHeader,
+  StatusBadge,
+  BackButton,
+  LocationValue,
+} from "../../components";
 import {
   Button,
   Card,
@@ -122,14 +128,7 @@ const CompanyView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/companies")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Companies
-        </Button>
+        <BackButton fallback="/companies" />
       </div>
 
       <PageHeader
@@ -220,7 +219,10 @@ const CompanyView = () => {
                           {branch.name}
                         </div>
                         <div className="truncate text-sm text-muted-foreground">
-                          {branch.location}
+                          <LocationValue
+                            value={branch.location}
+                            placeholder=""
+                          />
                         </div>
                       </div>
                       <Badge variant="info" className="shrink-0">

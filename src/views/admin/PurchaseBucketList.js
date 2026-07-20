@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Store, Package } from "lucide-react";
 import {
   Loader,
   TablePagination,
@@ -8,10 +8,24 @@ import {
   DataTable,
   PageHeader,
   RowActions,
+  PurchaseDetailDialog,
 } from "../../components";
+import { resolvePoProductId } from "../../components/PurchaseDetailDialog/PurchaseDetailDialog";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
-import { Badge, Button, Input, Label, Select } from "../../components/ui";
+import {
+  Badge,
+  Button,
+  Input,
+  Label,
+  Select,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "../../components/ui";
+import usePermissions from "../../hooks/usePermissions";
 import purchaseBucketService from "../../services/purchaseBucketService";
+import localPurchaseService from "../../services/localPurchaseService";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError } from "../../utils/toast";
 import { dateFormatter } from "../../utils/dateFormatter";
@@ -103,6 +117,12 @@ const STATUS_CONFIG = {
     bg: "#f1f5f9",
     dot: "#94a3b8",
   },
+  submitted: {
+    label: "Submitted",
+    color: "#16a34a",
+    bg: "#f0fdf4",
+    dot: "#22c55e",
+  },
 };
 
 const PRIORITY_CONFIG = {
@@ -110,6 +130,35 @@ const PRIORITY_CONFIG = {
   medium: { label: "Medium", color: "#d97706", bg: "#fffbeb", dot: "#f59e0b" },
   low: { label: "Low", color: "#16a34a", bg: "#f0fdf4", dot: "#22c55e" },
 };
+
+const Pill = ({ cfg }) => (
+  <span
+    style={{
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 5,
+      padding: "3px 10px",
+      borderRadius: 20,
+      fontSize: 11,
+      fontWeight: 600,
+      color: cfg.color,
+      background: cfg.bg,
+      border: `1.5px solid ${cfg.color}25`,
+      whiteSpace: "nowrap",
+    }}
+  >
+    <span
+      style={{
+        width: 6,
+        height: 6,
+        borderRadius: "50%",
+        background: cfg.dot,
+        flexShrink: 0,
+      }}
+    />
+    {cfg.label}
+  </span>
+);
 
 const StatusPill = ({ status }) => {
   const raw =
@@ -122,34 +171,7 @@ const StatusPill = ({ status }) => {
     bg: "#f1f5f9",
     dot: "#94a3b8",
   };
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: "3px 10px",
-        borderRadius: 20,
-        fontSize: 11,
-        fontWeight: 600,
-        color: cfg.color,
-        background: cfg.bg,
-        border: `1.5px solid ${cfg.color}25`,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: cfg.dot,
-          flexShrink: 0,
-        }}
-      />
-      {cfg.label}
-    </span>
-  );
+  return <Pill cfg={cfg} />;
 };
 
 const PriorityPill = ({ priority }) => {
@@ -163,34 +185,7 @@ const PriorityPill = ({ priority }) => {
     bg: "#f1f5f9",
     dot: "#94a3b8",
   };
-  return (
-    <span
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 5,
-        padding: "3px 10px",
-        borderRadius: 20,
-        fontSize: 11,
-        fontWeight: 600,
-        color: cfg.color,
-        background: cfg.bg,
-        border: `1.5px solid ${cfg.color}25`,
-        whiteSpace: "nowrap",
-      }}
-    >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: cfg.dot,
-          flexShrink: 0,
-        }}
-      />
-      {cfg.label}
-    </span>
-  );
+  return <Pill cfg={cfg} />;
 };
 
 const PURCHASE_BUCKET_FILTER_DEFAULTS = { priority: "" };
@@ -213,10 +208,9 @@ const parseListResponse = (res) => {
   };
 };
 
-// ─── component ────────────────────────────────────────────────────────────────
+// ─── Brand tab (po_product purchase-bucket lines) ───────────────────────────────
 
-const PurchaseBucketList = () => {
-  const navigate = useNavigate();
+const BrandPurchaseTab = ({ onView }) => {
   const { filtersLocked, toggleFiltersLock, initialValues } = useFilterLock(
     "purchase_bucket",
     PURCHASE_BUCKET_FILTER_DEFAULTS,
@@ -240,13 +234,7 @@ const PurchaseBucketList = () => {
     setPage(1);
   }, [searchDebounced, priority]);
 
-  useFilterLockPersist("purchase_bucket", filtersLocked, {
-    priority,
-  });
-
-  const handleToggleFiltersLock = () => {
-    toggleFiltersLock({ priority });
-  };
+  useFilterLockPersist("purchase_bucket", filtersLocked, { priority });
 
   const load = async () => {
     setLoading(true);
@@ -274,6 +262,7 @@ const PurchaseBucketList = () => {
 
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, pageSize, searchDebounced, priority]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
@@ -288,7 +277,7 @@ const PurchaseBucketList = () => {
     () => [
       {
         key: "index",
-        label: "S.No",
+        label: "#",
         width: 50,
         align: "center",
         toggleable: false,
@@ -349,21 +338,39 @@ const PurchaseBucketList = () => {
         },
       },
       {
-        key: "unit",
-        label: "Unit",
-        width: 70,
-        align: "center",
-        exportValue: (row) => row.unit || "—",
-        render: (row) => row.unit || "—",
+        key: "targetRate",
+        label: "Target Rate",
+        width: 110,
+        align: "right",
+        exportValue: (row) =>
+          row.targetRate != null
+            ? `₹${Number(row.targetRate).toLocaleString("en-IN")}`
+            : "—",
+        render: (row) =>
+          row.targetRate != null ? (
+            <span className="font-semibold text-primary">
+              ₹{Number(row.targetRate).toLocaleString("en-IN")}
+            </span>
+          ) : (
+            "—"
+          ),
       },
       {
         key: "quantity",
         label: "Qty",
-        width: 70,
+        width: 90,
         align: "center",
-        exportValue: (row) => row.quantity ?? "—",
+        exportValue: (row) =>
+          `${row.quantity ?? "—"}${row.unit ? ` ${row.unit}` : ""}`,
         render: (row) => (
-          <span className="font-semibold">{row.quantity ?? "—"}</span>
+          <span className="font-semibold">
+            {row.quantity ?? "—"}
+            {row.unit ? (
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                {row.unit}
+              </span>
+            ) : null}
+          </span>
         ),
       },
       {
@@ -403,37 +410,18 @@ const PurchaseBucketList = () => {
         exportable: false,
         stopRowClick: true,
         render: (row) => (
-          <RowActions onView={() => navigate(`/purchase-bucket/${row._id}`)} />
+          <RowActions
+            onView={() => onView(row)}
+            viewLabel="View purchase details"
+          />
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, page, pageSize],
+    [page, pageSize, onView],
   );
 
   return (
-    <div>
-      <PageHeader
-        title="Purchase Bucket"
-        description="Track purchase requests through billing, approval, and dispatch."
-        actions={
-          <div className="flex flex-wrap items-center gap-3">
-            {pendingCount > 0 && !loading && (
-              <Badge variant="default">{pendingCount} open</Badge>
-            )}
-            <span className="text-sm text-muted-foreground">
-              Total: <strong className="text-foreground">{total}</strong>
-            </span>
-            <Button
-              onClick={() => navigate("/purchase-bucket/raise-billing-request")}
-            >
-              <Plus className="h-4 w-4" />
-              Raise Billing Request
-            </Button>
-          </div>
-        }
-      />
-
+    <>
       <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 md:items-end">
         <div className="space-y-1.5">
           <Label>Search</Label>
@@ -463,11 +451,14 @@ const PurchaseBucketList = () => {
         <div className="flex items-end">
           <FilterLockButton
             filtersLocked={filtersLocked}
-            onToggle={handleToggleFiltersLock}
+            onToggle={() => toggleFiltersLock({ priority })}
             pageLabel="Purchase Bucket"
           />
         </div>
-        <div className="flex items-end">
+        <div className="flex items-end gap-3">
+          {pendingCount > 0 && !loading && (
+            <Badge variant="default">{pendingCount} open</Badge>
+          )}
           {(search || priority) && (
             <Button variant="outline" onClick={handleClearFilters}>
               Clear filters
@@ -477,7 +468,7 @@ const PurchaseBucketList = () => {
       </div>
 
       {loading ? (
-        <Loader message="Loading purchase bucket…" />
+        <Loader message="Loading brand purchases…" />
       ) : (
         <>
           <DataTable
@@ -485,7 +476,7 @@ const PurchaseBucketList = () => {
             rows={rows}
             rowKey={(row) => row._id}
             showSearch={false}
-            exportFileName="purchase-bucket"
+            exportFileName="brand-purchase"
             emptyTitle="No items found"
             emptyMessage="Try changing filters or search."
             rowStyle={(row) => {
@@ -503,12 +494,315 @@ const PurchaseBucketList = () => {
               totalItems={total}
               itemsPerPage={pageSize}
               align="center"
-              ariaLabel="Purchase Bucket pages"
+              ariaLabel="Brand purchase pages"
               wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
             />
           )}
         </>
       )}
+    </>
+  );
+};
+
+// ─── Local tab (local_purchase assignments) ─────────────────────────────────────
+
+const LOCAL_STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "submitted", label: "Submitted" },
+];
+
+const LocalPurchaseTab = ({ onView }) => {
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [status, setStatus] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setPage(1);
+  }, [status]);
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await withMinimumDelay(() =>
+        localPurchaseService.list({
+          page,
+          pageSize,
+          status: status.trim() || undefined,
+        }),
+      );
+      const block = res?.data;
+      setRows(Array.isArray(block?.data) ? block.data : []);
+      setTotal(Number(block?.total) || 0);
+    } catch (e) {
+      toastError(e?.message || "Failed to load local purchases");
+      setRows([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pageSize, status]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+
+  const columns = useMemo(
+    () => [
+      {
+        key: "index",
+        label: "#",
+        width: 50,
+        align: "center",
+        toggleable: false,
+        exportable: false,
+        render: (_row, idx) => (page - 1) * pageSize + idx + 1,
+      },
+      {
+        key: "product",
+        label: "Product Name",
+        exportValue: (row) => row.productSnapshot?.productName || "—",
+        render: (row) => {
+          const snap = row.productSnapshot || {};
+          return (
+            <div>
+              <div className="font-semibold">{fmt(snap.productName)}</div>
+              {snap.rawProductCode && (
+                <div className="font-mono text-sm text-muted-foreground">
+                  {snap.rawProductCode}
+                </div>
+              )}
+            </div>
+          );
+        },
+      },
+      {
+        key: "poCode",
+        label: "Sales Order Code",
+        exportValue: (row) =>
+          queryCodeLast4(row.poCode || row.productSnapshot?.poCode) || "—",
+        render: (row) => {
+          const code = queryCodeLast4(
+            row.poCode || row.productSnapshot?.poCode,
+          );
+          return code ? (
+            <Badge variant="default" className="font-mono">
+              {code}
+            </Badge>
+          ) : (
+            "—"
+          );
+        },
+      },
+      {
+        key: "qty",
+        label: "Qty",
+        width: 90,
+        align: "center",
+        exportValue: (row) => {
+          const snap = row.productSnapshot || {};
+          return `${snap.quantity ?? "—"}${snap.unit ? ` ${snap.unit}` : ""}`;
+        },
+        render: (row) => {
+          const snap = row.productSnapshot || {};
+          return (
+            <span className="font-semibold">
+              {snap.quantity ?? "—"}
+              {snap.unit ? (
+                <span className="ml-1 text-xs font-normal text-muted-foreground">
+                  {snap.unit}
+                </span>
+              ) : null}
+            </span>
+          );
+        },
+      },
+      {
+        key: "zone",
+        label: "Zone",
+        exportValue: (row) =>
+          row.zoneId && typeof row.zoneId === "object"
+            ? row.zoneId.name || "—"
+            : "—",
+        render: (row) =>
+          row.zoneId && typeof row.zoneId === "object" ? (
+            <span className="text-sm">
+              {row.zoneId.name || "—"}
+              {row.zoneId.city ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  · {row.zoneId.city}
+                </span>
+              ) : null}
+            </span>
+          ) : (
+            "—"
+          ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        width: 120,
+        exportValue: (row) =>
+          STATUS_CONFIG[String(row.status || "").trim()]?.label ||
+          row.status ||
+          "Pending",
+        render: (row) => <StatusPill status={row.status} />,
+      },
+      {
+        key: "createdAt",
+        label: "Assigned On",
+        width: 120,
+        align: "center",
+        exportValue: (row) => dateFormatter(row.createdAt, "—"),
+        render: (row) => dateFormatter(row.createdAt, "—"),
+      },
+      {
+        key: "actions",
+        label: "Action",
+        width: 60,
+        align: "center",
+        toggleable: false,
+        exportable: false,
+        stopRowClick: true,
+        render: (row) => (
+          <RowActions
+            onView={() => onView(row)}
+            viewLabel="View purchase details"
+          />
+        ),
+      },
+    ],
+    [page, pageSize, onView],
+  );
+
+  return (
+    <>
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="w-48 space-y-1.5">
+          <Label>Status</Label>
+          <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+            {LOCAL_STATUS_OPTIONS.map((o) => (
+              <option key={o.value || "all"} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {status && (
+          <Button variant="outline" onClick={() => setStatus("")}>
+            Clear filters
+          </Button>
+        )}
+      </div>
+
+      {loading ? (
+        <Loader message="Loading local purchases…" />
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            rows={rows}
+            rowKey={(row) => row._id}
+            showSearch={false}
+            exportFileName="local-purchase"
+            emptyTitle="No local purchases"
+            emptyMessage="No local purchase assignments found."
+          />
+
+          {total > pageSize && (
+            <TablePagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              showRange
+              totalItems={total}
+              itemsPerPage={pageSize}
+              align="center"
+              ariaLabel="Local purchase pages"
+              wrapperClassName="d-flex flex-column align-items-center mt-3 gap-2"
+            />
+          )}
+        </>
+      )}
+    </>
+  );
+};
+
+// ─── component ────────────────────────────────────────────────────────────────
+
+const PurchaseBucketList = () => {
+  const navigate = useNavigate();
+  const { canUpdate } = usePermissions();
+  const canRaiseBilling = canUpdate("purchase_bucket");
+
+  const [tab, setTab] = useState("brand");
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailRow, setDetailRow] = useState(null);
+  const [detailSource, setDetailSource] = useState("brand");
+
+  const openDetail = (row, source) => {
+    setDetailRow(row);
+    setDetailSource(source);
+    setDetailOpen(true);
+  };
+
+  const onViewBrand = useMemo(() => (row) => openDetail(row, "brand"), []);
+  const onViewLocal = useMemo(() => (row) => openDetail(row, "local"), []);
+
+  return (
+    <div>
+      <PageHeader
+        title="Purchase Bucket"
+        description="Track purchase requests — split into Brand and Local — through billing, approval, and dispatch."
+        actions={
+          <Button
+            onClick={() => navigate("/purchase-bucket/raise-billing-request")}
+          >
+            <Plus className="h-4 w-4" />
+            Raise Billing Request
+          </Button>
+        }
+      />
+
+      <Tabs value={tab} onValueChange={setTab} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="brand">
+            <Store className="mr-1.5 h-4 w-4" />
+            Brand Purchase
+          </TabsTrigger>
+          <TabsTrigger value="local">
+            <Package className="mr-1.5 h-4 w-4" />
+            Local Purchase
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="brand" className="mt-4">
+          <BrandPurchaseTab onView={onViewBrand} />
+        </TabsContent>
+
+        <TabsContent value="local" className="mt-4">
+          <LocalPurchaseTab onView={onViewLocal} />
+        </TabsContent>
+      </Tabs>
+
+      <PurchaseDetailDialog
+        open={detailOpen}
+        onOpenChange={(o) => {
+          setDetailOpen(o);
+          if (!o) setDetailRow(null);
+        }}
+        poProductId={resolvePoProductId(detailRow)}
+        fallback={detailRow}
+        source={detailSource}
+        canRaise={canRaiseBilling}
+      />
     </div>
   );
 };

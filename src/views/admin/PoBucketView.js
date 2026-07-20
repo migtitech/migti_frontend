@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Alert,
   AlertDescription,
@@ -46,9 +46,15 @@ import ProductDetailModal from "./poBucket/ProductDetailModal";
 import documentService from "../../services/documentService";
 import employeeService from "../../services/employeeService";
 import areaService from "../../services/areaService";
-import { Loader, PageHeader } from "../../components";
+import {
+  BackButton,
+  GstRateSelect,
+  Loader,
+  PageHeader,
+} from "../../components";
 import AuthImage from "../../components/AuthImage/AuthImage";
 import { toastError, toastSuccess } from "../../utils/toast";
+import { dateMediumFormatter } from "../../utils/dateFormatter";
 import ProductUnitSelect from "../../components/ProductUnitSelect/ProductUnitSelect";
 import { useAuth } from "../../context/AuthContext";
 import { normalizeRole, isBackOfficeRole } from "../../hooks/usePermissions";
@@ -235,7 +241,7 @@ const formatDispatchmentDateDisplay = (value) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return "—";
   const parsed = new Date(`${datePart}T00:00:00`);
   if (Number.isNaN(parsed.getTime())) return datePart;
-  return parsed.toLocaleDateString("en-IN");
+  return dateMediumFormatter(parsed);
 };
 
 const buildDispatchmentDateByLineIndex = (poProductLines) => {
@@ -864,7 +870,7 @@ const PoBucketView = () => {
       !dispatchmentDateByLineIndex.has(index) &&
       !isTodayOrFutureDispatchDate(row.dispatchmentDate)
     ) {
-      toastError("Dispatchment date must be today or a future date");
+      toastError("Dispatch date must be today or a future date");
       return;
     }
     await saveProducts(productsForm, "Product updated");
@@ -883,7 +889,7 @@ const PoBucketView = () => {
       return;
     }
     if (!isTodayOrFutureDispatchDate(dispatchmentDateForAll)) {
-      toastError("Dispatchment date must be today or a future date");
+      toastError("Dispatch date must be today or a future date");
       return;
     }
     setProductsForm((prev) =>
@@ -1001,7 +1007,7 @@ const PoBucketView = () => {
       return;
     }
     if (!isTodayOrFutureDispatchDate(newProductForm.dispatchmentDate)) {
-      toastError("Dispatchment date must be today or a future date");
+      toastError("Dispatch date must be today or a future date");
       return;
     }
     const next = [...productsForm, toEditableProduct(newProductForm)];
@@ -1030,15 +1036,7 @@ const PoBucketView = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          variant="ghost"
-          type="button"
-          onClick={() => navigate("/po-bucket")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/po-bucket" />
       </div>
 
       <PageHeader title={purchaseOrder.poCode || "Sales Order"} />
@@ -1233,7 +1231,7 @@ const PoBucketView = () => {
                           onChange={(e) =>
                             setDispatchmentDateForAll(e.target.value)
                           }
-                          placeholder="Dispatchment date"
+                          placeholder="Dispatch date"
                           className="h-8 w-auto min-w-[170px] text-sm"
                         />
                         <Button
@@ -1247,30 +1245,19 @@ const PoBucketView = () => {
                         </Button>
                       </>
                     ) : null}
-                    {canManageProductList ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={poClosed}
-                        onClick={openAddProductSidebar}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add New Product
-                      </Button>
-                    ) : null}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-3">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>S No</TableHead>
+                        <TableHead>#</TableHead>
                         <TableHead>Product</TableHead>
                         <TableHead>Line status</TableHead>
                         <TableHead>Qty</TableHead>
                         <TableHead className="min-w-[110px]">GST %</TableHead>
                         <TableHead>Rate</TableHead>
-                        <TableHead>Dispatchment Date</TableHead>
+                        <TableHead>Dispatch Date</TableHead>
                         <TableHead>Total Amount</TableHead>
                         <TableHead>Remark</TableHead>
                         {canManageProductList ? (
@@ -1337,14 +1324,11 @@ const PoBucketView = () => {
                               }
                             />
                           </TableCell>
-                          <TableCell className="min-w-[110px]">
-                            <Input
-                              className="h-8 w-full min-w-[100px] text-sm"
-                              type="number"
-                              min={0}
-                              max={100}
+                          <TableCell className="min-w-[150px]">
+                            <GstRateSelect
+                              selectClassName="h-8 text-sm"
                               value={p.gstPercentage}
-                              readOnly={poClosed}
+                              disabled={poClosed}
                               onChange={(e) =>
                                 updateProductField(
                                   index,
@@ -1443,81 +1427,6 @@ const PoBucketView = () => {
               </Card>
             </section>
 
-            {canEditProductPriority ? (
-              <>
-                <Separator />
-                <section className="scroll-mt-4">
-                  <h5 className="mb-3 text-lg font-semibold">Priority</h5>
-                  <Card>
-                    <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 rounded-t-xl bg-muted/50">
-                      <CardTitle>Product priority</CardTitle>
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={
-                          savingProducts ||
-                          productsForm.length === 0 ||
-                          poClosed
-                        }
-                        onClick={savePriorities}
-                      >
-                        {savingProducts ? "Saving..." : "Save priorities"}
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="pt-3">
-                      {productsForm.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          No products on this sales order.
-                        </p>
-                      ) : (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>S No</TableHead>
-                              <TableHead>Product</TableHead>
-                              <TableHead>Qty</TableHead>
-                              <TableHead>Priority</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {productsForm.map((p, index) => (
-                              <TableRow key={p._id || index}>
-                                <TableCell className="font-semibold">
-                                  {index + 1}
-                                </TableCell>
-                                <TableCell>{p.productName || "—"}</TableCell>
-                                <TableCell>{p.quantity ?? "—"}</TableCell>
-                                <TableCell className="max-w-[220px]">
-                                  <Select
-                                    className="h-8 text-sm"
-                                    value={normalizeProductPriority(p.priority)}
-                                    disabled={poClosed}
-                                    onChange={(e) =>
-                                      updateProductField(
-                                        index,
-                                        "priority",
-                                        e.target.value,
-                                      )
-                                    }
-                                  >
-                                    {PRODUCT_PRIORITY_OPTIONS.map((opt) => (
-                                      <option key={opt.value} value={opt.value}>
-                                        {opt.label}
-                                      </option>
-                                    ))}
-                                  </Select>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      )}
-                    </CardContent>
-                  </Card>
-                </section>
-              </>
-            ) : null}
-
             <Separator />
 
             <section className="scroll-mt-4">
@@ -1558,7 +1467,7 @@ const PoBucketView = () => {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>S No</TableHead>
+                          <TableHead>#</TableHead>
                           <TableHead>Product</TableHead>
                           <TableHead>Raw code</TableHead>
                           <TableHead>Qty</TableHead>
@@ -1621,121 +1530,6 @@ const PoBucketView = () => {
                 </CardContent>
               </Card>
             </section>
-
-            <Separator />
-
-            <section className="scroll-mt-4">
-              <h5 className="mb-3 text-lg font-semibold">Attachment</h5>
-              <Card>
-                <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2 rounded-t-xl bg-muted/50">
-                  <CardTitle>Sales order attachment</CardTitle>
-                  {canManageProductList ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={!canSavePoAttachment}
-                      onClick={savePoAttachment}
-                    >
-                      {savingPoAttachment ? "Saving..." : "Save attachment"}
-                    </Button>
-                  ) : null}
-                </CardHeader>
-                <CardContent className="pt-3">
-                  <div className="flex max-w-[480px] flex-col gap-3">
-                    {poAttachment.meta?.path || poAttachment.documentId ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        {isImageMime(poAttachment.meta?.mimeType) &&
-                        poAttachment.meta?.path ? (
-                          <button
-                            type="button"
-                            className="cursor-pointer border-0 bg-transparent p-0"
-                            title="Open"
-                            onClick={() => openPoAttachment(poAttachment.meta)}
-                          >
-                            <img
-                              src={
-                                poAttachment.meta.path.startsWith("http")
-                                  ? poAttachment.meta.path
-                                  : getAssetsUrl(poAttachment.meta.path)
-                              }
-                              alt=""
-                              className="rounded border border-border"
-                              style={{
-                                width: 48,
-                                height: 48,
-                                objectFit: "cover",
-                              }}
-                            />
-                          </button>
-                        ) : null}
-                        <span
-                          className="truncate text-sm"
-                          style={{ maxWidth: 220 }}
-                          title={poAttachment.meta?.originalName || ""}
-                        >
-                          {poAttachment.meta?.originalName ||
-                            (poAttachment.documentId ? "File" : "")}
-                        </span>
-                        {poAttachment.meta?.path ? (
-                          <Button
-                            type="button"
-                            variant="link"
-                            className="h-auto p-0 text-sm"
-                            onClick={() => openPoAttachment(poAttachment.meta)}
-                          >
-                            Open
-                          </Button>
-                        ) : null}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          type="button"
-                          className="text-destructive"
-                          onClick={clearPoAttachment}
-                          disabled={poAttachmentActionsLocked}
-                        >
-                          Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">
-                        No file attached to this sales order yet.
-                      </span>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="file"
-                        id="po-level-attachment-input"
-                        className="hidden"
-                        accept="image/*,application/pdf,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx,.xls"
-                        onChange={onPoDocumentFile}
-                        disabled={!canUploadPoAttachment}
-                      />
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        type="button"
-                        disabled={!canUploadPoAttachment}
-                        onClick={() =>
-                          document
-                            .getElementById("po-level-attachment-input")
-                            ?.click()
-                        }
-                      >
-                        {poAttachmentUploading ? (
-                          <>
-                            <Spinner size="sm" className="mr-1" />
-                            Uploading…
-                          </>
-                        ) : (
-                          "Upload file"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </section>
           </div>
         </CardContent>
       </Card>
@@ -1769,203 +1563,6 @@ const PoBucketView = () => {
             : null
         }
       />
-
-      <Sheet
-        open={addProductSidebarOpen}
-        onOpenChange={(open) => !open && closeAddProductSidebar()}
-      >
-        <SheetContent side="right" className="w-full sm:max-w-[430px]">
-          <SheetHeader>
-            <SheetTitle>Add New Product</SheetTitle>
-          </SheetHeader>
-
-          <SheetBody>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-1.5">
-                <Label>Search product</Label>
-                <Input
-                  placeholder="Search by product name"
-                  value={productSearchQuery}
-                  readOnly={poClosed}
-                  onChange={(e) => setProductSearchQuery(e.target.value)}
-                />
-                {productSearchLoading ? (
-                  <div className="mt-2 flex items-center">
-                    <Spinner size="sm" className="mr-2" />
-                    <span className="text-sm text-muted-foreground">
-                      Searching...
-                    </span>
-                  </div>
-                ) : null}
-                {!productSearchLoading && productSearchResults.length > 0 ? (
-                  <div
-                    className="mt-2 divide-y divide-border overflow-y-auto rounded-lg border border-border"
-                    style={{ maxHeight: 220 }}
-                  >
-                    {productSearchResults.map((product) => {
-                      const productId = product._id || product.id;
-                      return (
-                        <button
-                          key={productId}
-                          type="button"
-                          className="block w-full px-3 py-2 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={poClosed}
-                          onClick={() => handleSelectCatalogProduct(product)}
-                        >
-                          <div className="font-semibold">
-                            {product.name || "—"}
-                          </div>
-                          {product.productCode ? (
-                            <div className="text-sm text-muted-foreground">
-                              {product.productCode}
-                            </div>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-                {!productSearchLoading &&
-                productSearchQuery.trim().length >= 2 &&
-                productSearchResults.length === 0 ? (
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    No products found.
-                  </div>
-                ) : null}
-              </div>
-              <div className="space-y-1.5">
-                <Label>Product name *</Label>
-                <Input
-                  value={newProductForm.productName}
-                  readOnly={poClosed}
-                  onChange={(e) =>
-                    setNewProductForm((prev) => ({
-                      ...prev,
-                      productName: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <Textarea
-                  rows={3}
-                  value={newProductForm.description}
-                  readOnly={poClosed}
-                  onChange={(e) =>
-                    setNewProductForm((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Qty *</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={newProductForm.quantity}
-                    readOnly={poClosed}
-                    onChange={(e) =>
-                      setNewProductForm((prev) => ({
-                        ...prev,
-                        quantity: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Unit</Label>
-                  <ProductUnitSelect
-                    value={newProductForm.unit}
-                    disabled={poClosed}
-                    onChange={(e) =>
-                      setNewProductForm((prev) => ({
-                        ...prev,
-                        unit: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Rate *</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={newProductForm.rate}
-                    readOnly={poClosed}
-                    onChange={(e) =>
-                      setNewProductForm((prev) => ({
-                        ...prev,
-                        rate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>GST %</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={100}
-                    value={newProductForm.gstPercentage}
-                    readOnly={poClosed}
-                    onChange={(e) =>
-                      setNewProductForm((prev) => ({
-                        ...prev,
-                        gstPercentage: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Dispatchment Date</Label>
-                  <Input
-                    type="date"
-                    min={getTodayInputDate()}
-                    value={newProductForm.dispatchmentDate}
-                    readOnly={poClosed}
-                    onChange={(e) =>
-                      setNewProductForm((prev) => ({
-                        ...prev,
-                        dispatchmentDate: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Remark</Label>
-                <Input
-                  value={newProductForm.remark}
-                  readOnly={poClosed}
-                  onChange={(e) =>
-                    setNewProductForm((prev) => ({
-                      ...prev,
-                      remark: e.target.value,
-                    }))
-                  }
-                />
-              </div>
-            </div>
-          </SheetBody>
-
-          <SheetFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={closeAddProductSidebar}
-            >
-              Cancel
-            </Button>
-            <Button type="button" disabled={poClosed} onClick={addNewProduct}>
-              Add Product
-            </Button>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 };

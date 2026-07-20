@@ -85,7 +85,7 @@ const EmployeeTable = ({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SNo</TableHead>
+                  <TableHead>#</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Phone</TableHead>

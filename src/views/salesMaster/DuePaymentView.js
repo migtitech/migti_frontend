@@ -1,14 +1,12 @@
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
-import { PageHeader, StatusBadge, EmptyState } from "../../components";
+import { useParams } from "react-router-dom";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-  Button,
-} from "../../components/ui";
+  PageHeader,
+  StatusBadge,
+  EmptyState,
+  BackButton,
+} from "../../components";
+import { Card, CardHeader, CardTitle, CardContent } from "../../components/ui";
 import { statusVariant } from "./components/statusFormatters";
 import { duePayments } from "../../data/salesMasterDummyData";
 
@@ -17,7 +15,6 @@ const formatINR = (value) =>
 
 const DuePaymentView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const invoice = duePayments.find((p) => p.id === id);
 
   if (!invoice) {
@@ -25,17 +22,10 @@ const DuePaymentView = () => {
       <div className="space-y-6">
         <PageHeader title="Invoice not found" />
         <EmptyState
-          title="No such invoice"
+          title="Invoice not found"
           message="This sample invoice record doesn't exist."
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/sales-master/due-payments")}
-        >
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back to Due Payments
-        </Button>
+        <BackButton fallback="/sales-master/due-payments" />
       </div>
     );
   }
@@ -45,16 +35,7 @@ const DuePaymentView = () => {
       <PageHeader
         title={invoice.id}
         description="Invoice detail — sample data for UI preview."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales-master/due-payments")}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Due Payments
-          </Button>
-        }
+        actions={<BackButton fallback="/sales-master/due-payments" />}
       />
 
       <Card>

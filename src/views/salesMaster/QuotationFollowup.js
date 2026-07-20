@@ -29,7 +29,7 @@ const QuotationFollowup = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Quotation Followup"
+        title="Quotation Follow-up"
         description="Follow-up activity tracked against your sent quotations. Sample data for UI preview."
       />
 

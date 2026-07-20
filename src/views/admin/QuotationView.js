@@ -16,6 +16,10 @@ import {
   CloudDownload,
   History,
   List,
+  Search,
+  PackagePlus,
+  Plus,
+  CheckCircle2,
 } from "lucide-react";
 import quotationService from "../../services/quotationService";
 import usePermissions, {
@@ -34,7 +38,7 @@ import groupService from "../../services/groupService";
 import categoryService from "../../services/categoryService";
 import queryService from "../../services/queryService";
 import { getAssetsUrl } from "../../api/endpoints";
-import { Loader } from "../../components";
+import { BackButton, GstRateSelect, Loader } from "../../components";
 import {
   Button,
   Badge,
@@ -63,6 +67,7 @@ import {
   TabsTrigger,
   TabsContent,
   Spinner,
+  Switch,
 } from "../../components/ui";
 import { cn } from "../../lib/utils";
 import AuthImage from "../../components/AuthImage/AuthImage";
@@ -561,12 +566,335 @@ const ClientPendingAmountBadge = ({ quotation }) => {
   );
 };
 
+/**
+ * Dummy product catalog used only by the "Add New Product" modal below.
+ * UI/demo data — no backend involved. Searching the modal filters this list.
+ */
+const DUMMY_PRODUCT_CATALOG = [
+  {
+    id: "CAT-1001",
+    productName: "M8 Hex Bolt (SS304)",
+    description: "Stainless steel 304 hex head bolt, fully threaded.",
+    unit: "Nos",
+    hsnNumber: "73181500",
+    modelNumber: "HB-M8-SS",
+    gstPercentage: 18,
+  },
+  {
+    id: "CAT-1002",
+    productName: "PVC Insulated Copper Wire 2.5sq mm",
+    description: "Flame-retardant single-core copper wire, 90m coil.",
+    unit: "Coil",
+    hsnNumber: "85444999",
+    modelNumber: "CW-2.5-FR",
+    gstPercentage: 18,
+  },
+  {
+    id: "CAT-1003",
+    productName: "Industrial Safety Helmet",
+    description: "ABS shell safety helmet with ratchet suspension.",
+    unit: "Nos",
+    hsnNumber: "65061010",
+    modelNumber: "SH-RTC-01",
+    gstPercentage: 12,
+  },
+  {
+    id: "CAT-1004",
+    productName: "Hydraulic Hose 1/2 inch",
+    description:
+      "Double wire-braided hydraulic hose, working pressure 250 bar.",
+    unit: "Mtr",
+    hsnNumber: "40091100",
+    modelNumber: "HH-0.5-2WB",
+    gstPercentage: 18,
+  },
+  {
+    id: "CAT-1005",
+    productName: "Ball Bearing 6204 ZZ",
+    description: "Deep-groove sealed ball bearing, 20x47x14 mm.",
+    unit: "Nos",
+    hsnNumber: "84821011",
+    modelNumber: "BB-6204ZZ",
+    gstPercentage: 18,
+  },
+  {
+    id: "CAT-1006",
+    productName: "Cordless Impact Drill 20V",
+    description: "Brushless 20V impact drill with 2 batteries and charger.",
+    unit: "Set",
+    hsnNumber: "84672900",
+    modelNumber: "CD-20V-BL",
+    gstPercentage: 18,
+  },
+];
+
+/**
+ * Add-New-Product flow — pure UI/demo. Two steps: (1) a search box that filters
+ * the dummy catalog, (2) a details form (pre-filled from the picked catalog
+ * item) with a "Add to query as well" toggle. On confirm, hands the assembled
+ * product back to the caller which appends it to the quotation product list.
+ * No backend calls are made anywhere in here.
+ */
+const AddNewProductModal = ({ open, onOpenChange, onAdd, queryCode }) => {
+  const [step, setStep] = useState("search");
+  const [search, setSearch] = useState("");
+  const [form, setForm] = useState(null);
+  const [addToQuery, setAddToQuery] = useState(false);
+  const searchInputRef = useRef(null);
+
+  const results = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    if (!term) return DUMMY_PRODUCT_CATALOG;
+    return DUMMY_PRODUCT_CATALOG.filter((p) =>
+      [p.productName, p.modelNumber, p.hsnNumber, p.description]
+        .filter(Boolean)
+        .some((field) => field.toLowerCase().includes(term)),
+    );
+  }, [search]);
+
+  // Reset to a clean search step every time the modal is (re)opened.
+  useEffect(() => {
+    if (open) {
+      setStep("search");
+      setSearch("");
+      setForm(null);
+      setAddToQuery(false);
+      // focus the search box shortly after the dialog paints
+      const t = setTimeout(() => searchInputRef.current?.focus(), 60);
+      return () => clearTimeout(t);
+    }
+  }, [open]);
+
+  const pickProduct = (product) => {
+    setForm({
+      ...product,
+      quantity: 1,
+      remark: "",
+    });
+    setStep("details");
+  };
+
+  const openFirstOnEnter = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (results.length > 0) pickProduct(results[0]);
+    }
+  };
+
+  const updateForm = (key, value) =>
+    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+
+  const handleAdd = () => {
+    if (!form) return;
+    onAdd(form, addToQuery);
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={step === "details" ? "max-w-3xl" : "max-w-2xl"}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <PackagePlus className="h-5 w-5 text-primary!" />
+            {step === "search" ? "Add New Product" : "Product Details"}
+          </DialogTitle>
+        </DialogHeader>
+
+        {step === "search" ? (
+          <div>
+            <div className="relative mb-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                ref={searchInputRef}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={openFirstOnEnter}
+                placeholder="Search product by name, model or HSN — press Enter to pick"
+                className="pl-9"
+              />
+            </div>
+            <p className="mb-2 text-xs text-muted-foreground">
+              {results.length} product{results.length === 1 ? "" : "s"} found.
+              Click one, or press Enter to open the top match.
+            </p>
+            <div className="max-h-72 overflow-y-auto rounded-lg border border-border">
+              {results.length > 0 ? (
+                results.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => pickProduct(p)}
+                    className="flex w-full items-start justify-between gap-3 border-b border-border px-4 py-3 text-left last:border-b-0 hover:bg-accent"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate font-medium text-foreground">
+                        {p.productName}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {p.modelNumber} · HSN {p.hsnNumber} · {p.description}
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="shrink-0 font-normal">
+                      GST {p.gstPercentage}%
+                    </Badge>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  No matching products in the catalog.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
+            {/* Left / main: editable details */}
+            <div className="space-y-3 md:col-span-2">
+              <div>
+                <Label>
+                  Product name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  value={form?.productName || ""}
+                  onChange={(e) => updateForm("productName", e.target.value)}
+                  placeholder="Product name"
+                />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea
+                  rows={2}
+                  value={form?.description || ""}
+                  onChange={(e) => updateForm("description", e.target.value)}
+                  placeholder="Description"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>
+                    Qty <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={form?.quantity ?? 1}
+                    onChange={(e) => updateForm("quantity", e.target.value)}
+                    placeholder="Quantity"
+                  />
+                </div>
+                <div>
+                  <Label>Unit</Label>
+                  <ProductUnitSelect
+                    value={form?.unit || ""}
+                    onChange={(e) => updateForm("unit", e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>HSN Number</Label>
+                  <Input
+                    value={form?.hsnNumber || ""}
+                    onChange={(e) => updateForm("hsnNumber", e.target.value)}
+                    placeholder="HSN"
+                  />
+                </div>
+                <div>
+                  <Label>Model Number</Label>
+                  <Input
+                    value={form?.modelNumber || ""}
+                    onChange={(e) => updateForm("modelNumber", e.target.value)}
+                    placeholder="Model"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>GST %</Label>
+                  <GstRateSelect
+                    value={form?.gstPercentage ?? ""}
+                    onChange={(e) =>
+                      updateForm("gstPercentage", e.target.value)
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Remark</Label>
+                  <Input
+                    value={form?.remark || ""}
+                    onChange={(e) => updateForm("remark", e.target.value)}
+                    placeholder="Remark"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right / side: the "also add to query" toggle */}
+            <div className="md:col-span-1">
+              <div className="rounded-lg border border-border bg-muted/40 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-medium text-foreground">
+                      Add to query as well
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Also create this as a new product on the linked query
+                      {queryCode ? ` ${queryCode}` : ""}.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={addToQuery}
+                    onCheckedChange={setAddToQuery}
+                  />
+                </div>
+                <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {addToQuery ? (
+                    <>
+                      <CheckCircle2 className="h-3.5 w-3.5 text-success!" />
+                      Will be added to the query too.
+                    </>
+                  ) : (
+                    "Quotation only."
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === "details" ? (
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setStep("search")}
+            >
+              <ArrowLeft className="mr-1.5 h-4 w-4" />
+              Back to search
+            </Button>
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={!form?.productName?.trim()}
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Product
+            </Button>
+          </DialogFooter>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const QuotationView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { hasPermission } = usePermissions();
   const [quotation, setQuotation] = useState(null);
+  // "Add New Product" demo modal (UI/dummy only — appends to the local list).
+  const [addProductModalOpen, setAddProductModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -787,6 +1115,35 @@ const QuotationView = () => {
       ? String(quotation.queryId.queryCode).trim()
       : "";
   const relatedQueryLinkLabel = relatedQueryCode || "View Query";
+
+  // Demo-only: append the product chosen in the Add-New-Product modal to the
+  // local quotation product list. No API call — dummy data, UI preview only.
+  const handleAddDummyProduct = (product, addToQuery) => {
+    const newRow = {
+      _id: `dummy-${Date.now()}`,
+      productName: (product.productName || "").trim(),
+      description: product.description || "",
+      quantity: Number(product.quantity) || 1,
+      unit: product.unit || "",
+      hsnNumber: product.hsnNumber || "",
+      modelNumber: product.modelNumber || "",
+      gstPercentage:
+        product.gstPercentage === "" || product.gstPercentage == null
+          ? null
+          : Number(product.gstPercentage),
+      remark: product.remark || "",
+      images: [],
+      product_id: null,
+    };
+    setQuotation((prev) =>
+      prev ? { ...prev, products: [...(prev.products || []), newRow] } : prev,
+    );
+    toastSuccess(
+      addToQuery
+        ? `${newRow.productName || "Product"} added to quotation and query`
+        : `${newRow.productName || "Product"} added to quotation`,
+    );
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -2551,16 +2908,7 @@ const QuotationView = () => {
 
           {/* Row 2: back + actions */}
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-2 gap-md-3 pt-3 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate("/quotations")}
-              className="inline-flex items-center px-3"
-              style={{ height: 40 }}
-            >
-              <ArrowLeft className="me-2 h-4 w-4" />
-              Back to Quotations
-            </Button>
+            <BackButton fallback="/quotations" />
 
             <div className="flex flex-wrap md:justify-end items-center gap-2">
               <Button
@@ -2676,9 +3024,6 @@ const QuotationView = () => {
               <TabsTrigger value="freightPacking">
                 Freight &amp; Packing Charge
               </TabsTrigger>
-              {canShowAddNewProductTab ? (
-                <TabsTrigger value="addNewProduct">Add New Product</TabsTrigger>
-              ) : null}
               <TabsTrigger value="productList">
                 Product List ({products.length})
               </TabsTrigger>
@@ -3719,11 +4064,7 @@ const QuotationView = () => {
                     <div className="md:col-span-4">
                       <div className="mb-3">
                         <Label>GST %</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          max={100}
-                          step="0.01"
+                        <GstRateSelect
                           value={resolveGstDisplayValue(
                             newProductForm.gstPercentage,
                           )}
@@ -3733,14 +4074,9 @@ const QuotationView = () => {
                               e.target.value,
                             )
                           }
-                          placeholder={String(DEFAULT_GST_PERCENTAGE)}
-                          style={
+                          selectClassName={
                             isGstAboveStandardRate(newProductForm.gstPercentage)
-                              ? {
-                                  borderColor: "#dc3545",
-                                  boxShadow:
-                                    "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
-                                }
+                              ? "border-destructive ring-2 ring-destructive/25"
                               : undefined
                           }
                         />
@@ -4147,32 +4483,17 @@ const QuotationView = () => {
                                       "–"}
                                   </div>
                                 </TableCell>
-                                <TableCell className="text-center py-1">
-                                  <Input
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    step="0.01"
-                                    className="form-control-sm"
-                                    style={{
-                                      width: "100%",
-                                      minHeight: 28,
-                                      fontSize: "0.75rem",
-                                      ...(isGstAboveStandardRate(
-                                        getListGst(idx),
-                                      )
-                                        ? {
-                                            borderColor: "#dc3545",
-                                            boxShadow:
-                                              "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
-                                          }
-                                        : {}),
-                                    }}
+                                <TableCell className="text-center py-1 min-w-[140px]">
+                                  <GstRateSelect
+                                    selectClassName={cn(
+                                      "h-8 text-xs",
+                                      isGstAboveStandardRate(getListGst(idx)) &&
+                                        "border-destructive ring-2 ring-destructive/25",
+                                    )}
                                     value={getListGst(idx)}
                                     onChange={(e) =>
                                       setListGst(idx, e.target.value)
                                     }
-                                    placeholder={String(DEFAULT_GST_PERCENTAGE)}
                                     title={`GST % (default ${DEFAULT_GST_PERCENTAGE}%, 0–100)`}
                                     disabled={
                                       !!p.notAvailable || isSnapshotPreview
@@ -4519,6 +4840,19 @@ const QuotationView = () => {
                     No products in this quotation.
                   </p>
                 )}
+
+                {canShowAddNewProductTab ? (
+                  <div className="mt-4 flex justify-end border-t border-border pt-4">
+                    <Button
+                      type="button"
+                      onClick={() => setAddProductModalOpen(true)}
+                      disabled={isSnapshotPreview}
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      Add New Product
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             </TabsContent>
 
@@ -4806,7 +5140,7 @@ const QuotationView = () => {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Create sales order?</DialogTitle>
+            <DialogTitle>Create Sales Order?</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             Do you want to proceed to finalize a sales order from this
@@ -5146,25 +5480,16 @@ const QuotationView = () => {
                     </div>
                     <div className="mb-3">
                       <Label>GST %</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="0.01"
+                      <GstRateSelect
                         value={resolveGstDisplayValue(
                           editingProduct.gstPercentage,
                         )}
                         onChange={(e) =>
                           updateFormField("gstPercentage", e.target.value)
                         }
-                        placeholder={String(DEFAULT_GST_PERCENTAGE)}
-                        style={
+                        selectClassName={
                           isGstAboveStandardRate(editingProduct.gstPercentage)
-                            ? {
-                                borderColor: "#dc3545",
-                                boxShadow:
-                                  "0 0 0 0.2rem rgba(220, 53, 69, 0.25)",
-                              }
+                            ? "border-destructive ring-2 ring-destructive/25"
                             : undefined
                         }
                         disabled={
@@ -5482,7 +5807,7 @@ const QuotationView = () => {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Delete product</DialogTitle>
+            <DialogTitle>Delete Product?</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             Are you sure you want to delete this product from the quotation?
@@ -5529,7 +5854,7 @@ const QuotationView = () => {
       >
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Procurement rates</DialogTitle>
+            <DialogTitle>Procurement Rates</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             {procurementRatesModal.loading ? (
@@ -5670,7 +5995,7 @@ const QuotationView = () => {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Mark product as Not Available</DialogTitle>
+            <DialogTitle>Mark Product as Not Available</DialogTitle>
           </DialogHeader>
           <div className="py-4">
             <p className="text-muted-foreground text-sm mb-2">
@@ -5731,6 +6056,13 @@ const QuotationView = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AddNewProductModal
+        open={addProductModalOpen}
+        onOpenChange={setAddProductModalOpen}
+        onAdd={handleAddDummyProduct}
+        queryCode={relatedQueryCode}
+      />
     </>
   );
 };

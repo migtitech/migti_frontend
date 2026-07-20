@@ -37,7 +37,7 @@ const serverStatus = (d) => d?.status ?? d?.inventoryStatus;
 
 const STATUS_LABELS = {
   inventory_received: "Inventory received",
-  ready_for_dispatchment: "Ready for dispatchment",
+  ready_for_dispatchment: "Ready for dispatch",
   delivered: "Delivered",
   pending: "Pending",
   purchased: "Purchased",
@@ -623,7 +623,7 @@ const DeliveryApprovalList = () => {
       <Sheet open={detailOpen} onOpenChange={(o) => !o && closeDetail()}>
         <SheetContent side="right" className="w-full sm:max-w-xl">
           <SheetHeader>
-            <SheetTitle>Delivery review</SheetTitle>
+            <SheetTitle>Delivery Review</SheetTitle>
           </SheetHeader>
           <SheetBody className="bg-muted/30">
             {detailLoading ? (

@@ -89,7 +89,7 @@ const QueryNewProductFindSidebar = ({
         <SheetContent side="right" className="w-full p-0 sm:max-w-[420px]">
           <SheetHeader>
             <div className="flex items-center gap-2">
-              <SheetTitle>New query products</SheetTitle>
+              <SheetTitle>New Query Products</SheetTitle>
               <Badge variant="info">{items.length}</Badge>
             </div>
           </SheetHeader>

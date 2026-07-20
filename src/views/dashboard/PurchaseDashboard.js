@@ -167,7 +167,7 @@ const PurchaseDashboard = () => {
         />
         <BucketCard
           icon={Bell}
-          title="Follow up Bucket"
+          title="Follow-up Bucket"
           description="Track and manage follow-ups on queries, quotations, and orders."
           to="/follow-up"
           tint="bg-accent text-accent-foreground"

@@ -71,7 +71,7 @@ const AreaList = () => {
       setAreas(data?.areas || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || "Failed to fetch zones");
+      toastError(err?.message || "Failed to load zones");
     } finally {
       setLoading(false);
     }
@@ -259,7 +259,7 @@ const AreaList = () => {
 
       <ConfirmDialog
         visible={confirmDelete.visible}
-        title="Delete Zone"
+        title="Delete Zone?"
         message="Are you sure you want to delete this zone?"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setConfirmDelete({ visible: false, id: null })}

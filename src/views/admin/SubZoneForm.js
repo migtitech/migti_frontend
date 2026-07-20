@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
-import { Loader, CrudFormPage, FormField } from "../../components";
+import { Loader, CrudFormPage, FormField, BackButton } from "../../components";
 import {
   Button,
   Alert,
@@ -78,15 +77,7 @@ const SubZoneForm = () => {
   return (
     <form onSubmit={onSubmit}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/sub-zones")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to sub-zones
-        </Button>
+        <BackButton fallback="/sub-zones" />
       </div>
 
       <CrudFormPage title="Add sub-zone">

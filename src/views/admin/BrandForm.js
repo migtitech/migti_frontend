@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { Info } from "lucide-react";
 import brandService from "../../services/brandService";
-import { Loader, CrudFormPage, FormField, FileUpload } from "../../components";
+import {
+  Loader,
+  CrudFormPage,
+  FormField,
+  FileUpload,
+  BackButton,
+} from "../../components";
 import {
   Button,
   Alert,
@@ -200,15 +206,7 @@ const BrandForm = () => {
   return (
     <form onSubmit={handleSubmit}>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/brands")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Brands
-        </Button>
+        <BackButton fallback="/brands" />
       </div>
 
       <CrudFormPage title={isEdit ? "Edit Brand" : "Add Brand"}>
@@ -296,7 +294,7 @@ const BrandForm = () => {
                   rows={4}
                   value={formData.description}
                   onChange={handleChange}
-                  placeholder="Enter brand description..."
+                  placeholder="Enter brand description…"
                   aria-invalid={!!fieldErrors.description}
                 />
               </FormField>

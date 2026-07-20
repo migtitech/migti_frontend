@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
+import { BackButton } from "../../components";
 import {
   Badge,
   Button,
@@ -89,14 +90,7 @@ const PoProductCreate = () => {
   return (
     <div>
       <div className="mb-3 flex items-center gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/po-products/add")}
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back
-        </Button>
+        <BackButton fallback="/po-products/add" />
         <h5 className="mb-0 flex-1 truncate text-lg font-semibold">
           New Sales Order Product
         </h5>

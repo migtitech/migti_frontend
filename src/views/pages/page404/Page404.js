@@ -8,7 +8,7 @@ const Page404 = () => {
       <div className="w-full max-w-md text-center">
         <h1 className="text-7xl font-bold tracking-tight text-primary!">404</h1>
         <h4 className="mt-4 text-xl font-semibold text-foreground">
-          Oops! You&apos;re lost.
+          Page not found
         </h4>
         <p className="mt-2 text-sm text-muted-foreground">
           The page you are looking for was not found.

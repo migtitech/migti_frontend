@@ -1,11 +1,11 @@
 import React from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { useParams } from "react-router-dom";
 import {
   PageHeader,
   StatusBadge,
   DataTable,
   EmptyState,
+  BackButton,
 } from "../../components";
 import {
   Card,
@@ -13,7 +13,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  Button,
 } from "../../components/ui";
 import {
   formatQueryStatus,
@@ -62,7 +61,6 @@ const followupColumns = [
 
 const QueryView = () => {
   const { id } = useParams();
-  const navigate = useNavigate();
   const query = queries.find((q) => q.id === id);
 
   if (!query) {
@@ -70,17 +68,10 @@ const QueryView = () => {
       <div className="space-y-6">
         <PageHeader title="Query not found" />
         <EmptyState
-          title="No such query"
+          title="Query not found"
           message="This sample query record doesn't exist."
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => navigate("/sales-master/query")}
-        >
-          <ArrowLeft className="mr-1.5 h-4 w-4" />
-          Back to Query
-        </Button>
+        <BackButton fallback="/sales-master/query" />
       </div>
     );
   }
@@ -93,16 +84,7 @@ const QueryView = () => {
       <PageHeader
         title={query.id}
         description="Query detail — sample data for UI preview."
-        actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate("/sales-master/query")}
-          >
-            <ArrowLeft className="mr-1.5 h-4 w-4" />
-            Back to Query
-          </Button>
-        }
+        actions={<BackButton fallback="/sales-master/query" />}
       />
 
       <Card>

@@ -14,7 +14,7 @@ import {
   TabsTrigger,
 } from "../../components/ui";
 import { cn } from "../../lib/utils";
-import { EyeIcon, TablePagination } from "../../components";
+import { EyeIcon, TablePagination, LocationValue } from "../../components";
 import rawQueryService from "../../services/rawQueryService";
 import queryService from "../../services/queryService";
 import employeeService from "../../services/employeeService";
@@ -634,7 +634,10 @@ const Tracking = () => {
                     <div className="flex items-start justify-between py-3">
                       <strong className="font-semibold">Location</strong>
                       <span className="ml-3 text-right">
-                        {query.companyInfo?.location || "-"}
+                        <LocationValue
+                          value={query.companyInfo?.location}
+                          showIcon={false}
+                        />
                       </span>
                     </div>
                     <div className="flex items-start justify-between py-3">

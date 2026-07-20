@@ -20,7 +20,7 @@ const RealtimeNotificationAlert = () => {
         top: "4.5rem",
         left: "50%",
         transform: "translateX(-50%)",
-        zIndex: 1040,
+        zIndex: 1070,
         maxWidth: "min(420px, 92vw)",
       }}
     >

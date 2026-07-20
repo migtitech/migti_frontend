@@ -94,7 +94,7 @@ const SupplierList = () => {
       setSuppliers(data?.suppliers || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || "Failed to fetch suppliers");
+      toastError(err?.message || "Failed to load suppliers");
     } finally {
       setLoading(false);
     }
@@ -235,7 +235,7 @@ const SupplierList = () => {
     () => [
       {
         key: "index",
-        label: "SNo",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,

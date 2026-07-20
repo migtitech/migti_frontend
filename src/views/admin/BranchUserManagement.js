@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, Pencil, Trash2, ArrowLeft } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useData } from "../../context/DataContext";
 import { ROLE_LABELS } from "../../context/AuthContext";
-import { ConfirmDialog, PageHeader } from "../../components";
+import { ConfirmDialog, PageHeader, BackButton } from "../../components";
 import {
   Badge,
   Button,
@@ -138,15 +138,7 @@ const BranchUserManagement = () => {
   return (
     <div>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate(`/admin/companies/${companyId}/branches`)}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Branches
-        </Button>
+        <BackButton fallback={`/admin/companies/${companyId}/branches`} />
       </div>
 
       <PageHeader

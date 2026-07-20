@@ -39,6 +39,7 @@ import {
 } from "../../components/ui";
 import { PageHeader, StatCard } from "../../components";
 import { toastInfo } from "../../utils/toast";
+import { dateMediumFormatter } from "../../utils/dateFormatter";
 import { cn } from "../../lib/utils";
 
 const CHART_COLORS = [
@@ -228,7 +229,7 @@ const UPCOMING_FOLLOWUPS = [
   },
   {
     client: "Vertex Engineering",
-    task: "Follow up on approval",
+    task: "Follow-up on approval",
     due: "19 Jul, 2:00 PM",
     priority: "High",
   },
@@ -321,16 +322,7 @@ const trendChart = {
   ],
 };
 
-const formatDate = (value) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
+const formatDate = (value) => dateMediumFormatter(value);
 
 const QuotationReportDashboard = () => {
   const navigate = useNavigate();
@@ -406,7 +398,7 @@ const QuotationReportDashboard = () => {
                 <Input
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="e.g. QTN-3182, Acme Industries..."
+                  placeholder="e.g. QTN-3182, Acme Industries…"
                   className="pl-8"
                 />
               </div>

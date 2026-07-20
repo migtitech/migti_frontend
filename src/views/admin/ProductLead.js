@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import queryNewProductService from "../../services/queryNewProductService";
 import { getAssetsUrl } from "../../api/endpoints";
 import Filtered from "../../filtered/Filtered";
-import { Loader, TablePagination, PageHeader } from "../../components";
+import {
+  Loader,
+  TablePagination,
+  PageHeader,
+  ConfirmDialog,
+} from "../../components";
 import {
   Badge,
   Button,
@@ -33,6 +38,10 @@ const ProductLead = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
+  const [confirmDelete, setConfirmDelete] = useState({
+    visible: false,
+    id: null,
+  });
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -48,7 +57,7 @@ const ProductLead = () => {
       setProducts(data?.items || []);
       setPagination(data?.pagination || {});
     } catch (err) {
-      toastError(err?.message || "Failed to fetch products");
+      toastError(err?.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -75,13 +84,16 @@ const ProductLead = () => {
     return acc;
   }, {});
 
-  const handleDeleteProduct = async (e, productId) => {
+  const requestDeleteProduct = (e, productId) => {
     e.stopPropagation();
     if (!productId) return;
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this product lead?",
-    );
-    if (!confirmed) return;
+    setConfirmDelete({ visible: true, id: productId });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const productId = confirmDelete.id;
+    setConfirmDelete({ visible: false, id: null });
+    if (!productId) return;
     try {
       await queryNewProductService.delete(productId);
       toastSuccess("Product lead deleted successfully");
@@ -113,7 +125,7 @@ const ProductLead = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>S No</TableHead>
+                      <TableHead>#</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Description</TableHead>
                       <TableHead>Variants</TableHead>
@@ -211,7 +223,7 @@ const ProductLead = () => {
                               variant="destructive"
                               size="sm"
                               onClick={(e) =>
-                                handleDeleteProduct(e, product._id)
+                                requestDeleteProduct(e, product._id)
                               }
                             >
                               Delete
@@ -248,6 +260,16 @@ const ProductLead = () => {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        visible={confirmDelete.visible}
+        onClose={() => setConfirmDelete({ visible: false, id: null })}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Product Lead?"
+        message="This product lead will be permanently removed. This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 };

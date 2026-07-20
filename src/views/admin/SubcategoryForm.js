@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Trash2, ArrowLeft, Info } from "lucide-react";
+import { Trash2, Info } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import subcategoryService from "../../services/subcategoryService";
 import categoryService from "../../services/categoryService";
@@ -10,6 +10,7 @@ import {
   CrudFormPage,
   FormField,
   FileUpload,
+  BackButton,
 } from "../../components";
 import {
   Button,
@@ -309,15 +310,7 @@ const SubcategoryForm = () => {
   return (
     <>
       <div className="mb-4">
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => navigate("/sub-categories")}
-          className="px-2 text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Sub Categories
-        </Button>
+        <BackButton fallback="/sub-categories" />
       </div>
 
       <CrudFormPage
@@ -476,7 +469,7 @@ const SubcategoryForm = () => {
                     rows={4}
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder="Enter subcategory description..."
+                    placeholder="Enter subcategory description…"
                     aria-invalid={!!fieldErrors.description}
                   />
                 </FormField>

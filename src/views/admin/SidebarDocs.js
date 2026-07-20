@@ -178,7 +178,7 @@ const SidebarDocs = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>S No</TableHead>
+                <TableHead>#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Remark</TableHead>
                 <TableHead>Actions</TableHead>
@@ -250,7 +250,7 @@ const SidebarDocs = () => {
           <div className="mb-4 max-w-md">
             <Input
               type="text"
-              placeholder="Search catalog by name or remark..."
+              placeholder="Search catalog by name or remark…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

@@ -76,7 +76,7 @@ const SubcategoryList = () => {
       setSubcategories(inner?.subcategories || []);
       setPagination(inner?.pagination || {});
     } catch (err) {
-      setError(err?.message || "Failed to fetch subcategories");
+      setError(err?.message || "Failed to load subcategories");
     } finally {
       setLoading(false);
     }
@@ -144,7 +144,7 @@ const SubcategoryList = () => {
     () => [
       {
         key: "index",
-        label: "S No",
+        label: "#",
         width: 64,
         toggleable: false,
         exportable: false,
