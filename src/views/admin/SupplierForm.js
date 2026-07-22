@@ -26,6 +26,7 @@ import supplierService from "../../services/supplierService";
 import supplierContactPersonService from "../../services/supplierContactPersonService";
 import supplierBranchService from "../../services/supplierBranchService";
 import categoryService from "../../services/categoryService";
+import { emailRequired, emailOptional } from "../../utils/validation";
 import branchService from "../../services/branchService";
 import locationService from "../../services/locationService";
 import bpDummy from "../../data/businessPartnerDummy";
@@ -96,6 +97,18 @@ const GSTIN_REGEX = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const GST_MESSAGE =
   "GST number must be valid 15-character GSTIN (e.g. 22AABCU9603R1ZX)";
 const PHONE_MESSAGE = "Phone number must be 10 to 15 digits";
+// D29: shared payment-terms enum (must match backend Joi exactly).
+const PAYMENT_TERMS = [
+  "Advance",
+  "Net 15",
+  "Net 30",
+  "Net 45",
+  "Net 60",
+  "Net 90",
+];
+// D29: supplier code city enum (default Indore).
+const CODE_CITIES = ["Indore", "Noida"];
+const DEFAULT_CREDIT_LIMIT = 2000000;
 
 const optionalBankDetailsSchema = yup.object({
   accountNumber: yup.string().notRequired().default(""),
@@ -144,16 +157,14 @@ function getSupplierSchema() {
       .required("Phone 1 is required")
       .transform((v) => (typeof v === "string" ? v.replace(/\s+/g, "") : v))
       .matches(/^[0-9]{10,15}$/, PHONE_MESSAGE),
+    // D29/F-SUPPLIER: phone_2 is OPTIONAL (backend requires only phone_1).
     phone_2: yup
       .string()
-      .required("Phone 2 is required")
+      .notRequired()
       .transform((v) => (typeof v === "string" ? v.replace(/\s+/g, "") : v))
-      .matches(/^[0-9]{10,15}$/, PHONE_MESSAGE),
-    email: yup
-      .string()
-      .email("Enter a valid email")
-      .required("Email is required")
-      .transform((v) => (typeof v === "string" ? v.trim() : v)),
+      .test("phone_2", PHONE_MESSAGE, (v) => !v || /^[0-9]{10,15}$/.test(v)),
+    // TLD-strict to match backend Joi `.email()` (rejects .local/.test).
+    email: emailRequired().required("Email is required"),
     other_contact: yup.string().notRequired().default(""),
     label: yup.string().notRequired().default(""),
     shop_location: yup.string().notRequired().default(""),
@@ -164,7 +175,33 @@ function getSupplierSchema() {
       )
       .required("GST number is required")
       .matches(GSTIN_REGEX, GST_MESSAGE),
-    categories: yup.array().of(yup.string()).optional().default([]),
+    // D8: at least one category is mandatory (matches backend min(1)).
+    categories: yup
+      .array()
+      .of(yup.string())
+      .min(1, "At least one category is required")
+      .required("At least one category is required")
+      .default([]),
+    // D13: L1/L2/L3 grade per category (grade optional at onboarding).
+    categoryGrades: yup
+      .array()
+      .of(
+        yup.object({
+          category: yup.string().required(),
+          grade: yup
+            .string()
+            .oneOf(["L1", "L2", "L3", ""], "Invalid grade")
+            .nullable(),
+        }),
+      )
+      .optional()
+      .default([]),
+    // D29: code city drives CITY-SUP-<n> (default Indore).
+    codeCity: yup
+      .string()
+      .oneOf(CODE_CITIES, "Invalid city")
+      .required("Code city is required")
+      .default("Indore"),
     remark: yup.string().notRequired().default(""),
     branchId: yup.string().optional().nullable(),
     isActive: yup.boolean().optional().default(true),
@@ -212,12 +249,8 @@ function getSupplierNewFieldsSchema() {
         "Enter a valid URL",
         (v) => !v || /^https?:\/\/.+\..+/.test(v),
       ),
-    companyEmail: yup
-      .string()
-      .email("Enter a valid email")
-      .optional()
-      .nullable()
-      .transform((v, o) => (o === "" ? null : v)),
+    // TLD-strict to match backend Joi `.email()`.
+    companyEmail: emailOptional(),
     companyPhone: phoneOptional("Company phone"),
     companyLogoBase64: yup.string().optional(),
     numberOfEmployees: yup
@@ -237,27 +270,28 @@ function getSupplierNewFieldsSchema() {
     registeredAddress: yup.string().trim().optional(),
     billingAddress: yup.string().trim().optional(),
     shippingAddress: yup.string().trim().optional(),
-    state: yup.string().trim().optional(),
-    city: yup.string().trim().optional(),
+    // D29: address (state/city/pincode) required (matches backend Joi).
+    state: yup.string().trim().required("State is required"),
+    city: yup.string().trim().required("City is required"),
     pincode: yup
       .string()
       .trim()
-      .optional()
-      .nullable()
-      .transform((v, o) => (o === "" ? null : v))
-      .test(
-        "pincode",
-        "Pincode must be 6 digits",
-        (v) => !v || /^\d{6}$/.test(v),
-      ),
-    paymentTerms: yup.string().trim().optional(),
+      .required("Pincode is required")
+      .matches(/^\d{6}$/, "Pincode must be 6 digits"),
+    // D29: payment terms required, fixed enum (matches backend).
+    paymentTerms: yup
+      .string()
+      .trim()
+      .oneOf(PAYMENT_TERMS, "Select a valid payment term")
+      .required("Payment terms is required"),
     creditLimit: yup
       .number()
       .typeError("Must be a number")
       .optional()
       .nullable()
       .min(0)
-      .transform((v, o) => (o === "" ? null : v)),
+      .default(DEFAULT_CREDIT_LIMIT)
+      .transform((v, o) => (o === "" ? DEFAULT_CREDIT_LIMIT : v)),
     internalComments: yup.string().trim().optional(),
     hasBranches: yup.boolean().default(false),
     branches: yup
@@ -307,7 +341,7 @@ const supplierOverlayDefaultValues = {
   city: "",
   pincode: "",
   paymentTerms: "",
-  creditLimit: "",
+  creditLimit: DEFAULT_CREDIT_LIMIT,
   internalComments: "",
 };
 
@@ -340,10 +374,23 @@ const buildBusinessInfoPayload = (values) => ({
   paymentTerms: values.paymentTerms || "",
   creditLimit:
     values.creditLimit === "" || values.creditLimit == null
-      ? null
+      ? DEFAULT_CREDIT_LIMIT
       : Number(values.creditLimit),
   internalComments: values.internalComments || "",
 });
+
+// D13: build categoryGrades[] from selected categories + the grade map. Every
+// selected category yields a row; grade is optional (empty → null).
+const buildCategoryGradesPayload = (values) => {
+  const ids = values.categories || [];
+  const gradeByCat = new Map(
+    (values.categoryGrades || []).map((cg) => [cg.category, cg.grade || ""]),
+  );
+  return ids.map((category) => ({
+    category,
+    grade: gradeByCat.get(category) || null,
+  }));
+};
 
 const defaultValues = {
   name: "",
@@ -357,6 +404,8 @@ const defaultValues = {
   shop_location: "",
   gst: "",
   categories: [],
+  categoryGrades: [],
+  codeCity: "Indore",
   remark: "",
   branchId: "",
   isActive: true,
@@ -727,6 +776,12 @@ const SupplierForm = () => {
         categories: (data?.categories || []).map((cat) =>
           typeof cat === "string" ? cat : cat?._id,
         ),
+        categoryGrades: (data?.categoryGrades || []).map((cg) => ({
+          category:
+            typeof cg?.category === "string" ? cg.category : cg?.category?._id,
+          grade: cg?.grade || "",
+        })),
+        codeCity: data?.codeCity || "Indore",
         remark: data?.remark || "",
         isActive: data?.isActive !== false,
         includeBankDetails: supplierHasBankDetails(existingBankDetails),
@@ -760,7 +815,9 @@ const SupplierForm = () => {
       } else {
         setCatalogPreview(null);
       }
-      setSupplierCode(bpDummy.getOrCreateCode("supplier", id));
+      setSupplierCode(
+        data?.supplierCode || bpDummy.getOrCreateCode("supplier", id),
+      );
       setAttachments(bpDummy.getOverlay("supplier", id).attachments || []);
     } catch (err) {
       toastError(err?.message || "Failed to load supplier");
@@ -819,12 +876,33 @@ const SupplierForm = () => {
     [id],
   );
 
+  const currentGrades = watch("categoryGrades") || [];
+
+  const gradeForCategory = (categoryId) =>
+    currentGrades.find((cg) => cg.category === categoryId)?.grade || "";
+
   const toggleCategory = (categoryId) => {
     const exists = selectedCategories.includes(categoryId);
     const next = exists
       ? selectedCategories.filter((id) => id !== categoryId)
       : [...selectedCategories, categoryId];
     setValue("categories", next, { shouldValidate: true });
+    // Keep categoryGrades[] in sync: drop removed, seed added (D13).
+    const grades = (watch("categoryGrades") || []).filter((cg) =>
+      next.includes(cg.category),
+    );
+    if (!exists && !grades.some((cg) => cg.category === categoryId)) {
+      grades.push({ category: categoryId, grade: "" });
+    }
+    setValue("categoryGrades", grades);
+  };
+
+  const setCategoryGrade = (categoryId, grade) => {
+    const grades = [...(watch("categoryGrades") || [])];
+    const idx = grades.findIndex((cg) => cg.category === categoryId);
+    if (idx >= 0) grades[idx] = { category: categoryId, grade };
+    else grades.push({ category: categoryId, grade });
+    setValue("categoryGrades", grades);
   };
 
   const handleClearDraft = () => {
@@ -861,6 +939,8 @@ const SupplierForm = () => {
           phone_1: values.phone_1 || "",
           phone_2: values.phone_2 || "",
           categories: values.categories || [],
+          categoryGrades: buildCategoryGradesPayload(values),
+          codeCity: values.codeCity || "Indore",
           remark: values.remark || "",
           bankDetails: buildBankDetailsPayload(bankDetails, withBankDetails),
           isActive: values.isActive !== false,
@@ -891,6 +971,8 @@ const SupplierForm = () => {
           shop_location: values.shop_location || "",
           gst: values.gst || "",
           categories: values.categories || [],
+          categoryGrades: buildCategoryGradesPayload(values),
+          codeCity: values.codeCity || "Indore",
           remark: values.remark || "",
           branchId,
           isActive: values.isActive !== false,
@@ -1024,13 +1106,31 @@ const SupplierForm = () => {
               />
             </FormField>
 
-            <FormField label="Supplier Code" helper="Auto-generated on save">
+            <FormField
+              label="Supplier Code"
+              helper="Auto-generated on save (CITY-SUP-<n>)"
+            >
               <Input
                 value={supplierCode}
                 readOnly
                 disabled
                 className="bg-muted"
               />
+            </FormField>
+
+            <FormField
+              label="Code City"
+              required
+              error={errors.codeCity?.message}
+              helper="Drives the supplier code prefix."
+            >
+              <Select {...register("codeCity")}>
+                {CODE_CITIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </Select>
             </FormField>
 
             <FormField label="Client Type" error={errors.clientType?.message}>
@@ -1117,7 +1217,7 @@ const SupplierForm = () => {
           description="How to reach this supplier and their tax identity."
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Email" error={errors.email?.message}>
+            <FormField label="Email" required error={errors.email?.message}>
               <Input
                 type="email"
                 {...register("email")}
@@ -1127,10 +1227,18 @@ const SupplierForm = () => {
               />
             </FormField>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <FormField label="Phone 1" error={errors.phone_1?.message}>
+              <FormField
+                label="Phone 1"
+                required
+                error={errors.phone_1?.message}
+              >
                 <Input {...register("phone_1")} placeholder="10 digits" />
               </FormField>
-              <FormField label="Phone 2" error={errors.phone_2?.message}>
+              <FormField
+                label="Phone 2"
+                error={errors.phone_2?.message}
+                helper="Optional"
+              >
                 <Input {...register("phone_2")} placeholder="10 digits" />
               </FormField>
             </div>
@@ -1170,8 +1278,9 @@ const SupplierForm = () => {
 
             <FormField
               label="GST Number"
+              required
               error={errors.gst?.message}
-              helper={!errors.gst ? "15-character GSTIN (optional)" : undefined}
+              helper={!errors.gst ? "15-character GSTIN" : undefined}
             >
               <Input
                 placeholder="e.g. 22AABCU9603R1ZX"
@@ -1192,7 +1301,12 @@ const SupplierForm = () => {
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
-              <FormField label="Categories">
+              <FormField
+                label="Categories"
+                required
+                error={errors.categories?.message}
+                helper="Suppliers route by category. Set an L1/L2/L3 grade per category (optional)."
+              >
                 <Input
                   placeholder="Search categories…"
                   value={categorySearch}
@@ -1237,11 +1351,33 @@ const SupplierForm = () => {
                   )}
                 </div>
                 {selectedCategoryBadges.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-2">
+                  <div className="mt-3 space-y-2">
                     {selectedCategoryBadges.map((cat) => (
-                      <Badge variant="secondary" key={cat.id}>
-                        {cat.name}
-                      </Badge>
+                      <div
+                        key={cat.id}
+                        className="flex items-center justify-between gap-3 rounded-md border border-border bg-background px-3 py-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary">{cat.name}</Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            Grade
+                          </span>
+                          <Select
+                            className="h-8 w-28"
+                            value={gradeForCategory(cat.id)}
+                            onChange={(e) =>
+                              setCategoryGrade(cat.id, e.target.value)
+                            }
+                          >
+                            <option value="">Ungraded</option>
+                            <option value="L1">L1</option>
+                            <option value="L2">L2</option>
+                            <option value="L3">L3</option>
+                          </Select>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -1249,7 +1385,11 @@ const SupplierForm = () => {
             </div>
 
             <div className="md:col-span-2">
-              <FormField label="Address" error={errors.address?.message}>
+              <FormField
+                label="Address"
+                required
+                error={errors.address?.message}
+              >
                 <Textarea rows={3} {...register("address")} />
               </FormField>
             </div>
@@ -1661,7 +1801,11 @@ const SupplierForm = () => {
             <FormField label="Shipping Address">
               <Textarea rows={2} {...register("shippingAddress")} />
             </FormField>
-            <FormField label="Pin Code" error={errors.pincode?.message}>
+            <FormField
+              label="Pin Code"
+              required
+              error={errors.pincode?.message}
+            >
               <Input
                 {...pincodeFieldProps}
                 maxLength={6}
@@ -1676,7 +1820,7 @@ const SupplierForm = () => {
                 }}
               />
             </FormField>
-            <FormField label="State">
+            <FormField label="State" required error={errors.state?.message}>
               <Select {...stateFieldProps}>
                 <option value="">Select state</option>
                 {states.map((s) => (
@@ -1686,7 +1830,7 @@ const SupplierForm = () => {
                 ))}
               </Select>
             </FormField>
-            <FormField label="City">
+            <FormField label="City" required error={errors.city?.message}>
               <Select {...register("city")} disabled={!selectedState}>
                 <option value="">
                   {selectedState ? "Select city" : "Select state first"}
@@ -1708,8 +1852,19 @@ const SupplierForm = () => {
           description="Payment terms and credit exposure."
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Payment Terms">
-              <Input {...register("paymentTerms")} placeholder="e.g. Net 30" />
+            <FormField
+              label="Payment Terms"
+              required
+              error={errors.paymentTerms?.message}
+            >
+              <Select {...register("paymentTerms")}>
+                <option value="">Select payment terms</option>
+                {PAYMENT_TERMS.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </Select>
             </FormField>
             <FormField label="Credit Limit" error={errors.creditLimit?.message}>
               <Input type="number" min={0} {...register("creditLimit")} />

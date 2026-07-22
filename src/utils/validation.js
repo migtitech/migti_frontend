@@ -17,6 +17,33 @@ export const GSTIN_OPTIONAL_PATTERN =
 export const IFSC_PATTERN = /^[A-Za-z]{4}0[A-Za-z0-9]{6}$/;
 /** Mongo ObjectId 24 hex */
 export const OBJECT_ID_PATTERN = /^[a-fA-F0-9]{24}$/;
+/**
+ * Email must have a dotted domain with an alphabetic TLD of ≥2 chars — mirrors
+ * the backend Joi `.email()` default (which rejects `user@host`, `user@localhost`).
+ * yup's `.email()` alone is laxer and would let those through on the FE only for
+ * Joi to reject them, so we layer this on top. (Keep in sync with backend Joi.)
+ */
+export const EMAIL_TLD_PATTERN = /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/;
+/**
+ * RFC-reserved / non-routable TLDs that the backend Joi `.email()` default also
+ * rejects (it validates the TLD against the IANA list). We can't ship the whole
+ * IANA list to the FE, but blocking these reserved ones closes the realistic
+ * FE-passes / BE-rejects gap. Guarantee: FE never accepts an email BE rejects.
+ */
+const RESERVED_EMAIL_TLDS = new Set([
+  "local",
+  "localhost",
+  "test",
+  "example",
+  "invalid",
+]);
+
+/** True when the address has a syntactic dotted TLD that is not a reserved one. */
+export const isEmailTldValid = (v) => {
+  if (typeof v !== "string" || !EMAIL_TLD_PATTERN.test(v)) return false;
+  const tld = v.split(".").pop().toLowerCase();
+  return !RESERVED_EMAIL_TLDS.has(tld);
+};
 
 // --- Messages (clear, user-facing) ---
 export const MSG = {
@@ -54,11 +81,16 @@ export const stringOptional = (max = 255) =>
     .transform((v, o) => (o === "" ? null : v))
     .max(max, MSG.maxLength(max));
 
-/** Email required */
+/** Email required — TLD-strict to match backend Joi `.email()`. */
 export const emailRequired = () =>
-  yup.string().trim().required(MSG.required).email(MSG.email);
+  yup
+    .string()
+    .trim()
+    .required(MSG.required)
+    .email(MSG.email)
+    .test("email-tld", MSG.email, (v) => isEmailTldValid(v));
 
-/** Email optional (allow empty) */
+/** Email optional (allow empty) — TLD-strict to match backend Joi `.email()`. */
 export const emailOptional = () =>
   yup
     .string()
@@ -66,7 +98,12 @@ export const emailOptional = () =>
     .optional()
     .nullable()
     .transform((v, o) => (o === "" ? null : v))
-    .email(MSG.email);
+    .email(MSG.email)
+    .test(
+      "email-tld",
+      MSG.email,
+      (v) => v == null || v === "" || isEmailTldValid(v),
+    );
 
 /** Phone required: 5–20 digits (backend employee phone) */
 export const phoneRequired = () =>

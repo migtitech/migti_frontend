@@ -42,6 +42,7 @@ import {
 } from "../../components/ui";
 import industryService from "../../services/industryService";
 import industryBranchService from "../../services/industryBranchService";
+import industryContactPersonService from "../../services/industryContactPersonService";
 import industryAttachmentService from "../../services/industryAttachmentService";
 import queryService from "../../services/queryService";
 import quotationService from "../../services/quotationService";
@@ -172,6 +173,7 @@ const IndustryView = () => {
   const [poPage, setPoPage] = useState(1);
   const [billingPage, setBillingPage] = useState(1);
   const [branches, setBranches] = useState([]);
+  const [contacts, setContacts] = useState([]);
   const [attachments, setAttachments] = useState([]);
 
   useEffect(() => {
@@ -222,6 +224,18 @@ const IndustryView = () => {
         if (!cancelled) setAttachments(data?.attachments || []);
       } catch {
         if (!cancelled) setAttachments([]);
+      }
+      // F-CUSTOMER (D29): show active contacts only — inactive are hidden.
+      try {
+        const res = await industryContactPersonService.getAll({
+          industryId: id,
+          status: "active",
+          pageSize: 100,
+        });
+        const data = res?.data || res;
+        if (!cancelled) setContacts(data?.contactPersons || []);
+      } catch {
+        if (!cancelled) setContacts([]);
       }
     };
     loadBranchesAndAttachments();
@@ -384,25 +398,6 @@ const IndustryView = () => {
       cancelled = true;
     };
   }, [id, billingPage]);
-
-  const purchaseManagers = useMemo(() => {
-    const list = industry?.purchaseManagers || [];
-    if (list.length > 0) return list;
-    if (
-      industry?.purchase_manager_name ||
-      industry?.purchase_manager_phone ||
-      industry?.email
-    ) {
-      return [
-        {
-          name: industry?.purchase_manager_name || "",
-          phone: industry?.purchase_manager_phone || "",
-          email: industry?.email || "",
-        },
-      ];
-    }
-    return [];
-  }, [industry]);
 
   const queryTotalPages = Math.max(1, queryPagination?.totalPages ?? 1);
   const quotationTotalPages = Math.max(1, quotationPagination?.totalPages ?? 1);
@@ -719,53 +714,66 @@ const IndustryView = () => {
                 </InfoCard>
               </div>
 
-              {/* Purchase Managers */}
+              {/* Contacts (active only — F-CUSTOMER D29) */}
               <div>
                 <div className="mb-3 flex items-center gap-2">
                   <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
                     <Users className="h-4 w-4 text-primary!" />
                   </span>
                   <h3 className="text-sm font-semibold leading-none">
-                    Purchase Managers
+                    Contacts
                   </h3>
                 </div>
-                {purchaseManagers.length === 0 ? (
+                {contacts.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
-                    No purchase managers added for this customer.
+                    No active contacts added for this customer.
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {purchaseManagers.map((pm, idx) => (
-                      <Card key={pm._id || idx}>
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-9 w-9">
-                              <AvatarFallback>
-                                {(pm.name || "PM").slice(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-semibold">
-                                {pm.name || "NA"}
+                    {contacts.map((contact, idx) => {
+                      const fullName = [contact.firstName, contact.lastName]
+                        .filter(Boolean)
+                        .join(" ");
+                      return (
+                        <Card key={contact._id || idx}>
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-9 w-9">
+                                <AvatarFallback>
+                                  {(fullName || "C").slice(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold">
+                                  {fullName || "NA"}
+                                </div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {contact.designation || "NA"}
+                                </div>
                               </div>
-                              <div className="truncate text-xs text-muted-foreground">
-                                {pm.department || "NA"}
+                            </div>
+                            <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                              <div className="flex items-center gap-2">
+                                <Phone className="h-3.5 w-3.5" />
+                                {contact.mobileNumber || "NA"}
                               </div>
+                              <div className="flex items-center gap-2">
+                                <Mail className="h-3.5 w-3.5" />
+                                {contact.email || "NA"}
+                              </div>
+                              {contact.remarks && (
+                                <div className="flex items-start gap-2 pt-1">
+                                  <StickyNote className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                                  <span className="break-words">
+                                    {contact.remarks}
+                                  </span>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2">
-                              <Phone className="h-3.5 w-3.5" />
-                              {pm.phone || "NA"}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Mail className="h-3.5 w-3.5" />
-                              {pm.email || "NA"}
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </div>

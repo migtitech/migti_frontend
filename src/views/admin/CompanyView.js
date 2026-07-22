@@ -166,6 +166,9 @@ const CompanyView = () => {
               )}
               <dl className="divide-y divide-border">
                 <DetailRow label="Company Name">{company.name}</DetailRow>
+                <DetailRow label="Company Code">
+                  {company.code || "-"}
+                </DetailRow>
                 <DetailRow label="Brand Name">
                   {company.brandName || "-"}
                 </DetailRow>

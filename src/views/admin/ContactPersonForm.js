@@ -60,13 +60,13 @@ const FormSection = ({ icon: Icon, title, description, first, children }) => (
 const PARENT_CONFIG = {
   industry: {
     module: "industry_branches",
-    label: "client",
+    label: "customer",
     basePath: "/customer-contacts",
     mappedKey: "industryId",
-    mapLabel: "Client",
-    searchPlaceholder: "Search client...",
-    mapRequiredMessage: "Select a client to map this contact to",
-    mapHelper: "Search by client name or industry",
+    mapLabel: "Customer",
+    searchPlaceholder: "Search customer...",
+    mapRequiredMessage: "Select a customer to map this contact to",
+    mapHelper: "Search by customer name",
     listAll: async () => {
       const res = await industryService.getAll({
         pageNumber: 1,

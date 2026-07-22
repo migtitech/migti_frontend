@@ -86,6 +86,8 @@ const CompanyForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [logoUploading, setLogoUploading] = useState(false);
+  // Company code is generated once by the backend and is immutable (read-only).
+  const [companyCode, setCompanyCode] = useState("");
 
   const {
     register,
@@ -126,7 +128,8 @@ const CompanyForm = () => {
       setError("");
       try {
         const res = await withMinimumDelay(() => companyService.getById(id));
-        const data = res?.data?.company || res?.data || res?.data?.data || {};
+        const data = res?.data?.data || res?.data?.company || res?.data || {};
+        setCompanyCode(data.code || "");
         reset({
           name: data.name || "",
           brandName: data.brandName || "",
@@ -281,6 +284,11 @@ const CompanyForm = () => {
           <FormField label="Company Name" required error={errors.name?.message}>
             <Input {...register("name")} />
           </FormField>
+          {isEdit && companyCode && (
+            <FormField label="Company Code">
+              <Input value={companyCode} readOnly disabled />
+            </FormField>
+          )}
           <FormField
             label="Brand Name"
             required

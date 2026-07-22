@@ -1,67 +1,121 @@
-import React from "react";
-import { ShoppingCart, Info } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ShoppingCart, Info, Eye, Zap } from "lucide-react";
 import { PageHeader, StatCard, StatusBadge, DataTable } from "../../components";
+import { Button } from "../../components/ui";
 import { statusVariant } from "./components/statusFormatters";
+import PurchaseActionDialog from "./components/PurchaseActionDialog";
 import { localPurchaseBucket } from "../../data/purchaseMasterDummyData";
-
-const columns = [
-  { key: "id", label: "PR #", sortable: true },
-  { key: "product", label: "Product", sortable: true },
-  { key: "category", label: "Category", sortable: true },
-  { key: "qty", label: "Qty", align: "right", sortable: true },
-  { key: "supplier", label: "Supplier Assigned", sortable: true },
-  {
-    key: "status",
-    label: "Status",
-    render: (row) => (
-      <StatusBadge status={row.status} variant={statusVariant(row.status)} />
-    ),
-  },
-];
 
 /**
  * Local Purchase bucket: non-branded / internal-category products, handled
  * directly by the purchase manager. Same underlying items also appear in the
- * main Purchase Requests bucket. Sample data for UI preview.
+ * main Purchase Requests bucket. Each row has a View (full detail page) and an
+ * Action (purchase / assign-to-local dialog). Sample data for UI preview.
  */
-const LocalPurchase = () => (
-  <div className="space-y-6">
-    <PageHeader
-      title="Local Purchase"
-      description="Internal-category (non-branded) products you handle yourself. Sample data for UI preview."
-    />
+const LocalPurchase = () => {
+  const navigate = useNavigate();
+  const [actionRequest, setActionRequest] = useState(null);
 
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <StatCard
-        title="Items in Local Bucket"
-        value={localPurchaseBucket.length}
-        icon={ShoppingCart}
-        color="primary"
+  const columns = useMemo(
+    () => [
+      { key: "id", label: "PR #", sortable: true },
+      { key: "product", label: "Product", sortable: true },
+      { key: "category", label: "Category", sortable: true },
+      { key: "qty", label: "Qty", align: "right", sortable: true },
+      { key: "supplier", label: "Supplier Assigned", sortable: true },
+      {
+        key: "status",
+        label: "Status",
+        render: (row) => (
+          <StatusBadge
+            status={row.status}
+            variant={statusVariant(row.status)}
+          />
+        ),
+      },
+      {
+        key: "actions",
+        label: "Actions",
+        align: "right",
+        exportable: false,
+        stopRowClick: true,
+        render: (row) => (
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                navigate(`/purchase-master/purchase-requests/${row.id}`)
+              }
+            >
+              <Eye className="mr-1 h-3.5 w-3.5" />
+              View
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setActionRequest(row)}
+            >
+              <Zap className="mr-1 h-3.5 w-3.5" />
+              Action
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [navigate],
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title="Local Purchase"
+        description="Internal-category (non-branded) products you handle yourself. Sample data for UI preview."
       />
-      <StatCard
-        title="Open"
-        value={localPurchaseBucket.filter((r) => r.status === "open").length}
-        icon={ShoppingCart}
-        color="warning"
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <StatCard
+          title="Items in Local Bucket"
+          value={localPurchaseBucket.length}
+          icon={ShoppingCart}
+          color="primary"
+        />
+        <StatCard
+          title="Open"
+          value={localPurchaseBucket.filter((r) => r.status === "open").length}
+          icon={ShoppingCart}
+          color="warning"
+        />
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-info/30 bg-info/5 p-3 text-sm text-muted-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
+        <p>
+          These are the same products that show up in the main Purchase Requests
+          bucket — this view is just the non-branded (local) subset for you to
+          action directly.
+        </p>
+      </div>
+
+      <DataTable
+        columns={columns}
+        rows={localPurchaseBucket}
+        rowKey={(r) => r.id}
+        onRowClick={(r) =>
+          navigate(`/purchase-master/purchase-requests/${r.id}`)
+        }
+        exportFileName="local-purchase"
+      />
+
+      <PurchaseActionDialog
+        open={Boolean(actionRequest)}
+        onOpenChange={(v) => !v && setActionRequest(null)}
+        request={actionRequest}
       />
     </div>
-
-    <div className="flex gap-3 rounded-lg border border-info/30 bg-info/5 p-3 text-sm text-muted-foreground">
-      <Info className="mt-0.5 h-4 w-4 shrink-0 text-info" />
-      <p>
-        These are the same products that show up in the main Purchase Requests
-        bucket — this view is just the non-branded (local) subset for you to
-        action directly.
-      </p>
-    </div>
-
-    <DataTable
-      columns={columns}
-      rows={localPurchaseBucket}
-      rowKey={(r) => r.id}
-      exportFileName="local-purchase"
-    />
-  </div>
-);
+  );
+};
 
 export default LocalPurchase;

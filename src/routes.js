@@ -409,6 +409,25 @@ const PurchaseMasterPurchaseHistory = React.lazy(
 const PurchaseMasterPerformanceReport = React.lazy(
   () => import("./views/purchaseMaster/MyPerformanceReport"),
 );
+// Purchase Master — detailed view pages (frontend-only, sample data).
+const PurchaseMasterPurchaseRequestDetail = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseRequestDetail"),
+);
+const PurchaseMasterPurchaseOrderDetail = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseOrderDetail"),
+);
+const PurchaseMasterGrnDetail = React.lazy(
+  () => import("./views/purchaseMaster/GrnDetail"),
+);
+const PurchaseMasterPurchaseReturnDetail = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseReturnDetail"),
+);
+const PurchaseMasterVendorPaymentDetail = React.lazy(
+  () => import("./views/purchaseMaster/VendorPaymentDetail"),
+);
+const PurchaseMasterPurchaseHistoryDetail = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseHistoryDetail"),
+);
 
 // Procurement Manager section — frontend-only, sample-data pages
 // (sidebar-gated to the procurement_master role; see _nav.js).
@@ -1670,6 +1689,11 @@ const routes = [
     element: PurchaseMasterPurchaseRequests,
   },
   {
+    path: "/purchase-master/purchase-requests/:id",
+    name: "Purchase Request Detail",
+    element: PurchaseMasterPurchaseRequestDetail,
+  },
+  {
     path: "/purchase-master/local-purchase",
     name: "Purchase Manager Local Purchase",
     element: PurchaseMasterLocalPurchase,
@@ -1685,9 +1709,19 @@ const routes = [
     element: PurchaseMasterPurchaseOrder,
   },
   {
+    path: "/purchase-master/purchase-order/:id",
+    name: "Purchase Order Detail",
+    element: PurchaseMasterPurchaseOrderDetail,
+  },
+  {
     path: "/purchase-master/grn",
     name: "Purchase Manager GRN",
     element: PurchaseMasterGrn,
+  },
+  {
+    path: "/purchase-master/grn/:id",
+    name: "GRN Detail",
+    element: PurchaseMasterGrnDetail,
   },
   {
     path: "/purchase-master/purchase-return",
@@ -1695,14 +1729,29 @@ const routes = [
     element: PurchaseMasterPurchaseReturn,
   },
   {
+    path: "/purchase-master/purchase-return/:id",
+    name: "Purchase Return Detail",
+    element: PurchaseMasterPurchaseReturnDetail,
+  },
+  {
     path: "/purchase-master/vendor-payments",
     name: "Purchase Manager Vendor Payments",
     element: PurchaseMasterVendorPayments,
   },
   {
+    path: "/purchase-master/vendor-payments/:id",
+    name: "Vendor Payment Detail",
+    element: PurchaseMasterVendorPaymentDetail,
+  },
+  {
     path: "/purchase-master/purchase-history",
     name: "Purchase Manager Purchase History",
     element: PurchaseMasterPurchaseHistory,
+  },
+  {
+    path: "/purchase-master/purchase-history/:id",
+    name: "Purchase History Detail",
+    element: PurchaseMasterPurchaseHistoryDetail,
   },
   {
     path: "/purchase-master/reports/my-performance",

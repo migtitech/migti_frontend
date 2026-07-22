@@ -69,6 +69,27 @@ export const PROCUREMENT_FLATTENED_GROUP_NAMES = new Set([
   "Procurement Master",
 ]);
 
+/** Purchase Master role (purchase_manager) sees ONLY these sidebar paths —
+ * everything else is hidden for this role. This is a purchase_manager-only
+ * allowlist; it does not affect HOD or any other role. Company Information
+ * children (Companies / Branches / Documents) are included so that group
+ * shows with its items. */
+export const PURCHASE_MASTER_ALLOWED_PATHS = new Set([
+  "/purchase-master/dashboard",
+  "/purchase-master/suppliers",
+  "/supplier-contacts",
+  "/purchase-master/purchase-requests",
+  "/purchase-master/purchase-order",
+  "/purchase-master/grn",
+  "/purchase-master/purchase-return",
+  "/purchase-master/vendor-payments",
+  "/purchase-master/reports/my-performance",
+  // Company Information group children:
+  "/companies",
+  "/branches",
+  "/sidebar-docs",
+]);
+
 export const DISPATCH_MANAGER_ALLOWED_PATHS = new Set(["/dispatchment"]);
 
 export const INVENTORY_MANAGER_ALLOWED_PATHS = new Set(["/inventory-bucket"]);
@@ -228,6 +249,10 @@ export const isNavItemVisible = (item, ctx) => {
     return Boolean(item.roles?.length && roleInList(role, item.roles));
   }
 
+  if (strategy === "purchase_master") {
+    return Boolean(item.to && PURCHASE_MASTER_ALLOWED_PATHS.has(item.to));
+  }
+
   if (strategy === "admin") {
     return Boolean(item.to && ADMIN_ALLOWED_PATHS.has(item.to));
   }
@@ -308,6 +333,7 @@ const resolveNavStrategy = (role) => {
   if (role === "localprocurement" || role === "localpurchase") {
     return "roles_only";
   }
+  if (role === "purchase_manager") return "purchase_master";
   if (role === "finance") return "finance";
   if (role === "admin") return "admin";
   if (role === "dispatch_manager") return "dispatch_manager";
@@ -350,6 +376,19 @@ export const filterNavigationItems = (navItems, ctx) => {
       ) {
         return [];
       }
+      // Purchase Master (purchase_manager) shows a fixed flat list of items plus
+      // the Company Information group only. Every other top-level GROUP is
+      // dropped so an allowlisted leaf that also lives inside some other group
+      // (e.g. Suppliers Contacts under Business Partner) doesn't reappear
+      // nested there — it shows only as the intended flat item.
+      if (
+        ctx.strategy === "purchase_master" &&
+        isTopLevel &&
+        item.items &&
+        item.name !== "Company Information"
+      ) {
+        return [];
+      }
       if (item.items) {
         const filteredItems = applyGroupFilter(item.items);
         if (filteredItems.length === 0) return [];
@@ -384,6 +423,7 @@ export const filterNavigationItems = (navItems, ctx) => {
     });
 
   if (
+    ctx.strategy === "purchase_master" ||
     ctx.strategy === "admin" ||
     ctx.strategy === "finance" ||
     ctx.strategy === "dispatch_manager" ||

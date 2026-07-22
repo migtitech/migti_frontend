@@ -78,6 +78,13 @@ const CompanyList = () => {
         render: (_row, index) => index + 1,
       },
       { key: "name", label: "Name", sortable: true },
+      {
+        key: "code",
+        label: "Code",
+        sortable: true,
+        exportValue: (company) => company.code || "—",
+        render: (company) => company.code || "—",
+      },
       { key: "brandName", label: "Brand Name", sortable: true },
       { key: "email", label: "Email", sortable: true },
       {

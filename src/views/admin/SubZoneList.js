@@ -7,6 +7,8 @@ import {
   ConfirmDialog,
   PageHeader,
   RowActions,
+  StatusBadge,
+  StatusToggle,
 } from "../../components";
 import {
   Alert,
@@ -44,6 +46,7 @@ const SubZoneList = () => {
     visible: false,
     subZoneId: "",
     name: "",
+    isActive: true,
   });
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
@@ -70,8 +73,16 @@ const SubZoneList = () => {
   }, []);
 
   const openEdit = (sz) => {
-    setEditModal({ visible: true, subZoneId: getId(sz), name: sz.name || "" });
+    setEditModal({
+      visible: true,
+      subZoneId: getId(sz),
+      name: sz.name || "",
+      isActive: sz.isActive !== false,
+    });
   };
+
+  const closeEdit = () =>
+    setEditModal({ visible: false, subZoneId: "", name: "", isActive: true });
 
   const saveEdit = async () => {
     const id = editModal.subZoneId;
@@ -81,9 +92,9 @@ const SubZoneList = () => {
       return;
     }
     try {
-      await subZoneService.update(id, { name });
+      await subZoneService.update(id, { name, isActive: editModal.isActive });
       toastSuccess("Sub-zone updated");
-      setEditModal({ visible: false, subZoneId: "", name: "" });
+      closeEdit();
       load();
     } catch (err) {
       toastError(err?.message || "Update failed");
@@ -177,6 +188,7 @@ const SubZoneList = () => {
                               <TableRow className="hover:bg-transparent">
                                 <TableHead>Code</TableHead>
                                 <TableHead>Name</TableHead>
+                                <TableHead>Status</TableHead>
                                 <TableHead className="text-right">
                                   Actions
                                 </TableHead>
@@ -189,6 +201,15 @@ const SubZoneList = () => {
                                     {sz.subZoneCode}
                                   </TableCell>
                                   <TableCell>{sz.name}</TableCell>
+                                  <TableCell>
+                                    <StatusBadge
+                                      status={
+                                        sz.isActive !== false
+                                          ? "Active"
+                                          : "Inactive"
+                                      }
+                                    />
+                                  </TableCell>
                                   <TableCell className="text-right">
                                     <RowActions
                                       onEdit={
@@ -224,31 +245,38 @@ const SubZoneList = () => {
 
       <Dialog
         open={editModal.visible}
-        onOpenChange={(open) =>
-          !open && setEditModal({ visible: false, subZoneId: "", name: "" })
-        }
+        onOpenChange={(open) => !open && closeEdit()}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Sub-zone Name</DialogTitle>
+            <DialogTitle>Edit Sub-zone</DialogTitle>
           </DialogHeader>
-          <div className="space-y-1.5">
-            <Label>Name</Label>
-            <Input
-              value={editModal.name}
-              onChange={(e) =>
-                setEditModal((m) => ({ ...m, name: e.target.value }))
-              }
-              maxLength={200}
-            />
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Name</Label>
+              <Input
+                value={editModal.name}
+                onChange={(e) =>
+                  setEditModal((m) => ({ ...m, name: e.target.value }))
+                }
+                maxLength={200}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Status</Label>
+              <StatusToggle
+                id="subzone-edit-isActive"
+                checked={Boolean(editModal.isActive)}
+                onCheckedChange={(checked) =>
+                  setEditModal((m) => ({ ...m, isActive: checked }))
+                }
+                aria-label="Sub-zone status"
+                className="h-9 gap-3"
+              />
+            </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() =>
-                setEditModal({ visible: false, subZoneId: "", name: "" })
-              }
-            >
+            <Button variant="outline" onClick={closeEdit}>
               Cancel
             </Button>
             <Button onClick={saveEdit}>Save</Button>

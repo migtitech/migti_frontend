@@ -9,10 +9,10 @@ import {
   emailRequired,
   emailOptional,
   stringRequired,
-  stringOptional,
   MSG,
   OBJECT_ID_PATTERN,
 } from "../utils/validation";
+import { isProcurementPurchaseRole } from "../utils/employeeZoneEligibility";
 
 const objectIdOptional = (label = "id") =>
   yup
@@ -69,15 +69,16 @@ const sharedEmployeeFields = () => ({
   name: stringRequired(2, 100).label("Name"),
   email: emailRequired().label("Email"),
   phone: phoneRequired().label("Phone"),
-  fatherName: stringOptional(100).label("Father's name"),
-  motherName: stringOptional(100).label("Mother's name"),
+  // F-EMP: personal info now required (matches backend Joi).
+  fatherName: stringRequired(2, 100).label("Father's name"),
+  motherName: stringRequired(2, 100).label("Mother's name"),
   pincode: yup
     .string()
     .trim()
-    .optional()
-    .max(20, MSG.maxLength(20))
-    .nullable()
-    .transform((value, original) => (original === "" ? null : value)),
+    .required(MSG.required)
+    .matches(/^\d{6}$/, "Pincode must be 6 digits"),
+  state: stringRequired(2, 100).label("State"),
+  city: stringRequired(2, 100).label("City"),
   hasBike: yup
     .string()
     .oneOf(["yes", "no", ""], "Please select an option")
@@ -121,16 +122,12 @@ const sharedEmployeeFields = () => ({
         zoneIds.every((zoneId) => !zoneId || OBJECT_ID_PATTERN.test(zoneId)),
     ),
   subZoneId: objectIdOptional("sub-zone id"),
-  categories: yup
-    .string()
-    .trim()
-    .optional()
-    .nullable()
-    .transform((value, original) => (original === "" ? null : value)),
+  // F-EMP / D27: `categories` CSV retired from the form; `assigned_categories`
+  // is server-derived from `assigned_groups`. `assigned_groups` is REQUIRED for
+  // procurement/purchase roles, optional/hidden otherwise.
   assigned_groups: yup
     .array()
     .of(yup.string())
-    .optional()
     .default([])
     .test(
       "assigned_groups",
@@ -140,6 +137,13 @@ const sharedEmployeeFields = () => ({
         groupIds.every(
           (groupId) => !groupId || OBJECT_ID_PATTERN.test(groupId),
         ),
+    )
+    .test(
+      "assigned_groups_required",
+      "At least one group is required for procurement/purchase roles",
+      (groupIds, ctx) =>
+        !isProcurementPurchaseRole(ctx.parent.role) ||
+        (Array.isArray(groupIds) && groupIds.filter(Boolean).length > 0),
     ),
   assets: assetsSchema.optional().default({}),
 });
@@ -165,6 +169,8 @@ export const EMPLOYEE_FORM_DEFAULT_VALUES = {
   fatherName: "",
   motherName: "",
   pincode: "",
+  state: "",
+  city: "",
   hasBike: "no",
   hasDrivingLicense: "no",
   companyEmail: "",
@@ -173,7 +179,6 @@ export const EMPLOYEE_FORM_DEFAULT_VALUES = {
   branchId: "",
   zoneIds: [],
   subZoneId: "",
-  categories: "",
   assigned_groups: [],
   designation: "",
   address: "",

@@ -13,6 +13,16 @@ const companyService = {
   },
 
   /**
+   * Get the single (current) company. Company is a singleton (D19) so this
+   * returns the one company without needing its id.
+   * @returns {Promise}
+   */
+  getCurrent: async () => {
+    const response = await api.get(COMPANIES.CURRENT);
+    return response;
+  },
+
+  /**
    * Get company by ID
    * @param {string|number} id
    * @returns {Promise}

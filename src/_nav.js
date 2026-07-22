@@ -341,6 +341,13 @@ const _nav = [
   },
   {
     component: CNavItem,
+    name: "Supplier Contact",
+    to: "/supplier-contacts",
+    icon: <Users className="nav-icon" />,
+    roles: ["purchase_manager"],
+  },
+  {
+    component: CNavItem,
     name: "Purchase Requests",
     to: "/purchase-master/purchase-requests",
     icon: <Clipboard className="nav-icon" />,

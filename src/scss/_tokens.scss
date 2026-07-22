@@ -68,10 +68,10 @@
   // from the ubiquitous Inter look). Display/heading typeface: Lexend, used
   // for page titles and section headers to create clear visual hierarchy —
   // "big things read big, small things read small" at a glance.
-  --mds-font-family-body: "Plus Jakarta Sans", ui-sans-serif, system-ui,
-    -apple-system, sans-serif;
-  --mds-font-family-display: "Lexend", "Plus Jakarta Sans", ui-sans-serif,
-    system-ui, sans-serif;
+  --mds-font-family-body:
+    "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mds-font-family-display:
+    "Lexend", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
   --mds-font-size-xs: 12px;
   --mds-font-size-sm: 13px;
@@ -93,8 +93,10 @@
 
   // Elevation
   --mds-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
-  --mds-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
-  --mds-shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
+  --mds-shadow-sm:
+    0 1px 3px rgba(16, 24, 40, 0.1), 0 1px 2px rgba(16, 24, 40, 0.06);
+  --mds-shadow-md:
+    0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
   --mds-radius-sm: 6px;
   --mds-radius-md: 8px;
   --mds-radius-lg: 12px;

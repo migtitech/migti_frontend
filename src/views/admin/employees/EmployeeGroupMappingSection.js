@@ -18,6 +18,9 @@ const EmployeeGroupMappingSection = ({
   onChange,
   mapEnabled = false,
   onMapEnabledChange,
+  // F-EMP / D27: when required (procurement/purchase roles) the picker is always
+  // shown and the optional on/off toggle is hidden.
+  required = false,
   errors = {},
 }) => {
   const [rowIds, setRowIds] = useState(() => {
@@ -122,19 +125,23 @@ const EmployeeGroupMappingSection = ({
     });
   };
 
+  const showPicker = required || mapEnabled;
+
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
-        <Checkbox
-          id="mapProductGroups"
-          checked={mapEnabled}
-          onCheckedChange={(checked) => onToggleMap(checked)}
-        />
-        <Label htmlFor="mapProductGroups" className="font-normal">
-          Map employee to product groups (optional)
-        </Label>
-      </div>
-      {mapEnabled && (
+      {!required && (
+        <div className="mb-2 flex items-center gap-2">
+          <Checkbox
+            id="mapProductGroups"
+            checked={mapEnabled}
+            onCheckedChange={(checked) => onToggleMap(checked)}
+          />
+          <Label htmlFor="mapProductGroups" className="font-normal">
+            Map employee to product groups (optional)
+          </Label>
+        </div>
+      )}
+      {showPicker && (
         <div>
           <Label className="mb-2 block">Assigned groups</Label>
           {groups.length > 0 ? (

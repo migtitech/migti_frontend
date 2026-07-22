@@ -2,7 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
-import { Loader, CrudFormPage, FormField, BackButton } from "../../components";
+import {
+  Loader,
+  CrudFormPage,
+  FormField,
+  BackButton,
+  StatusToggle,
+} from "../../components";
 import {
   Button,
   Alert,
@@ -21,6 +27,7 @@ const SubZoneForm = () => {
   const [zones, setZones] = useState([]);
   const [zoneId, setZoneId] = useState("");
   const [name, setName] = useState("");
+  const [isActive, setIsActive] = useState(true);
   const [loadingZones, setLoadingZones] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +36,10 @@ const SubZoneForm = () => {
     const load = async () => {
       setLoadingZones(true);
       try {
-        const res = await areaService.getAll({ pageSize: 100 });
+        const res = await areaService.getAll({
+          pageSize: 100,
+          isActive: true,
+        });
         const data = res?.data?.data || res?.data || res;
         setZones(data?.areas || []);
       } catch (err) {
@@ -56,7 +66,7 @@ const SubZoneForm = () => {
     setError("");
     setSubmitting(true);
     try {
-      await subZoneService.create({ zoneId, name: trimmed });
+      await subZoneService.create({ zoneId, name: trimmed, isActive });
       toastSuccess("Sub-zone created successfully");
       navigate("/sub-zones");
     } catch (err) {
@@ -111,6 +121,16 @@ const SubZoneForm = () => {
               onChange={(e) => setName(e.target.value)}
               maxLength={200}
               placeholder="Display name"
+            />
+          </FormField>
+
+          <FormField label="Status">
+            <StatusToggle
+              id="subzone-isActive"
+              checked={Boolean(isActive)}
+              onCheckedChange={setIsActive}
+              aria-label="Sub-zone status"
+              className="h-9 gap-3"
             />
           </FormField>
         </div>

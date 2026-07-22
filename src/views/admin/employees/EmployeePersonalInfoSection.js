@@ -1,8 +1,17 @@
 import React from "react";
 import { FormField } from "../../../components";
-import { Input, Label } from "../../../components/ui";
+import { Input, Label, Select } from "../../../components/ui";
 
-const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
+const EmployeePersonalInfoSection = ({
+  register,
+  errors,
+  isEdit,
+  // F-EMP: state/city via the /location API (cascade). Provided by EmployeeForm.
+  states = [],
+  selectedState = "",
+  cityOptions = [],
+  onPincodeBlur,
+}) => (
   <>
     <div className="mb-4">
       <h3 className="text-base font-semibold text-foreground">
@@ -47,14 +56,22 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
         />
       </FormField>
 
-      <FormField label="Fathers Name" error={errors.fatherName?.message}>
+      <FormField
+        label="Fathers Name"
+        required
+        error={errors.fatherName?.message}
+      >
         <Input
           id="fatherName"
           {...register("fatherName")}
           aria-invalid={!!errors.fatherName || undefined}
         />
       </FormField>
-      <FormField label="Mothers Name" error={errors.motherName?.message}>
+      <FormField
+        label="Mothers Name"
+        required
+        error={errors.motherName?.message}
+      >
         <Input
           id="motherName"
           {...register("motherName")}
@@ -62,16 +79,51 @@ const EmployeePersonalInfoSection = ({ register, errors, isEdit }) => (
         />
       </FormField>
 
-      <FormField label="Pincode" error={errors.pincode?.message}>
+      <FormField label="Pincode" required error={errors.pincode?.message}>
         <Input
           id="pincode"
           inputMode="numeric"
           pattern="\d*"
+          maxLength={6}
           {...register("pincode")}
+          onBlur={(e) => {
+            register("pincode").onBlur(e);
+            onPincodeBlur?.(e.target.value);
+          }}
           aria-invalid={!!errors.pincode || undefined}
         />
       </FormField>
-      <div className="hidden md:block" />
+      <FormField label="State" required error={errors.state?.message}>
+        <Select
+          id="state"
+          {...register("state")}
+          aria-invalid={!!errors.state || undefined}
+        >
+          <option value="">Select state</option>
+          {states.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+      <FormField label="City" required error={errors.city?.message}>
+        <Select
+          id="city"
+          {...register("city")}
+          disabled={!selectedState}
+          aria-invalid={!!errors.city || undefined}
+        >
+          <option value="">
+            {selectedState ? "Select city" : "Select state first"}
+          </option>
+          {cityOptions.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </Select>
+      </FormField>
 
       <div className="space-y-1.5">
         <Label className="block">Do you have a bike?</Label>

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import supplierService from "../../services/supplierService";
 import supplierBranchService from "../../services/supplierBranchService";
+import supplierContactPersonService from "../../services/supplierContactPersonService";
 import bpDummy from "../../data/businessPartnerDummy";
 import { Loader, StatusBadge, BackButton } from "../../components";
 import {
@@ -87,6 +88,7 @@ const SupplierView = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [branches, setBranches] = useState([]);
+  const [contacts, setContacts] = useState([]);
 
   useEffect(() => {
     const fetchSupplier = async () => {
@@ -126,20 +128,59 @@ const SupplierView = () => {
     };
   }, [id]);
 
+  // F-SUPPLIER: surface ACTIVE contacts only (inactive hidden), like the customer.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const loadContacts = async () => {
+      try {
+        const res = await supplierContactPersonService.getAll({
+          supplierId: id,
+          status: "active",
+          pageSize: 100,
+        });
+        const data = res?.data || res;
+        if (!cancelled) setContacts(data?.contactPersons || []);
+      } catch {
+        if (!cancelled) setContacts([]);
+      }
+    };
+    loadContacts();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
   const overlay = useMemo(
     () => (id ? bpDummy.getOverlay("supplier", id) : bpDummy.defaultOverlay()),
     [id, supplier],
   );
 
   const supplierCode = useMemo(
-    () => (id ? bpDummy.getOrCreateCode("supplier", id) : ""),
+    () =>
+      supplier?.supplierCode ||
+      (id ? bpDummy.getOrCreateCode("supplier", id) : ""),
     [id, supplier],
   );
 
+  // Map categoryId → grade (L1/L2/L3) for display on the Categories card (D13).
+  const gradeByCategoryId = useMemo(() => {
+    const map = {};
+    (supplier?.categoryGrades || []).forEach((cg) => {
+      const cid =
+        typeof cg?.category === "string" ? cg.category : cg?.category?._id;
+      if (cid) map[cid] = cg?.grade || null;
+    });
+    return map;
+  }, [supplier]);
+
   const displayCategories = useMemo(() => {
     const cats = supplier?.categories || [];
-    return cats.map((cat) => (typeof cat === "string" ? cat : cat?.name));
-  }, [supplier]);
+    return cats.map((cat) => {
+      if (typeof cat === "string") return { name: cat, grade: null };
+      return { name: cat?.name, grade: gradeByCategoryId[cat?._id] || null };
+    });
+  }, [supplier, gradeByCategoryId]);
 
   const displayBankDetails = supplier?.bankDetails || {};
 
@@ -397,13 +438,56 @@ const SupplierView = () => {
             <div className="flex flex-wrap gap-2 py-2">
               {displayCategories.map((cat, idx) => (
                 <Badge variant="info" key={idx}>
-                  {cat}
+                  {cat.name}
+                  {cat.grade ? ` · ${cat.grade}` : ""}
                 </Badge>
               ))}
             </div>
           ) : (
             <p className="py-2 text-sm text-muted-foreground">
               No categories assigned.
+            </p>
+          )}
+        </InfoCard>
+
+        <InfoCard icon={Users} title="Contacts">
+          {contacts.length > 0 ? (
+            <div className="divide-y divide-border">
+              {contacts.map((c) => {
+                const fullName = [c.firstName, c.lastName]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <div key={c._id} className="py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-foreground">
+                        {fullName || "-"}
+                      </span>
+                      {c.isPrimary && (
+                        <Badge variant="secondary">Primary</Badge>
+                      )}
+                    </div>
+                    {c.designation && (
+                      <div className="text-xs text-muted-foreground">
+                        {c.designation}
+                      </div>
+                    )}
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground">
+                      {c.mobileNumber && <span>📞 {c.mobileNumber}</span>}
+                      {c.email && <span>✉ {c.email}</span>}
+                    </div>
+                    {c.remarks && (
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {c.remarks}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="py-2 text-sm text-muted-foreground">
+              No active contacts.
             </p>
           )}
         </InfoCard>

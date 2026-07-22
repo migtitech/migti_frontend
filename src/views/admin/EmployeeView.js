@@ -23,10 +23,6 @@ import {
   CardContent,
   Avatar,
   AvatarFallback,
-  Table,
-  TableBody,
-  TableRow,
-  TableCell,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -37,7 +33,6 @@ import {
 } from "../../components/ui";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastError, toastSuccess } from "../../utils/toast";
-import { dateTimeFormatter } from "../../utils/dateFormatter";
 
 const empty = (v) => v === undefined || v === null || v === "";
 const show = (v) => (empty(v) ? "-" : String(v).trim() || "-");
@@ -49,6 +44,8 @@ const EmployeeView = () => {
   const [branch, setBranch] = useState(null);
   const [zones, setZones] = useState([]);
   const [assignedGroups, setAssignedGroups] = useState([]);
+  // F-EMP / D27: server-derived categories (read-only), from the API response.
+  const [derivedCategories, setDerivedCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [passwordModalVisible, setPasswordModalVisible] = useState(false);
@@ -93,39 +90,12 @@ const EmployeeView = () => {
     }
   };
 
-  const ROLES = {
-    head_of_department: "Head Of Department",
-    sales_manager: "Sales Manager",
-    sales_exicutive: "Sales Exicutive",
-    purchase_exicutive: "Purchase Exicutive",
-    back_office_exicutive: "Back Office Exicutive",
-    administrator: "Administrator",
-  };
-
   const getStatusBadge = (isActive) => {
     if (isActive === false) return <Badge variant="secondary">Inactive</Badge>;
     return <Badge variant="success">Active</Badge>;
   };
 
-  const getRoleBadge = (role) => {
-    const variants = {
-      head_of_department: "default",
-      sales_manager: "info",
-      sales_exicutive: "info",
-      purchase_exicutive: "warning",
-      procurement: "warning",
-      back_office_exicutive: "secondary",
-      administrator: "secondary",
-      finance: "success",
-      inventry_manager: "warning",
-      dispatch_manager: "info",
-    };
-    return (
-      <Badge variant={variants[role] || "secondary"}>
-        {ROLES[role] || role}
-      </Badge>
-    );
-  };
+  // F-EMP: role badge/label removed — the view shows designation, never role.
 
   const InfoRow = ({ label, value, badge }) => (
     <div className="flex items-center justify-between gap-4 py-3">
@@ -273,6 +243,20 @@ const EmployeeView = () => {
         } else {
           setAssignedGroups([]);
         }
+
+        // F-EMP / D27: categories are auto-derived server-side; the API returns
+        // them populated with names on assigned_categories.
+        const acRaw = normalizedEmployee?.assigned_categories;
+        const catList = Array.isArray(acRaw)
+          ? acRaw
+              .map((c) =>
+                c && typeof c === "object"
+                  ? { id: c._id || c.id, name: c.name || String(c._id || c.id) }
+                  : { id: String(c), name: String(c) },
+              )
+              .filter((c) => c.id)
+          : [];
+        setDerivedCategories(catList);
       } catch (err) {
         toastError(err?.message || "Failed to load employee");
       } finally {
@@ -362,11 +346,10 @@ const EmployeeView = () => {
               {show(e.designation)}
             </p>
             <div className="flex flex-wrap gap-2">
-              {getRoleBadge(e.role)}
+              {/* F-EMP: show designation, never the raw role key. */}
+              <Badge variant="secondary">{show(e.designation)}</Badge>
               {getStatusBadge(e.isActive)}
-              {e.uniqueId && (
-                <Badge variant="outline">ID: {show(e.uniqueId)}</Badge>
-              )}
+              {/* F-EMP: System Information / ID badge removed from the view. */}
             </div>
           </div>
         </CardContent>
@@ -385,6 +368,8 @@ const EmployeeView = () => {
               <InfoRow label="Father's Name" value={e.fatherName} />
               <InfoRow label="Mother's Name" value={e.motherName} />
               <InfoRow label="Address" value={e.address} />
+              <InfoRow label="State" value={e.state} />
+              <InfoRow label="City" value={e.city} />
               <InfoRow label="Pincode" value={e.pincode} />
               <InfoRow
                 label="Has Bike"
@@ -436,7 +421,7 @@ const EmployeeView = () => {
           </CardHeader>
           <CardContent className="pt-0">
             <div className="divide-y divide-border">
-              <InfoRow label="Role" value={getRoleBadge(e.role)} badge />
+              {/* F-EMP: show designation, never the raw role key. */}
               <InfoRow label="Designation" value={e.designation} />
               <InfoRow label="ID Number" value={e.idnumber} />
               <InfoRow
@@ -466,6 +451,18 @@ const EmployeeView = () => {
                   )}
                 </div>
               </div>
+              {/* F-EMP / D27: categories are auto-derived from the groups above —
+                  read-only, never hand-edited. */}
+              {derivedCategories.length > 0 && (
+                <div className="flex items-start justify-between gap-4 py-3">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Derived categories ({derivedCategories.length})
+                  </span>
+                  <div className="max-h-32 max-w-[60%] overflow-y-auto text-right text-sm text-foreground">
+                    {derivedCategories.map((c) => c.name).join(", ")}
+                  </div>
+                </div>
+              )}
               <InfoRow label="Salary Type" value={e.salaryType} />
               <InfoRow
                 label="Salary"
@@ -528,53 +525,8 @@ const EmployeeView = () => {
         </CardContent>
       </Card>
 
-      {/* Meta / System Info */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">System Information</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <Table>
-            <TableBody>
-              <TableRow>
-                <TableCell
-                  className="text-muted-foreground"
-                  style={{ width: "180px" }}
-                >
-                  Employee ID
-                </TableCell>
-                <TableCell>{show(e.id)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="text-muted-foreground">
-                  Unique ID
-                </TableCell>
-                <TableCell>{show(e.uniqueId)}</TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="text-muted-foreground">Status</TableCell>
-                <TableCell>{getStatusBadge(e.isActive)}</TableCell>
-              </TableRow>
-              {e.createdAt && (
-                <TableRow>
-                  <TableCell className="text-muted-foreground">
-                    Created
-                  </TableCell>
-                  <TableCell>{dateTimeFormatter(e.createdAt, "—")}</TableCell>
-                </TableRow>
-              )}
-              {e.updatedAt && (
-                <TableRow>
-                  <TableCell className="text-muted-foreground">
-                    Last Updated
-                  </TableCell>
-                  <TableCell>{dateTimeFormatter(e.updatedAt, "—")}</TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {/* F-EMP: System Information card removed from the view (Employee ID,
+          uniqueId, created/updated). Data still returned by the API; just hidden. */}
 
       <Dialog
         open={passwordModalVisible}

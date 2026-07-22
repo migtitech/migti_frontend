@@ -173,27 +173,6 @@ const IndustryList = () => {
   const getZoneLabel = (industry) =>
     formatAreaDisplayOrDash(industry?.area, areaNameLookup);
 
-  const getPurchaseManagerLabel = (industry) => {
-    const pms = industry.purchaseManagers || [];
-    if (pms.length > 0) {
-      const first = pms[0];
-      const name = first.name || "";
-      const phone = first.phone || "";
-      if (name && phone) return `${name} - ${phone}`;
-      if (name) return name;
-      if (phone) return phone;
-      return "-";
-    }
-    if (industry.purchase_manager_name || industry.purchase_manager_phone) {
-      const name = industry.purchase_manager_name || "";
-      const phone = industry.purchase_manager_phone || "";
-      if (name && phone) return `${name} - ${phone}`;
-      if (name) return name;
-      if (phone) return phone;
-    }
-    return "-";
-  };
-
   const columns = useMemo(
     () => [
       {
@@ -236,12 +215,6 @@ const IndustryList = () => {
         label: "Zone",
         render: (industry) => getZoneLabel(industry),
         exportValue: (industry) => getZoneLabel(industry),
-      },
-      {
-        key: "purchaseManager",
-        label: "Purchase Manager",
-        render: (industry) => getPurchaseManagerLabel(industry),
-        exportValue: (industry) => getPurchaseManagerLabel(industry),
       },
       {
         key: "actions",
@@ -392,14 +365,6 @@ const IndustryList = () => {
                         <dt className="text-muted-foreground">Zone</dt>
                         <dd className="truncate text-right font-medium">
                           {getZoneLabel(industry)}
-                        </dd>
-                      </div>
-                      <div className="flex justify-between gap-3">
-                        <dt className="text-muted-foreground">
-                          Purchase Manager
-                        </dt>
-                        <dd className="truncate text-right font-medium">
-                          {getPurchaseManagerLabel(industry)}
                         </dd>
                       </div>
                     </dl>

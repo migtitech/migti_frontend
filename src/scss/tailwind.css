@@ -17,8 +17,8 @@
 @theme {
   --font-sans:
     "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --font-display: "Lexend", "Plus Jakarta Sans", ui-sans-serif, system-ui,
-    sans-serif;
+  --font-display:
+    "Lexend", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
 
   --color-background: #ffffff;
   --color-foreground: #101828;

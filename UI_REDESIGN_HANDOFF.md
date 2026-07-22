@@ -23,9 +23,10 @@ Conversion guide (READ FIRST every session):
 (If that scratchpad is gone in the new session, the mapping is summarized in section 4 below — recreate the guide file from it.)
 
 shadcn primitives in `src/components/ui/` (import from `../../components/ui`):
-Button (variants: default/secondary/outline/ghost/destructive/success/warning/link; sizes: default/sm/lg/icon), Input, Textarea, Label, Select (styled native — same value/onChange/`<option>` API as CFormSelect), Card+CardHeader/CardTitle/CardDescription/CardContent/CardFooter, Badge (variants: default/secondary/success/warning/destructive/info/outline), Table+TableHeader/TableBody/TableRow/TableHead/TableCell, Dialog+DialogContent/Header/Title/Description/Footer/Close (Radix; `open`/`onOpenChange`), Sheet+SheetContent(side)/Header/Body/Footer/Title/Description (drawer, replaces COffcanvas; `open`/`onOpenChange`), Tabs+TabsList/TabsTrigger/TabsContent (Radix; controlled `value`/`onValueChange`), Checkbox, Switch (`onCheckedChange`), RadioGroup/RadioGroupItem, Spinner, Progress, Skeleton, Avatar/AvatarImage/AvatarFallback, Separator, Alert+AlertTitle/AlertDescription, Tooltip, DropdownMenu*.
+Button (variants: default/secondary/outline/ghost/destructive/success/warning/link; sizes: default/sm/lg/icon), Input, Textarea, Label, Select (styled native — same value/onChange/`<option>` API as CFormSelect), Card+CardHeader/CardTitle/CardDescription/CardContent/CardFooter, Badge (variants: default/secondary/success/warning/destructive/info/outline), Table+TableHeader/TableBody/TableRow/TableHead/TableCell, Dialog+DialogContent/Header/Title/Description/Footer/Close (Radix; `open`/`onOpenChange`), Sheet+SheetContent(side)/Header/Body/Footer/Title/Description (drawer, replaces COffcanvas; `open`/`onOpenChange`), Tabs+TabsList/TabsTrigger/TabsContent (Radix; controlled `value`/`onValueChange`), Checkbox, Switch (`onCheckedChange`), RadioGroup/RadioGroupItem, Spinner, Progress, Skeleton, Avatar/AvatarImage/AvatarFallback, Separator, Alert+AlertTitle/AlertDescription, Tooltip, DropdownMenu\*.
 
 Shared components in `src/components/` (import from `../../components`):
+
 - `PageHeader` (title/description/actions) — top of every page.
 - `DataTable` — enterprise table: search, sort, column toggle, sticky header, row selection/bulk, **Export to Excel**, pagination-friendly. Props incl. `columns` (useMemo array: key/label/sortable/render/align/exportable/toggleable/sortValue/exportValue/stopRowClick), `rows`, `rowKey`, `loading`, `onRowClick`, `showSearch`, `emptyTitle/emptyMessage`, `exportFileName`, and `rowClassName`/`rowStyle` (row highlight).
 - `RowActions` (onView/onEdit/onDelete/extra — pass `undefined` to hide by permission) — standard table action buttons.
@@ -44,7 +45,7 @@ Design tokens live in `src/scss/tailwind.css` (@theme) and `src/scss/_tokens.scs
 
 ## 4. CoreUI → shadcn mapping (quick reference)
 
-CButton→Button (primary→default, secondary/outline→outline, ghost→ghost, danger→destructive, success→success, warning→warning, link→link; icon-only→`variant="ghost" size="icon"`). CBadge→Badge/StatusBadge. CAlert→Alert+AlertDescription (color→variant: danger→destructive, success→success, warning→warning, info/primary→info). CCard*→Card*. CForm→form, CFormLabel→Label, CFormInput→Input, CFormTextarea→Textarea, CFormSelect→Select (keep value/onChange + `<option>`s), CFormCheck→Checkbox (onCheckedChange) OR native styled input if inside RHF `register`/`Controller` (lowest risk), CFormSwitch→Switch, CFormFeedback→`<p className="text-sm text-destructive">`. CRow/CCol→Tailwind grid (`grid grid-cols-1 md:grid-cols-2 gap-4`, `md:col-span-2` full-width). CTable*→ DataTable (real sortable list) or Table primitives (small/static/detail). CModal→Dialog (`visible`→`open`, `onClose`→`onOpenChange={(o)=>!o&&onClose()}`). COffcanvas→Sheet (same open/onOpenChange). CNav/CNavItem/CNavLink+CTabContent/CTabPane→Tabs (keep active-tab state; if a tab holds form state that must persist across switches, use `forceMount`+`hidden={activeTab!==key}` on TabsContent because Radix unmounts inactive tabs). CProgress→Progress. CSpinner→Spinner. CListGroup→`divide-y divide-border` list or `<dl>` key/value. CInputGroup/CInputGroupText→relative wrapper w/ absolute icon (`<Input className="pl-8">`) or flex row. CImage→img. CAvatar→Avatar. CBreadcrumb→drop (PageHeader covers) or simple `<nav>`. CIcon/@coreui/icons→lucide-react. **KEEP** `@coreui/react-chartjs` chart widgets (CChart/CChartBar/CChartLine/CChartDoughnut) working — only restyle their container to Card. Replace CWidgetStatsA/B/etc. stat tiles with shadcn stat-cards.
+CButton→Button (primary→default, secondary/outline→outline, ghost→ghost, danger→destructive, success→success, warning→warning, link→link; icon-only→`variant="ghost" size="icon"`). CBadge→Badge/StatusBadge. CAlert→Alert+AlertDescription (color→variant: danger→destructive, success→success, warning→warning, info/primary→info). CCard*→Card*. CForm→form, CFormLabel→Label, CFormInput→Input, CFormTextarea→Textarea, CFormSelect→Select (keep value/onChange + `<option>`s), CFormCheck→Checkbox (onCheckedChange) OR native styled input if inside RHF `register`/`Controller` (lowest risk), CFormSwitch→Switch, CFormFeedback→`<p className="text-sm text-destructive">`. CRow/CCol→Tailwind grid (`grid grid-cols-1 md:grid-cols-2 gap-4`, `md:col-span-2` full-width). CTable\*→ DataTable (real sortable list) or Table primitives (small/static/detail). CModal→Dialog (`visible`→`open`, `onClose`→`onOpenChange={(o)=>!o&&onClose()}`). COffcanvas→Sheet (same open/onOpenChange). CNav/CNavItem/CNavLink+CTabContent/CTabPane→Tabs (keep active-tab state; if a tab holds form state that must persist across switches, use `forceMount`+`hidden={activeTab!==key}` on TabsContent because Radix unmounts inactive tabs). CProgress→Progress. CSpinner→Spinner. CListGroup→`divide-y divide-border` list or `<dl>` key/value. CInputGroup/CInputGroupText→relative wrapper w/ absolute icon (`<Input className="pl-8">`) or flex row. CImage→img. CAvatar→Avatar. CBreadcrumb→drop (PageHeader covers) or simple `<nav>`. CIcon/@coreui/icons→lucide-react. **KEEP** `@coreui/react-chartjs` chart widgets (CChart/CChartBar/CChartLine/CChartDoughnut) working — only restyle their container to Card. Replace CWidgetStatsA/B/etc. stat tiles with shadcn stat-cards.
 
 ## 5. WHAT IS DONE (122 of 138 view pages + all shared/foundation)
 
@@ -59,6 +60,7 @@ CButton→Button (primary→default, secondary/outline→outline, ghost→ghost,
 ## 6. WHAT REMAINS (16 view pages + 13 shared/layout components)
 
 ### A. 16 view pages still using CoreUI components (convert per section 4):
+
 - src/views/admin/BatchBillingRequestDetail.js
 - src/views/admin/BranchAnalytics.js
 - src/views/admin/FindProductModal.js (a modal component — CModal→Dialog, keep visible/onClose→open/onOpenChange, keep product search/select logic)
@@ -66,18 +68,19 @@ CButton→Button (primary→default, secondary/outline→outline, ghost→ghost,
 - src/views/admin/PoPaymentBacklog.js
 - src/views/admin/PoProductAdd.js
 - src/views/admin/PoProductCreate.js
-- src/views/admin/ProBucketDetail.js  (large ~1605 lines — prefer targeted Edits)
+- src/views/admin/ProBucketDetail.js (large ~1605 lines — prefer targeted Edits)
 - src/views/admin/QuotationGenerate.js
 - src/views/admin/RateMaster.js
-- src/views/admin/RawQueryCreate.js  (large ~1113 lines)
+- src/views/admin/RawQueryCreate.js (large ~1113 lines)
 - src/views/admin/RawQuery.js
 - src/views/admin/TaskBucket.js
-- src/views/admin/Tracking.js  (~1102 lines; keep any map/tracking widget functioning)
-- src/views/hod/EmployeeLocations.js  (keep any map widget functioning, restyle container only)
+- src/views/admin/Tracking.js (~1102 lines; keep any map/tracking widget functioning)
+- src/views/hod/EmployeeLocations.js (keep any map widget functioning, restyle container only)
 - src/views/notifications/NotificationsPage.js
 - ALSO check src/views/admin/PurchaseBucketDetail.js — grep says it may already be converted (not in the coreui-component list); VERIFY with grep before touching.
 
 ### B. 13 shared / layout-chrome components still on CoreUI:
+
 - LAYOUT SHELL (load-bearing — CoreUI CSidebar/CHeader provide responsive collapse + redux sidebarShow + `--cui-sidebar-occupy` padding; convert with EXTRA care or leave if risky. The sidebar is already visually restyled via `sidebar-enhanced` classes in `src/scss/style.scss`): AppSidebar.js, AppSidebarNav.js, AppHeader.js, AppFooter.js, AppContent.js, AppBreadcrumb.js, header/AppHeaderDropdown.js, header/AppHeaderNotifications.js
 - OTHER SHARED (safe to convert): AuthImage/AuthImage.js, ErrorFallback/ErrorFallback.js, TrackingTimeline/TrackingTimeline.js, RealtimeNotificationAlert.js, notifications/NotificationDescription.js
 

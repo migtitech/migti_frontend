@@ -21,6 +21,7 @@ import groupService from "../../services/groupService";
 import branchService from "../../services/branchService";
 import areaService from "../../services/areaService";
 import subZoneService from "../../services/subZoneService";
+import locationService from "../../services/locationService";
 import { Loader, BackButton } from "../../components";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
@@ -30,10 +31,14 @@ import EmployeeGroupMappingSection from "./employees/EmployeeGroupMappingSection
 import EmployeeAssetsSection from "./employees/EmployeeAssetsSection";
 import EmployeeFormActions from "./employees/EmployeeFormActions";
 import EmployeeAccountDetailsSection from "./employees/EmployeeAccountDetailsSection";
-import EmployeePermissionsSection from "./employees/EmployeePermissionsSection";
-import { FULL_ACCESS_ROLES } from "../../context/AuthContext";
+// F-EMP: access permissions parked — see F-RBAC.
+// import EmployeePermissionsSection from "./employees/EmployeePermissionsSection";
+// import { FULL_ACCESS_ROLES } from "../../context/AuthContext";
 import useBranchContext from "../../hooks/useBranchContext";
-import { shouldShowEmployeeZoneFields } from "../../utils/employeeZoneEligibility";
+import {
+  shouldShowEmployeeZoneFields,
+  shouldShowEmployeeGroupFields,
+} from "../../utils/employeeZoneEligibility";
 import {
   EMPLOYEE_ROLE_OPTIONS,
   getDesignationsForRole,
@@ -49,13 +54,19 @@ const EmployeeForm = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [permissions, setPermissions] = useState([]);
+  // F-EMP: access permissions parked — see F-RBAC.
+  // const [permissions, setPermissions] = useState([]);
   const [zones, setZones] = useState([]);
   const [subZones, setSubZones] = useState([]);
   const [productGroups, setProductGroups] = useState([]);
   const [mapProductGroups, setMapProductGroups] = useState(false);
   const [groupMappingSectionKey, setGroupMappingSectionKey] = useState(0);
   const prevZoneIdRef = useRef("");
+  // F-EMP: state/city via the /location API (same cascade as SupplierForm).
+  const [states, setStates] = useState([]);
+  const [citiesByState, setCitiesByState] = useState({});
+  const citiesByStateRef = useRef({});
+  const prevStateRef = useRef("");
 
   useEffect(() => {
     if (!isEdit) {
@@ -97,9 +108,12 @@ const EmployeeForm = () => {
     selectedRole,
     selectedDesignation,
   );
+  // F-EMP / D27: group mapping is shown + REQUIRED only for procurement/purchase roles.
+  const showGroupFields = shouldShowEmployeeGroupFields(selectedRole);
   const selectedZoneIds = watch("zoneIds") || [];
   const selectedSingleZoneId =
     selectedZoneIds.length === 1 ? selectedZoneIds[0] : "";
+  const selectedState = watch("state");
 
   useEffect(() => {
     if (!selectedRole) {
@@ -139,6 +153,80 @@ const EmployeeForm = () => {
     ...item,
     id: item?.id || item?._id,
   });
+
+  // --- F-EMP: state/city location cascade (mirrors SupplierForm) ---
+  useEffect(() => {
+    citiesByStateRef.current = citiesByState;
+  }, [citiesByState]);
+
+  const ensureCitiesForState = async (state) => {
+    if (!state || citiesByStateRef.current[state]) return;
+    try {
+      const res = await locationService.getCitiesByState(state);
+      const data = res?.data || res;
+      setCitiesByState((prev) => ({ ...prev, [state]: data?.cities || [] }));
+    } catch (err) {
+      toastError(err?.message || "Failed to load cities for this state");
+      setCitiesByState((prev) => ({ ...prev, [state]: [] }));
+    }
+  };
+
+  const cityOptionsFor = (state, currentCity) => {
+    const list = citiesByState[state] || [];
+    if (currentCity && !list.includes(currentCity)) {
+      return [currentCity, ...list];
+    }
+    return list;
+  };
+
+  const lookupPincode = async (pincode) => {
+    if (!/^\d{6}$/.test(pincode || "")) return;
+    try {
+      const res = await locationService.getByPincode(pincode);
+      const data = res?.data || res;
+      if (data?.state) {
+        setValue("state", data.state, { shouldValidate: true });
+        await ensureCitiesForState(data.state);
+      }
+      if (data?.city) {
+        setValue("city", data.city, { shouldValidate: true });
+      }
+    } catch (err) {
+      toastError(err?.message || "Could not find location for this pincode");
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await locationService.getStates();
+        const data = res?.data || res;
+        if (!cancelled) setStates(data?.states || []);
+      } catch (err) {
+        if (!cancelled) {
+          setStates([]);
+          toastError(err?.message || "Failed to load states");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedState) {
+      prevStateRef.current = "";
+      return;
+    }
+    if (prevStateRef.current && prevStateRef.current !== selectedState) {
+      setValue("city", "", { shouldValidate: true });
+    }
+    prevStateRef.current = selectedState;
+    ensureCitiesForState(selectedState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedState]);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,6 +294,20 @@ const EmployeeForm = () => {
     setValue("subZoneId", "", { shouldValidate: true, shouldDirty: true });
     prevZoneIdRef.current = "";
   }, [showZoneFields, setValue]);
+
+  // F-EMP / D27: for procurement/purchase roles the group section is always
+  // active (mandatory); for any other role, clear groups entirely.
+  useEffect(() => {
+    if (showGroupFields) {
+      setMapProductGroups(true);
+    } else {
+      setMapProductGroups(false);
+      setValue("assigned_groups", [], {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+    }
+  }, [showGroupFields, setValue]);
 
   useEffect(() => {
     if (!showZoneFields) {
@@ -286,7 +388,8 @@ const EmployeeForm = () => {
           toastError("Employee not found");
           return;
         }
-        setPermissions(employee.permissions || []);
+        // F-EMP: access permissions parked — see F-RBAC.
+        // setPermissions(employee.permissions || []);
         const rawAssigned = employee.assigned_groups;
         const normAssigned = Array.isArray(rawAssigned)
           ? rawAssigned
@@ -302,6 +405,8 @@ const EmployeeForm = () => {
           fatherName: employee.fatherName || "",
           motherName: employee.motherName || "",
           pincode: employee.pincode || "",
+          state: employee.state || "",
+          city: employee.city || "",
           hasBike: employee.hasBike || "no",
           hasDrivingLicense: employee.hasDrivingLicense || "no",
           companyEmail: employee.companyEmail || "",
@@ -314,7 +419,6 @@ const EmployeeForm = () => {
               ? [employee.zoneId]
               : [],
           subZoneId: employee.subZoneId || "",
-          categories: employee.categories || "",
           assigned_groups: normAssigned,
           designation: employee.designation || "",
           address: employee.address || "",
@@ -395,7 +499,9 @@ const EmployeeForm = () => {
       if (isEdit) {
         delete payload.password;
       }
-      if (mapProductGroups) {
+      // F-EMP / D27: groups apply ONLY to procurement/purchase roles; the backend
+      // auto-derives assigned_categories from them.
+      if (shouldShowEmployeeGroupFields(payload.role)) {
         const ids = Array.isArray(payload.assigned_groups)
           ? payload.assigned_groups
               .map((x) => String(x || "").trim())
@@ -405,12 +511,10 @@ const EmployeeForm = () => {
       } else {
         payload.assigned_groups = [];
       }
-      // Include permissions for non-full-access roles
-      if (!FULL_ACCESS_ROLES.includes(payload.role)) {
-        payload.permissions = permissions;
-      } else {
-        payload.permissions = [];
-      }
+      // F-EMP: access permissions parked — see F-RBAC. Do not send `permissions`.
+      delete payload.permissions;
+      // F-EMP / D27: `categories` CSV retired from the form; never sent.
+      delete payload.categories;
       if (isEdit) {
         await employeeService.update(id, payload);
         toastSuccess("Employee updated successfully");
@@ -461,6 +565,10 @@ const EmployeeForm = () => {
               register={register}
               errors={errors}
               isEdit={isEdit}
+              states={states}
+              selectedState={selectedState}
+              cityOptions={cityOptionsFor(selectedState, watch("city"))}
+              onPincodeBlur={lookupPincode}
             />
           </CardContent>
         </Card>
@@ -490,30 +598,35 @@ const EmployeeForm = () => {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Group mapping</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Optional: assign this employee to one or more product groups
-            </p>
-          </CardHeader>
-          <CardContent className="p-6 pt-0">
-            <EmployeeGroupMappingSection
-              key={groupMappingSectionKey}
-              groups={productGroups}
-              value={watch("assigned_groups") || []}
-              onChange={(ids) =>
-                setValue("assigned_groups", ids, {
-                  shouldValidate: true,
-                  shouldDirty: true,
-                })
-              }
-              mapEnabled={mapProductGroups}
-              onMapEnabledChange={setMapProductGroups}
-              errors={errors}
-            />
-          </CardContent>
-        </Card>
+        {/* F-EMP / D27: group mapping is shown + required only for procurement/purchase roles. */}
+        {showGroupFields && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Group mapping</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Required: assign this employee to one or more product groups.
+                Categories are derived automatically from the selected groups.
+              </p>
+            </CardHeader>
+            <CardContent className="p-6 pt-0">
+              <EmployeeGroupMappingSection
+                key={groupMappingSectionKey}
+                groups={productGroups}
+                value={watch("assigned_groups") || []}
+                onChange={(ids) =>
+                  setValue("assigned_groups", ids, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  })
+                }
+                mapEnabled={mapProductGroups}
+                onMapEnabledChange={setMapProductGroups}
+                required
+                errors={errors}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -543,6 +656,7 @@ const EmployeeForm = () => {
           </CardContent>
         </Card>
 
+        {/* F-EMP: access permissions parked — see F-RBAC.
         <Card>
           <CardHeader>
             <CardTitle>Access Permissions</CardTitle>
@@ -558,6 +672,7 @@ const EmployeeForm = () => {
             />
           </CardContent>
         </Card>
+        */}
 
         <EmployeeFormActions
           submitting={submitting}

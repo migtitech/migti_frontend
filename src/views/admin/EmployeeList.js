@@ -24,34 +24,24 @@ import {
 } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import usePermissions from "../../hooks/usePermissions";
-import { ROLE_LABELS } from "../../context/AuthContext";
+import {
+  EMPLOYEE_ROLE_OPTIONS,
+  getDesignationsForRole,
+} from "../../constants/employeeRoleDesignations";
 
 const EMPLOYEE_FILTER_DEFAULTS = { role: "" };
 
-const EMPLOYEE_ROLE_OPTIONS = [
-  "head_of_department",
-  "sales_manager",
-  "sales_exicutive",
-  "purchase_exicutive",
-  "purchase_manager",
-  "procurement",
-  "localprocurement",
-  "localpurchase",
-  "back_office_exicutive",
-  "administrator",
-  "finance",
-  "inventry_manager",
-  "dispatch_manager",
-];
-
-const formatRole = (role) =>
-  role
-    ? ROLE_LABELS[role] ||
-      role
-        .split("_")
-        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-        .join(" ")
-    : "-";
+// F-EMP: show the DESIGNATION label, never the raw role key (§1.1). Falls back
+// to a humanized role only if a role has no mapped designation.
+const formatRole = (role) => {
+  if (!role) return "-";
+  const designations = getDesignationsForRole(role);
+  if (designations.length) return designations[0];
+  return role
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+};
 
 const roleBadgeVariant = (role) => {
   const map = {
@@ -212,20 +202,19 @@ const EmployeeList = () => {
         render: (employee) => employee.phone || "-",
       },
       {
-        key: "role",
-        label: "Role",
-        sortValue: (employee) => formatRole(employee.role),
-        exportValue: (employee) => formatRole(employee.role),
-        render: (employee) => (
-          <Badge variant={roleBadgeVariant(employee.role)}>
-            {formatRole(employee.role)}
-          </Badge>
-        ),
-      },
-      {
+        // F-EMP: show DESIGNATION, never the raw role key (§1.1). The employee's
+        // stored `designation` is preferred; falls back to the role→designation map.
         key: "designation",
         label: "Designation",
-        render: (employee) => employee.designation || "-",
+        sortValue: (employee) =>
+          employee.designation || formatRole(employee.role),
+        exportValue: (employee) =>
+          employee.designation || formatRole(employee.role),
+        render: (employee) => (
+          <Badge variant={roleBadgeVariant(employee.role)}>
+            {employee.designation || formatRole(employee.role)}
+          </Badge>
+        ),
       },
       {
         key: "idnumber",

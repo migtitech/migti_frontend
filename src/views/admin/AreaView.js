@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Pencil } from "lucide-react";
 import areaService from "../../services/areaService";
-import { Loader, PageHeader, BackButton } from "../../components";
+import { Loader, PageHeader, BackButton, StatusBadge } from "../../components";
 import {
   Button,
   Card,
@@ -93,6 +93,7 @@ const AreaView = () => {
         <CardContent className="pt-0">
           <dl className="divide-y divide-border">
             <DetailRow label="Name">{area.name}</DetailRow>
+            <DetailRow label="State">{area.state || "—"}</DetailRow>
             <DetailRow label="City">{area.city}</DetailRow>
             <DetailRow label="Zone Type">
               <Badge
@@ -101,7 +102,11 @@ const AreaView = () => {
                 {areaTypeLabel}
               </Badge>
             </DetailRow>
-            <DetailRow label="Company">{area.companyId?.name ?? "—"}</DetailRow>
+            <DetailRow label="Status">
+              <StatusBadge
+                status={area.isActive !== false ? "Active" : "Inactive"}
+              />
+            </DetailRow>
           </dl>
         </CardContent>
       </Card>

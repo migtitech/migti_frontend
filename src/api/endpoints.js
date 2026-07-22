@@ -89,6 +89,7 @@ export const USERS = {
 export const COMPANIES = {
   CREATE: "/companies/create",
   LIST: "/companies/list",
+  CURRENT: "/companies/current",
   GET_BY_ID: "/companies/get-by-id",
   UPDATE: "/companies/update",
   DELETE: "/companies/delete",

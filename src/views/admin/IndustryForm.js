@@ -8,14 +8,13 @@ import {
   Trash2,
   Building2,
   MapPin,
-  Users,
   Landmark,
   CreditCard,
   Paperclip,
   StickyNote,
   GitBranch,
 } from "lucide-react";
-import { gstinOptional, MSG, phoneOptional } from "../../utils/validation";
+import { gstinOptional, phoneOptional } from "../../utils/validation";
 import industryService from "../../services/industryService";
 import industryBranchService from "../../services/industryBranchService";
 import industryAttachmentService from "../../services/industryAttachmentService";
@@ -50,19 +49,6 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import useBranchContext from "../../hooks/useBranchContext";
 
-const phoneOptional10 = () =>
-  yup
-    .string()
-    .trim()
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v))
-    .test(
-      "phone",
-      "Phone must be exactly 10 digits",
-      (v) => !v || /^\d{10}$/.test(v),
-    );
-
 const pincodeOptional = () =>
   yup
     .string()
@@ -76,29 +62,27 @@ const pincodeOptional = () =>
       (v) => !v || /^\d{6}$/.test(v),
     );
 
-const purchaseManagerSchema = yup.object({
-  name: yup
+// F-CUSTOMER (D29): paymentTerms is a fixed dropdown enum. Mirror the backend
+// Joi set exactly (FE must never be laxer than BE). Default "Net 30".
+const PAYMENT_TERMS = [
+  "Advance",
+  "Net 15",
+  "Net 30",
+  "Net 45",
+  "Net 60",
+  "Net 90",
+];
+const DEFAULT_PAYMENT_TERMS = "Net 30";
+const DEFAULT_CREDIT_LIMIT = 2000000;
+
+const requiredPincode = () =>
+  yup
     .string()
     .trim()
-    .required("Name is required")
-    .min(1, MSG.minLength(1))
-    .max(100, MSG.maxLength(100)),
-  phone: phoneOptional10(),
-  email: yup
-    .string()
-    .trim()
-    .email("Enter a valid email")
-    .optional()
-    .nullable()
-    .transform((v, o) => (o === "" ? "" : v)),
-  department: yup
-    .string()
-    .trim()
-    .optional()
-    .max(100, MSG.maxLength(100))
-    .nullable()
-    .transform((v, o) => (o === "" ? "" : v)),
-});
+    .required("Pincode is required")
+    .test("pincode", "Pincode must be 6 digits", (v) =>
+      /^\d{6}$/.test(v || ""),
+    );
 
 const branchRowSchema = yup.object({
   _id: yup.string().optional(),
@@ -118,7 +102,7 @@ const industrySchema = yup.object({
     .nullable(),
   area: yup.string().trim().required("Zone selection is required"),
   subZoneId: yup.string().optional().nullable(),
-  location: yup.string().optional().max(200),
+  location: yup.string().trim().required("Location is required").max(200),
   shippingAddress: yup
     .string()
     .trim()
@@ -130,25 +114,12 @@ const industrySchema = yup.object({
     .required("Billing address is required")
     .max(500),
   gstNumber: gstinOptional(),
-  purchase_manager_name: yup
-    .string()
-    .trim()
-    .optional()
-    .max(100)
-    .nullable()
-    .transform((v, o) => (o === "" ? null : v)),
-  purchase_manager_phone: phoneOptional10(),
   email: yup
     .string()
     .email("Enter a valid email")
     .optional()
     .nullable()
     .transform((v, o) => (o === "" ? null : v)),
-  purchaseManagers: yup
-    .array()
-    .of(purchaseManagerSchema)
-    .optional()
-    .default([]),
   branchId: yup.string().optional().nullable(),
   // Business/address/financial info — real Industry fields (persisted).
   clientType: yup.string().oneOf(["", "Customer", "Vendor"]).optional(),
@@ -200,17 +171,20 @@ const industrySchema = yup.object({
     .min(0)
     .transform((v, o) => (o === "" ? null : v)),
   registeredAddress: yup.string().trim().optional(),
-  state: yup.string().trim().optional(),
-  city: yup.string().trim().optional(),
-  pincode: pincodeOptional(),
-  paymentTerms: yup.string().trim().optional(),
+  state: yup.string().trim().required("State is required").max(100),
+  city: yup.string().trim().required("City is required").max(100),
+  pincode: requiredPincode(),
+  paymentTerms: yup
+    .string()
+    .trim()
+    .oneOf(PAYMENT_TERMS, "Select valid payment terms")
+    .required("Payment terms are required"),
   creditLimit: yup
     .number()
     .typeError("Must be a number")
-    .optional()
-    .nullable()
+    .required("Credit limit is required")
     .min(0)
-    .transform((v, o) => (o === "" ? null : v)),
+    .transform((v, o) => (o === "" ? undefined : v)),
   remarks: yup.string().trim().optional(),
   internalComments: yup.string().trim().optional(),
   // Branches — UI-only toggle + real industryBranch rows synced on submit.
@@ -227,10 +201,7 @@ const defaultValues = {
   shippingAddress: "",
   billingAddress: "",
   gstNumber: "",
-  purchase_manager_name: "",
-  purchase_manager_phone: "",
   email: "",
-  purchaseManagers: [],
   branchId: "",
   clientType: "",
   industrySector: "",
@@ -247,8 +218,8 @@ const defaultValues = {
   state: "",
   city: "",
   pincode: "",
-  paymentTerms: "",
-  creditLimit: "",
+  paymentTerms: DEFAULT_PAYMENT_TERMS,
+  creditLimit: DEFAULT_CREDIT_LIMIT,
   remarks: "",
   internalComments: "",
   hasBranches: false,
@@ -362,11 +333,6 @@ const IndustryForm = () => {
     context: { isEdit },
     defaultValues,
     mode: "onBlur",
-  });
-
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "purchaseManagers",
   });
 
   const {
@@ -585,12 +551,6 @@ const IndustryForm = () => {
     try {
       const res = await withMinimumDelay(() => industryService.getById(id));
       const data = res?.data || res;
-      const purchaseManagers = (data?.purchaseManagers || []).map((pm) => ({
-        name: pm.name || "",
-        phone: pm.phone || "",
-        email: pm.email || "",
-        department: pm.department || "",
-      }));
       const branchId =
         data?.branchId ||
         (data?.branch && (data.branch._id || data.branch.id)) ||
@@ -613,10 +573,7 @@ const IndustryForm = () => {
         shippingAddress: data?.shippingAddress || data?.address || "",
         billingAddress: data?.billingAddress || data?.address || "",
         gstNumber: data?.gstNumber || "",
-        purchase_manager_name: data?.purchase_manager_name || "",
-        purchase_manager_phone: data?.purchase_manager_phone || "",
         email: data?.email || "",
-        purchaseManagers: purchaseManagers.length ? purchaseManagers : [],
         branchId: branchId || "",
         clientType: data?.clientType || "",
         industrySector: rawSector
@@ -638,8 +595,11 @@ const IndustryForm = () => {
         state: data?.state || "",
         city: data?.city || "",
         pincode: data?.pincode || "",
-        paymentTerms: data?.paymentTerms || "",
-        creditLimit: data?.creditLimit ?? "",
+        paymentTerms: PAYMENT_TERMS.includes(data?.paymentTerms)
+          ? data.paymentTerms
+          : DEFAULT_PAYMENT_TERMS,
+        creditLimit:
+          data?.creditLimit == null ? DEFAULT_CREDIT_LIMIT : data.creditLimit,
         remarks: data?.remarks || "",
         internalComments: data?.internalComments || "",
       });
@@ -759,16 +719,9 @@ const IndustryForm = () => {
           shippingAddress: values.shippingAddress || "",
           billingAddress: values.billingAddress || "",
           gstNumber: (values.gstNumber || "").trim().toUpperCase(),
+          area: values.area || undefined,
           subZoneId:
             (values.subZoneId && String(values.subZoneId).trim()) || null,
-          purchaseManagers: (values.purchaseManagers || [])
-            .filter((pm) => (pm.name || "").trim())
-            .map((pm) => ({
-              name: (pm.name || "").trim(),
-              phone: (pm.phone || "").trim(),
-              email: (pm.email || "").trim(),
-              department: (pm.department || "").trim(),
-            })),
           ...buildBusinessInfoPayload(values),
         };
         await industryService.update(id, payload);
@@ -791,18 +744,8 @@ const IndustryForm = () => {
           shippingAddress: values.shippingAddress || "",
           billingAddress: values.billingAddress || "",
           gstNumber: (values.gstNumber || "").trim().toUpperCase(),
-          purchase_manager_name: values.purchase_manager_name || "",
-          purchase_manager_phone: values.purchase_manager_phone || "",
           email: values.email || "",
           branchId: branchId || undefined,
-          purchaseManagers: (values.purchaseManagers || [])
-            .filter((pm) => (pm.name || "").trim())
-            .map((pm) => ({
-              name: (pm.name || "").trim(),
-              phone: (pm.phone || "").trim(),
-              email: (pm.email || "").trim(),
-              department: (pm.department || "").trim(),
-            })),
           ...buildBusinessInfoPayload(values),
         };
         const res = await industryService.create(payload);
@@ -856,7 +799,7 @@ const IndustryForm = () => {
         title={isEdit ? "Edit customer" : "Add customer"}
         description={
           isEdit
-            ? "You can update location, purchase managers and addresses."
+            ? "You can update location, contacts and addresses."
             : "Fill in customer details below."
         }
       >
@@ -1013,113 +956,13 @@ const IndustryForm = () => {
             <div className="md:col-span-2">
               <FormField
                 label="Location ( Google Map URL )"
+                required
                 error={errors.location?.message}
               >
                 <Input {...register("location")} />
               </FormField>
             </div>
           </div>
-        </FormSection>
-
-        <FormSection
-          icon={Users}
-          title="Purchase Managers"
-          description="Key procurement contacts at this customer."
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                append({ name: "", phone: "", email: "", department: "" })
-              }
-            >
-              <Plus className="h-4 w-4" />
-              Add Purchase Manager
-            </Button>
-          }
-        >
-          {fields.length === 0 ? (
-            <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">
-              No purchase managers added. Click &quot;Add Purchase Manager&quot;
-              to add.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
-                  className="rounded-lg border border-border bg-muted/30 p-4"
-                >
-                  <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-12">
-                    <div className="md:col-span-3">
-                      <FormField
-                        label="Name"
-                        required
-                        error={errors.purchaseManagers?.[index]?.name?.message}
-                      >
-                        <Input
-                          {...register(`purchaseManagers.${index}.name`)}
-                          placeholder="Name"
-                        />
-                      </FormField>
-                    </div>
-                    <div className="md:col-span-3">
-                      <FormField
-                        label="Department"
-                        error={
-                          errors.purchaseManagers?.[index]?.department?.message
-                        }
-                      >
-                        <Input
-                          {...register(`purchaseManagers.${index}.department`)}
-                          placeholder="Department"
-                        />
-                      </FormField>
-                    </div>
-                    <div className="md:col-span-2">
-                      <FormField
-                        label="Phone"
-                        error={errors.purchaseManagers?.[index]?.phone?.message}
-                      >
-                        <Input
-                          {...register(`purchaseManagers.${index}.phone`)}
-                          type="tel"
-                          inputMode="numeric"
-                          maxLength={10}
-                          placeholder="10 digits"
-                        />
-                      </FormField>
-                    </div>
-                    <div className="md:col-span-3">
-                      <FormField
-                        label="Email"
-                        error={errors.purchaseManagers?.[index]?.email?.message}
-                      >
-                        <Input
-                          type="email"
-                          {...register(`purchaseManagers.${index}.email`)}
-                          placeholder="Email"
-                        />
-                      </FormField>
-                    </div>
-                    <div className="flex md:col-span-1 md:justify-center md:pt-7">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => remove(index)}
-                        title="Remove"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </FormSection>
 
         <FormSection
@@ -1383,7 +1226,11 @@ const IndustryForm = () => {
                 <Textarea rows={2} {...register("registeredAddress")} />
               </FormField>
             </div>
-            <FormField label="Pin Code" error={errors.pincode?.message}>
+            <FormField
+              label="Pin Code"
+              required
+              error={errors.pincode?.message}
+            >
               <Input
                 {...pincodeFieldProps}
                 maxLength={6}
@@ -1398,7 +1245,7 @@ const IndustryForm = () => {
                 }}
               />
             </FormField>
-            <FormField label="State">
+            <FormField label="State" required error={errors.state?.message}>
               <Select {...stateFieldProps}>
                 <option value="">Select state</option>
                 {states.map((s) => (
@@ -1408,7 +1255,7 @@ const IndustryForm = () => {
                 ))}
               </Select>
             </FormField>
-            <FormField label="City">
+            <FormField label="City" required error={errors.city?.message}>
               <Select {...register("city")} disabled={!selectedState}>
                 <option value="">
                   {selectedState ? "Select city" : "Select state first"}
@@ -1429,10 +1276,24 @@ const IndustryForm = () => {
           description="Payment terms and credit exposure for this customer."
         >
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <FormField label="Payment Terms">
-              <Input {...register("paymentTerms")} placeholder="e.g. Net 30" />
+            <FormField
+              label="Payment Terms"
+              required
+              error={errors.paymentTerms?.message}
+            >
+              <Select {...register("paymentTerms")}>
+                {PAYMENT_TERMS.map((term) => (
+                  <option key={term} value={term}>
+                    {term}
+                  </option>
+                ))}
+              </Select>
             </FormField>
-            <FormField label="Credit Limit" error={errors.creditLimit?.message}>
+            <FormField
+              label="Credit Limit"
+              required
+              error={errors.creditLimit?.message}
+            >
               <Input type="number" min={0} {...register("creditLimit")} />
             </FormField>
           </div>

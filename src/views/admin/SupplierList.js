@@ -266,6 +266,14 @@ const SupplierList = () => {
         exportValue: (supplier) => supplier.name || "",
       },
       {
+        key: "supplierCode",
+        label: "Supplier Code",
+        sortable: true,
+        render: (supplier) => supplier.supplierCode || "-",
+        sortValue: (supplier) => supplier.supplierCode || "",
+        exportValue: (supplier) => supplier.supplierCode || "",
+      },
+      {
         key: "shopname",
         label: "Shop Name",
         sortable: true,

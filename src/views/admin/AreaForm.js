@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import areaService from "../../services/areaService";
-import companyService from "../../services/companyService";
-import branchService from "../../services/branchService";
-import { Loader, CrudFormPage, FormField, BackButton } from "../../components";
+import locationService from "../../services/locationService";
+import {
+  Loader,
+  CrudFormPage,
+  FormField,
+  BackButton,
+  StatusToggle,
+} from "../../components";
 import {
   Button,
   Alert,
@@ -21,68 +26,48 @@ const AreaForm = () => {
   const isEdit = Boolean(id);
 
   const [formData, setFormData] = useState({
-    companyId: "",
-    branchId: "",
     name: "",
+    state: "",
     city: "",
     areaType: "market",
+    isActive: true,
   });
 
-  const [companies, setCompanies] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
 
-  const getId = (item) => item?.id || item?._id;
+  // Load the list of states once (cascading state -> city, like SupplierForm).
+  useEffect(() => {
+    const loadStates = async () => {
+      try {
+        const res = await locationService.getStates();
+        const data = res?.data?.data || res?.data || res;
+        setStates(data?.states || []);
+      } catch (err) {
+        toastError(err?.message || "Failed to load states");
+      }
+    };
+    loadStates();
+  }, []);
 
-  const fetchCompanies = async () => {
-    try {
-      const res = await companyService.getAll({ pageNumber: 1, pageSize: 100 });
-      const data = res?.data?.data || res?.data || res;
-      setCompanies(data?.companies || data || []);
-    } catch (err) {
-      console.error("Failed to fetch companies", err);
-    }
-  };
-
-  const fetchBranchesByCompany = async (companyId) => {
-    if (!companyId) {
-      setBranches([]);
+  const fetchCitiesForState = async (state) => {
+    if (!state) {
+      setCities([]);
       return;
     }
     try {
-      const res = await branchService.getAll({ companyId, pageSize: 100 });
+      const res = await locationService.getCitiesByState(state);
       const data = res?.data?.data || res?.data || res;
-      setBranches(data?.branches || []);
+      setCities(data?.cities || []);
     } catch (err) {
-      setBranches([]);
+      setCities([]);
+      toastError(err?.message || "Failed to load cities for this state");
     }
   };
-
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
-
-  useEffect(() => {
-    if (formData.companyId) {
-      fetchBranchesByCompany(formData.companyId);
-    } else {
-      setBranches([]);
-    }
-  }, [formData.companyId]);
-
-  useEffect(() => {
-    if (!formData.companyId || branches.length === 0) return;
-    const firstBranchId = getId(branches[0]);
-    if (
-      !formData.branchId ||
-      !branches.some((b) => getId(b) === formData.branchId)
-    ) {
-      setFormData((prev) => ({ ...prev, branchId: firstBranchId }));
-    }
-  }, [formData.companyId, formData.branchId, branches]);
 
   useEffect(() => {
     if (!isEdit) return;
@@ -96,15 +81,14 @@ const AreaForm = () => {
           setError("Zone not found");
           return;
         }
-        const companyId = area.companyId?._id || area.companyId || "";
         setFormData({
-          companyId,
-          branchId: area.branchId?._id || area.branchId || "",
           name: area.name || "",
+          state: area.state || "",
           city: area.city || "",
           areaType: area.areaType || "market",
+          isActive: area.isActive !== false,
         });
-        if (companyId) fetchBranchesByCompany(companyId);
+        if (area.state) fetchCitiesForState(area.state);
       } catch (err) {
         setError(err?.message || "Failed to load zone");
         toastError(err?.message || "Failed to load zone");
@@ -119,7 +103,11 @@ const AreaForm = () => {
     const { name, value } = e.target;
     setFormData((prev) => {
       const next = { ...prev, [name]: value };
-      if (name === "companyId") next.branchId = "";
+      // Cascading: changing state clears the city and reloads its options.
+      if (name === "state") {
+        next.city = "";
+        fetchCitiesForState(value);
+      }
       return next;
     });
   };
@@ -130,10 +118,6 @@ const AreaForm = () => {
     setFieldErrors({});
 
     const errs = {};
-    if (!formData.companyId?.trim()) errs.companyId = "Company is required";
-    if (!formData.branchId?.trim()) {
-      errs.branchId = "No branch available for the selected company";
-    }
     const name = (formData.name || "").trim();
     if (!name) errs.name = "Name is required";
     else if (name.length < 2) errs.name = "Name must be at least 2 characters";
@@ -155,11 +139,11 @@ const AreaForm = () => {
     setSubmitting(true);
     try {
       const payload = {
-        companyId: formData.companyId,
-        branchId: formData.branchId,
         name,
+        state: (formData.state || "").trim(),
         city,
         areaType: formData.areaType,
+        isActive: formData.isActive !== false,
       };
       if (isEdit) {
         await areaService.update(id, payload);
@@ -202,23 +186,6 @@ const AreaForm = () => {
         )}
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <FormField label="Company" required error={fieldErrors.companyId}>
-            <Select
-              name="companyId"
-              value={formData.companyId}
-              onChange={handleChange}
-              required
-              aria-invalid={!!fieldErrors.companyId}
-            >
-              <option value="">Select Company</option>
-              {companies.map((c) => (
-                <option key={getId(c)} value={getId(c)}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-
           <FormField label="Name" required error={fieldErrors.name}>
             <Input
               name="name"
@@ -232,17 +199,40 @@ const AreaForm = () => {
             />
           </FormField>
 
+          <FormField label="State" error={fieldErrors.state}>
+            <Select
+              name="state"
+              value={formData.state}
+              onChange={handleChange}
+              aria-invalid={!!fieldErrors.state}
+            >
+              <option value="">Select State</option>
+              {states.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+
           <FormField label="City" required error={fieldErrors.city}>
-            <Input
+            <Select
               name="city"
               value={formData.city}
               onChange={handleChange}
-              placeholder="City"
               required
-              minLength={2}
-              maxLength={100}
+              disabled={!formData.state}
               aria-invalid={!!fieldErrors.city}
-            />
+            >
+              <option value="">
+                {formData.state ? "Select City" : "Select a state first"}
+              </option>
+              {cities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </Select>
           </FormField>
 
           <FormField label="Zone Type" required error={fieldErrors.areaType}>
@@ -256,6 +246,18 @@ const AreaForm = () => {
               <option value="market">Market</option>
               <option value="industry">Industry</option>
             </Select>
+          </FormField>
+
+          <FormField label="Status">
+            <StatusToggle
+              id="zone-isActive"
+              checked={Boolean(formData.isActive)}
+              onCheckedChange={(checked) =>
+                setFormData((prev) => ({ ...prev, isActive: checked }))
+              }
+              aria-label="Zone status"
+              className="h-9 gap-3"
+            />
           </FormField>
         </div>
 

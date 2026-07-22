@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import areaService from "../../services/areaService";
-import companyService from "../../services/companyService";
 import Filtered from "../../filtered/Filtered";
 import {
   ConfirmDialog,
@@ -11,6 +10,7 @@ import {
   RowActions,
   TablePagination,
   FilterLockButton,
+  StatusBadge,
 } from "../../components";
 import {
   Button,
@@ -24,7 +24,7 @@ import { withMinimumDelay } from "../../utils/withMinimumDelay";
 import { toastSuccess, toastError } from "../../utils/toast";
 import usePermissions from "../../hooks/usePermissions";
 
-const AREA_FILTER_DEFAULTS = { companyId: "", areaType: "" };
+const AREA_FILTER_DEFAULTS = { areaType: "", isActive: "" };
 
 const AreaList = () => {
   const navigate = useNavigate();
@@ -34,38 +34,25 @@ const AreaList = () => {
     AREA_FILTER_DEFAULTS,
   );
   const [areas, setAreas] = useState([]);
-  const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({});
-  const [filterCompanyId, setFilterCompanyId] = useState(
-    initialValues.companyId,
-  );
   const [filterAreaType, setFilterAreaType] = useState(initialValues.areaType);
+  const [filterIsActive, setFilterIsActive] = useState(initialValues.isActive);
   const [confirmDelete, setConfirmDelete] = useState({
     visible: false,
     id: null,
   });
-
-  const fetchCompanies = async () => {
-    try {
-      const res = await companyService.getAll({ pageNumber: 1, pageSize: 100 });
-      const data = res?.data?.data || res?.data || res;
-      setCompanies(data?.companies || data || []);
-    } catch (err) {
-      console.error("Failed to fetch companies", err);
-    }
-  };
 
   const fetchAreas = async () => {
     setLoading(true);
     setError("");
     try {
       const params = { pageNumber: page, pageSize: 10, search: searchTerm };
-      if (filterCompanyId) params.companyId = filterCompanyId;
       if (filterAreaType) params.areaType = filterAreaType;
+      if (filterIsActive !== "") params.isActive = filterIsActive;
       const res = await withMinimumDelay(() => areaService.getAll(params));
       const data = res?.data?.data || res?.data || res;
       setAreas(data?.areas || []);
@@ -77,19 +64,15 @@ const AreaList = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
-
   useFilterLockPersist("area_list", filtersLocked, {
-    companyId: filterCompanyId,
     areaType: filterAreaType,
+    isActive: filterIsActive,
   });
 
   const handleToggleFiltersLock = () => {
     toggleFiltersLock({
-      companyId: filterCompanyId,
       areaType: filterAreaType,
+      isActive: filterIsActive,
     });
   };
 
@@ -97,7 +80,7 @@ const AreaList = () => {
     const timer = setTimeout(() => fetchAreas(), 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, page, filterCompanyId, filterAreaType]);
+  }, [searchTerm, page, filterAreaType, filterIsActive]);
 
   const handleDeleteClick = (id) => setConfirmDelete({ visible: true, id });
   const handleDeleteConfirm = async () => {
@@ -129,6 +112,13 @@ const AreaList = () => {
         sortable: true,
         render: (area) => <strong>{area.name}</strong>,
       },
+      {
+        key: "state",
+        label: "State",
+        sortable: true,
+        exportValue: (area) => area.state || "—",
+        render: (area) => area.state || "—",
+      },
       { key: "city", label: "City", sortable: true },
       {
         key: "areaType",
@@ -140,11 +130,16 @@ const AreaList = () => {
         render: (area) => getAreaTypeBadge(area.areaType),
       },
       {
-        key: "company",
-        label: "Company",
-        sortValue: (area) => area.companyId?.name ?? "",
-        exportValue: (area) => area.companyId?.name ?? "—",
-        render: (area) => area.companyId?.name ?? "—",
+        key: "status",
+        label: "Status",
+        sortValue: (area) => (area.isActive !== false ? "Active" : "Inactive"),
+        exportValue: (area) =>
+          area.isActive !== false ? "Active" : "Inactive",
+        render: (area) => (
+          <StatusBadge
+            status={area.isActive !== false ? "Active" : "Inactive"}
+          />
+        ),
       },
       {
         key: "actions",
@@ -179,7 +174,7 @@ const AreaList = () => {
     <div>
       <PageHeader
         title="Zones"
-        description="Manage the market and industry zones across your companies."
+        description="Manage the market and industry zones."
         actions={
           canCreate("zones") && (
             <Button onClick={() => navigate("/zones/new")}>
@@ -200,22 +195,6 @@ const AreaList = () => {
         <div className="w-full max-w-sm">
           <Filtered searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         </div>
-        <div className="w-full sm:w-56">
-          <Select
-            value={filterCompanyId}
-            onChange={(e) => {
-              setFilterCompanyId(e.target.value);
-              setPage(1);
-            }}
-          >
-            <option value="">All Companies</option>
-            {companies.map((c) => (
-              <option key={getId(c)} value={getId(c)}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
-        </div>
         <div className="w-full sm:w-48">
           <Select
             value={filterAreaType}
@@ -227,6 +206,19 @@ const AreaList = () => {
             <option value="">All Types</option>
             <option value="market">Market</option>
             <option value="industry">Industry</option>
+          </Select>
+        </div>
+        <div className="w-full sm:w-48">
+          <Select
+            value={filterIsActive}
+            onChange={(e) => {
+              setFilterIsActive(e.target.value);
+              setPage(1);
+            }}
+          >
+            <option value="">All Statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
           </Select>
         </div>
         <FilterLockButton

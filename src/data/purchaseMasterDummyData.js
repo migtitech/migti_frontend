@@ -471,6 +471,103 @@ export const purchaseReturnSuppliers = [
   "Indore Corrugated Box Works",
 ];
 
+/**
+ * Returnable sources for the Create Return flow. A purchase return is ALWAYS
+ * raised against goods that were actually received (a PO + its GRN), so the
+ * supplier and the delivered products are known and tracked — the user picks a
+ * source here and the supplier + product lines auto-fill (they are never typed
+ * fresh). Each line carries the received qty and rate so return value can be
+ * computed and the returnable qty can be capped. Frontend-only sample data.
+ */
+export const returnableSources = [
+  {
+    id: "PO-3338",
+    grn: "GRN-2231",
+    supplier: "Bright Circuits Pvt Ltd",
+    supplierId: "SUP-3",
+    supplierCode: "BPL-SUPP-3",
+    receivedOn: "2026-07-15",
+    lines: [
+      {
+        sku: "ELE-HD-19",
+        name: "HDMI Connector 19-Pin",
+        receivedQty: 116,
+        rate: 42,
+      },
+    ],
+  },
+  {
+    id: "PO-3330",
+    grn: "GRN-2225",
+    supplier: "Shree Packaging Co.",
+    supplierId: "SUP-1",
+    supplierCode: "IND-SUPP-1",
+    receivedOn: "2026-07-12",
+    lines: [
+      {
+        sku: "PKG-BW-150",
+        name: "Bubble Wrap Roll 1m x 50m",
+        receivedQty: 18,
+        rate: 650,
+      },
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        receivedQty: 200,
+        rate: 22,
+      },
+    ],
+  },
+  {
+    id: "PO-3322",
+    grn: "GRN-2219",
+    supplier: "Indore Corrugated Box Works",
+    supplierId: "SUP-4",
+    supplierCode: "IND-SUPP-4",
+    receivedOn: "2026-07-09",
+    lines: [
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        receivedQty: 300,
+        rate: 22,
+      },
+    ],
+  },
+  {
+    id: "PO-3310",
+    grn: "GRN-2205",
+    supplier: "Kumar Electronics Traders",
+    supplierId: "SUP-2",
+    supplierCode: "IND-SUPP-2",
+    receivedOn: "2026-07-02",
+    lines: [
+      {
+        sku: "ELE-CT-200",
+        name: "Cable Ties 200mm (Pack of 100)",
+        receivedQty: 60,
+        rate: 85,
+      },
+    ],
+  },
+  {
+    id: "PO-3290",
+    grn: "GRN-2188",
+    supplier: "Om Electricals & Components",
+    supplierId: "SUP-5",
+    supplierCode: "UJJ-SUPP-5",
+    receivedOn: "2026-06-25",
+    lines: [
+      {
+        sku: "ELE-PA-12",
+        name: "Power Adapter 12V 2A",
+        receivedQty: 40,
+        rate: 210,
+      },
+    ],
+  },
+];
+
 /** Vendor Payments — only the DUE amount is shown; cleared invoices are omitted entirely. */
 export const vendorDuePayments = [
   {
@@ -690,4 +787,1051 @@ export const myPurchasePerformanceReport = {
       date: "2026-07-12",
     },
   ],
+};
+
+/* ============================================================================
+ * DETAILED VIEW DATA
+ * ----------------------------------------------------------------------------
+ * Everything below powers the "detailed view" pages — every screen a user
+ * opens shows the full story of that record (where it came from, why, rates,
+ * cash/credit, how much from which supplier, waste/wastage mapping to product
+ * codes, authorisation trail, documents, timeline). Keyed by the same IDs used
+ * in the list tables above so a detail page can look a record up by :id.
+ * Frontend-only sample data — nothing here is wired to a backend API.
+ * ========================================================================== */
+
+/** Fallback used by detail pages when an :id is not found in the map below —
+ * keeps the demo pages from crashing on an unknown id. */
+export const emptyPurchaseRequestDetail = {
+  notFound: true,
+};
+
+/**
+ * Full detail per Purchase Request, keyed by PR id. Answers the "10th-class
+ * student can understand everything" bar: from where, why, what rate, cash vs
+ * credit, how much qty from supplier 1 vs supplier 2, wastage mapped to the
+ * product code, who authorised it, documents and a status timeline.
+ */
+export const purchaseRequestDetails = {
+  "PR-1042": {
+    id: "PR-1042",
+    product: "Cable Ties 200mm (Pack of 100)",
+    productCode: "ELE-CT-200",
+    category: "Electronics",
+    unit: "pack",
+    bucketType: "local",
+    status: "open",
+    priority: "high",
+    qty: 5,
+    hodApprovedOn: "2026-07-15",
+    hodApprovedBy: "HOD — Rajesh Mehta",
+    raisedBy: "Sales — Priya Sharma",
+    raisedOn: "2026-07-14",
+    targetDate: "2026-07-20",
+    // Why this purchase exists / where the demand came from
+    origin: {
+      why: "Approved sales orders need cable ties for cable-harness kits. Stock on hand is below the reorder level, so a purchase request was auto-created and HOD-approved.",
+      fromWhere:
+        "Raised from 5 separate sales orders (SO lines) for the same product; the buckets merged them into one request and only increased the quantity.",
+      mergedFrom: ["SO-2210", "SO-2208", "SO-2201", "SO-2197", "SO-2190"],
+      linkedQuery: "QP-8791",
+    },
+    // Rate + payment terms decided for this purchase
+    commercials: {
+      purchaseRate: 85,
+      purchaseType: "credit", // credit purchase or cash purchase
+      creditDays: 30,
+      lastPurchaseRate: 82,
+      gstPercent: 18,
+      expectedValue: 425,
+    },
+    // How much qty is being bought from which supplier (split sourcing)
+    supplierSplit: [
+      {
+        supplier: "Kumar Electronics Traders",
+        supplierCode: "IND-SUPP-2",
+        qty: 3,
+        rate: 85,
+        purchaseType: "credit",
+        note: "Primary supplier, best rate on this SKU.",
+      },
+      {
+        supplier: "Om Electricals & Components",
+        supplierCode: "UJJ-SUPP-5",
+        qty: 2,
+        rate: 88,
+        purchaseType: "cash",
+        note: "Balance qty to meet target date; slightly higher rate.",
+      },
+    ],
+    // Wastage mapped to product code (the "waste detail mapped with the code")
+    wastage: [
+      {
+        productCode: "ELE-CT-200",
+        expectedWastePercent: 2,
+        expectedWasteQty: 0.1,
+        reason: "Packaging cuts / QC rejects during kitting.",
+      },
+    ],
+    // Authorisation trail — "Mukesh ki taraf se okay hai"
+    authorisation: {
+      authorisedBy: "Mukesh Agrawal (Purchase Head)",
+      authorisedOn: "2026-07-15",
+      note: "Mukesh ki taraf se OK — rate & supplier split approved, proceed with purchase.",
+      status: "authorised",
+    },
+    documents: [
+      { name: "HOD Approval Note.pdf", type: "approval", size: "88 KB" },
+      { name: "Rate Comparison Sheet.xlsx", type: "sheet", size: "24 KB" },
+    ],
+    remark:
+      "Merged from 5 SO lines. Split across two suppliers to hit the 20 Jul target date.",
+    timeline: [
+      { label: "Raised by Sales", on: "2026-07-14", by: "Priya Sharma" },
+      { label: "HOD Approved", on: "2026-07-15", by: "Rajesh Mehta" },
+      {
+        label: "Authorised for Purchase",
+        on: "2026-07-15",
+        by: "Mukesh Agrawal",
+      },
+      { label: "Open in Purchase bucket", on: "2026-07-15", by: "System" },
+    ],
+  },
+  "PR-1039": {
+    id: "PR-1039",
+    product: "HDMI Connector 19-Pin",
+    productCode: "ELE-HD-19",
+    category: "Electronics",
+    unit: "pcs",
+    bucketType: "brand",
+    status: "in progress",
+    priority: "high",
+    qty: 120,
+    hodApprovedOn: "2026-07-14",
+    hodApprovedBy: "HOD — Rajesh Mehta",
+    raisedBy: "Sales — Anil Gupta",
+    raisedOn: "2026-07-13",
+    targetDate: "2026-07-19",
+    origin: {
+      why: "Branded HDMI connectors required for SO-2198 (display-cable assembly). Customer specified a brand-grade part, so it routes to the Brand purchase bucket.",
+      fromWhere: "Single sales order SO-2198, brand-grade line item.",
+      mergedFrom: ["SO-2198"],
+      linkedQuery: "QP-8841",
+    },
+    commercials: {
+      purchaseRate: 42,
+      purchaseType: "credit",
+      creditDays: 45,
+      lastPurchaseRate: 40,
+      gstPercent: 18,
+      expectedValue: 5040,
+    },
+    supplierSplit: [
+      {
+        supplier: "Bright Circuits Pvt Ltd",
+        supplierCode: "BPL-SUPP-3",
+        qty: 120,
+        rate: 42,
+        purchaseType: "credit",
+        note: "Authorised brand distributor — full qty from one source.",
+      },
+    ],
+    wastage: [
+      {
+        productCode: "ELE-HD-19",
+        expectedWastePercent: 1,
+        expectedWasteQty: 1.2,
+        reason: "Crimping test failures.",
+      },
+    ],
+    authorisation: {
+      authorisedBy: "Mukesh Agrawal (Purchase Head)",
+      authorisedOn: "2026-07-14",
+      note: "Brand part, approved distributor — go ahead on credit terms.",
+      status: "authorised",
+    },
+    documents: [
+      {
+        name: "Brand Authorisation Letter.pdf",
+        type: "approval",
+        size: "120 KB",
+      },
+    ],
+    remark: "Brand-grade line; single approved distributor.",
+    timeline: [
+      { label: "Raised by Sales", on: "2026-07-13", by: "Anil Gupta" },
+      { label: "HOD Approved", on: "2026-07-14", by: "Rajesh Mehta" },
+      {
+        label: "Authorised for Purchase",
+        on: "2026-07-14",
+        by: "Mukesh Agrawal",
+      },
+      {
+        label: "PO drafting in progress",
+        on: "2026-07-15",
+        by: "Deepak Kumar",
+      },
+    ],
+  },
+  "PR-1035": {
+    id: "PR-1035",
+    product: "Corrugated Box 12x12x12",
+    productCode: "PKG-CB-121212",
+    category: "Packaging Material",
+    unit: "pcs",
+    bucketType: "local",
+    status: "open",
+    priority: "medium",
+    qty: 300,
+    hodApprovedOn: "2026-07-13",
+    hodApprovedBy: "HOD — Rajesh Mehta",
+    raisedBy: "Sales — Neha Jain",
+    raisedOn: "2026-07-12",
+    targetDate: "2026-07-18",
+    origin: {
+      why: "Outer packaging boxes needed for dispatch of SO-2185. Local, non-branded packaging item — handled directly by the purchase manager.",
+      fromWhere: "Sales order SO-2185 packaging requirement.",
+      mergedFrom: ["SO-2185"],
+      linkedQuery: "QP-8802",
+    },
+    commercials: {
+      purchaseRate: 22,
+      purchaseType: "cash",
+      creditDays: 0,
+      lastPurchaseRate: 21,
+      gstPercent: 12,
+      expectedValue: 6600,
+    },
+    supplierSplit: [
+      {
+        supplier: "Indore Corrugated Box Works",
+        supplierCode: "IND-SUPP-4",
+        qty: 300,
+        rate: 22,
+        purchaseType: "cash",
+        note: "Local vendor, cash purchase, same-day pickup.",
+      },
+    ],
+    wastage: [
+      {
+        productCode: "PKG-CB-121212",
+        expectedWastePercent: 3,
+        expectedWasteQty: 9,
+        reason: "Crushed/damaged boxes during transit and handling.",
+      },
+    ],
+    authorisation: {
+      authorisedBy: "Mukesh Agrawal (Purchase Head)",
+      authorisedOn: "2026-07-13",
+      note: "Local cash buy, within limit — OK.",
+      status: "authorised",
+    },
+    documents: [],
+    remark: "Local packaging item, cash purchase from Indore market zone.",
+    timeline: [
+      { label: "Raised by Sales", on: "2026-07-12", by: "Neha Jain" },
+      { label: "HOD Approved", on: "2026-07-13", by: "Rajesh Mehta" },
+      { label: "Open in Purchase bucket", on: "2026-07-13", by: "System" },
+    ],
+  },
+  "PR-1030": {
+    id: "PR-1030",
+    product: "Bubble Wrap Roll 1m x 50m",
+    productCode: "PKG-BW-150",
+    category: "Packaging Material",
+    unit: "roll",
+    bucketType: "local",
+    status: "purchased",
+    priority: "low",
+    qty: 18,
+    hodApprovedOn: "2026-07-10",
+    hodApprovedBy: "HOD — Rajesh Mehta",
+    raisedBy: "Sales — Neha Jain",
+    raisedOn: "2026-07-09",
+    targetDate: "2026-07-12",
+    origin: {
+      why: "Protective wrapping for fragile items in SO-2170. Local packaging item, already purchased.",
+      fromWhere: "Sales order SO-2170.",
+      mergedFrom: ["SO-2170"],
+      linkedQuery: "QP-8820",
+    },
+    commercials: {
+      purchaseRate: 650,
+      purchaseType: "cash",
+      creditDays: 0,
+      lastPurchaseRate: 630,
+      gstPercent: 18,
+      expectedValue: 11700,
+    },
+    supplierSplit: [
+      {
+        supplier: "Shree Packaging Co.",
+        supplierCode: "IND-SUPP-1",
+        qty: 18,
+        rate: 650,
+        purchaseType: "cash",
+        note: "Local pickup from Indore market zone.",
+      },
+    ],
+    wastage: [
+      {
+        productCode: "PKG-BW-150",
+        expectedWastePercent: 1,
+        expectedWasteQty: 0.18,
+        reason: "Torn wrap at roll ends.",
+      },
+    ],
+    authorisation: {
+      authorisedBy: "Mukesh Agrawal (Purchase Head)",
+      authorisedOn: "2026-07-10",
+      note: "Routine local buy — approved.",
+      status: "authorised",
+    },
+    documents: [{ name: "Cash Bill 4471.jpg", type: "bill", size: "210 KB" }],
+    remark: "Completed — moved to Purchase History as PH-2.",
+    timeline: [
+      { label: "Raised by Sales", on: "2026-07-09", by: "Neha Jain" },
+      { label: "HOD Approved", on: "2026-07-10", by: "Rajesh Mehta" },
+      { label: "Purchased", on: "2026-07-12", by: "Ramesh Patel" },
+    ],
+  },
+  "PR-1028": {
+    id: "PR-1028",
+    product: "Branded Power Adapter 12V 2A",
+    productCode: "ELE-PA-12",
+    category: "Electronics",
+    unit: "pcs",
+    bucketType: "brand",
+    status: "open",
+    priority: "medium",
+    qty: 60,
+    hodApprovedOn: "2026-07-09",
+    hodApprovedBy: "HOD — Rajesh Mehta",
+    raisedBy: "Sales — Anil Gupta",
+    raisedOn: "2026-07-08",
+    targetDate: "2026-07-17",
+    origin: {
+      why: "Branded power adapters requested by the customer on SO-2160. Brand-grade line — routes to the Brand purchase bucket.",
+      fromWhere: "Sales order SO-2160.",
+      mergedFrom: ["SO-2160"],
+      linkedQuery: "QP-8775",
+    },
+    commercials: {
+      purchaseRate: 310,
+      purchaseType: "credit",
+      creditDays: 30,
+      lastPurchaseRate: 300,
+      gstPercent: 18,
+      expectedValue: 18600,
+    },
+    supplierSplit: [
+      {
+        supplier: "Om Electricals & Components",
+        supplierCode: "UJJ-SUPP-5",
+        qty: 40,
+        rate: 310,
+        purchaseType: "credit",
+        note: "Primary brand stockist.",
+      },
+      {
+        supplier: "Bright Circuits Pvt Ltd",
+        supplierCode: "BPL-SUPP-3",
+        qty: 20,
+        rate: 315,
+        purchaseType: "cash",
+        note: "Shortfall covered from secondary stockist.",
+      },
+    ],
+    wastage: [
+      {
+        productCode: "ELE-PA-12",
+        expectedWastePercent: 2,
+        expectedWasteQty: 1.2,
+        reason: "QC voltage-test rejects.",
+      },
+    ],
+    authorisation: {
+      authorisedBy: "Mukesh Agrawal (Purchase Head)",
+      authorisedOn: "2026-07-09",
+      note: "Split sourcing approved to meet the target date.",
+      status: "authorised",
+    },
+    documents: [{ name: "Brand Price List.pdf", type: "sheet", size: "64 KB" }],
+    remark: "Split across two brand stockists to meet 17 Jul target.",
+    timeline: [
+      { label: "Raised by Sales", on: "2026-07-08", by: "Anil Gupta" },
+      { label: "HOD Approved", on: "2026-07-09", by: "Rajesh Mehta" },
+      {
+        label: "Authorised for Purchase",
+        on: "2026-07-09",
+        by: "Mukesh Agrawal",
+      },
+      { label: "Open in Purchase bucket", on: "2026-07-09", by: "System" },
+    ],
+  },
+};
+
+/** Look up a purchase request detail by id, with a safe fallback. */
+export const getPurchaseRequestDetail = (id) =>
+  purchaseRequestDetails[id] || { ...emptyPurchaseRequestDetail, id };
+
+/** Options for the "Assign to Local Purchase" tab of the Action dialog. */
+export const localPurchaseAssignees = [
+  { id: "LP-1", name: "Ramesh Patel — Local Purchase Exec (Indore)" },
+  { id: "LP-2", name: "Sunita Verma — Local Purchase Exec (Indore)" },
+  { id: "LP-3", name: "Imran Khan — Local Purchase Exec (Bhopal)" },
+];
+
+/** Priority options reused across the direct-purchase action form. */
+export const purchasePriorityOptions = ["high", "medium", "low"];
+
+/** Authorisers offered in the direct-purchase action form. */
+export const purchaseAuthorisers = [
+  "Mukesh Agrawal (Purchase Head)",
+  "Rajesh Mehta (HOD)",
+  "Anita Rao (Finance)",
+];
+
+/**
+ * Full detail per Purchase Order, keyed by PO id. Powers the PO detail page:
+ * line items, supplier & billing/shipping, payment terms, GRN/receipt status,
+ * payment status and a timeline. Merges with the summary in `purchaseOrders`.
+ */
+export const purchaseOrderDetails = {
+  "PO-3341": {
+    id: "PO-3341",
+    supplier: "Kumar Electronics Traders",
+    supplierCode: "IND-SUPP-2",
+    supplierContact: "Deepak Kumar · 9876500022",
+    date: "2026-07-16",
+    expectedDelivery: "2026-07-22",
+    hodVerification: "pending",
+    status: "pending",
+    createdBy: "Purchase — Deepak Kumar",
+    billingAddress: {
+      company: "MIGTI Technologies Pvt Ltd",
+      line: "45 Industrial Area, Sector 3",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452010",
+      gstin: "23ABCDE1234F1Z5",
+    },
+    shippingAddress: {
+      company: "MIGTI Central Warehouse",
+      line: "Plot 12, Logistics Park, Ring Road",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452016",
+    },
+    lines: [
+      {
+        sku: "ELE-CT-200",
+        name: "Cable Ties 200mm (Pack of 100)",
+        qty: 300,
+        rate: 85,
+        gstPercent: 18,
+      },
+      {
+        sku: "ELE-HD-19",
+        name: "HDMI Connector 19-Pin",
+        qty: 100,
+        rate: 42,
+        gstPercent: 18,
+      },
+    ],
+    paymentTerms: {
+      type: "credit",
+      creditDays: 30,
+      advancePercent: 0,
+      mode: "NEFT / Bank Transfer",
+      dueDate: "2026-08-15",
+      paid: false,
+    },
+    receipt: {
+      grn: null,
+      materialReceived: false,
+      note: "Material not yet received — awaiting HOD verification and dispatch.",
+    },
+    terms:
+      "1. Delivery within 7 working days of PO date.\n2. Payment: net 30 days on GRN.\n3. Goods must match approved sample/specification.\n4. Any damage/shortage to be reported within 48 hours of receipt.",
+    timeline: [
+      { label: "PO Drafted", on: "2026-07-16", by: "Deepak Kumar" },
+      { label: "Awaiting HOD Verification", on: "2026-07-16", by: "System" },
+    ],
+  },
+  "PO-3338": {
+    id: "PO-3338",
+    supplier: "Bright Circuits Pvt Ltd",
+    supplierCode: "BPL-SUPP-3",
+    supplierContact: "Suresh Nair · 9876500033",
+    date: "2026-07-14",
+    expectedDelivery: "2026-07-19",
+    hodVerification: "verified",
+    status: "confirmed",
+    createdBy: "Purchase — Deepak Kumar",
+    billingAddress: {
+      company: "MIGTI Technologies Pvt Ltd",
+      line: "45 Industrial Area, Sector 3",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452010",
+      gstin: "23ABCDE1234F1Z5",
+    },
+    shippingAddress: {
+      company: "MIGTI Central Warehouse",
+      line: "Plot 12, Logistics Park, Ring Road",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452016",
+    },
+    lines: [
+      {
+        sku: "ELE-HD-19",
+        name: "HDMI Connector 19-Pin",
+        qty: 120,
+        rate: 42,
+        gstPercent: 18,
+      },
+    ],
+    paymentTerms: {
+      type: "credit",
+      creditDays: 45,
+      advancePercent: 0,
+      mode: "NEFT / Bank Transfer",
+      dueDate: "2026-08-28",
+      paid: false,
+    },
+    receipt: {
+      grn: "GRN-2231",
+      materialReceived: true,
+      receivedQty: 116,
+      orderedQty: 120,
+      note: "Short received — 116 of 120. Return RET-118 raised for 4 damaged units.",
+    },
+    terms:
+      "1. Delivery within 5 working days of PO date.\n2. Payment: net 45 days on GRN.\n3. Brand-grade parts only, with authorisation letter.\n4. Damage/shortage reported within 48 hours.",
+    timeline: [
+      { label: "PO Drafted", on: "2026-07-14", by: "Deepak Kumar" },
+      { label: "HOD Verified", on: "2026-07-14", by: "Rajesh Mehta" },
+      { label: "Sent to Supplier", on: "2026-07-14", by: "Deepak Kumar" },
+      { label: "GRN Received (short)", on: "2026-07-15", by: "Sunil Verma" },
+    ],
+  },
+  "PO-3330": {
+    id: "PO-3330",
+    supplier: "Shree Packaging Co.",
+    supplierCode: "IND-SUPP-1",
+    supplierContact: "Manoj Shah · 9876500011",
+    date: "2026-07-11",
+    expectedDelivery: "2026-07-15",
+    hodVerification: "verified",
+    status: "sent",
+    createdBy: "Purchase — Ramesh Patel",
+    billingAddress: {
+      company: "MIGTI Technologies Pvt Ltd",
+      line: "45 Industrial Area, Sector 3",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452010",
+      gstin: "23ABCDE1234F1Z5",
+    },
+    shippingAddress: {
+      company: "MIGTI Central Warehouse",
+      line: "Plot 12, Logistics Park, Ring Road",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452016",
+    },
+    lines: [
+      {
+        sku: "PKG-BW-150",
+        name: "Bubble Wrap Roll 1m x 50m",
+        qty: 18,
+        rate: 650,
+        gstPercent: 18,
+      },
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        qty: 200,
+        rate: 22,
+        gstPercent: 12,
+      },
+      {
+        sku: "PKG-SF-500",
+        name: "Stretch Film 500mm",
+        qty: 25,
+        rate: 420,
+        gstPercent: 18,
+      },
+    ],
+    paymentTerms: {
+      type: "credit",
+      creditDays: 30,
+      advancePercent: 50,
+      mode: "NEFT / Bank Transfer",
+      dueDate: "2026-08-10",
+      paid: false,
+    },
+    receipt: {
+      grn: "GRN-2225",
+      materialReceived: true,
+      receivedQty: 18,
+      orderedQty: 18,
+      note: "Bubble wrap fully received (GRN-2225). Boxes & film pending.",
+    },
+    terms:
+      "1. Delivery within 4 working days.\n2. Payment: 50% advance, balance net 30 on GRN.\n3. Local pickup allowed.\n4. Damage/shortage within 48 hours.",
+    timeline: [
+      { label: "PO Drafted", on: "2026-07-11", by: "Ramesh Patel" },
+      { label: "HOD Verified", on: "2026-07-11", by: "Rajesh Mehta" },
+      { label: "Sent to Supplier", on: "2026-07-11", by: "Ramesh Patel" },
+    ],
+  },
+  "PO-3322": {
+    id: "PO-3322",
+    supplier: "Indore Corrugated Box Works",
+    supplierCode: "IND-SUPP-4",
+    supplierContact: "Ramesh Patel · 9876500044",
+    date: "2026-07-08",
+    expectedDelivery: "2026-07-12",
+    hodVerification: "rejected",
+    status: "draft",
+    createdBy: "Purchase — Ramesh Patel",
+    billingAddress: {
+      company: "MIGTI Technologies Pvt Ltd",
+      line: "45 Industrial Area, Sector 3",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452010",
+      gstin: "23ABCDE1234F1Z5",
+    },
+    shippingAddress: {
+      company: "MIGTI Central Warehouse",
+      line: "Plot 12, Logistics Park, Ring Road",
+      city: "Indore",
+      state: "Madhya Pradesh",
+      pincode: "452016",
+    },
+    lines: [
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        qty: 300,
+        rate: 22,
+        gstPercent: 12,
+      },
+    ],
+    paymentTerms: {
+      type: "cash",
+      creditDays: 0,
+      advancePercent: 100,
+      mode: "Cash",
+      dueDate: "2026-07-12",
+      paid: false,
+    },
+    receipt: {
+      grn: null,
+      materialReceived: false,
+      note: "PO rejected by HOD — rate above the approved ceiling. Needs re-negotiation.",
+    },
+    terms:
+      "1. Cash purchase, immediate delivery.\n2. Goods to match sample.\n3. Damage/shortage within 48 hours.",
+    timeline: [
+      { label: "PO Drafted", on: "2026-07-08", by: "Ramesh Patel" },
+      { label: "HOD Rejected", on: "2026-07-08", by: "Rajesh Mehta" },
+    ],
+  },
+};
+
+/** Look up a purchase order detail by id, with a safe fallback. */
+export const getPurchaseOrderDetail = (id) =>
+  purchaseOrderDetails[id] || { id, notFound: true };
+
+/** Billing / shipping / company presets offered in the Create PO wizard. */
+export const companyBillingPresets = [
+  {
+    id: "BILL-1",
+    company: "MIGTI Technologies Pvt Ltd",
+    line: "45 Industrial Area, Sector 3",
+    city: "Indore",
+    state: "Madhya Pradesh",
+    pincode: "452010",
+    gstin: "23ABCDE1234F1Z5",
+  },
+];
+export const companyShippingPresets = [
+  {
+    id: "SHIP-1",
+    company: "MIGTI Central Warehouse",
+    line: "Plot 12, Logistics Park, Ring Road",
+    city: "Indore",
+    state: "Madhya Pradesh",
+    pincode: "452016",
+  },
+  {
+    id: "SHIP-2",
+    company: "MIGTI Bhopal Branch",
+    line: "22 MP Nagar, Zone 1",
+    city: "Bhopal",
+    state: "Madhya Pradesh",
+    pincode: "462011",
+  },
+];
+
+/** Payment-term presets offered on the last step of the Create PO wizard. */
+export const paymentTermPresets = [
+  {
+    id: "PT-1",
+    label: "Net 30 days on GRN",
+    type: "credit",
+    creditDays: 30,
+    advancePercent: 0,
+  },
+  {
+    id: "PT-2",
+    label: "Net 45 days on GRN",
+    type: "credit",
+    creditDays: 45,
+    advancePercent: 0,
+  },
+  {
+    id: "PT-3",
+    label: "50% advance, 50% on GRN",
+    type: "credit",
+    creditDays: 30,
+    advancePercent: 50,
+  },
+  {
+    id: "PT-4",
+    label: "100% advance (cash)",
+    type: "cash",
+    creditDays: 0,
+    advancePercent: 100,
+  },
+];
+
+/**
+ * Full detail per GRN, keyed by GRN id. Powers the GRN detail page: ordered vs
+ * received per line, condition, QC, storage bin, documents and a timeline.
+ */
+export const grnDetails = {
+  "GRN-2231": {
+    id: "GRN-2231",
+    po: "PO-3338",
+    supplier: "Bright Circuits Pvt Ltd",
+    supplierCode: "BPL-SUPP-3",
+    receivedOn: "2026-07-15",
+    receivedBy: "Inventory — Sunil Verma",
+    status: "short received",
+    invoiceNo: "BC/INV/5521",
+    vehicleNo: "MP09 GH 4412",
+    gatePass: "GP-7781",
+    lines: [
+      {
+        sku: "ELE-HD-19",
+        name: "HDMI Connector 19-Pin",
+        qtyOrdered: 120,
+        qtyReceived: 116,
+        qtyAccepted: 116,
+        qtyRejected: 4,
+        condition: "4 units damaged (bent pins)",
+        bin: "A-12-03",
+      },
+    ],
+    qc: {
+      status: "partial pass",
+      checkedBy: "QC — Alok Nema",
+      note: "4 connectors failed pin-alignment check; return raised.",
+    },
+    linkedReturn: "RET-118",
+    documents: [
+      { name: "Supplier Invoice BC-5521.pdf", type: "bill", size: "142 KB" },
+      { name: "Gate Pass GP-7781.pdf", type: "approval", size: "40 KB" },
+    ],
+    remark: "Short received; RET-118 raised for the 4 damaged units.",
+    timeline: [
+      { label: "Vehicle In", on: "2026-07-15", by: "Gate — Ravi" },
+      { label: "Unloaded & Counted", on: "2026-07-15", by: "Sunil Verma" },
+      { label: "QC Checked", on: "2026-07-15", by: "Alok Nema" },
+      {
+        label: "Return Raised (RET-118)",
+        on: "2026-07-16",
+        by: "Deepak Kumar",
+      },
+    ],
+  },
+  "GRN-2225": {
+    id: "GRN-2225",
+    po: "PO-3330",
+    supplier: "Shree Packaging Co.",
+    supplierCode: "IND-SUPP-1",
+    receivedOn: "2026-07-12",
+    receivedBy: "Inventory — Sunil Verma",
+    status: "complete",
+    invoiceNo: "SP/INV/3390",
+    vehicleNo: "MP09 AB 1123",
+    gatePass: "GP-7760",
+    lines: [
+      {
+        sku: "PKG-BW-150",
+        name: "Bubble Wrap Roll 1m x 50m",
+        qtyOrdered: 18,
+        qtyReceived: 18,
+        qtyAccepted: 18,
+        qtyRejected: 0,
+        condition: "Good",
+        bin: "C-04-01",
+      },
+    ],
+    qc: {
+      status: "pass",
+      checkedBy: "QC — Alok Nema",
+      note: "All rolls within spec.",
+    },
+    linkedReturn: null,
+    documents: [
+      { name: "Supplier Invoice SP-3390.pdf", type: "bill", size: "98 KB" },
+    ],
+    remark: "Full receipt, QC passed.",
+    timeline: [
+      { label: "Vehicle In", on: "2026-07-12", by: "Gate — Ravi" },
+      { label: "Unloaded & Counted", on: "2026-07-12", by: "Sunil Verma" },
+      { label: "QC Passed", on: "2026-07-12", by: "Alok Nema" },
+      { label: "Stored", on: "2026-07-12", by: "Sunil Verma" },
+    ],
+  },
+  "GRN-2219": {
+    id: "GRN-2219",
+    po: "PO-3322",
+    supplier: "Indore Corrugated Box Works",
+    supplierCode: "IND-SUPP-4",
+    receivedOn: "2026-07-09",
+    receivedBy: "Inventory — Manisha Tiwari",
+    status: "complete",
+    invoiceNo: "ICB/INV/2210",
+    vehicleNo: "MP09 CD 7788",
+    gatePass: "GP-7740",
+    lines: [
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        qtyOrdered: 300,
+        qtyReceived: 300,
+        qtyAccepted: 300,
+        qtyRejected: 0,
+        condition: "Good",
+        bin: "C-06-02",
+      },
+    ],
+    qc: {
+      status: "pass",
+      checkedBy: "QC — Alok Nema",
+      note: "Wall thickness within spec.",
+    },
+    linkedReturn: null,
+    documents: [
+      { name: "Supplier Invoice ICB-2210.pdf", type: "bill", size: "76 KB" },
+    ],
+    remark: "Full receipt.",
+    timeline: [
+      { label: "Vehicle In", on: "2026-07-09", by: "Gate — Ravi" },
+      { label: "Unloaded & Counted", on: "2026-07-09", by: "Manisha Tiwari" },
+      { label: "QC Passed", on: "2026-07-09", by: "Alok Nema" },
+      { label: "Stored", on: "2026-07-09", by: "Manisha Tiwari" },
+    ],
+  },
+};
+export const getGrnDetail = (id) => grnDetails[id] || { id, notFound: true };
+
+/** Look up a purchase return detail by id — returns the row plus derived extras. */
+export const getPurchaseReturnDetail = (id) => {
+  const base = purchaseReturns.find((r) => r.id === id);
+  if (!base) return { id, notFound: true };
+  return {
+    ...base,
+    debitNote:
+      base.status === "resolved" || base.status === "approved"
+        ? `DN-${base.id.replace("RET-", "")}`
+        : null,
+    grn:
+      base.id === "RET-118"
+        ? "GRN-2231"
+        : base.id === "RET-116"
+          ? "GRN-2218"
+          : null,
+    photos:
+      base.reason === "Damaged in transit" || base.reason === "Quality issue"
+        ? [`${base.product} defect 1.jpg`, `${base.product} defect 2.jpg`]
+        : [],
+    timeline: [
+      {
+        label: "Return Raised",
+        on: base.raisedOn,
+        by: "Purchase — Deepak Kumar",
+      },
+      base.status !== "pending"
+        ? {
+            label:
+              base.status === "rejected"
+                ? "Rejected by Supplier"
+                : base.status === "approved"
+                  ? "Approved by Supplier"
+                  : "Resolved",
+            on: base.resolvedOn || base.raisedOn,
+            by: "Supplier",
+          }
+        : {
+            label: "Awaiting supplier response",
+            on: base.raisedOn,
+            by: "System",
+          },
+    ].filter(Boolean),
+  };
+};
+
+/**
+ * Full detail per vendor due payment, keyed by invoice id. Powers the vendor
+ * payment detail page: invoice, PO link, ageing, bank details and a schedule.
+ */
+export const vendorPaymentDetails = {
+  "INV-8841": {
+    id: "INV-8841",
+    vendor: "Kumar Electronics Traders",
+    vendorCode: "IND-SUPP-2",
+    po: "PO-3341",
+    grn: null,
+    invoiceDate: "2026-07-16",
+    dueDate: "2026-07-20",
+    amount: 42500,
+    gstAmount: 6483,
+    tds: 425,
+    payable: 42075,
+    daysOverdue: 0,
+    status: "pending",
+    paymentMode: "NEFT",
+    bank: {
+      name: "HDFC Bank",
+      account: "50200012345678",
+      ifsc: "HDFC0001234",
+      branch: "Indore Main",
+    },
+    schedule: [
+      {
+        label: "Invoice Received",
+        on: "2026-07-16",
+        amount: 42500,
+        done: true,
+      },
+      { label: "Due", on: "2026-07-20", amount: 42075, done: false },
+    ],
+    remark: "Awaiting GRN confirmation before release.",
+  },
+  "INV-8830": {
+    id: "INV-8830",
+    vendor: "Bright Circuits Pvt Ltd",
+    vendorCode: "BPL-SUPP-3",
+    po: "PO-3338",
+    grn: "GRN-2231",
+    invoiceDate: "2026-07-01",
+    dueDate: "2026-07-10",
+    amount: 88400,
+    gstAmount: 13485,
+    tds: 884,
+    payable: 87516,
+    daysOverdue: 6,
+    status: "overdue",
+    paymentMode: "NEFT",
+    bank: {
+      name: "ICICI Bank",
+      account: "623405001122",
+      ifsc: "ICIC0006234",
+      branch: "Bhopal MP Nagar",
+    },
+    schedule: [
+      {
+        label: "Invoice Received",
+        on: "2026-07-01",
+        amount: 88400,
+        done: true,
+      },
+      { label: "Due (overdue)", on: "2026-07-10", amount: 87516, done: false },
+    ],
+    remark:
+      "Overdue by 6 days. Short-receipt adjustment for RET-118 to be netted before payment.",
+  },
+  "INV-8811": {
+    id: "INV-8811",
+    vendor: "Shree Packaging Co.",
+    vendorCode: "IND-SUPP-1",
+    po: "PO-3330",
+    grn: "GRN-2225",
+    invoiceDate: "2026-07-11",
+    dueDate: "2026-07-18",
+    amount: 30600,
+    gstAmount: 4668,
+    tds: 306,
+    payable: 30294,
+    daysOverdue: 0,
+    status: "pending",
+    paymentMode: "NEFT",
+    bank: {
+      name: "SBI",
+      account: "38771122334",
+      ifsc: "SBIN0003877",
+      branch: "Indore Market",
+    },
+    schedule: [
+      {
+        label: "Advance Paid (50%)",
+        on: "2026-07-11",
+        amount: 15300,
+        done: true,
+      },
+      { label: "Balance Due", on: "2026-07-18", amount: 14994, done: false },
+    ],
+    remark: "50% advance already paid; balance due on 18 Jul.",
+  },
+};
+export const getVendorPaymentDetail = (id) =>
+  vendorPaymentDetails[id] || { id, notFound: true };
+
+/** Look up a purchase history detail by id — the row already carries most of it. */
+export const getPurchaseHistoryDetail = (id) => {
+  const base = purchaseHistory.find((r) => r.id === id);
+  if (!base) return { id, notFound: true };
+  return {
+    ...base,
+    priceTrendMonths: ["Mar", "Apr", "May", "Jun", "Jul"],
+    supplierCode:
+      {
+        "Bright Circuits Pvt Ltd": "BPL-SUPP-3",
+        "Shree Packaging Co.": "IND-SUPP-1",
+        "Indore Corrugated Box Works": "IND-SUPP-4",
+        "Kumar Electronics Traders": "IND-SUPP-2",
+        "Om Electricals & Components": "UJJ-SUPP-5",
+      }[base.supplier] || "—",
+    grn:
+      base.poCode === "PO-3338"
+        ? "GRN-2231"
+        : base.poCode === "PO-3330"
+          ? "GRN-2225"
+          : base.poCode === "PO-3320"
+            ? "GRN-2219"
+            : "—",
+    timeline: [
+      { label: "PO Raised", on: base.purchasedOn, by: base.buyer },
+      { label: "Goods Received", on: base.purchasedOn, by: "Inventory" },
+      {
+        label:
+          base.paymentStatus === "paid"
+            ? "Payment Cleared"
+            : base.paymentStatus === "partial"
+              ? "Part Payment Done"
+              : "Payment Pending",
+        on: base.purchasedOn,
+        by: "Finance",
+      },
+    ],
+  };
 };

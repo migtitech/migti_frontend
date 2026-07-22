@@ -1,0 +1,4 @@
+# Shared cross-repo dev docs — kept byte-identical with the backend copy
+# (diff -q must stay clean). Backend prettier does not reformat these, so the
+# frontend must not either, or the two MASTER copies diverge. See PROGRESS.md.
+docs/development/MASTER.md
