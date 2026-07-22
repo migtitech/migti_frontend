@@ -43,12 +43,13 @@ const getPostLoginPath = (role) => {
     return "/procurement-master/dashboard";
   if (normalized === ROLES.PURCHASE_MANAGER)
     return "/purchase-master/dashboard";
-  if (normalized === ROLES.PROCUREMENT) return "/pro-dashboard";
+  if (normalized === ROLES.PROCUREMENT) return "/purchase-dashboard";
+  if (normalized.startsWith("sales")) return "/sales-dashboard";
   if (normalized === ROLES.LOCAL_PROCUREMENT) return "/local-pro";
   if (normalized === ROLES.LOCAL_PURCHASE) return "/my-purchase";
   if (normalized === ROLES.DISPATCH_MANAGER) return "/dispatchment";
   if (normalized === ROLES.INVENTRY_MANAGER) return "/inventory-bucket";
-  if (normalized === ROLES.FINANCE) return "/billing-requests";
+  if (normalized === ROLES.FINANCE) return "/finance";
   return "/dashboard";
 };
 

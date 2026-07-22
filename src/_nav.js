@@ -29,6 +29,9 @@ import {
   Send,
   ClipboardList,
   Target,
+  RotateCcw,
+  PauseCircle,
+  Receipt,
 } from "lucide-react";
 
 const CNavGroup = "group";
@@ -145,21 +148,81 @@ export const PURCHASE_ROLE_NAV = [
     module: "suppliers",
     roles: ["purchase_exicutive", "procurement"],
   },
+  // "Purchase Bucket" (/purchase-bucket) is intentionally hidden from the
+  // sidebar. Its route still exists; only the nav link was removed.
+  // "Batch Billing Requests" (/batch-billing-requests) is intentionally
+  // hidden from the sidebar. Its route still exists; only the nav link
+  // was removed.
+];
+
+// Finance role – curated, self-contained sidebar. These are dedicated finance
+// pages (all under /finance/*) built for the finance login only. The tree is
+// returned as-is by buildFinanceNav (see fe/src/utils/sidebarNav.js) — no
+// permission filtering is applied; the finance role reaches these paths via the
+// frontend gate in ProtectedRoute (isFinanceAllowedPath). Groups are detected
+// by the presence of `items`; icons are JSX like every other nav node.
+export const FINANCE_ROLE_NAV = [
   {
     component: CNavItem,
-    name: "Purchase Bucket",
-    to: "/purchase-bucket",
-    icon: <ShoppingCart className="nav-icon" />,
-    module: "purchase_bucket",
-    roles: ["purchase_exicutive", "procurement"],
+    name: "Dashboard",
+    to: "/finance",
+    icon: <Gauge className="nav-icon" />,
   },
   {
     component: CNavItem,
-    name: "Batch Billing Requests",
-    to: "/batch-billing-requests",
+    name: "Purchase Requests",
+    to: "/finance/purchase-requests",
+    icon: <FileText className="nav-icon" />,
+  },
+  {
+    component: CNavItem,
+    name: "Purchase Return Requests",
+    to: "/finance/purchase-returns",
+    icon: <RotateCcw className="nav-icon" />,
+  },
+  {
+    component: CNavGroup,
+    name: "Amount Due",
+    icon: <Wallet className="nav-icon" />,
+    items: [
+      {
+        component: CNavItem,
+        name: "Client Dues (Receivable)",
+        to: "/finance/receivables/clients",
+        icon: <Users className="nav-icon" />,
+      },
+      {
+        component: CNavItem,
+        name: "Supplier Dues (Payable)",
+        to: "/finance/receivables/suppliers",
+        icon: <Factory className="nav-icon" />,
+      },
+    ],
+  },
+  {
+    component: CNavItem,
+    name: "Billing",
+    to: "/finance/billing",
+    icon: <Receipt className="nav-icon" />,
+  },
+  {
+    component: CNavGroup,
+    name: "Payments",
     icon: <IndianRupee className="nav-icon" />,
-    rolePrefix: "purchase",
-    roles: ["purchase_exicutive", "procurement"],
+    items: [
+      {
+        component: CNavItem,
+        name: "Payments to Make",
+        to: "/finance/payments/due",
+        icon: <Clock className="nav-icon" />,
+      },
+      {
+        component: CNavItem,
+        name: "Payment Hold",
+        to: "/finance/payments/hold",
+        icon: <PauseCircle className="nav-icon" />,
+      },
+    ],
   },
 ];
 
@@ -647,27 +710,9 @@ const _nav = [
             icon: <Clipboard className="nav-icon" />,
             module: "purchase_tasks",
           },
-          {
-            component: CNavItem,
-            name: "Local Procurement",
-            to: "/local-pro",
-            icon: <Users className="nav-icon" />,
-            roles: [
-              "procurement",
-              "localprocurement",
-              "super_admin",
-              "admin",
-              "head_of_department",
-              "hod",
-            ],
-          },
-          {
-            component: CNavItem,
-            name: "Brand Procurement",
-            to: "/procurement/brand",
-            icon: <ShoppingBasket className="nav-icon" />,
-            module: "pro_bucket",
-          },
+          // "Local Procurement" (/local-pro) and "Brand Procurement"
+          // (/procurement/brand) are intentionally hidden from the sidebar.
+          // Their routes still exist; only the nav links were removed.
         ],
       },
       {
@@ -677,20 +722,9 @@ const _nav = [
         icon: <ListChecks className="nav-icon" />,
         module: "task_management",
       },
-      {
-        component: CNavItem,
-        name: "Task Bucket",
-        to: "/task-bucket",
-        icon: <Clipboard className="nav-icon" />,
-        module: "task_bucket",
-      },
-      {
-        component: CNavItem,
-        name: "Pro Bucket",
-        to: "/pro-bucket",
-        icon: <ShoppingBasket className="nav-icon" />,
-        module: "pro_bucket",
-      },
+      // "Task Bucket" (/task-bucket) and "Pro Bucket" (/pro-bucket) are
+      // intentionally hidden from the sidebar. Their routes still exist;
+      // only the nav links were removed.
       {
         // "Local Procurement" for procurement lives inside the Procurement
         // subgroup above; keeping a group-level copy here duplicated it for
@@ -708,13 +742,9 @@ const _nav = [
         icon: <List className="nav-icon" />,
         module: "pro_bucket",
       },
-      {
-        component: CNavItem,
-        name: "Batch Billing Requests",
-        to: "/batch-billing-requests",
-        icon: <IndianRupee className="nav-icon" />,
-        rolePrefix: "purchase",
-      },
+      // "Batch Billing Requests" (/batch-billing-requests) is intentionally
+      // hidden from the sidebar. Its route still exists; only the nav link
+      // was removed.
     ],
   },
   {
@@ -974,31 +1004,40 @@ const _nav = [
           },
           {
             component: CNavItem,
-            name: "Local Purchase",
-            to: "/local-purchase",
-            icon: <ShoppingCart className="nav-icon" />,
+            name: "Purchases Request",
+            to: "/purchase-request-bucket",
+            icon: <Clipboard className="nav-icon" />,
             module: "purchase_bucket",
           },
           {
             component: CNavItem,
-            name: "Brand Purchase",
-            to: "/purchase/brand",
+            name: "Raised Purchases",
+            to: "/raised-purchases",
             icon: <ShoppingCart className="nav-icon" />,
             module: "purchase_bucket",
           },
+          // "Local Purchase" (/local-purchase) and "Brand Purchase"
+          // (/purchase/brand) are intentionally hidden from the sidebar.
+          // Their routes still exist; only the nav links were removed.
         ],
       },
       {
         component: CNavItem,
         name: "Purchase Orders",
-        to: "/purchase-order-sidebar",
+        // Points to the full Purchase Order workflow: create-PO wizard
+        // (product & supplier search + billing/shipping address), the PO
+        // table, and a detail page with HOD verification + status timeline.
+        // The old PO/billing analytics page still lives at /purchase-order-sidebar.
+        to: "/purchase-master/purchase-order",
         icon: <Clipboard className="nav-icon" />,
         module: "po_payment",
       },
       {
         component: CNavItem,
         name: "GRN",
-        to: "/purchase/grn",
+        // Full Goods Received Note page: GRN list + per-GRN detail (ordered vs
+        // received, QC, documents, timeline). Placeholder still at /purchase/grn.
+        to: "/purchase-master/grn",
         icon: <CheckCircle2 className="nav-icon" />,
         module: "inventory_bucket",
         excludeRolePrefix: "sales",
@@ -1006,7 +1045,10 @@ const _nav = [
       {
         component: CNavItem,
         name: "Purchase Return",
-        to: "/purchase/return",
+        // Full Purchase Return workflow: return list, a guided Create Return
+        // form (source PO/GRN → items & qty → reason/refund/photos → review),
+        // and a per-return detail page. Old dashboard still at /purchase/return.
+        to: "/purchase-master/purchase-return",
         icon: <ShoppingCart className="nav-icon" />,
         module: "purchase_bucket",
       },
@@ -1032,13 +1074,8 @@ const _nav = [
         icon: <ShoppingCart className="nav-icon" />,
         roles: ["localpurchase"],
       },
-      {
-        component: CNavItem,
-        name: "Purchase Bucket",
-        to: "/purchase-bucket",
-        icon: <ShoppingCart className="nav-icon" />,
-        module: "purchase_bucket",
-      },
+      // "Purchase Bucket" (/purchase-bucket) is intentionally hidden from the
+      // sidebar. Its route still exists; only the nav link was removed.
     ],
   },
   {
@@ -1160,21 +1197,6 @@ const _nav = [
         to: "/sub-zones",
         icon: <Layers className="nav-icon" />,
         module: "sub_zones",
-      },
-      {
-        component: CNavItem,
-        name: "Employees",
-        to: "/employees",
-        icon: <User className="nav-icon" />,
-        module: "employees",
-      },
-      {
-        component: CNavItem,
-        name: "Company Documents",
-        to: "/company-documents",
-        icon: <Folder className="nav-icon" />,
-        module: null,
-        roles: ["head_of_department", "hod"],
       },
       {
         component: CNavItem,

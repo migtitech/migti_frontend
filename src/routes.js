@@ -81,6 +81,34 @@ const QuoteLogsView = React.lazy(() => import("./views/admin/QuoteLogsView"));
 const FinanceDashboard = React.lazy(
   () => import("./views/admin/FinanceDashboard"),
 );
+// Finance role – dedicated module pages (views/finance/*).
+const FinanceOverview = React.lazy(
+  () => import("./views/finance/FinanceOverview"),
+);
+const FinanceClientReceivables = React.lazy(
+  () => import("./views/finance/ClientReceivables"),
+);
+const FinanceSupplierPayables = React.lazy(
+  () => import("./views/finance/SupplierPayables"),
+);
+const FinanceBilling = React.lazy(
+  () => import("./views/finance/FinanceBilling"),
+);
+const FinancePaymentHold = React.lazy(
+  () => import("./views/finance/PaymentHold"),
+);
+const FinancePurchaseRequests = React.lazy(
+  () => import("./views/finance/FinancePurchaseRequests"),
+);
+const FinancePurchaseReturns = React.lazy(
+  () => import("./views/finance/FinancePurchaseReturns"),
+);
+const FinancePaymentsToMake = React.lazy(
+  () => import("./views/finance/PaymentsToMake"),
+);
+const FinancePurchaseRequestView = React.lazy(
+  () => import("./views/finance/FinancePurchaseRequestView"),
+);
 const BranchAnalytics = React.lazy(
   () => import("./views/admin/BranchAnalytics"),
 );
@@ -413,6 +441,22 @@ const PurchaseMasterPerformanceReport = React.lazy(
 const PurchaseMasterPurchaseRequestDetail = React.lazy(
   () => import("./views/purchaseMaster/PurchaseRequestDetail"),
 );
+// Purchases Request bucket (Local Purchase section) — frontend-only sample data.
+const PurchaseRequestBucket = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseRequestBucket"),
+);
+const PurchaseRequestBucketDetail = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseRequestBucketDetail"),
+);
+const PurchaseRequestPurchase = React.lazy(
+  () => import("./views/purchaseMaster/PurchaseRequestPurchase"),
+);
+const RaisedPurchases = React.lazy(
+  () => import("./views/purchaseMaster/RaisedPurchases"),
+);
+const RaisedPurchaseDetail = React.lazy(
+  () => import("./views/purchaseMaster/RaisedPurchaseDetail"),
+);
 const PurchaseMasterPurchaseOrderDetail = React.lazy(
   () => import("./views/purchaseMaster/PurchaseOrderDetail"),
 );
@@ -451,6 +495,9 @@ const ProcurementMasterProcurementHistory = React.lazy(
 );
 const ProcurementMasterPerformanceReport = React.lazy(
   () => import("./views/procurementMaster/MyPerformanceReport"),
+);
+const ProcurementMasterMyPerformance = React.lazy(
+  () => import("./views/procurementMaster/MyPerformance"),
 );
 
 import sidebarPageRoutes from "./routes/sidebarPageRoutes";
@@ -814,10 +861,67 @@ const routes = [
     action: "read",
   },
 
-  // Finance
+  // Finance role – dedicated module. `module: null` so access is governed by
+  // the finance route gate in ProtectedRoute (isFinanceAllowedPath) rather than
+  // a per-page permission; full-access roles (admin/hod) can view them too.
   {
     path: "/finance",
-    name: "Finance",
+    name: "Finance Dashboard",
+    element: FinanceOverview,
+    module: null,
+  },
+  {
+    path: "/finance/purchase-requests",
+    name: "Purchase Requests",
+    element: FinancePurchaseRequests,
+    module: null,
+  },
+  {
+    path: "/finance/purchase-requests/:id",
+    name: "Purchase Request Detail",
+    element: FinancePurchaseRequestView,
+    module: null,
+  },
+  {
+    path: "/finance/purchase-returns",
+    name: "Purchase Return Requests",
+    element: FinancePurchaseReturns,
+    module: null,
+  },
+  {
+    path: "/finance/receivables/clients",
+    name: "Client Dues",
+    element: FinanceClientReceivables,
+    module: null,
+  },
+  {
+    path: "/finance/receivables/suppliers",
+    name: "Supplier Dues",
+    element: FinanceSupplierPayables,
+    module: null,
+  },
+  {
+    path: "/finance/billing",
+    name: "Billing",
+    element: FinanceBilling,
+    module: null,
+  },
+  {
+    path: "/finance/payments/due",
+    name: "Payments to Make",
+    element: FinancePaymentsToMake,
+    module: null,
+  },
+  {
+    path: "/finance/payments/hold",
+    name: "Payment Hold",
+    element: FinancePaymentHold,
+    module: null,
+  },
+  // Legacy finance dashboard (mock data) kept for admin/HOD reference.
+  {
+    path: "/finance-legacy",
+    name: "Finance (Legacy)",
     element: FinanceDashboard,
     module: "finance",
     action: "read",
@@ -1319,6 +1423,46 @@ const routes = [
     action: "read",
   },
 
+  // Purchases Request bucket (Local Purchase section) — frontend-only sample
+  // pages. Same gating as the Local Purchase / Brand Purchase siblings.
+  {
+    path: "/purchase-request-bucket",
+    name: "Purchases Request",
+    element: PurchaseRequestBucket,
+    module: "purchase_bucket",
+    action: "read",
+  },
+  {
+    path: "/purchase-request-bucket/purchase",
+    name: "Other Purchase",
+    element: PurchaseRequestPurchase,
+    module: "purchase_bucket",
+    action: "read",
+  },
+  {
+    path: "/purchase-request-bucket/:id",
+    name: "Purchases Request Detail",
+    element: PurchaseRequestBucketDetail,
+    module: "purchase_bucket",
+    action: "read",
+  },
+
+  // Raised Purchases (from the Other Purchase flow) — frontend-only sample data.
+  {
+    path: "/raised-purchases",
+    name: "Raised Purchases",
+    element: RaisedPurchases,
+    module: "purchase_bucket",
+    action: "read",
+  },
+  {
+    path: "/raised-purchases/:id",
+    name: "Raised Purchase Detail",
+    element: RaisedPurchaseDetail,
+    module: "purchase_bucket",
+    action: "read",
+  },
+
   // Employees
   {
     path: "/employee-locations",
@@ -1797,6 +1941,13 @@ const routes = [
     path: "/procurement-master/reports/my-performance",
     name: "Procurement Master My Performance Report",
     element: ProcurementMasterPerformanceReport,
+  },
+  {
+    // Standalone "My Performance" — only the person's own work report, no
+    // cross-section sub-nav. Open to any authenticated user (frontend-only).
+    path: "/my-performance",
+    name: "My Performance",
+    element: ProcurementMasterMyPerformance,
   },
 
   // Notifications - accessible to all authenticated users

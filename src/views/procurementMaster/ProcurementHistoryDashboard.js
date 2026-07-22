@@ -189,6 +189,170 @@ const ProcurementHistoryDashboard = () => {
   };
   const hasFilters = search || category || bucket || stage;
 
+  // Full detailed view rendered inside the drilldown popup.
+  const renderDrillDetail = (d) => {
+    const currentIdx = STAGE_ORDER.indexOf(d.stage);
+    const targetValue = d.targetRate != null ? d.qty * d.targetRate : null;
+    const submittedValue =
+      d.submittedRate != null ? d.qty * d.submittedRate : null;
+    const savings =
+      targetValue != null && submittedValue != null
+        ? targetValue - submittedValue
+        : null;
+
+    return (
+      <>
+        {/* Status chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge
+            status={stageLabel(d.stage)}
+            variant={statusVariant(d.stage)}
+          />
+          <BucketBadge bucketType={d.bucketType} />
+          <Badge variant="secondary">{d.category}</Badge>
+          <Badge variant="outline" className="font-mono">
+            {d.id}
+          </Badge>
+        </div>
+
+        {/* Rate block */}
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Rate
+            </span>
+            <RateVariance row={d} />
+          </div>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <div className="text-xs text-muted-foreground">Target</div>
+              <div className="text-lg font-semibold text-muted-foreground">
+                {d.targetRate == null ? "—" : formatINR(d.targetRate)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-muted-foreground">Submitted</div>
+              <div className="text-lg font-bold text-foreground">
+                {d.submittedRate == null
+                  ? "Awaiting"
+                  : formatINR(d.submittedRate)}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Value / savings block */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="rounded-lg border border-border p-3 text-center">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Target Value
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-muted-foreground">
+              {targetValue == null ? "—" : formatINR(targetValue)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border p-3 text-center">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Submitted Value
+            </div>
+            <div className="mt-0.5 text-sm font-semibold text-foreground">
+              {submittedValue == null ? "—" : formatINR(submittedValue)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border p-3 text-center">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {savings != null && savings < 0 ? "Extra Cost" : "Savings"}
+            </div>
+            <div
+              className={`mt-0.5 text-sm font-semibold ${
+                savings == null
+                  ? "text-muted-foreground"
+                  : savings > 0
+                    ? "text-success!"
+                    : savings < 0
+                      ? "text-destructive"
+                      : "text-muted-foreground"
+              }`}
+            >
+              {savings == null ? "—" : formatINR(Math.abs(savings))}
+            </div>
+          </div>
+        </div>
+
+        {/* Item details */}
+        <div className="rounded-lg border border-border px-3">
+          <DrillRow label="Product" value={d.product} strong />
+          <DrillRow label="Supplier" value={d.supplier || "—"} strong />
+          <DrillRow label="Category" value={d.category} />
+          <DrillRow
+            label="Bucket"
+            value={d.bucketType === "brand" ? "Brand" : "Local"}
+          />
+          <DrillRow
+            label="Quantity"
+            value={`${d.qty ?? "—"}${d.unit ? ` ${d.unit}` : ""}`}
+          />
+          <DrillRow label="Query Code" value={d.queryCode || "—"} />
+          <DrillRow label="Handled By" value={d.buyer || "—"} />
+          <DrillRow label="Stage" value={stageLabel(d.stage)} />
+          <DrillRow label="Date" value={dateFormatter(d.date, "—")} />
+        </div>
+
+        {/* Procurement journey timeline */}
+        <div className="rounded-lg border border-border px-3 py-3">
+          <div className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Procurement Journey
+          </div>
+          <ol className="space-y-3">
+            {STAGE_ORDER.map((k, i) => {
+              const done = currentIdx >= 0 && i <= currentIdx;
+              const isCurrent = i === currentIdx;
+              return (
+                <li key={k} className="flex items-center gap-3">
+                  <span
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                      done
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {done ? "✓" : i + 1}
+                  </span>
+                  <span
+                    className={
+                      done
+                        ? "text-sm font-medium text-foreground"
+                        : "text-sm text-muted-foreground"
+                    }
+                  >
+                    {STAGE_META[k].label}
+                  </span>
+                  {isCurrent && (
+                    <Badge variant="secondary" className="ml-auto">
+                      Current
+                    </Badge>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+
+        {/* Remark */}
+        {d.remark && (
+          <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Remark
+            </div>
+            <div className="mt-0.5 whitespace-pre-wrap break-words text-sm">
+              {d.remark}
+            </div>
+          </div>
+        )}
+      </>
+    );
+  };
+
   const columns = useMemo(
     () => [
       {
@@ -494,70 +658,7 @@ const ProcurementHistoryDashboard = () => {
         title={drill ? drill.product : ""}
         description={drill ? drill.queryCode : ""}
       >
-        {drill && (
-          <>
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge
-                status={stageLabel(drill.stage)}
-                variant={statusVariant(drill.stage)}
-              />
-              <BucketBadge bucketType={drill.bucketType} />
-              <Badge variant="secondary">{drill.category}</Badge>
-            </div>
-
-            {/* Rate block */}
-            <div className="rounded-lg border border-border bg-muted/30 p-3">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Rate
-                </span>
-                <RateVariance row={drill} />
-              </div>
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Target</div>
-                  <div className="text-lg font-semibold text-muted-foreground">
-                    {drill.targetRate == null
-                      ? "—"
-                      : formatINR(drill.targetRate)}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-xs text-muted-foreground">Submitted</div>
-                  <div className="text-lg font-bold text-foreground">
-                    {drill.submittedRate == null
-                      ? "Awaiting"
-                      : formatINR(drill.submittedRate)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border px-3">
-              <DrillRow label="Supplier" value={drill.supplier || "—"} strong />
-              <DrillRow label="Category" value={drill.category} />
-              <DrillRow
-                label="Quantity"
-                value={`${drill.qty ?? "—"}${drill.unit ? ` ${drill.unit}` : ""}`}
-              />
-              <DrillRow label="Query Code" value={drill.queryCode || "—"} />
-              <DrillRow label="Handled By" value={drill.buyer || "—"} />
-              <DrillRow label="Stage" value={stageLabel(drill.stage)} />
-              <DrillRow label="Date" value={dateFormatter(drill.date, "—")} />
-            </div>
-
-            {drill.remark && (
-              <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  Remark
-                </div>
-                <div className="mt-0.5 whitespace-pre-wrap break-words text-sm">
-                  {drill.remark}
-                </div>
-              </div>
-            )}
-          </>
-        )}
+        {drill && renderDrillDetail(drill)}
       </DrilldownSheet>
     </div>
   );

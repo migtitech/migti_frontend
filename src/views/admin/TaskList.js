@@ -326,16 +326,18 @@ const TaskList = () => {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      <TablePagination
-        currentPage={pagination.currentPage}
-        totalPages={pagination.totalPages}
-        onPageChange={setPageNumber}
-        disabled={loading}
-        showRange
-        totalItems={pagination.totalItems}
-        itemsPerPage={pageSize}
-        wrapperClassName="flex justify-between items-center mt-2"
-      />
+      {pagination && (
+        <TablePagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          onPageChange={setPageNumber}
+          disabled={loading}
+          showRange
+          totalItems={pagination.totalItems}
+          itemsPerPage={pageSize}
+          wrapperClassName="flex justify-between items-center mt-2"
+        />
+      )}
     </div>
   );
 };

@@ -7,6 +7,7 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronsUpDown,
+  FilterX,
 } from "lucide-react";
 import {
   Table,
@@ -16,6 +17,7 @@ import {
   TableHead,
   TableCell,
   Input,
+  Select,
   Button,
   Checkbox,
   Skeleton,
@@ -26,6 +28,57 @@ import {
 } from "../ui";
 import EmptyState from "../EmptyState/EmptyState";
 import { cn } from "../../lib/utils";
+
+/** Sorted, de-duplicated option values pulled from the rows for a select filter. */
+const deriveOptions = (rows, accessor) => {
+  const set = new Set();
+  for (const r of rows || []) {
+    const v = accessor(r);
+    if (v != null && String(v).trim() !== "") set.add(String(v));
+  }
+  return [...set]
+    .sort((a, b) => a.localeCompare(b))
+    .map((v) => ({ value: v, label: v }));
+};
+
+/** True when a single row satisfies one filter field given its current value. */
+const rowMatchesField = (field, value, row) => {
+  const raw = field.accessor ? field.accessor(row) : row[field.key];
+  if (field.type === "select") {
+    if (!value) return true;
+    return String(raw ?? "") === String(value);
+  }
+  if (field.type === "amountRange") {
+    const { min = "", max = "" } = value || {};
+    const v = Number(raw) || 0;
+    if (min !== "" && v < Number(min)) return false;
+    if (max !== "" && v > Number(max)) return false;
+    return true;
+  }
+  if (field.type === "dateRange") {
+    const { from = "", to = "" } = value || {};
+    if (!from && !to) return true;
+    if (!raw) return false;
+    const t = new Date(raw).getTime();
+    if (Number.isNaN(t)) return false;
+    if (from && t < new Date(from).getTime()) return false;
+    // Include the whole "to" day (23:59:59.999).
+    if (to && t > new Date(to).getTime() + (86400000 - 1)) return false;
+    return true;
+  }
+  return true;
+};
+
+/** Whether a filter field currently holds an active (non-empty) value. */
+const isFieldActive = (field, value) => {
+  if (value == null) return false;
+  if (field.type === "select") return value !== "";
+  if (field.type === "amountRange")
+    return (value.min ?? "") !== "" || (value.max ?? "") !== "";
+  if (field.type === "dateRange")
+    return (value.from ?? "") !== "" || (value.to ?? "") !== "";
+  return false;
+};
 
 /**
  * Enterprise-grade data table: search, sort, column visibility, sticky
@@ -46,6 +99,7 @@ const DataTable = ({
   onRowClick,
   showSearch = true,
   searchPlaceholder = "Search...",
+  filterFields,
   exportFileName = "export",
   stickyHeader = true,
   maxHeight = "65vh",
@@ -60,25 +114,64 @@ const DataTable = ({
   const [internalSearch, setInternalSearch] = useState("");
   const [sort, setSort] = useState({ key: null, direction: "asc" });
   const [hiddenKeys, setHiddenKeys] = useState(() => new Set());
+  const [filterValues, setFilterValues] = useState({});
 
   const visibleColumns = useMemo(
     () => columns.filter((col) => !hiddenKeys.has(col.key)),
     [columns, hiddenKeys],
   );
 
+  // Resolve filter fields, auto-deriving select options from the data when the
+  // caller didn't supply an explicit list.
+  const resolvedFilters = useMemo(
+    () =>
+      (filterFields || []).map((f) =>
+        f.type === "select" && !f.options
+          ? { ...f, options: deriveOptions(rows, f.accessor) }
+          : f,
+      ),
+    [filterFields, rows],
+  );
+
+  const setFilter = (key, value) =>
+    setFilterValues((prev) => ({ ...prev, [key]: value }));
+  const clearFilters = () => setFilterValues({});
+  const hasActiveFilters = resolvedFilters.some((f) =>
+    isFieldActive(f, filterValues[f.key]),
+  );
+
   const filteredRows = useMemo(() => {
-    if (!showSearch || !internalSearch.trim()) return rows;
-    const term = internalSearch.trim().toLowerCase();
-    return rows.filter((row) =>
-      columns.some((col) => {
-        if (col.exportable === false && !col.sortValue) return false;
-        const raw = col.sortValue ? col.sortValue(row) : row[col.key];
-        return String(raw ?? "")
-          .toLowerCase()
-          .includes(term);
-      }),
-    );
-  }, [rows, columns, internalSearch, showSearch]);
+    let list = rows;
+    // Structured field filters (status / entity / amount / date).
+    if (resolvedFilters.length) {
+      list = list.filter((row) =>
+        resolvedFilters.every((f) =>
+          rowMatchesField(f, filterValues[f.key], row),
+        ),
+      );
+    }
+    // Free-text search.
+    if (showSearch && internalSearch.trim()) {
+      const term = internalSearch.trim().toLowerCase();
+      list = list.filter((row) =>
+        columns.some((col) => {
+          if (col.exportable === false && !col.sortValue) return false;
+          const raw = col.sortValue ? col.sortValue(row) : row[col.key];
+          return String(raw ?? "")
+            .toLowerCase()
+            .includes(term);
+        }),
+      );
+    }
+    return list;
+  }, [
+    rows,
+    columns,
+    internalSearch,
+    showSearch,
+    resolvedFilters,
+    filterValues,
+  ]);
 
   const sortedRows = useMemo(() => {
     if (!sort.key) return filteredRows;
@@ -216,6 +309,111 @@ const DataTable = ({
         </div>
       </div>
 
+      {resolvedFilters.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-border bg-muted/30 p-3">
+          {resolvedFilters.map((field) => {
+            const value = filterValues[field.key];
+            if (field.type === "select") {
+              return (
+                <div key={field.key} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {field.label}
+                  </label>
+                  <Select
+                    value={value || ""}
+                    onChange={(e) => setFilter(field.key, e.target.value)}
+                    className="h-9 w-48 max-w-full"
+                  >
+                    <option value="">
+                      {field.allLabel || `All ${field.label}`}
+                    </option>
+                    {field.options.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              );
+            }
+            if (field.type === "amountRange") {
+              const { min = "", max = "" } = value || {};
+              return (
+                <div key={field.key} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {field.label}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="Min"
+                      value={min}
+                      onChange={(e) =>
+                        setFilter(field.key, { min: e.target.value, max })
+                      }
+                      className="h-9 w-28"
+                    />
+                    <span className="text-muted-foreground">–</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="Max"
+                      value={max}
+                      onChange={(e) =>
+                        setFilter(field.key, { min, max: e.target.value })
+                      }
+                      className="h-9 w-28"
+                    />
+                  </div>
+                </div>
+              );
+            }
+            if (field.type === "dateRange") {
+              const { from = "", to = "" } = value || {};
+              return (
+                <div key={field.key} className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    {field.label}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={from}
+                      onChange={(e) =>
+                        setFilter(field.key, { from: e.target.value, to })
+                      }
+                      className="h-9 w-40"
+                    />
+                    <span className="text-muted-foreground">–</span>
+                    <Input
+                      type="date"
+                      value={to}
+                      onChange={(e) =>
+                        setFilter(field.key, { from, to: e.target.value })
+                      }
+                      className="h-9 w-40"
+                    />
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="h-9"
+            >
+              <FilterX className="h-4 w-4" />
+              Clear filters
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="overflow-hidden rounded-xl border border-border">
         <div
           className={stickyHeader ? "overflow-auto" : undefined}
@@ -349,6 +547,21 @@ DataTable.propTypes = {
   onRowClick: PropTypes.func,
   showSearch: PropTypes.bool,
   searchPlaceholder: PropTypes.string,
+  filterFields: PropTypes.arrayOf(
+    PropTypes.shape({
+      key: PropTypes.string.isRequired,
+      label: PropTypes.string.isRequired,
+      type: PropTypes.oneOf(["select", "amountRange", "dateRange"]).isRequired,
+      accessor: PropTypes.func,
+      options: PropTypes.arrayOf(
+        PropTypes.shape({
+          value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+          label: PropTypes.string,
+        }),
+      ),
+      allLabel: PropTypes.string,
+    }),
+  ),
   exportFileName: PropTypes.string,
   stickyHeader: PropTypes.bool,
   maxHeight: PropTypes.string,

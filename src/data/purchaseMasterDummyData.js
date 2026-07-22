@@ -1182,6 +1182,134 @@ export const localPurchaseAssignees = [
   { id: "LP-3", name: "Imran Khan — Local Purchase Exec (Bhopal)" },
 ];
 
+/**
+ * Raised Purchases — orders raised from the "Other Purchase" flow
+ * (/purchase-request-bucket/purchase). One supplier, multiple products. These
+ * land in the "Raised Purchases" sidebar section where their status is tracked
+ * end to end. Frontend-only sample data.
+ */
+export const raisedPurchaseStatusMeta = {
+  pending_hod: { label: "Pending HOD Approval", variant: "warning", step: 1 },
+  approved: { label: "Approved", variant: "info", step: 2 },
+  po_sent: { label: "PO Sent to Supplier", variant: "info", step: 3 },
+  received: { label: "Received", variant: "success", step: 4 },
+  rejected: { label: "Rejected", variant: "destructive", step: 2 },
+};
+
+/** Ordered stages a raised purchase moves through (for the status timeline). */
+export const raisedPurchaseStages = [
+  "pending_hod",
+  "approved",
+  "po_sent",
+  "received",
+];
+
+export const raisedPurchases = [
+  {
+    id: "RP-4007",
+    supplier: "Kumar Electronics Traders",
+    supplierCategory: "Electronics",
+    sourcePr: "PR-1042",
+    raisedBy: "Deepak Kumar",
+    raisedOn: "2026-07-16",
+    status: "pending_hod",
+    products: [
+      {
+        sku: "ELE-CT-200",
+        name: "Cable Ties 200mm (Pack of 100)",
+        qty: 5,
+        rate: 85,
+      },
+      { sku: "ELE-HD-19", name: "HDMI Connector 19-Pin", qty: 120, rate: 42 },
+    ],
+    remark: "Raised from Purchases Request PR-1042 via Other Purchase.",
+  },
+  {
+    id: "RP-4006",
+    supplier: "Shree Packaging Co.",
+    supplierCategory: "Packaging Material",
+    sourcePr: "PR-1030",
+    raisedBy: "Ramesh Patel",
+    raisedOn: "2026-07-15",
+    status: "approved",
+    products: [
+      {
+        sku: "PKG-BW-150",
+        name: "Bubble Wrap Roll 1m x 50m",
+        qty: 18,
+        rate: 650,
+      },
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        qty: 100,
+        rate: 22,
+      },
+    ],
+    remark: "Approved by HOD; PO drafting next.",
+  },
+  {
+    id: "RP-4005",
+    supplier: "Bright Circuits Pvt Ltd",
+    supplierCategory: "Electronics",
+    sourcePr: "PR-1039",
+    raisedBy: "Deepak Kumar",
+    raisedOn: "2026-07-14",
+    status: "po_sent",
+    products: [
+      { sku: "ELE-HD-19", name: "HDMI Connector 19-Pin", qty: 120, rate: 42 },
+    ],
+    remark: "PO sent to supplier, awaiting delivery.",
+  },
+  {
+    id: "RP-4004",
+    supplier: "Indore Corrugated Box Works",
+    supplierCategory: "Packaging Material",
+    sourcePr: "PR-1035",
+    raisedBy: "Ramesh Patel",
+    raisedOn: "2026-07-13",
+    status: "received",
+    products: [
+      {
+        sku: "PKG-CB-121212",
+        name: "Corrugated Box 12x12x12",
+        qty: 300,
+        rate: 22,
+      },
+    ],
+    remark: "Goods received in full.",
+  },
+  {
+    id: "RP-4003",
+    supplier: "Om Electricals & Components",
+    supplierCategory: "Electronics",
+    sourcePr: "PR-1028",
+    raisedBy: "Vivek Joshi",
+    raisedOn: "2026-07-11",
+    status: "rejected",
+    products: [
+      {
+        sku: "ELE-PA-12",
+        name: "Branded Power Adapter 12V 2A",
+        qty: 60,
+        rate: 310,
+      },
+    ],
+    remark: "Rejected by HOD — rate above approved ceiling; renegotiate.",
+  },
+];
+
+/** Total amount for a raised purchase (sum of qty × rate across products). */
+export const raisedPurchaseTotal = (row) =>
+  (row?.products || []).reduce(
+    (sum, p) => sum + Number(p.qty || 0) * Number(p.rate || 0),
+    0,
+  );
+
+/** Look up a raised purchase by id, with a safe fallback. */
+export const getRaisedPurchaseDetail = (id) =>
+  raisedPurchases.find((r) => r.id === id) || { id, notFound: true };
+
 /** Priority options reused across the direct-purchase action form. */
 export const purchasePriorityOptions = ["high", "medium", "low"];
 

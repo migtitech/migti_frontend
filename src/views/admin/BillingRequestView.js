@@ -15,12 +15,19 @@ import {
   CardContent,
   Input,
   Label,
+  Select,
   Textarea,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetBody,
   SheetTitle,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
   Spinner,
   Table,
   TableBody,
@@ -169,6 +176,47 @@ const HodProductBadge = ({ status }) => {
   return <Badge variant={s.color}>{s.label}</Badge>;
 };
 
+const PAYMENT_MODE_OPTIONS = [
+  { value: "bank_transfer", label: "Bank Transfer (NEFT/RTGS/IMPS)" },
+  { value: "upi", label: "UPI" },
+  { value: "cheque", label: "Cheque" },
+  { value: "cash", label: "Cash" },
+  { value: "card", label: "Credit / Debit Card" },
+];
+
+const PAYMENT_TYPE_OPTIONS = [
+  { value: "full_payment", label: "Full Payment" },
+  { value: "advance", label: "Advance" },
+  { value: "partial", label: "Partial Payment" },
+];
+
+const optionLabel = (options, value) =>
+  options.find((o) => o.value === value)?.label || value || "";
+
+const todayISO = () => new Date().toISOString().slice(0, 10);
+
+/**
+ * Compose a single structured finance remark string from the popup fields so
+ * the extra details persist through the existing `financeRemark` field without
+ * requiring any new backend columns.
+ */
+const composeFinanceRemark = ({
+  paymentType,
+  paymentMode,
+  paymentDate,
+  referenceNo,
+  note,
+}) =>
+  [
+    paymentType && `Type: ${optionLabel(PAYMENT_TYPE_OPTIONS, paymentType)}`,
+    paymentMode && `Mode: ${optionLabel(PAYMENT_MODE_OPTIONS, paymentMode)}`,
+    paymentDate && `Date: ${paymentDate}`,
+    referenceNo && `Ref: ${referenceNo}`,
+    note && `Note: ${note}`,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
 const BillingRequestView = ({
   basePath = "/billing-requests",
   pageTitle = "Billing Requests",
@@ -180,7 +228,7 @@ const BillingRequestView = ({
   const [detail, setDetail] = useState(null);
   const [docLoadingKey, setDocLoadingKey] = useState(null);
 
-  // Finance approve offcanvas state
+  // Finance approve popup state
   const [actionOpen, setActionOpen] = useState(false);
   const [financeRemark, setFinanceRemark] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
@@ -188,6 +236,12 @@ const BillingRequestView = ({
   const [proofFileName, setProofFileName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
+  // Additional finance details captured in the approval popup. These are
+  // folded into the finance remark on submit (no new backend fields needed).
+  const [paymentMode, setPaymentMode] = useState("");
+  const [paymentType, setPaymentType] = useState("full_payment");
+  const [paymentDate, setPaymentDate] = useState("");
+  const [referenceNo, setReferenceNo] = useState("");
 
   // Per-product HOD action offcanvas state
   const [productActionOpen, setProductActionOpen] = useState(false);
@@ -227,6 +281,10 @@ const BillingRequestView = ({
     setPaidAmount("");
     setProofFile(null);
     setProofFileName("");
+    setPaymentMode("");
+    setPaymentType("full_payment");
+    setPaymentDate(todayISO());
+    setReferenceNo("");
     setActionOpen(true);
   };
 
@@ -331,8 +389,16 @@ const BillingRequestView = ({
         paymentProofDocId = String(first._id);
       }
 
+      const composedRemark = composeFinanceRemark({
+        paymentType,
+        paymentMode,
+        paymentDate,
+        referenceNo: referenceNo.trim(),
+        note: financeRemark.trim(),
+      });
+
       const res = await billingRequestBatchService.financeApprove(id, {
-        financeRemark: financeRemark.trim(),
+        financeRemark: composedRemark,
         paidAmount: paidAmount !== "" ? Number(paidAmount) : null,
         paymentProofDocId,
       });
@@ -377,6 +443,7 @@ const BillingRequestView = ({
     parsedPaidAmount != null &&
     Number.isFinite(parsedPaidAmount) &&
     Math.round(parsedPaidAmount * 100) === Math.round(grandTotal * 100);
+  const canSubmitFinance = isPaidAmountValid && !!paymentMode;
   const createdByName =
     detail.createdBySnapshot?.name || detail.createdBySnapshot?.fullName || "—";
   const reviewedByName =
@@ -817,27 +884,61 @@ const BillingRequestView = ({
         </SheetContent>
       </Sheet>
 
-      {/* Finance Approve Offcanvas */}
-      <Sheet
+      {/* Finance Approval Popup */}
+      <Dialog
         open={actionOpen}
         onOpenChange={(o) => !o && !submitting && setActionOpen(false)}
       >
-        <SheetContent side="right" className="w-full sm:max-w-[420px]">
-          <SheetHeader>
-            <SheetTitle>Finance Approval</SheetTitle>
-          </SheetHeader>
-          <SheetBody className="flex flex-col gap-3">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
+          <DialogHeader>
+            <DialogTitle>Finance Approval</DialogTitle>
+            <DialogDescription>
+              Record the payment details for{" "}
+              <span className="font-medium text-foreground">
+                {detail.billingRequestCode || "this request"}
+              </span>{" "}
+              ({fmtAmount(grandTotal)}).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+            {/* Payment Type */}
             <div>
-              <Label className="mb-1 font-medium">Remark</Label>
-              <Textarea
-                rows={3}
-                placeholder="Add a remark (optional)"
-                value={financeRemark}
-                onChange={(e) => setFinanceRemark(e.target.value)}
+              <Label className="mb-1 font-medium">Payment Type</Label>
+              <Select
+                value={paymentType}
+                onChange={(e) => setPaymentType(e.target.value)}
                 disabled={submitting}
-              />
+              >
+                {PAYMENT_TYPE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
             </div>
 
+            {/* Payment Mode (required) */}
+            <div>
+              <Label className="mb-1 font-medium">
+                Payment Mode <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={paymentMode}
+                onChange={(e) => setPaymentMode(e.target.value)}
+                disabled={submitting}
+                aria-invalid={!paymentMode}
+              >
+                <option value="">Select mode…</option>
+                {PAYMENT_MODE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            {/* Paid Amount */}
             <div>
               <Label className="mb-1 font-medium">Paid Amount</Label>
               <Input
@@ -860,7 +961,45 @@ const BillingRequestView = ({
               )}
             </div>
 
+            {/* Payment Date */}
             <div>
+              <Label className="mb-1 font-medium">Payment Date</Label>
+              <Input
+                type="date"
+                value={paymentDate}
+                onChange={(e) => setPaymentDate(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+
+            {/* Reference / Transaction No. */}
+            <div className="sm:col-span-2">
+              <Label className="mb-1 font-medium">
+                Reference / Transaction No.
+              </Label>
+              <Input
+                type="text"
+                placeholder="UTR / cheque no. / txn id (optional)"
+                value={referenceNo}
+                onChange={(e) => setReferenceNo(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+
+            {/* Remark */}
+            <div className="sm:col-span-2">
+              <Label className="mb-1 font-medium">Remark</Label>
+              <Textarea
+                rows={3}
+                placeholder="Add a remark (optional)"
+                value={financeRemark}
+                onChange={(e) => setFinanceRemark(e.target.value)}
+                disabled={submitting}
+              />
+            </div>
+
+            {/* Payment Proof */}
+            <div className="sm:col-span-2">
               <Label className="mb-1 font-medium">Payment Proof</Label>
               <input
                 ref={fileInputRef}
@@ -882,7 +1021,7 @@ const BillingRequestView = ({
                 </Button>
                 {proofFileName && (
                   <span
-                    className="max-w-[200px] truncate text-sm text-muted-foreground"
+                    className="max-w-[240px] truncate text-sm text-muted-foreground"
                     title={proofFileName}
                   >
                     {proofFileName}
@@ -890,29 +1029,34 @@ const BillingRequestView = ({
                 )}
               </div>
             </div>
+          </div>
 
-            {isPaidAmountValid && (
-              <div className="mt-auto border-t border-border pt-3">
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={submitting}
-                  onClick={onSubmitFinanceApprove}
-                >
-                  {submitting ? (
-                    <>
-                      <Spinner size="sm" />
-                      Submitting…
-                    </>
-                  ) : (
-                    "Submit"
-                  )}
-                </Button>
-              </div>
-            )}
-          </SheetBody>
-        </SheetContent>
-      </Sheet>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={submitting}
+              onClick={() => setActionOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={submitting || !canSubmitFinance}
+              onClick={onSubmitFinanceApprove}
+            >
+              {submitting ? (
+                <>
+                  <Spinner size="sm" />
+                  Submitting…
+                </>
+              ) : (
+                "Submit Approval"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

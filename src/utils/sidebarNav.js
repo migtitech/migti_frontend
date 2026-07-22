@@ -1,9 +1,13 @@
-import navigation, { PURCHASE_ROLE_NAV } from "../_nav";
+import navigation, { PURCHASE_ROLE_NAV, FINANCE_ROLE_NAV } from "../_nav";
 import {
   isBackOfficeRole,
   isPurchaseFamilyRole,
   normalizeRole,
 } from "../hooks/usePermissions";
+
+// Nav component discriminators (mirror _nav.js CNavGroup / CNavItem).
+const CNAV_GROUP = "group";
+const CNAV_ITEM = "item";
 
 /** Routes visible in the sidebar and open to every authenticated role. */
 export const UNIVERSAL_NAV_PATHS = new Set([
@@ -338,6 +342,11 @@ const resolveNavStrategy = (role) => {
   if (role === "admin") return "admin";
   if (role === "dispatch_manager") return "dispatch_manager";
   if (role === "inventry_manager") return "inventory_manager";
+  // Every sales-family role (sales_manager, sales_exicutive, …) gets the
+  // curated Sales sidebar (reuses the real HOD sections; see buildSalesNav).
+  if (String(role || "").startsWith("sales")) return "sales";
+  // Procurement gets its own curated sidebar (see buildProcurementNav).
+  if (role === "procurement") return "procurement";
   return "default";
 };
 
@@ -355,6 +364,248 @@ const buildNavFilterContext = (user, { hasAnyPermission, isFullAccess }) => {
   };
 };
 
+// ---- Sales role curated sidebar --------------------------------------------
+// Legacy sample-data pages (superseded by the real HOD sections for Sales).
+const SALES_DEMO_PREFIX = "/sales-master/";
+// Leaves shown as their own top-level Sales sections (hoisted out of groups).
+const SALES_HOISTED_PATHS = new Set(["/pending-payment", "/my-targets"]);
+// Supplier sub-items hidden under Business Partner for Sales.
+const SALES_SUPPLIER_HIDDEN = new Set(["/suppliers", "/supplier-contacts"]);
+// Product Master: Sales sees only the Product Sale List.
+const SALES_PRODUCT_ONLY = new Set(["/product-sale-list"]);
+// Query Master: hide Report for Sales.
+const SALES_QUERY_HIDDEN = new Set(["/query-master/report"]);
+// Quotation Master: hide Quotation Products + Report for Sales.
+const SALES_QUOTATION_HIDDEN = new Set([
+  "/quotation-products",
+  "/quotation-master/report",
+]);
+// Sales Order Master: Sales sees only the Create Sales Order screen.
+const SALES_ORDER_CREATE_PATH = "/sales-master/sales-order/create";
+
+const findNodeByTo = (items, to) => {
+  for (const it of items || []) {
+    if (it.to === to) return it;
+    if (it.items?.length) {
+      const found = findNodeByTo(it.items, to);
+      if (found) return found;
+    }
+  }
+  return null;
+};
+
+/** Remove leaves matching `shouldRemove`, pruning any group left empty. */
+const stripLeaves = (items, shouldRemove) =>
+  (items || []).flatMap((it) => {
+    if (it.items?.length) {
+      const kids = stripLeaves(it.items, shouldRemove);
+      return kids.length ? [{ ...it, items: kids }] : [];
+    }
+    return shouldRemove(it) ? [] : [it];
+  });
+
+/**
+ * Builds the curated Sales sidebar. Reuses the real HOD sections (same routes)
+ * and only decides ordering/visibility — no new pages. Order:
+ *   Dashboard, Due Payment, Business Partner, Product Master, Query Master,
+ *   Quotation Master, Sales Order Master, My Performance, Company Information,
+ *   Miscellaneous (everything else the role can access).
+ */
+const buildSalesNav = (navItems, ctx) => {
+  const duNode = findNodeByTo(navItems, "/pending-payment");
+  const mpNode = findNodeByTo(navItems, "/my-targets");
+
+  // Standard visibility (role flags + granted permissions).
+  const base = filterNavigationItems(navItems, { ...ctx, strategy: "default" });
+  const canDuePayment = !!findNodeByTo(base, "/pending-payment");
+  const canMyPerformance = !!findNodeByTo(base, "/my-targets");
+
+  // Drop superseded demo pages and the leaves hoisted to the top level.
+  const cleaned = stripLeaves(
+    base,
+    (it) =>
+      !!it.to &&
+      (it.to.startsWith(SALES_DEMO_PREFIX) || SALES_HOISTED_PATHS.has(it.to)),
+  );
+
+  const byName = new Map(cleaned.map((i) => [i.name, i]));
+  const consumed = new Set();
+  const out = [];
+  const take = (name, transform) => {
+    const node = byName.get(name);
+    if (!node) return;
+    consumed.add(name);
+    const result = transform ? transform(node) : node;
+    if (!result) return;
+    if (Array.isArray(result.items) && result.items.length === 0) return;
+    out.push(result);
+  };
+
+  // 1. Dashboard → single item opening the Sales Dashboard (no sub-heading).
+  take("Dashboard", (node) => {
+    const target =
+      node.items?.find((c) => c.to === "/sales-dashboard") || node.items?.[0];
+    return target ? { ...target, name: "Dashboard", icon: node.icon } : null;
+  });
+  // 2. Due Payment (hoisted).
+  if (canDuePayment && duNode) {
+    out.push({
+      component: CNAV_ITEM,
+      name: "Due Payment",
+      to: "/pending-payment",
+      icon: duNode.icon,
+    });
+  }
+  // 3. Business Partner (Supplier sub-items hidden).
+  take("Business Partner", (node) => {
+    const items = (node.items || []).filter(
+      (c) => !SALES_SUPPLIER_HIDDEN.has(c.to),
+    );
+    return items.length ? { ...node, items } : null;
+  });
+  // 4. Product Master — only the Product Sale List.
+  take("Product Master", (node) => {
+    const items = (node.items || []).filter((c) =>
+      SALES_PRODUCT_ONLY.has(c.to),
+    );
+    return items.length ? { ...node, items } : null;
+  });
+  // 5. Query Master — hide Report.
+  take("Query Master", (node) => {
+    const items = (node.items || []).filter(
+      (c) => !SALES_QUERY_HIDDEN.has(c.to),
+    );
+    return items.length ? { ...node, items } : null;
+  });
+  // 6. Quotation Master — hide Quotation Products + Report.
+  take("Quotation Master", (node) => {
+    const items = (node.items || []).filter(
+      (c) => !SALES_QUOTATION_HIDDEN.has(c.to),
+    );
+    return items.length ? { ...node, items } : null;
+  });
+  // 7. Sales Order Master — only the Create Sales Order screen.
+  {
+    const soGroup = byName.get("Sales Order Master");
+    const createNode = findNodeByTo(navItems, SALES_ORDER_CREATE_PATH);
+    consumed.add("Sales Order Master");
+    out.push({
+      component: CNAV_GROUP,
+      name: "Sales Order Master",
+      icon: soGroup?.icon,
+      items: [
+        {
+          component: CNAV_ITEM,
+          name: "Create Sales Order",
+          to: SALES_ORDER_CREATE_PATH,
+          icon: createNode?.icon,
+        },
+      ],
+    });
+  }
+  // 8. My Performance (hoisted).
+  if (canMyPerformance && mpNode) {
+    out.push({
+      component: CNAV_ITEM,
+      name: "My Performance",
+      to: "/my-targets",
+      icon: mpNode.icon,
+    });
+  }
+  // 9. Company Information.
+  take("Company Information");
+
+  // Miscellaneous is intentionally omitted — Sales sees only the curated
+  // sections above; everything else is hidden.
+  return out;
+};
+
+// ---- Procurement role curated sidebar --------------------------------------
+// Business Partner: Client/Customer side hidden (procurement is supplier-side).
+const PROC_CLIENT_HIDDEN = new Set(["/industries", "/customer-contacts"]);
+// Dashboard collapses to the Purchase Dashboard for procurement.
+const PROC_DASHBOARD_PATH = "/purchase-dashboard";
+// "My Performance" opens a clean, standalone report of the person's own work
+// (no cross-section sub-nav) — frontend-only, no permission gating so the
+// procurement role can access it. The old /my-targets page needs
+// target_analytics permission the role lacks.
+const PROC_MY_PERFORMANCE_PATH = "/my-performance";
+// Icon reused from the My Targets nav node.
+const PROC_MY_PERFORMANCE_ICON_PATH = "/my-targets";
+
+/**
+ * Builds the curated Procurement sidebar. Reuses the real HOD sections. Order:
+ *   Dashboard, Business Partner (no Client), Procurement Master, Purchase
+ *   Master, My Performance, Company Information, Miscellaneous.
+ */
+const buildProcurementNav = (navItems, ctx) => {
+  const mpNode = findNodeByTo(navItems, PROC_MY_PERFORMANCE_ICON_PATH);
+
+  // Standard visibility, with the legacy procurement flatten/collapse quirks
+  // suppressed (curatedBase) so Procurement/Purchase Master stay real groups.
+  const base = filterNavigationItems(navItems, {
+    ...ctx,
+    strategy: "default",
+    curatedBase: true,
+  });
+
+  const byName = new Map(base.map((i) => [i.name, i]));
+  const consumed = new Set();
+  const out = [];
+  const take = (name, transform) => {
+    const node = byName.get(name);
+    if (!node) return;
+    consumed.add(name);
+    const result = transform ? transform(node) : node;
+    if (!result) return;
+    if (Array.isArray(result.items) && result.items.length === 0) return;
+    out.push(result);
+  };
+
+  // 1. Dashboard → single item opening the Purchase Dashboard (no sub-heading).
+  take("Dashboard", (node) => {
+    const target =
+      node.items?.find((c) => c.to === PROC_DASHBOARD_PATH) || node.items?.[0];
+    return target ? { ...target, name: "Dashboard", icon: node.icon } : null;
+  });
+  // 2. Business Partner (Client / Customer side hidden).
+  take("Business Partner", (node) => {
+    const items = (node.items || []).filter(
+      (c) => !PROC_CLIENT_HIDDEN.has(c.to),
+    );
+    return items.length ? { ...node, items } : null;
+  });
+  // 3. Procurement Master — all HOD items the role can access.
+  take("Procurement Master");
+  // 4. Purchase Master — all HOD items the role can access.
+  take("Purchase Master");
+  // 5. My Performance (reuse My Targets; hardcoded since it is sales-gated in nav).
+  out.push({
+    component: CNAV_ITEM,
+    name: "My Performance",
+    to: PROC_MY_PERFORMANCE_PATH,
+    icon: mpNode?.icon,
+  });
+  // 6. Company Information.
+  take("Company Information");
+
+  // Miscellaneous intentionally omitted — Procurement sees only the curated
+  // sections above; everything else is hidden.
+  return out;
+};
+
+// ---- Finance role curated sidebar ------------------------------------------
+/**
+ * Builds the curated Finance sidebar. Unlike Sales/Procurement (which reuse the
+ * HOD sections), Finance has its own dedicated pages under /finance/*, so the
+ * tree is fully defined in _nav.js (FINANCE_ROLE_NAV) and returned as-is — no
+ * permission filtering. The finance role reaches these routes via the frontend
+ * gate in ProtectedRoute (isFinanceAllowedPath), which also keeps it off every
+ * other path. Order: Dashboard, Purchase Requests, Purchase Return Requests,
+ * Amount Due (Client / Supplier), Billing, Payments (To Make / Hold).
+ */
+const buildFinanceNav = () => FINANCE_ROLE_NAV;
+
 /**
  * Filter top-level navigation (and nested groups) for the current user role.
  */
@@ -362,16 +613,31 @@ export const filterNavigationItems = (navItems, ctx) => {
   const filter = (item) => isNavItemVisible(item, ctx);
   const items = navItems || [];
 
+  if (ctx.strategy === "sales") {
+    return buildSalesNav(navItems, ctx);
+  }
+
+  if (ctx.strategy === "procurement") {
+    return buildProcurementNav(navItems, ctx);
+  }
+
+  if (ctx.strategy === "finance") {
+    return buildFinanceNav();
+  }
+
   if (ctx.strategy === "roles_only") {
     return items.filter(filter);
   }
 
-  const isProcurement = ctx.role === "procurement";
+  // Legacy procurement flatten/collapse quirks are suppressed while collecting
+  // the curated base (see buildProcurementNav) so groups stay intact.
+  const isProcurement = ctx.role === "procurement" && !ctx.curatedBase;
 
   const applyGroupFilter = (list, isTopLevel = false) =>
     list.flatMap((item) => {
       if (
         isPurchaseFamilyRole(ctx.role) &&
+        !ctx.curatedBase &&
         PURCHASE_MANAGER_HIDDEN_GROUP_NAMES.has(item.name)
       ) {
         return [];
@@ -447,6 +713,15 @@ export const getFilteredSidebarNav = (
 ) => {
   const ctx = buildNavFilterContext(user, { hasAnyPermission, isFullAccess });
   const filtered = filterNavigationItems(navItems, ctx);
+  // Curated sidebars (sales/procurement/finance) are already final — skip the
+  // pro-bucket-route augmentation that would merge extra purchase items.
+  if (
+    ctx.strategy === "sales" ||
+    ctx.strategy === "procurement" ||
+    ctx.strategy === "finance"
+  ) {
+    return filtered;
+  }
   return augmentNavForProBucketRoute(filtered, pathname, ctx);
 };
 

@@ -39,6 +39,8 @@ const FINANCE_OPEN_PATHS = new Set([
 
 const isFinanceAllowedPath = (path) => {
   if (FINANCE_OPEN_PATHS.has(path)) return true;
+  // Dedicated finance module: /finance dashboard + every /finance/* sub-page.
+  if (path === "/finance" || path.startsWith("/finance/")) return true;
   if (path.startsWith("/billing-requests/")) return true;
   if (path.startsWith("/payment/")) return true;
   if (path.startsWith("/order-tracking/")) return true;
@@ -115,7 +117,7 @@ const ProtectedRoute = ({
   }
 
   if (userRole === "finance" && !isFinanceAllowedPath(path)) {
-    return <Navigate to="/billing-requests" replace />;
+    return <Navigate to="/finance" replace />;
   }
 
   if (
@@ -157,9 +159,11 @@ const ProtectedRoute = ({
     return children;
   }
 
-  // Check specific permission
+  // Check specific permission. Authenticated-but-unpermitted users go to
+  // /unauthorized (matching every other guard above); redirecting to /login
+  // here caused an infinite loop with Login's "already authenticated" redirect.
   if (!hasPermission(module, action)) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return children;

@@ -1,11 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Clipboard, Inbox, List, RefreshCcw, Users, Gauge } from "lucide-react";
+import {
+  Clipboard,
+  Inbox,
+  List,
+  RefreshCcw,
+  Users,
+  Gauge,
+  Eye,
+} from "lucide-react";
 import purchaseTaskService from "../../services/purchaseTaskService";
+import {
+  dummyPurchaseTasks,
+  dummyRateBucketTasks,
+} from "../../data/procurementRequestsDummy";
 import employeeService from "../../services/employeeService";
 import { Loader, FilterLockButton } from "../../components";
 import {
   Badge,
+  Button,
   Card,
   CardHeader,
   CardContent,
@@ -159,11 +172,13 @@ const PurchaseTasks = () => {
         if (!alive) return;
         const data = res?.data || res;
         const result = data?.data ?? data;
-        setTasks(result?.tasks || []);
+        const loaded = result?.tasks || [];
+        // Sample data for UI preview when the backend has no requests yet.
+        setTasks(loaded.length ? loaded : dummyPurchaseTasks);
       } catch (err) {
         if (!alive) return;
         toastError(err?.message || "Failed to load procurement requests");
-        setTasks([]);
+        setTasks(dummyPurchaseTasks);
       } finally {
         if (alive) setLoading(false);
       }
@@ -211,11 +226,12 @@ const PurchaseTasks = () => {
         if (!alive) return;
         const data = res?.data || res;
         const result = data?.data ?? data;
-        setRateTasks(result?.tasks || []);
+        const loaded = result?.tasks || [];
+        setRateTasks(loaded.length ? loaded : dummyRateBucketTasks);
       } catch (err) {
         if (!alive) return;
         toastError(err?.message || "Failed to load rate bucket data");
-        setRateTasks([]);
+        setRateTasks(dummyRateBucketTasks);
       } finally {
         if (alive) setRateLoading(false);
       }
@@ -294,6 +310,7 @@ const PurchaseTasks = () => {
             {isAdminLike && <TableHead>Assigned To</TableHead>}
             <TableHead>Status</TableHead>
             <TableHead>Created</TableHead>
+            <TableHead className="text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -367,13 +384,27 @@ const PurchaseTasks = () => {
                   <TableCell className="whitespace-nowrap">
                     {dateFormatter(task.createdAt, "-")}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openDetail(task);
+                      }}
+                    >
+                      <Eye className="h-4 w-4" />
+                      View
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })
           ) : (
             <TableRow>
               <TableCell
-                colSpan={8 + (showAssignedBy ? 1 : 0) + (isAdminLike ? 1 : 0)}
+                colSpan={9 + (showAssignedBy ? 1 : 0) + (isAdminLike ? 1 : 0)}
                 className="text-center"
               >
                 No requests found.
