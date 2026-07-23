@@ -181,6 +181,7 @@ export const PRODUCTS = {
   LIST: "/products/list",
   GET_BY_ID: "/products/get-by-id",
   UPDATE: "/products/update",
+  UPDATE_STATUS: "/products/update-status",
   DELETE: "/products/delete",
   UPLOAD_IMAGES: "/products/upload-images",
   PREVIEW_CODE: "/products/preview-code",

@@ -46,6 +46,8 @@ const GstRateSelect = React.forwardRef(
       value,
       onChange,
       disabled,
+      fixedRates = null,
+      allowCustom = true,
       ...props
     },
     ref,
@@ -79,15 +81,23 @@ const GstRateSelect = React.forwardRef(
       return () => document.removeEventListener("mousedown", onOutside);
     }, [adding]);
 
+    // A `fixedRates` list locks the dropdown to exactly those rates (e.g. the
+    // Product Master GST enum [0,5,18,25], D30) and hides custom-rate adding.
+    const hasFixedRates = Array.isArray(fixedRates) && fixedRates.length > 0;
+    const canAddCustom = allowCustom && !hasFixedRates;
+
     const options = useMemo(() => {
-      const set = new Set([...BASE_RATES, ...customRates]);
+      const base = hasFixedRates ? fixedRates : [...BASE_RATES, ...customRates];
+      const set = new Set(base.map(Number));
       const current =
         value === "" || value == null || Number.isNaN(Number(value))
           ? null
           : Number(value);
+      // Always keep the current value visible so legacy/out-of-enum data never
+      // renders blank (it still fails validation until re-picked).
       if (current != null) set.add(current);
       return [...set].sort((a, b) => a - b);
-    }, [customRates, value]);
+    }, [customRates, value, hasFixedRates, fixedRates]);
 
     const emitChange = (nextValue) => {
       onChange?.({
@@ -132,22 +142,24 @@ const GstRateSelect = React.forwardRef(
             </option>
           ))}
         </Select>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 shrink-0"
-          disabled={disabled}
-          onClick={() => {
-            setAdding((v) => !v);
-            setNewRate("");
-          }}
-          aria-label="Add GST rate"
-          title="Add GST rate"
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-        {adding && (
+        {canAddCustom && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            disabled={disabled}
+            onClick={() => {
+              setAdding((v) => !v);
+              setNewRate("");
+            }}
+            aria-label="Add GST rate"
+            title="Add GST rate"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        )}
+        {canAddCustom && adding && (
           <div className="absolute right-0 top-full z-[1060] mt-1 flex items-center gap-1 rounded-md border border-border bg-popover p-2 shadow-md">
             <Input
               type="number"
@@ -209,6 +221,8 @@ GstRateSelect.propTypes = {
   value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
   onChange: PropTypes.func,
   disabled: PropTypes.bool,
+  fixedRates: PropTypes.arrayOf(PropTypes.number),
+  allowCustom: PropTypes.bool,
 };
 
 export default GstRateSelect;

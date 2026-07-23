@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Check, Ban, Power } from "lucide-react";
 import productService from "../../services/productService";
 import categoryService from "../../services/categoryService";
 import brandService from "../../services/brandService";
@@ -20,6 +20,14 @@ import {
   AlertDescription,
   Select,
   Label,
+  Tooltip,
+  Textarea,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
 } from "../../components/ui";
 import { useFilterLock, useFilterLockPersist } from "../../hooks/useFilterLock";
 import { withMinimumDelay } from "../../utils/withMinimumDelay";
@@ -35,6 +43,10 @@ const getStatusBadge = (status) => {
       return <StatusBadge variant="success">Active</StatusBadge>;
     case "inactive":
       return <StatusBadge variant="secondary">Inactive</StatusBadge>;
+    case "pending_hod_approval":
+      return <StatusBadge variant="warning">Pending Approval</StatusBadge>;
+    case "rejected":
+      return <StatusBadge variant="destructive">Rejected</StatusBadge>;
     case "draft":
       return <StatusBadge variant="warning">Draft</StatusBadge>;
     default:
@@ -165,6 +177,125 @@ const ProductList = () => {
     }
   };
 
+  // HOD status gate (D30): approve / reject / enable / disable a product.
+  const isHod = isHodRole(user?.role);
+  const [statusBusyId, setStatusBusyId] = useState(null);
+  const [rejectDialog, setRejectDialog] = useState({
+    visible: false,
+    id: null,
+    reason: "",
+  });
+
+  const changeStatus = async (id, status, rejectionReason = "") => {
+    if (!id) return;
+    setStatusBusyId(id);
+    try {
+      await productService.updateStatus(id, status, rejectionReason);
+      const msg =
+        status === "active"
+          ? "Product approved / activated"
+          : status === "rejected"
+            ? "Product rejected"
+            : "Product deactivated";
+      toastSuccess(msg);
+      fetchProducts();
+    } catch (err) {
+      toastError(err?.message || "Failed to update product status");
+    } finally {
+      setStatusBusyId(null);
+    }
+  };
+
+  const handleRejectConfirm = async () => {
+    const { id, reason } = rejectDialog;
+    if (!reason.trim()) {
+      toastError("A rejection remark is required");
+      return;
+    }
+    setRejectDialog({ visible: false, id: null, reason: "" });
+    await changeStatus(id, "rejected", reason.trim());
+  };
+
+  const renderStatusActions = (product) => {
+    const busy = statusBusyId === product._id;
+    const status = product.status;
+    return (
+      <>
+        {status === "pending_hod_approval" && (
+          <>
+            <Tooltip content="Approve">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-emerald-600"
+                disabled={busy}
+                onClick={() => changeStatus(product._id, "active")}
+                aria-label="Approve product"
+              >
+                <Check className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+            <Tooltip content="Reject">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                disabled={busy}
+                onClick={() =>
+                  setRejectDialog({
+                    visible: true,
+                    id: product._id,
+                    reason: "",
+                  })
+                }
+                aria-label="Reject product"
+              >
+                <Ban className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+          </>
+        )}
+        {(status === "active" || status === "inactive") && (
+          <Tooltip content={status === "active" ? "Deactivate" : "Activate"}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-primary"
+              disabled={busy}
+              onClick={() =>
+                changeStatus(
+                  product._id,
+                  status === "active" ? "inactive" : "active",
+                )
+              }
+              aria-label={status === "active" ? "Deactivate" : "Activate"}
+            >
+              <Power className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+        )}
+        {status === "rejected" && (
+          <Tooltip content="Approve">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-emerald-600"
+              disabled={busy}
+              onClick={() => changeStatus(product._id, "active")}
+              aria-label="Approve product"
+            >
+              <Check className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+        )}
+      </>
+    );
+  };
+
   const columns = useMemo(
     () => [
       {
@@ -247,12 +378,13 @@ const ProductList = () => {
                 ? () => handleDeleteClick(product._id)
                 : undefined
             }
+            extra={isHod ? renderStatusActions(product) : null}
           />
         ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [navigate, page, canDeleteProduct],
+    [navigate, page, canDeleteProduct, isHod, statusBusyId],
   );
 
   return (
@@ -326,9 +458,10 @@ const ProductList = () => {
               }}
             >
               <option value="">All Status</option>
+              <option value="pending_hod_approval">Pending Approval</option>
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
-              <option value="draft">Draft</option>
+              <option value="rejected">Rejected</option>
             </Select>
           </div>
           <div className="flex items-center gap-2">
@@ -384,6 +517,59 @@ const ProductList = () => {
         confirmText="Delete"
         cancelText="Cancel"
       />
+
+      <Dialog
+        open={rejectDialog.visible}
+        onOpenChange={(open) =>
+          !open && setRejectDialog({ visible: false, id: null, reason: "" })
+        }
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Product?</DialogTitle>
+            <DialogDescription>
+              This product will be marked as rejected and stay out of active
+              use. A remark is required.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="reject-reason">
+              Rejection remark <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="reject-reason"
+              rows={3}
+              placeholder="Why is this product being rejected?"
+              value={rejectDialog.reason}
+              onChange={(e) =>
+                setRejectDialog((prev) => ({
+                  ...prev,
+                  reason: e.target.value,
+                }))
+              }
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                setRejectDialog({ visible: false, id: null, reason: "" })
+              }
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!rejectDialog.reason.trim()}
+              onClick={handleRejectConfirm}
+            >
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

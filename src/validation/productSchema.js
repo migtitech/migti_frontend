@@ -83,8 +83,7 @@ export const variantCombinationSchema = yup
     hsnNumber: yup.string().max(25).nullable().optional().default(""),
     gstPercentage: yup
       .number()
-      .min(0)
-      .max(100)
+      .oneOf([0, 5, 18, 25, null], "GST must be one of 0, 5, 18, 25")
       .nullable()
       .optional()
       .transform((value, original) => (original === "" ? null : value)),
@@ -130,14 +129,14 @@ export const variantCombinationSchema = yup
       .default("idle"),
   })
   .test(
-    "selling-gt-purchase",
-    "Selling price must be greater than purchase price",
+    "selling-gte-purchase",
+    "Selling price cannot be less than purchase price",
     function (combo) {
       if (!combo) return true;
       const selling = Number(combo.price);
       const purchase = Number(combo.costPrice);
       if (!Number.isFinite(selling) || !Number.isFinite(purchase)) return true;
-      return selling > purchase;
+      return selling >= purchase;
     },
   );
 
@@ -176,7 +175,7 @@ export const companyProductCodeFormRowSchema = yup
   })
   .test(
     "complete-row",
-    "Each company vs client row must have both client and product code.",
+    "Each customer code row must have both customer and product code.",
     (row) => {
       const hasIndustry = Boolean(row?.industryId?.trim());
       const hasCode = Boolean(row?.code?.trim());
@@ -239,7 +238,12 @@ export const createProductPayloadSchema = yup.object({
       25,
       '"hsnNumber" length must be less than or equal to 25 characters long',
     ),
-  taxClause: yup.string().trim().optional().default(""),
+  taxClause: yup
+    .string()
+    .trim()
+    .max(200, '"taxClause" must be at most 200 characters')
+    .optional()
+    .default(""),
   gstPercentage: yup
     .number()
     .transform((value, original) =>
@@ -247,8 +251,7 @@ export const createProductPayloadSchema = yup.object({
     )
     .typeError("GST is required")
     .required("GST is required")
-    .min(0, "GST must be greater than or equal to 0")
-    .max(100, "GST must be less than or equal to 100"),
+    .oneOf([0, 5, 18, 25], "GST must be one of 0, 5, 18, 25"),
   defaultModelNumber: yup.string().max(100).optional().default(""),
   price: optionalNumber("price"),
   mrp: optionalNumber("mrp"),
@@ -285,11 +288,11 @@ export const createProductPayloadSchema = yup.object({
   status: yup
     .string()
     .oneOf(
-      ["active", "inactive", "draft", "hod_approved"],
-      '"status" must be one of [active, inactive, draft, hod_approved]',
+      ["pending_hod_approval", "active", "inactive", "rejected"],
+      '"status" must be one of [pending_hod_approval, active, inactive, rejected]',
     )
     .optional()
-    .default("active"),
+    .default("pending_hod_approval"),
   unit: yup
     .string()
     .oneOf(
@@ -417,7 +420,12 @@ export const productFormSchema = yup.object({
       25,
       '"hsnNumber" length must be less than or equal to 25 characters long',
     ),
-  taxClause: yup.string().trim().optional().default(""),
+  taxClause: yup
+    .string()
+    .trim()
+    .max(200, '"taxClause" must be at most 200 characters')
+    .optional()
+    .default(""),
   gstPercentage: yup
     .number()
     .transform((value, original) =>
@@ -425,8 +433,7 @@ export const productFormSchema = yup.object({
     )
     .typeError("GST is required")
     .required("GST is required")
-    .min(0, "GST must be greater than or equal to 0")
-    .max(100, "GST must be less than or equal to 100"),
+    .oneOf([0, 5, 18, 25], "GST must be one of 0, 5, 18, 25"),
   defaultModelNumber: yup
     .string()
     .trim()
@@ -480,11 +487,11 @@ export const productFormSchema = yup.object({
   status: yup
     .string()
     .oneOf(
-      ["active", "inactive", "draft", "hod_approved"],
-      '"status" must be one of [active, inactive, draft, hod_approved]',
+      ["pending_hod_approval", "active", "inactive", "rejected"],
+      '"status" must be one of [pending_hod_approval, active, inactive, rejected]',
     )
     .optional()
-    .default("active"),
+    .default("pending_hod_approval"),
   unit: yup
     .string()
     .oneOf(

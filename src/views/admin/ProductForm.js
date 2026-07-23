@@ -134,7 +134,7 @@ const defaultValues = {
   dimensions: { length: "", width: "", height: "" },
   dimensionUnit: "cm",
   tags: "",
-  status: "active",
+  status: "pending_hod_approval",
   unit: "PCS",
   purchaseUnit: "",
   salesUnit: "",
@@ -153,7 +153,7 @@ const getProductSteps = (includeHodSections) => {
     { id: 4, label: "Inventory" },
   ];
   if (includeHodSections) {
-    steps.push({ id: 5, label: "Map Client Code" });
+    steps.push({ id: 5, label: "Map Customer Code" });
     steps.push({ id: 6, label: "Map Supplier Code" });
   }
   steps.push({ id: steps.length + 1, label: "Preview" });
@@ -394,10 +394,10 @@ const ProductForm = () => {
         selling != null &&
         Number.isFinite(purchase) &&
         Number.isFinite(selling) &&
-        selling <= purchase
+        selling < purchase
       ) {
         errors.push(
-          `${label}: Selling price must be greater than purchase price`,
+          `${label}: Selling price cannot be less than purchase price`,
         );
       }
 
@@ -958,7 +958,7 @@ const ProductForm = () => {
           },
           dimensionUnit: product.dimensionUnit || "cm",
           tags: (product.tags || []).join(", "),
-          status: product.status === "inactive" ? "inactive" : "active",
+          status: product.status || "pending_hod_approval",
           unit: product.unit || "PCS",
           purchaseUnit: product.purchaseUnit || "",
           salesUnit: product.salesUnit || "",
@@ -1091,12 +1091,6 @@ const ProductForm = () => {
     );
     fetchSubcategories(value);
     fetchCategoryBrands(value);
-  };
-
-  const handleStatusToggle = (checked) => {
-    setValue("status", checked ? "active" : "inactive", {
-      shouldValidate: true,
-    });
   };
 
   // Variant management
@@ -1949,7 +1943,7 @@ const ProductForm = () => {
 
         {isHodUser && (
           <Card className="mb-4">
-            <SectionCardHeader icon={Building2} title="Map Client Code" />
+            <SectionCardHeader icon={Building2} title="Map Customer Code" />
             <CardContent style={sectionBodyStyle}>
               {filledCompanyCodes.length === 0 ? (
                 <p className="mb-0 text-sm text-muted-foreground">
@@ -1960,8 +1954,8 @@ const ProductForm = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Client</TableHead>
-                        <TableHead>Client Code</TableHead>
+                        <TableHead>Customer</TableHead>
+                        <TableHead>Customer Code</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -2308,17 +2302,13 @@ const ProductForm = () => {
                   )}
                 </div>
                 <div className="mb-3">
-                  <Label className="mb-1.5 block">
-                    Status <span className="text-destructive">*</span>
-                  </Label>
+                  <Label className="mb-1.5 block">Status</Label>
                   <div className="flex h-9 items-center gap-3">
                     <input type="hidden" {...register("status")} />
-                    <StatusToggle
-                      id="product-status"
-                      status={selectedStatus}
-                      onCheckedChange={(checked) => handleStatusToggle(checked)}
-                      aria-label="Product status"
-                    />
+                    <StatusLabel status={selectedStatus} />
+                    <span className="text-xs text-muted-foreground">
+                      New products require HOD approval to become active.
+                    </span>
                   </div>
                   {errors.status && (
                     <p className="mt-1 text-sm text-destructive">
@@ -2357,6 +2347,8 @@ const ProductForm = () => {
                     GST <span className="text-destructive">*</span>
                   </Label>
                   <GstRateSelect
+                    fixedRates={[0, 5, 18, 25]}
+                    allowCustom={false}
                     value={watch("gstPercentage") ?? ""}
                     onChange={(e) =>
                       setValue("gstPercentage", e.target.value, {
@@ -3195,7 +3187,7 @@ const ProductForm = () => {
       {currentStep === 5 && isHodUser && (
         <>
           <Card className="mb-4">
-            <SectionCardHeader icon={Building2} title="Map Client Code" />
+            <SectionCardHeader icon={Building2} title="Map Customer Code" />
             <CardContent style={sectionBodyStyle}>
               {companyProductCodes.map((row, index) => (
                 <div
@@ -3203,9 +3195,9 @@ const ProductForm = () => {
                   className="mb-3 grid grid-cols-1 items-end gap-4 md:grid-cols-12"
                 >
                   <div className="md:col-span-5">
-                    <Label className="mb-1.5 block">Client</Label>
+                    <Label className="mb-1.5 block">Customer</Label>
                     <Input
-                      placeholder="Type to search client…"
+                      placeholder="Type to search customer…"
                       value={row.search}
                       onChange={(e) => {
                         const value = e.target.value;
@@ -3253,9 +3245,9 @@ const ProductForm = () => {
                       )}
                   </div>
                   <div className="md:col-span-5">
-                    <Label className="mb-1.5 block">Client Code</Label>
+                    <Label className="mb-1.5 block">Customer Code</Label>
                     <Input
-                      placeholder="Enter client code"
+                      placeholder="Enter customer code"
                       value={row.code}
                       onChange={(e) =>
                         updateCompanyProductCodeRow(
@@ -3285,7 +3277,7 @@ const ProductForm = () => {
                 onClick={addCompanyProductCodeRow}
               >
                 <Plus className="mr-1 h-4 w-4" />
-                Add Client Code
+                Add Customer Code
               </Button>
             </CardContent>
           </Card>

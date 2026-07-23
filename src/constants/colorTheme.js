@@ -9,8 +9,16 @@ export const COLOR_THEME = {
   },
 };
 
+const STATUS_LABELS = {
+  active: "Active",
+  inactive: "Inactive",
+  pending_hod_approval: "Pending Approval",
+  rejected: "Rejected",
+  draft: "Draft",
+};
+
 export const getStatusLabel = (status) =>
-  status === "active" ? "Active" : "Inactive";
+  STATUS_LABELS[status] || (status === "active" ? "Active" : "Inactive");
 
 export const getStatusColor = (status) =>
   status === "active" ? COLOR_THEME.status.active : COLOR_THEME.status.inactive;

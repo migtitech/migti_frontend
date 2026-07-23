@@ -34,6 +34,19 @@ const productService = {
     return response;
   },
 
+  /**
+   * HOD status gate (D30): approve (active), reject (rejected, optional reason),
+   * or enable/disable an approved product (active/inactive).
+   */
+  updateStatus: async (id, status, rejectionReason = "") => {
+    const response = await api.put(
+      PRODUCTS.UPDATE_STATUS,
+      { status, rejectionReason },
+      { params: { productId: id } },
+    );
+    return response;
+  },
+
   delete: async (id) => {
     const response = await api.delete(PRODUCTS.DELETE, {
       params: { productId: id },
